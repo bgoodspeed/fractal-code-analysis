@@ -1,0 +1,1215 @@
+;; The Computer Language Benchmarks Game
+;; http://shootout.alioth.debian.org/
+;;
+;; Derived by Michael D. Adams from the MzScheme variant, which was
+;; Derived from the Chicken variant by Sven Hartrumpf
+
+(import (rnrs))
+
+; TODO: ikarus doesn't do fast records yet so we implement them ourselves
+;(define-record-type node (fields left val right) (sealed #t))
+;(define-record-type leaf (fields val) (sealed #t))
+
+(define (make-node left val right) `#(node ,left ,val ,right))
+(define (node? n)
+  (and (vector? n) (eq? 4 (vector-length n)) (eq? 'node (vector-ref n 0))))
+(define (node-left n) (vector-ref n 1))
+(define (node-val n) (vector-ref n 2))
+(define (node-right n) (vector-ref n 3))
+(define (make-leaf val) `#(leaf ,val))
+(define (leaf? n)
+  (and (vector? n) (eq? 2 (vector-length n)) (eq? 'leaf (vector-ref n 0))))
+(define (leaf-val n) (vector-ref n 1))
+
+(define (make item d)
+  (if (= d 0)
+      (make-leaf item)
+      (let ((item2 (* item 2))
+            (d2 (- d 1)))
+        (make-node (make (- item2 1) d2) item (make item2 d2)))))
+
+(define (check t)
+  (if (leaf? t)
+      (leaf-val t)
+      (+ (node-val t) (- (check (node-left t)) (check (node-right t))))))
+
+(define (main argv)
+  (let* ((min-depth 4)
+         (max-depth (max (+ min-depth 2) (string->number (cadr argv)))))
+    (let ((stretch-depth (+ max-depth 1)))
+      (display "stretch tree of depth ")
+      (display stretch-depth)
+      (display "\t check: ")
+      (display (check (make 0 stretch-depth)))
+      (display "\n"))
+    (let ((long-lived-tree (make 0 max-depth)))
+      (do ((d 4 (+ d 2))
+           (c 0 0))
+          ((> d max-depth))
+        (let ((iterations
+               (fxarithmetic-shift-left 1 (+ (- max-depth d) min-depth))))
+          (do ((i 0 (+ i 1)))
+              ((>= i iterations))
+            (set! c (+ c (check (make i d)) (check (make (- i) d)))))
+          (display (* 2 iterations))
+          (display "\t trees of depth ")
+          (display d)
+          (display "\t check: ")
+          (display c)
+          (display "\n")))
+      (display "long lived tree of depth ")
+      (display max-depth)
+      (display "\t check: ")
+      (display (check long-lived-tree))
+      (display "\n"))))
+
+(main (command-line))
+;; The Computer Language Benchmarks Game
+;; http://shootout.alioth.debian.org/
+
+;; Derived by Michael D. Adams from the CMUCL varient, by Wade Humeniuk
+
+
+(import (rnrs))
+
+(define (write-permutation perm)
+  (vector-for-each (lambda (i) (write (fx+ 1 i))) perm)
+  (newline))
+
+(define (fannkuch n)
+  (let ((perm (make-vector n))
+        (perm1 (make-vector n))
+        (count (make-vector n))
+        (flips 0)
+        (flipsmax 0)
+        (r n)
+        (check 0))
+
+    (do ((i 0 (fx+ 1 i)))
+        ((eq? i n))
+      (vector-set! perm1 i i))
+    
+    (let outer_loop ()
+
+     (when (< check 30)
+           (write-permutation perm1)
+           (set! check (fx+ 1 check)))
+
+     (let loop ()
+       (vector-set! count (fx- r 1) r)
+       (set! r (fx- r 1))
+       (when (> r 1) (loop)))
+
+     (unless (or (zero? (vector-ref perm1 0))
+                 (eq? (fx- n 1) (vector-ref perm1 (fx- n 1))))
+             (set! flips 0)
+             (do ((i 0 (fx+ 1 i)))
+                 ((eq? i n))
+               (vector-set! perm i (vector-ref perm1 i)))
+             (do ((k (vector-ref perm1 0) (vector-ref perm 0)))
+                 ((zero? k))
+               (do ((j (fx- k 1) (fx- j 1))
+                    (i 1 (fx+ 1 i)))
+                   ((>= i j))
+                 (let ((i-val (vector-ref perm i))
+                       (j-val (vector-ref perm j)))
+                   (vector-set! perm j i-val)
+                   (vector-set! perm i j-val)))
+               (set! flips (fx+ 1 flips))
+               (let ((new-k (vector-ref perm k)))
+                 (vector-set! perm k k)
+                 (vector-set! perm 0 new-k)))
+             (set! flipsmax (max flipsmax flips)))
+
+     (let loop ()
+       (if (eq? r n)
+           flipsmax
+           (let ((perm0 (vector-ref perm1 0)))
+             (do ((i 0 (fx+ 1 i)))
+                 ((>= i r))
+               (vector-set! perm1 i (vector-ref perm1 (fx+ 1 i))))
+             (vector-set! perm1 r perm0)
+             (vector-set! count r (fx- (vector-ref count r) 1))
+             (if (> (vector-ref count r) 0)
+                 (outer_loop)
+                 (begin
+                   (set! r (fx+ 1 r))
+                   (loop)))))))))
+
+(define (main args)
+  (let ((n (string->number (cadr args))))
+    (let ((x (fannkuch n)))
+      (display "Pfannkuchen(") (display n) (display ") = ") (display x) (newline))))
+
+(main (command-line))
+;; The Computer Language Benchmarks Game
+;; http://shootout.alioth.debian.org/
+
+;; Derived by Michael D. Adams from the O'Caml varient, by Christophe Papazian
+
+(import (rnrs))
+
+(define (write-permutation perm)
+  (vector-for-each (lambda (i) (write i)) perm)
+  (newline))
+
+;; Find first value where r[i] != i
+;; and increment (mod j+2) all values up to that (i.e. set them to j+1)
+;; returning i+2
+(define (choose-next r)
+  (let loop ((i 0))
+    (if (eq? (vector-ref r i) i)
+        (loop (fx+ 1 i))
+        (let loop ((j 0))
+          (if (eq? j i)
+              (begin (vector-set! r j (fxmod (fx+ 1 (vector-ref r j)) (fx+ j 2)))
+                     (fx+ j 2))
+              (begin (vector-set! r j (fx+ j 1))
+                     (loop (fx+ j 1))))))))
+
+;; Count number of "pancake flips" it takes to get p[0]=1
+;; Does not side-effect p, uses s as a temporary
+;; "Pancake flip" = Reverse first p[0]-1 elements
+(define (count-flips n p s)
+  ;; Check if all p[i] != i+1
+  (define (check i)
+    (or (eq? i n)
+        (and (not (eq? (vector-ref p i) (fx+ i 1)))
+             (check (fx+ i 1)))))
+  ;; If all p[i] != i+1
+  (if (check 0)
+      (begin
+        ;; set all s[i] = p[i]
+        (do ((i 0 (fx+ i 1)))
+            ((eq? i n))
+          (vector-set! s i (vector-ref p i)))
+        ;; keep reversing the first s[0]-1 values of s until s[0] = 1
+        ;; and return number of flippings
+        (do ((flips 0 (fx+ flips 1))
+             (s0 (fx- (vector-ref s 0) 1)
+                 (fx- (vector-ref s 0) 1)))
+            ((eq? s0 0)
+             flips)
+          ;; reverse the first s[0]-1 values of s
+          (do ((i 0  (fx+ i 1))
+               (j s0 (fx- j 1)))
+              ((>= i j))
+            (let ((tmp (vector-ref s i)))
+              (vector-set! s i (vector-ref s j))
+              (vector-set! s j tmp)))))
+      0))
+
+;; Build a new permutation by "braiding":
+;;  For every i in [1..n-1]:
+;;    Shift each p[j<i] down by one
+;;    and put p[0] at p[i]
+(define (braid n p)
+  ;; For every i in [1..n-1]
+  (do ((i 1 (fx+ i 1)))
+      ((eq? i n))
+    ;; Shift each p[j] down by one
+    ;; and put p[0] at p[i]
+    (let ((t (vector-ref p 0)))
+      (do ((j 0 (fx+ j 1)))
+          ((eq? j i))
+        (vector-set! p j (vector-ref p (fx+ j 1))))
+      (vector-set! p i t))))
+
+(define (fannkuch n r p s m z)
+  (let ((i (choose-next r)))
+    (if (> i n)
+        m
+        (begin
+          (if (> z 0) (write-permutation p))
+          (braid i p)
+          (fannkuch n r p s (max m (count-flips n p s)) (fx- z 1))))))
+
+(define (main args)
+  (let ((n (string->number (cadr args))))
+    (let ((r (make-vector n))
+          (p (make-vector n))
+          (s (make-vector n 0)))
+
+      ;; Init r and p to [1,...,n]
+      (do ((i 0 (fx+ 1 i)))
+          ((eq? i n))
+        (vector-set! r i (fx+ i 1))
+        (vector-set! p i (fx+ i 1)))
+
+      ;; No need to init s; it is only used as a temporary
+
+      (let ((x (fannkuch n r p s 0 30)))
+        (display "Pfannkuchen(")(display n)(display ") = ")
+        (display x)(newline)))))
+
+(main (command-line))
+;; The Computer Language Benchmarks Game
+;; http://shootout.alioth.debian.org/
+;;
+;; Derived by Michael D. Adams from the Chicken varient by Anthony Borla
+
+(import (rnrs))
+
+(define *alu*
+  (string-append
+   "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG"
+   "GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA"
+   "CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT"
+   "ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA"
+   "GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG"
+   "AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC"
+   "AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA"))
+
+(define *iub*
+  (list
+   '(#\a . 0.27) '(#\c . 0.12) '(#\g . 0.12) '(#\t . 0.27) '(#\B . 0.02)
+   '(#\D . 0.02) '(#\H . 0.02) '(#\K . 0.02) '(#\M . 0.02) '(#\N . 0.02)
+   '(#\R . 0.02) '(#\S . 0.02) '(#\V . 0.02) '(#\W . 0.02) '(#\Y . 0.02)))
+
+(define *homosapien*
+  (list
+   '(#\a . 0.3029549426680) '(#\c . 0.1979883004921)
+   '(#\g . 0.1975473066391) '(#\t . 0.3015094502008)))
+
+;; -------------
+
+(define *line-size* 60)
+  
+;; -------------------------------
+  
+(define (make-random seed)
+  (let* ((ia 3877) (ic 29573) (im 139968) (last seed))
+    (lambda (max)
+      (set! last (mod (+ ic (* last ia)) im))
+      (/ (* max last) im) )))
+
+;; -------------------------------
+
+(define (make-cumulative-table frequency-table)
+  (let ((cumulative 0.0))
+    (map
+     (lambda (x) 
+       (set! cumulative (fl+ cumulative (cdr x))) 
+       (cons (car x) cumulative))
+       frequency-table)))
+
+;; -------------
+  
+(define random-next (make-random 42))
+(define *segmarker* ">")
+
+;; -------------
+
+(define (select-random cumulative-table)
+  (let ((rvalue (random-next 1.0)))
+    (select-over-threshold rvalue cumulative-table)))
+  
+(define (select-over-threshold rvalue table)
+  (if (<= rvalue (cdar table))
+      (caar table)
+      (select-over-threshold rvalue (cdr table))))
+
+;; -------------
+  
+(define (repeat-fasta id desc n sequence line-length)
+  (let ((seqlen (string-length sequence))
+        (out (current-output-port)))
+    (display (string-append *segmarker* id " " desc "\n") out)
+    (let loop-o ((n n) (k 0))
+      (unless (<= n 0) 
+              (let ((m (min n line-length)))
+                (let loop-i ((i 0) (k k))
+                  (if (>= i m) 
+                      (begin
+                        (put-char out #\newline)
+                        (loop-o (fx- n line-length) k))
+                      (let ([k (if (= k seqlen) 0 k)])
+                        (put-char out (string-ref sequence k))
+                        (loop-i (fx+ 1 i) (fx+ 1 k))))))))
+    (flush-output-port out)))
+
+;; -------------
+
+(define (random-fasta id desc n cumulative-table line-length)
+  (let ((out (current-output-port)))
+    (display (string-append *segmarker* id " " desc "\n") out)
+    (let loop-o ((n n))
+      (unless (<= n 0)
+              (let ((m (min n line-length)))
+                (let loop-i ((i 0))
+                  (unless (>= i m)
+                          (put-char out (select-random cumulative-table))
+                          (loop-i (fx+ 1 i))))
+                (put-char out #\newline)
+                (loop-o (fx- n line-length)))))
+    (flush-output-port out)))
+  
+;; -------------------------------
+  
+(define (main args)
+  (let ((n (string->number (cadr args))))
+    (repeat-fasta "ONE" "Homo sapiens alu" (* n 2) *alu* *line-size*)
+    (random-fasta "TWO" "IUB ambiguity codes" (* n 3)
+                  (make-cumulative-table *iub*) *line-size*)
+    (random-fasta "THREE" "Homo sapiens frequency" (* n 5)
+                  (make-cumulative-table *homosapien*) *line-size*) ))
+
+;; -------------------------------
+
+(main (command-line))
+;; The Computer Language Benchmarks Game
+;; http://shootout.alioth.debian.org/
+
+;; Derived by Michael D. Adams from the MzScheme varient
+
+(import (rnrs))
+(display "hello world\n")
+;; The Computer Language Benchmarks Game
+;; http://shootout.alioth.debian.org/
+
+;; Derived by Michael D. Adams from the MzScheme varient
+
+
+(import (rnrs))
+
+;;; Stupid boiler-plate for formatting floating point values
+(define (roundto digits n)
+  (let* ([e (expt 10 digits)]
+         [num (round (abs (* e (exact n))))]
+         [str (number->string (mod num e))])
+    (string-append
+     (if (negative? n) "-" "")
+     (number->string (div num e))
+     "."
+     (make-string (- digits (string-length str)) #\0)
+     str)))
+
+;; TODO: ikarus doesn't have string-upcase yet
+(define (upcase str) (list->string (map char-upcase (string->list str))))
+
+;; TODO: This function is where the time is spent
+;; TODO: could be improved by using string-hash and avoiding string->symbol
+(define (all-counts len dna)
+  (let ([table (make-eq-hashtable)]) ;; use string-hash??
+    (let loop ([s (- (string-length dna) len)])
+      (let* ([seq (substring dna s (+ s len))]
+             [key (string->symbol seq)] ;; slow??
+             [cnt (hashtable-ref table key 0)])
+        (hashtable-set! table key (fx+ 1 cnt)))
+      (unless (zero? s)
+              (loop (fx- s 1))))
+    table))
+
+(define (write-freqs table)
+  (let-values ([(keys values) (hashtable-entries table)])
+    (let ([total (inexact (apply + (vector->list values)))])
+      (vector-for-each
+       (lambda (a)
+         (display (car a)) (display " ")
+         (display (roundto 3 (* 100 (/ (cdr a) total)))) (newline))
+       (vector-sort (lambda (a b) (> (cdr a) (cdr b)))
+                    (vector-map (lambda (a b) (cons a b))
+                                keys values))))))
+
+(define (write-one-freq table key)
+  (let ([cnt (hashtable-ref table key 0)])
+    (display cnt) (display "\t")
+    (display key) (display "\n")))
+
+(define dna
+  (let ([port (current-input-port)]
+        [start ">THREE Homo sapiens frequency"])
+    (let skip ((x (get-line port)))
+      (unless (string=? x start)
+              (skip (get-line port))))
+    (let loop ((x (get-line port))
+               (s '()))
+      (if (eof-object? x)
+          (upcase (apply string-append (reverse s)))
+          (loop (get-line port)
+                (cons x s))))))
+
+;; 1-nucleotide counts:
+(write-freqs (all-counts 1 dna))
+(newline)
+
+;; 2-nucleotide counts:
+(write-freqs (all-counts 2 dna))
+(newline)
+
+;; Specific sequences:
+(for-each (lambda (seq)
+            (write-one-freq (all-counts (string-length seq) dna)
+                            (string->symbol seq)))
+          '("GGT" "GGTA" "GGTATT" "GGTATTTTAATT" "GGTATTTTAATTTATAGT"))
+;; The Computer Language Benchmarks Game
+;; http://shootout.alioth.debian.org/
+
+;; Derived by Michael D. Adams from the Chicken variant by Anthony Borla
+
+
+(import (rnrs))
+
+;; -------------------------------
+  
+(define *limit-sqr* 4.0)
+
+(define *iterations* 50)
+
+;; -------------------------------
+
+(define (mandelbrot iterations x frac2/n ci)
+  (let ((cr (fl- (fl* (inexact x) frac2/n) 1.5)))
+    (let loop ((i 0) (zr 0.0) (zi 0.0))
+      (if (> i iterations)
+          1
+          (let ((zrq (fl* zr zr)) 
+                (ziq (fl* zi zi)))
+            (cond
+             ((> (fl+ zrq ziq) *limit-sqr*) 0)
+             (else (loop (fx+ 1 i)
+                         (fl+ (fl- zrq ziq) cr)
+                         (fl+ (fl* 2.0 zr zi) ci)))))))))
+
+;; -------------------------------
+
+(define (main args)
+  (let ((n (string->number (cadr args)))
+        (frac2/n (/ 2.0 (string->number (cadr args))))
+        (out (standard-output-port)))
+    (display "P4") (newline)
+    (display n) (display " ") (display n) (newline)
+    (let loop-y ((y 0))
+      (when (< y n)
+            (let ([ci (fl- (fl* (inexact y) frac2/n) 1.0)])
+              (let loop-x ((x 0) (bitnum 0) (byteacc 0))
+                (if (< x n)
+                    (let ([bitnum (fx+ 1 bitnum)]
+                          [byteacc (fx+ (fxarithmetic-shift-left byteacc 1) 
+                                        (mandelbrot *iterations* x frac2/n ci))])
+                      (cond
+                       [(= bitnum 8)
+                        (put-u8 out byteacc)
+                        (loop-x (fx+ 1 x) 0 0)]
+                       [else (loop-x (fx+ 1 x) bitnum byteacc)]))
+                    (begin
+                      (when (positive? bitnum)
+                            (put-u8 out (fxarithmetic-shift-left byteacc (- 8 (fxand n #x7)))))
+                      (loop-y (fx+ 1 y))))))))
+    (flush-output-port out)))
+
+;; -------------------------------
+
+(main (command-line))
+;; The Computer Language Benchmarks Game
+;; http://shootout.alioth.debian.org/
+
+;; Derived by Michael D. Adams from the Chicken variant by Anthony Borla
+
+
+(import (rnrs))
+
+;; -------------------------------
+  
+(define *limit-sqr* 4.0)
+
+(define *iterations* 50)
+
+;; -------------------------------
+
+(define (mandelbrot x frac2/n ci)
+  (let ((cr (fl- (fl* (inexact x) frac2/n) 1.5)))
+    (let loop ((i 0) (zr 0.0) (zi 0.0))
+      (if (> i *iterations*)
+          1
+          (let ((zrq (fl* zr zr)) 
+                (ziq (fl* zi zi)))
+            (cond
+             ((fl>? (fl+ zrq ziq) *limit-sqr*) 0)
+             (else (loop (fx+ 1 i)
+                         (fl+ (fl- zrq ziq) cr)
+                         (fl+ (fl* 2.0 zr zi) ci)))))))))
+
+;; -------------------------------
+
+(define (main args)
+  (let ((n (string->number (cadr args)))
+        (frac2/n (/ 2.0 (string->number (cadr args))))
+        (out (standard-output-port)))
+    (display "P4") (newline)
+    (display n) (display " ") (display n) (newline)
+    (let loop-y ((y 0))
+      (when (< y n)
+            (let ([ci (fl- (fl* (inexact y) frac2/n) 1.0)])
+              (let loop-x ((x 0) (bitnum 0) (byteacc 0))
+                (if (< x n)
+                    (let ([bitnum (fx+ 1 bitnum)]
+                          [byteacc (fx+ (fxarithmetic-shift-left byteacc 1) 
+                                        (mandelbrot x frac2/n ci))])
+                      (cond
+                       [(= bitnum 8)
+                        (put-u8 out byteacc)
+                        (loop-x (fx+ 1 x) 0 0)]
+                       [else (loop-x (fx+ 1 x) bitnum byteacc)]))
+                    (begin
+                      (when (positive? bitnum)
+                            (put-u8 out (fxarithmetic-shift-left byteacc (fx- 8 (fxand n #x7)))))
+                      (loop-y (fx+ 1 y))))))))
+    (flush-output-port out)))
+
+;; -------------------------------
+
+(main (command-line))
+;; The Computer Language Benchmarks Game
+;; http://shootout.alioth.debian.org/
+;;
+;; Derived by Michael D. Adams from the MzScheme variant
+
+#|
+Correct output N = 1000 is
+
+-0.169075164
+-0.169087605
+|#
+(import (rnrs))
+
+;;; Stupid boiler-plate for formatting floating point values
+(define (roundto digits n)
+  (let* ([e (expt 10 digits)]
+         [num (round (abs (* e (exact n))))]
+         [str (number->string (mod num e))])
+    (string-append
+     (if (negative? n) "-" "")
+     (number->string (div num e))
+     "."
+     (make-string (- digits (string-length str)) #\0)
+     str)))
+
+;; ------------------------------
+;; define planetary masses, initial positions & velocity
+
+(define *pi* 3.141592653589793)
+(define *days-per-year* 365.24)
+
+(define *solar-mass* (* 4 *pi* *pi*))
+
+; TODO: ikarus define-record-type is slower than define-struct
+;(define-struct body (x y z vx vy vz mass))
+(define-record-type body
+  (fields
+   (mutable x)
+   (mutable y)
+   (mutable z)
+   (mutable vx)
+   (mutable vy)
+   (mutable vz)
+   mass))
+
+(define *sun*
+  (make-body 0.0 0.0 0.0 0.0 0.0 0.0 *solar-mass*))
+
+(define *jupiter*
+  (make-body 4.84143144246472090
+             -1.16032004402742839
+             -1.03622044471123109e-1
+             (* 1.66007664274403694e-3 *days-per-year*)
+             (* 7.69901118419740425e-3 *days-per-year*)
+             (* -6.90460016972063023e-5 *days-per-year*)
+             (* 9.54791938424326609e-4 *solar-mass*)))
+
+(define *saturn*
+  (make-body 8.34336671824457987
+             4.12479856412430479
+             -4.03523417114321381e-1
+             (* -2.76742510726862411e-3 *days-per-year*)
+             (* 4.99852801234917238e-3 *days-per-year*)
+             (* 2.30417297573763929e-5 *days-per-year*)
+             (* 2.85885980666130812e-4 *solar-mass*)))
+
+(define *uranus*
+  (make-body 1.28943695621391310e1
+             -1.51111514016986312e1
+             -2.23307578892655734e-1
+             (* 2.96460137564761618e-03 *days-per-year*)
+             (* 2.37847173959480950e-03 *days-per-year*)
+             (* -2.96589568540237556e-05 *days-per-year*)
+             (*  4.36624404335156298e-05 *solar-mass*)))
+
+(define *neptune*
+  (make-body 1.53796971148509165e+01
+             -2.59193146099879641e+01
+             1.79258772950371181e-01
+             (* 2.68067772490389322e-03 *days-per-year*)
+             (* 1.62824170038242295e-03 *days-per-year*)
+             (* -9.51592254519715870e-05 *days-per-year*)
+             (* 5.15138902046611451e-05 *solar-mass*)))
+
+;; -------------------------------
+(define (offset-momentum system)
+  (let loop-i ((i system) (px 0.0) (py 0.0) (pz 0.0))
+    (if (null? i)
+        (begin
+          (body-vx-set! (car system) (fl/ (fl- px) *solar-mass*))
+          (body-vy-set! (car system) (fl/ (fl- py) *solar-mass*))
+          (body-vz-set! (car system) (fl/ (fl- pz) *solar-mass*)))
+        (loop-i (cdr i)
+                (fl+ px (fl* (body-vx (car i)) (body-mass (car i))))
+                (fl+ py (fl* (body-vy (car i)) (body-mass (car i))))
+                (fl+ pz (fl* (body-vz (car i)) (body-mass (car i))))))))
+
+;; -------------------------------
+(define (energy system)
+  (let loop-o ((o system) (e 0.0))
+    (if (null? o)
+        e
+        (let ([e (fl+ e (fl* 0.5 (body-mass (car o))
+                             (fl+ (fl* (body-vx (car o)) (body-vx (car o)))
+                                  (fl* (body-vy (car o)) (body-vy (car o)))
+                                  (fl* (body-vz (car o)) (body-vz (car o))))))])
+          (let loop-i ((i (cdr o)) (e e))
+            (if (null? i)
+                (loop-o (cdr o) e)
+                (let* ((dx (fl- (body-x (car o)) (body-x (car i))))
+                       (dy (fl- (body-y (car o)) (body-y (car i))))
+                       (dz (fl- (body-z (car o)) (body-z (car i))))
+                       (distance (flsqrt (fl+ (fl* dx dx) (fl* dy dy) (fl* dz dz)))))
+                  (let ([e  (fl- e (fl/ (fl* (body-mass (car o)) (body-mass (car i))) distance))])
+                    (loop-i (cdr i) e)))))))))
+
+;; -------------------------------
+(define (advance system dt)
+  (let loop-o ((o system))
+    (unless (null? o)
+            (let loop-i ((i (cdr o)))
+              (unless (null? i)
+                      (let* ((o1 (car o))
+                             (i1 (car i))
+                             (dx (fl- (body-x o1) (body-x i1)))
+                             (dy (fl- (body-y o1) (body-y i1)))
+                             (dz (fl- (body-z o1) (body-z i1)))
+                             (distance (flsqrt (fl+ (fl* dx dx)
+                                                    (fl* dy dy)
+                                                    (fl* dz dz))))
+                             (mag (fl/ dt (fl* distance distance distance)))
+                             (dxmag (fl* dx mag))
+                             (dymag (fl* dy mag))
+                             (dzmag (fl* dz mag))
+                             (om (body-mass o1))
+                             (im (body-mass i1)))
+                        (body-vx-set! o1 (fl- (body-vx o1) (fl* dxmag im)))
+                        (body-vy-set! o1 (fl- (body-vy o1) (fl* dymag im)))
+                        (body-vz-set! o1 (fl- (body-vz o1) (fl* dzmag im)))
+                        (body-vx-set! i1 (fl+ (body-vx i1) (fl* dxmag om)))
+                        (body-vy-set! i1 (fl+ (body-vy i1) (fl* dymag om)))
+                        (body-vz-set! i1 (fl+ (body-vz i1) (fl* dzmag om)))
+                        (loop-i (cdr i)))))
+            (loop-o (cdr o))))
+  (let loop-o ((o system))
+    (unless (null? o)
+            (let ([o1 (car o)])
+              (body-x-set! o1 (fl+ (body-x o1) (fl* dt (body-vx o1))))
+              (body-y-set! o1 (fl+ (body-y o1) (fl* dt (body-vy o1))))
+              (body-z-set! o1 (fl+ (body-z o1) (fl* dt (body-vz o1))))
+              (loop-o (cdr o))))))
+
+;; -------------------------------
+(define (main args)
+  (let ((n (if (< (length args) 2)
+               1
+               (string->number (cadr args))))
+        (system (list *sun* *jupiter* *saturn* *uranus* *neptune*)))
+    (offset-momentum system)
+    (display (roundto 9 (energy system))) (newline)
+    (do ((i 1 (fx+ i 1)))
+        ((< n i))
+      (advance system 0.01))
+    (display (roundto 9 (energy system))) (newline)))
+
+(main (command-line))
+;; The Computer Language Benchmarks Game
+;; http://shootout.alioth.debian.org/
+
+;; Derived by Michael D. Adams from the MzScheme varient
+
+(import (rnrs))
+
+(define (nsieve m)
+  (let ((a (make-bytevector m 1)))
+    (let loop ((i 2) (n 0))
+      (if (< i m)
+          (begin
+            (if (eq? 1 (bytevector-u8-ref a i))
+                (begin
+                  (let clear ((j (+ i i)))
+                    (if (< j m)
+                        (begin
+                          (bytevector-u8-set! a j 0)
+                          (clear (+ j i)))))
+                  (loop (+ 1 i) (+ 1 n)))
+                (loop (+ 1 i) n)))
+          n))))
+
+(define (string-pad str len)
+  (string-append (make-string (- len (string-length str)) #\space) str))
+
+(define (test n)
+  (let* ((m (* (expt 2 n) 10000))
+         (count (nsieve m)))
+    (display "Primes up to ") (display (string-pad (number->string m) 8))
+    (display " ") (display (string-pad (number->string count) 8))
+    (newline)))
+
+(define (main args)
+  (if (< (length args) 2)
+      (begin
+        (display "An argument is required") (newline) 2)
+      (let ((n (string->number (cadr args))))
+        (if (not n)
+            (begin
+              (display "An integer is required") (newline) 2)
+            (begin
+              (if (>= n 0) (test n))
+              (if (>= n 1) (test (- n 1)))
+              (if (>= n 2) (test (- n 2)))
+              0)))))
+
+(main (command-line))
+;; The Computer Language Benchmarks Game
+;; http://shootout.alioth.debian.org/
+
+;; Derived by Michael D. Adams from the MzScheme varient
+
+; TODO: this program is slow on ikarus, the following changes
+;       make it slightly faster
+;  (import (ikarus) (ikarus system $bytevectors))
+;  bytevector-u8-ref -> $bytevector-u8-ref
+;  bytevector-u8-set! -> $bytevector-set!
+
+(import (rnrs))
+
+(define (make-bitvector size)
+  (let* ((len (div (+ size 7) 8))
+         (res (make-bytevector len #b11111111)))
+    (let ((off (mod size 8)))
+      (unless (zero? off)
+              (bytevector-u8-set! res (- len 1)
+                                  (- (fxarithmetic-shift-left 1 off) 1))))
+    res))
+
+(define (bitvector-ref vec i)
+  (let ((byte (fxarithmetic-shift-right i 3))
+        (off (fxand i #x7)))
+    (and (< byte (bytevector-length vec))
+         (not (zero? (fxand (bytevector-u8-ref vec byte)
+                            (fxarithmetic-shift-left 1 off)))))))
+
+(define (bitvector-set! vec i x)
+  (let ((byte (fxarithmetic-shift-right i 3))
+        (off (fxand i #x7)))
+    (let ((val (bytevector-u8-ref vec byte))
+          (mask (fxarithmetic-shift-left 1 off)))
+      (bytevector-u8-set! vec
+                          byte
+                          (if x
+                              (fxior val mask)
+                              (fxand val (fxnot mask)))))))
+
+(define (nsievebits m)
+  (let ((a (make-bitvector m)))
+    (let loop ((i 2) (n 0))
+      (if (< i m)
+          (begin
+            (if (bitvector-ref a i)
+                (begin
+                  (let clear ((j (+ i i)))
+                    (if (< j m)
+                        (begin
+                          (bitvector-set! a j #f)
+                          (clear (+ j i)))))
+                  (loop (+ 1 i) (+ 1 n)))
+                (loop (+ 1 i) n)))
+          n))))
+
+(define (string-pad s n)
+  (string-append (make-string (- n (string-length s)) #\space)
+                 s))
+
+(define (test n)
+  (let ((m (* 10000 (fxarithmetic-shift-left 1 n))))
+    (display "Primes up to ") (display (string-pad (number->string m) 8))
+    (display " ") (display (string-pad (number->string (nsievebits m)) 8))
+    (newline)))            
+
+(define (main args)
+  (let ([n (string->number (cadr args))])
+    (when (>= n 0) (test n))
+    (when (>= n 1) (test (- n 1)))
+    (when (>= n 2) (test (- n 2)))))
+
+(main (command-line))
+;; The Computer Language Benchmarks Game
+;; http://shootout.alioth.debian.org/
+;;
+;; Derived by Michael D. Adams from the Chicken variant
+
+(import (rnrs))
+
+;;; Stupid boiler-plate for formatting floating point values
+(define (roundto digits n)
+  (let* ([e (expt 10 digits)]
+         [num (round (abs (* e (exact n))))]
+         [str (number->string (mod num e))])
+    (string-append
+     (if (negative? n) "-" "")
+     (number->string (div num e))
+     "."
+     (make-string (- digits (string-length str)) #\0)
+     str)))
+
+(define (main args)
+  (let ([n (inexact (string->number (cadr args)))]
+        [fl2/3 (fl/ 2.0 3.0)]
+        [format-result
+         (lambda (str n)
+           (display (roundto 9 n))
+           (display str))])
+    (let loop ([d 0.0]
+               (alt 1.0) (d2 0.0) (d3 0.0) (ds 0.0) (dc 0.0)
+               (s0 0.0) (s1 0.0) (s2 0.0) (s3 0.0) (s4 0.0)
+               (s5 0.0) (s6 0.0) (s7 0.0) (s8 0.0))
+      (if (= d n)
+          (begin
+            (format-result "\t(2/3)^k\n" s0)
+            (format-result "\tk^-0.5\n" s1)
+            (format-result "\t1/k(k+1)\n" s2)
+            (format-result "\tFlint Hills\n" s3)
+            (format-result "\tCookson Hills\n" s4)
+            (format-result "\tHarmonic\n" s5)
+            (format-result "\tRiemann Zeta\n" s6)
+            (format-result "\tAlternating Harmonic\n" s7)
+            (format-result "\tGregory\n" s8))
+
+          (let* ((d (fl+ d 1.0))
+                 (d2 (fl* d d))
+                 (d3 (fl* d2 d))
+                 (ds (flsin d))
+                 (dc (flcos d))
+
+                 (s0 (fl+ s0 (flexpt fl2/3 (fl- d 1.0))))
+                 (s1 (fl+ s1 (fl/ 1.0 (flsqrt d))))
+                 (s2 (fl+ s2 (fl/ 1.0 (fl* d (fl+ d 1.0)))))
+                 (s3 (fl+ s3 (fl/ 1.0 (fl* d3 (fl* ds ds)))))
+                 (s4 (fl+ s4 (fl/ 1.0 (fl* d3 (fl* dc dc)))))
+                 (s5 (fl+ s5 (fl/ 1.0 d)))
+                 (s6 (fl+ s6 (fl/ 1.0 d2)))
+                 (s7 (fl+ s7 (fl/ alt d)))
+                 (s8 (fl+ s8 (fl/ alt (fl- (fl* 2.0 d) 1.0))))
+                 (alt (fl- alt)))
+
+            (loop d
+                  alt d2 d3 ds dc
+                  s0 s1 s2 s3 s4 s5 s6 s7 s8))))))
+
+(main (command-line))
+;; The Computer Language Benchmarks Game
+;; http://shootout.alioth.debian.org/
+;;
+;; Derived by Michael D. Adams from the MzScheme variant
+
+(import (rnrs) (only (rnrs r5rs) quotient))
+
+(define (floor_ev q r s t x)
+  (div (+ (* q x) r) (+ (* s x) t)))
+  
+(define (comp q r s t  q2 r2 s2 t2)
+  (values (+ (* q q2) (* r s2))
+          (+ (* q r2) (* r t2))
+          (+ (* s q2) (* t s2))
+          (+ (* s r2) (* t t2))))
+
+(define out (current-output-port))
+(define (next q r s t) (floor_ev q r s t 3))
+(define (safe? q r s t n) (= n (floor_ev q r s t 4)))
+(define (prod q r s t n) (comp 10 (fx* -10 n) 0 1  q r s t))
+(define (mk q r s t k) (comp q r s t k (fx* 2 (fx+ 1 (fx* 2 k))) 0 (fx+ 1 (fx* 2 k))))
+
+(define (digit k q r s t n row col)
+  (if (> n 0)
+      (let ([y (next q r s t)])
+        (if (safe? q r s t y)
+            (let-values ([(q r s t) (prod q r s t y)])
+                        (if (= col 10)
+                            (let ([row (fx+ row 10)])
+                              (put-string out "\t:") (put-datum out row)
+                              (put-string out "\n") (put-datum out y)
+                              (digit k q r s t (fx- n 1) row 1))
+                            (begin
+                              (put-datum out y)
+                              (digit k q r s t (fx- n 1) row (fx+ 1 col)))))
+            (let-values ([(q r s t) (mk q r s t k)])
+                        (digit (fx+ 1 k) q r s t n row col))))
+      (begin
+        (put-string out (make-string (fx- 10 col) #\space)) (put-string out "\t:")
+        (put-datum out (+ row col)) (put-char out #\newline))))
+
+(define (digits n)
+  (digit 1 1 0 0 1 n 0 0))
+
+(digits (string->number (cadr (command-line))))
+(flush-output-port out)
+;; The Computer Language Benchmarks Game
+;; http://shootout.alioth.debian.org/
+;;
+;; Derived by Michael D. Adams from the MzScheme variant
+
+(import (rnrs))
+
+;; -------------------------------
+
+(define (ack m n)
+  (cond ((zero? m) (+ n 1))
+        ((zero? n) (ack (- m 1) 1))
+        (else (ack (- m 1) (ack m (- n 1))))))
+
+;; --------------
+
+(define (fib n)
+  (cond ((< n 2) 1)
+        (else (+ (fib (- n 2)) (fib (- n 1))))))
+
+;; TODO: optimize on ikarus, it's allocing around 400MB but the GC is fast
+;; TODO: is the main problem that floats are always boxed in Ikarus?
+(define (fibflt n)
+  (cond ((< n 2.0) 1.0)
+        (else (fl+ (fibflt (fl- n 2.0)) (fibflt (fl- n 1.0))))))
+
+;; --------------
+
+(define (tak x y z)
+  (cond ((not (< y x)) z)
+        (else (tak (tak (- x 1) y z) (tak (- y 1) z x) (tak (- z 1) x y)))))
+
+(define (takflt x y z)
+  (cond ((not (< y x)) z)
+        (else (takflt (takflt (fl- x 1.0) y z) (takflt (fl- y 1.0) z x) (takflt (fl- z 1.0) x y)))))
+
+;; -------------------------------
+
+;;; Stupid boiler-plate for formatting floating point values
+(define (roundto digits n)
+  (let* ([e (expt 10 digits)]
+         [num (round (abs (* e (exact n))))]
+         [str (number->string (mod num e))])
+    (string-append
+     (if (negative? n) "-" "")
+     (number->string (div num e))
+     "."
+     (make-string (- digits (string-length str)) #\0)
+     str)))
+
+(define (main args)
+  (let ((n (string->number (cadr args))))
+
+    (display "Ack(3,") (display n) (display "): ") (display (ack 3 n)) (newline)
+
+    (display "Fib(") (display (roundto 1 (+ 27.0 n))) (display "): ")
+    (display (roundto 1 (fibflt (+ 27.0 n)))) (newline)
+
+    (set! n (- n 1))
+
+    (display "Tak(") (display (* n 3))
+    (display ",") (display (* n 2))
+    (display ",") (display n) (display "): ")
+    (display (tak (* n 3) (* n 2) n)) (newline)
+
+    (display "Fib(3): ") (display (fib 3)) (newline)
+
+    (display "Tak(3.0,2.0,1.0): ") (display (roundto 1 (takflt 3.0 2.0 1.0)))
+    (newline)))
+
+;; -------------------------------
+
+(main (command-line))
+;; The Computer Language Benchmarks Game
+;; http://shootout.alioth.debian.org/
+;;
+;; Derived by Michael D. Adams from the MzScheme varient
+
+
+(import (rnrs)
+        (rnrs mutable-strings))
+
+(define translation (make-vector 128))
+
+(for-each
+ (lambda (from-to)
+   (let* ([char (lambda (sym) (string-ref (symbol->string sym) 0))]
+          [from (char (car from-to))]
+          [to (char-upcase (char (cadr from-to)))])
+     (vector-set! translation (char->integer from) to)
+     (vector-set! translation (char->integer (char-upcase from)) to)))
+ '([a t]
+   [c g]
+   [g c]
+   [t a]
+   [u a]
+   [m k]
+   [r y]
+   [w w]
+   [s s]
+   [y R]
+   [k M]
+   [v b]
+   [h d]
+   [d h]
+   [b v]
+   [n n]))
+
+(define out (current-output-port))
+
+;; TODO: Ikarus doesn't have 4 arg form of put-substring yet
+(define (put-substring s i j)
+  (let f ([i i])
+    (unless (= i j)
+      (put-char out (string-ref s i))
+      (f (+ i 1)))))
+
+;; Versions of (newline) and (put-string) that don't flush the buffer
+(define (newline*) (put-char out #\newline))
+(define (put-whole-string s) (put-substring s 0 (string-length s)))
+
+(define (output lines)
+  (if (> (length lines) 2)
+      (let* ([pos (- (string-length (cadr lines)) (string-length (car lines)))]
+             [put-first-half
+              (lambda (s i) (put-substring s 0 i))]
+             [put-second-half 
+              (lambda (s i) (put-substring s i (string-length s)))])
+        (put-whole-string (car lines))
+        (put-first-half (cadr lines) pos)
+        (newline*)
+        (let loop ([l (cdr lines)])
+          (cond
+           [(null? (cdr l))
+            (put-second-half (car l) pos)
+            (newline*)]
+           [else
+            (put-second-half (car l) pos)
+            (put-first-half (cadr l) pos)
+            (newline*)
+            (loop (cdr l))])))))
+
+(let ([in (current-input-port)])
+  (let loop ([accum '()])
+    (let ([l (get-line in)])
+      (if (eof-object? l)
+          (output accum)
+          (cond
+           [(and (not (zero? (string-length l)))
+                 (eqv? #\> (string-ref l 0)))
+            (output accum)
+            (put-whole-string l)
+            (newline*)
+            (loop '())]
+           [else
+            (let* ([len (string-length l)]
+                   [dest (make-string len)])
+              (let loop ([i 0][j (- len 1)])
+                (unless (= i len)
+                        (string-set! dest j
+                           (vector-ref translation 
+                              (char->integer (string-ref l i))))
+                        (loop (+ i 1) (- j 1))))
+              (loop (cons dest accum)))]))))
+  (flush-output-port out))
+;; The Computer Language Benchmarks Game
+;; http://shootout.alioth.debian.org/
+;;
+;; Derived by Michael D. Adams from the MzScheme variant
+
+(import (rnrs))
+
+;;; Stupid boiler-plate for formatting floating point value
+(define (roundto digits n)
+  (let* ([e (expt 10 digits)]
+         [num (round (abs (* e (exact n))))]
+         [str (number->string (mod num e))])
+    (string-append
+     (if (negative? n) "-" "")
+     (number->string (div num e))
+     "."
+     (make-string (- digits (string-length str)) #\0)
+     str)))
+
+;; -------------------------------
+
+(define (approximate n)
+  (let ((u (make-vector n 1.0))
+        (v (make-vector n 0.0)))
+    (do ((i 0 (fx+ i 1)))
+        ((= 10 i))
+      (mulAtAv n u v)
+      (mulAtAv n v u))
+    (let loop ([i 0] [vBv 0.0] [vV 0.0])
+      (if (< i n)
+          (loop (fx+ i 1)
+                (fl+ vBv (fl* (vector-ref u i) (vector-ref v i)))
+                (fl+ vV (fl* (vector-ref v i) (vector-ref v i))))
+          (flsqrt (fl/ vBv vV))))))
+
+;; --------------
+
+(define (A i j)
+  (/ 1.0 (fx+ (fx+ (fxdiv (fx* (fx+ i j) (fx+ (fx+ i j) 1)) 2) i) 1)))
+
+;; --------------
+
+(define (mulAv n v av)
+  (do ((i 0 (fx+ i 1)))
+      ((= n i))
+    (vector-set! av i 0.0)
+    (do ((j 0 (fx+ j 1)))
+        ((= n j))
+      (vector-set! av i (fl+ (vector-ref av i) (fl* (A i j) (vector-ref v j)))))))
+
+;; --------------
+
+(define (mulAtV n v atv)
+  (do ((i 0 (fx+ i 1)))
+      ((= n i))
+    (vector-set! atv i 0.0)
+    (do ((j 0 (fx+ j 1)))
+        ((= n j))
+      (vector-set! atv i (fl+ (vector-ref atv i) (fl* (A j i) (vector-ref v j)))))))
+
+;; --------------
+
+(define (mulAtAv n v atav)
+  (let ((u (make-vector n 0.0)))
+    (mulAv n v u)
+    (mulAtV n u atav)))
+
+;; -------------------------------
+
+(define (main args)
+  (let ((n (if (< (length args) 2)
+               100
+               (string->number (cadr args)))))
+    (display (roundto 9 (approximate n))) (newline)))
+
+; -------------------------------
+
+(main (command-line))
+;; The Computer Language Benchmarks Game
+;; http://shootout.alioth.debian.org/
+;;
+;; Derived by Michael D. Adams from the MzScheme varient
+
+(import (rnrs))
+
+(let ([in (current-input-port)])
+  (let loop ([acc 0])
+    (let ([n (get-line in)])
+      (if (eof-object? n)
+          (begin (display acc) (newline))
+          (loop (+ acc (string->number n)))))))

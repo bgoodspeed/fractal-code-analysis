@@ -1,0 +1,378 @@
+
+
+TOP=/opt/stx
+PACKAGE=stx:benchmarkgames
+NOAUTOLOAD=1
+NOSUBAUTOLOAD=1
+
+STCLOCALOPT=+optcontext +optmath +inlineMath2 +inlineNew
+
+all::	binarytrees.$(O)
+	$(MAKE) APPLICATION \
+		    TARGET=binarytrees.stx_run \
+		    APPLICATION_CLASSES="TreeNode" \
+		    APPLICATION_OBJS="binarytrees.$(O)" \
+		    LIBLIST="libbasic" \
+		    LIBOBJS="$(LIBBASIC)" \
+		    LINK_LIBOBJS="$(LINK_LIBBASIC)" \
+		    STARTUP_CLASS="TreeNode" \
+		    STARTUP_SELECTOR="main" \
+		    SYSLIBS="$(SYSLIBS_NO_X11)"
+
+
+TOP=/opt/stx
+PACKAGE=stx:benchmarkgames
+NOAUTOLOAD=1
+NOSUBAUTOLOAD=1
+
+STCLOCALOPT=+optcontext +inlineNew +optinline2
+
+SRC=Chameleon.$(O) MeetingPlace.$(O) Tests.$(O)
+
+all::	$(SRC)
+	$(MAKE) APPLICATION \
+		    TARGET=chameneos.stx_run \
+		    APPLICATION_CLASSES="Chameleon MeetingPlace Tests" \
+		    APPLICATION_OBJS="$(SRC)" \
+		    LIBLIST="libbasic" \
+		    LIBOBJS="$(LIBBASIC)" \
+		    LINK_LIBOBJS="$(LINK_LIBBASIC)" \
+		    STARTUP_CLASS="Tests" \
+		    STARTUP_SELECTOR="main" \
+		    SYSLIBS="$(SYSLIBS_NO_X11)" 
+		    
+
+TOP=/opt/stx
+PACKAGE=stx:benchmarkgames
+NOAUTOLOAD=1
+NOSUBAUTOLOAD=1
+
+STCLOCALOPT=+optcontext +optmath +inlineMath2 +inlineNew
+
+SRC=PermGenerator.$(O) Tests.$(O)
+
+all::	$(SRC)
+	$(MAKE) APPLICATION \
+		    TARGET=fannkuch.stx_run \
+		    APPLICATION_CLASSES="PermGenerator Tests" \
+		    APPLICATION_OBJS="$(SRC)" \
+		    LIBLIST="libbasic" \
+		    LIBOBJS="$(LIBBASIC)" \
+		    LINK_LIBOBJS="$(LINK_LIBBASIC)" \
+		    STARTUP_CLASS="Tests" \
+		    STARTUP_SELECTOR="main" \
+		    SYSLIBS="$(SYSLIBS_NO_X11)" 
+		    
+
+TOP=/opt/stx
+PACKAGE=stx:benchmarkgames
+NOAUTOLOAD=1
+NOSUBAUTOLOAD=1
+
+STCLOCALOPT=+optcontext +optmath +inlineMath2 +inlineNew
+
+SRC=RandomNumber.$(O) RepeatStream.$(O) RandomStream.$(O) Tests.$(O)
+
+all::	$(SRC)
+	$(MAKE) APPLICATION \
+		    TARGET=fasta.stx_run \
+		    APPLICATION_CLASSES="RandomNumber RepeatStream RandomStream Tests" \
+		    APPLICATION_OBJS="$(SRC)" \
+		    LIBLIST="libbasic" \
+		    LIBOBJS="$(LIBBASIC)" \
+		    LINK_LIBOBJS="$(LINK_LIBBASIC)" \
+		    STARTUP_CLASS="Tests" \
+		    STARTUP_SELECTOR="main" \
+		    SYSLIBS="$(SYSLIBS_NO_X11)" 
+		    
+
+
+TOP=/opt/stx
+PACKAGE=stx:benchmarkgames
+NOAUTOLOAD=1
+NOSUBAUTOLOAD=1
+
+STCLOCALOPT=+optcontext +optmath +inlineMath2 +inlineNew
+
+all::	hello.$(O)
+	$(MAKE) APPLICATION \
+		    TARGET=hello.stx_run \
+		    APPLICATION_CLASSES="Tests" \
+		    APPLICATION_OBJS="hello.$(O)" \
+		    LIBLIST="libbasic" \
+		    LIBOBJS="$(LIBBASIC)" \
+		    LINK_LIBOBJS="$(LINK_LIBBASIC)" \
+		    STARTUP_CLASS="Tests" \
+		    STARTUP_SELECTOR="main" \
+		    SYSLIBS="$(SYSLIBS_NO_X11)" 
+		    
+
+
+TOP=/opt/stx
+PACKAGE=stx:benchmarkgames
+NOAUTOLOAD=1
+NOSUBAUTOLOAD=1
+
+STCLOCALOPT=+optcontext +optmath +inlineMath2 +inlineNew
+
+all::	Tests.$(O)
+	$(MAKE) APPLICATION \
+		    TARGET=knucleotide.stx_run \
+		    APPLICATION_CLASSES="Tests" \
+		    APPLICATION_OBJS="Tests.$(O)" \
+		    LIBLIST="libbasic" \
+		    LIBOBJS="$(LIBBASIC)" \
+		    LINK_LIBOBJS="$(LINK_LIBBASIC)" \
+		    STARTUP_CLASS="Tests" \
+		    STARTUP_SELECTOR="main" \
+		    SYSLIBS="$(SYSLIBS_NO_X11)" 
+		    
+
+
+TOP=/opt/stx
+PACKAGE=stx:benchmarkgames
+NOAUTOLOAD=1
+NOSUBAUTOLOAD=1
+
+all::	mandelbrot.$(O)
+	$(MAKE) APPLICATION \
+		    TARGET=mandelbrot.stx_run \
+		    APPLICATION_CLASSES="Tests" \
+		    APPLICATION_OBJS="mandelbrot.$(O)" \
+		    LIBLIST="libbasic" \
+		    LIBOBJS="$(LIBBASIC)" \
+		    LINK_LIBOBJS="$(LINK_LIBBASIC)" \
+		    STARTUP_CLASS="Tests" \
+		    STARTUP_SELECTOR="main" \
+		    SYSLIBS="$(SYSLIBS_NO_X11)"
+
+
+TOP=/opt/stx
+PACKAGE=stx:benchmarkgames
+NOAUTOLOAD=1
+NOSUBAUTOLOAD=1
+
+STCLOCALOPT=+optcontext +inlineNew +optinline2
+
+SRC=Consumer.$(O) ProducerConsumer.$(O) Tests.$(O)
+
+all::	$(SRC)
+	$(MAKE) APPLICATION \
+		    TARGET=message.stx_run \
+		    APPLICATION_CLASSES="Consumer ProducerConsumer Tests" \
+		    APPLICATION_OBJS="$(SRC)" \
+		    LIBLIST="libbasic" \
+		    LIBOBJS="$(LIBBASIC)" \
+		    LINK_LIBOBJS="$(LINK_LIBBASIC)" \
+		    STARTUP_CLASS="Tests" \
+		    STARTUP_SELECTOR="main" \
+		    SYSLIBS="$(SYSLIBS_NO_X11)" 
+		    
+
+TOP=/opt/stx
+PACKAGE=stx:benchmarkgames
+NOAUTOLOAD=1
+NOSUBAUTOLOAD=1
+
+STCLOCALOPT=+optcontext +optmath +inlineMath2 +inlineNew
+
+SRC=Body.$(O) NBodySystem.$(O)
+
+all::	$(SRC)
+	$(MAKE) APPLICATION \
+		    TARGET=nbody.stx_run \
+		    APPLICATION_CLASSES="Body NBodySystem" \
+		    APPLICATION_OBJS="$(SRC)" \
+		    LIBLIST="libbasic" \
+		    LIBOBJS="$(LIBBASIC)" \
+		    LINK_LIBOBJS="$(LINK_LIBBASIC)" \
+		    STARTUP_CLASS="NBodySystem" \
+		    STARTUP_SELECTOR="main" \
+		    SYSLIBS="$(SYSLIBS_NO_X11)" 
+		    
+
+
+TOP=/opt/stx
+PACKAGE=stx:benchmarkgames
+NOAUTOLOAD=1
+NOSUBAUTOLOAD=1
+
+STCLOCALOPT=+optcontext +optmath +inlineMath2 +inlineNew
+
+all::	nsieve.$(O)
+	$(MAKE) APPLICATION \
+		    TARGET=nsieve.stx_run \
+		    APPLICATION_CLASSES="Tests" \
+		    APPLICATION_OBJS="nsieve.$(O)" \
+		    LIBLIST="libbasic" \
+		    LIBOBJS="$(LIBBASIC)" \
+		    LINK_LIBOBJS="$(LINK_LIBBASIC)" \
+		    STARTUP_CLASS="Tests" \
+		    STARTUP_SELECTOR="main" \
+		    SYSLIBS="$(SYSLIBS_NO_X11)" 
+		    
+
+
+TOP=/opt/stx
+PACKAGE=stx:benchmarkgames
+NOAUTOLOAD=1
+NOSUBAUTOLOAD=1
+
+STCLOCALOPT=+optcontext +optmath +inlineMath2 +inlineNew
+
+all::	nsievebits.$(O)
+	$(MAKE) APPLICATION \
+		    TARGET=nsievebits.stx_run \
+		    APPLICATION_CLASSES="Tests" \
+		    APPLICATION_OBJS="nsievebits.$(O)" \
+		    LIBLIST="libbasic libbasic2" \
+		    LIBOBJS="$(LIBBASIC) $(LIBBASIC2)" \
+		    LINK_LIBOBJS="$(LINK_LIBBASIC) $(LINK_LIBBASIC2)" \
+		    STARTUP_CLASS="Tests" \
+		    STARTUP_SELECTOR="main" \
+		    SYSLIBS="$(SYSLIBS_NO_X11)" 
+		    
+
+TOP=/opt/stx
+PACKAGE=stx:benchmarkgames
+NOAUTOLOAD=1
+NOSUBAUTOLOAD=1
+
+STCLOCALOPT=+optcontext +optmath +inlineMath2 +inlineNew
+
+all::	Tests.$(O)
+	$(MAKE) APPLICATION \
+		    TARGET=partialsums.stx_run \
+		    APPLICATION_CLASSES="Tests" \
+		    APPLICATION_OBJS="Tests.$(O)" \
+		    LIBLIST="libbasic" \
+		    LIBOBJS="$(LIBBASIC)" \
+		    LINK_LIBOBJS="$(LINK_LIBBASIC)" \
+		    STARTUP_CLASS="Tests" \
+		    STARTUP_SELECTOR="main" \
+		    SYSLIBS="$(SYSLIBS_NO_X11)" 
+		    
+
+TOP=/opt/stx
+PACKAGE=stx:benchmarkgames
+NOAUTOLOAD=1
+NOSUBAUTOLOAD=1
+
+STCLOCALOPT=+optcontext +inlineNew +optinline2
+
+SRC=PiDigitSpigot.$(O) Transformation.$(O) Tests.$(O)
+
+all::	$(SRC)
+	$(MAKE) APPLICATION \
+		    TARGET=pidigits.stx_run \
+		    APPLICATION_CLASSES="PiDigitSpigot Transformation Tests" \
+		    APPLICATION_OBJS="$(SRC)" \
+		    LIBLIST="libbasic" \
+		    LIBOBJS="$(LIBBASIC)" \
+		    LINK_LIBOBJS="$(LINK_LIBBASIC)" \
+		    STARTUP_CLASS="Tests" \
+		    STARTUP_SELECTOR="main" \
+		    SYSLIBS="$(SYSLIBS_NO_X11)" 
+		    
+
+TOP=/opt/stx
+PACKAGE=stx:benchmarkgames
+NOAUTOLOAD=1
+NOSUBAUTOLOAD=1
+
+STCLOCALOPT=+optcontext +optmath +inlineMath2 +inlineNew
+
+all::	Tests.$(O)
+	$(MAKE) APPLICATION \
+		    TARGET=recursive.stx_run \
+		    APPLICATION_CLASSES="Tests" \
+		    APPLICATION_OBJS="Tests.$(O)" \
+		    LIBLIST="libbasic" \
+		    LIBOBJS="$(LIBBASIC)" \
+		    LINK_LIBOBJS="$(LINK_LIBBASIC)" \
+		    STARTUP_CLASS="Tests" \
+		    STARTUP_SELECTOR="main" \
+		    SYSLIBS="$(SYSLIBS_NO_X11)" 
+		    
+
+
+TOP=/opt/stx
+PACKAGE=stx:benchmarkgames
+NOAUTOLOAD=1
+NOSUBAUTOLOAD=1
+
+STCLOCALOPT=+optcontext +optmath +inlineMath2 +inlineNew
+
+all::	Tests.$(O)
+	$(MAKE) APPLICATION \
+		    TARGET=revcomp.stx_run \
+		    APPLICATION_CLASSES="Tests" \
+		    APPLICATION_OBJS="Tests.$(O)" \
+		    LIBLIST="libbasic" \
+		    LIBOBJS="$(LIBBASIC)" \
+		    LINK_LIBOBJS="$(LINK_LIBBASIC)" \
+		    STARTUP_CLASS="Tests" \
+		    STARTUP_SELECTOR="main" \
+		    SYSLIBS="$(SYSLIBS_NO_X11)" 
+		    
+
+TOP=/opt/stx
+PACKAGE=stx:benchmarkgames
+NOAUTOLOAD=1
+NOSUBAUTOLOAD=1
+
+STCLOCALOPT=+optcontext +optmath +inlineMath2 +inlineNew
+
+all::	Tests.$(O)
+	$(MAKE) APPLICATION \
+		    TARGET=spectralnorm.stx_run \
+		    APPLICATION_CLASSES="Tests" \
+		    APPLICATION_OBJS="Tests.$(O)" \
+		    LIBLIST="libbasic" \
+		    LIBOBJS="$(LIBBASIC)" \
+		    LINK_LIBOBJS="$(LINK_LIBBASIC)" \
+		    STARTUP_CLASS="Tests" \
+		    STARTUP_SELECTOR="main" \
+		    SYSLIBS="$(SYSLIBS_NO_X11)" 
+		    
+
+
+TOP=/opt/stx
+PACKAGE=stx:benchmarkgames
+NOAUTOLOAD=1
+NOSUBAUTOLOAD=1
+
+all::	Tests.$(O)
+	$(MAKE) APPLICATION \
+		    TARGET=sumcol.stx_run \
+		    APPLICATION_CLASSES="Tests" \
+		    APPLICATION_OBJS="Tests.$(O)" \
+		    LIBLIST="libbasic" \
+		    LIBOBJS="$(LIBBASIC)" \
+		    LINK_LIBOBJS="$(LINK_LIBBASIC)" \
+		    STARTUP_CLASS="Tests" \
+		    STARTUP_SELECTOR="main" \
+		    SYSLIBS="$(SYSLIBS_NO_X11)"
+
+
+TOP=/opt/stx
+PACKAGE=stx:benchmarkgames
+NOAUTOLOAD=1
+NOSUBAUTOLOAD=1
+
+STCLOCALOPT=+optcontext +inlineNew +optinline2
+
+SRC=Thread.$(O) Tests.$(O)
+
+all::	$(SRC)
+	$(MAKE) APPLICATION \
+		    TARGET=message.stx_run \
+		    APPLICATION_CLASSES="Thread Tests" \
+		    APPLICATION_OBJS="$(SRC)" \
+		    LIBLIST="libbasic" \
+		    LIBOBJS="$(LIBBASIC)" \
+		    LINK_LIBOBJS="$(LINK_LIBBASIC)" \
+		    STARTUP_CLASS="Tests" \
+		    STARTUP_SELECTOR="main" \
+		    SYSLIBS="$(SYSLIBS_NO_X11)" 
+		    

@@ -1,0 +1,1366 @@
+/* -*- mode: c -*-
+ * $Id: ackermann.objc,v 1.2 2007-11-05 04:32:34 bfulgham Exp $
+ * http://shootout.alioth.debian.org
+ *
+ * Brent Fulgham
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+int Ack(int M, int N) { return(M ? (Ack(M-1,N ? Ack(M,(N-1)) : 1)) : N+1); }
+
+int main(int argc, char *argv[]) {
+    int n = ((argc == 2) ? atoi(argv[1]) : 1);
+
+    printf("Ack(3,%d): %d\n", n, Ack(3, n));
+    /* sleep long enough so we can measure memory usage */
+    sleep(1);
+    return(0);
+}
+
+/* -*- mode: c -*-
+ * $Id: ary.objc,v 1.2 2007-11-05 04:32:34 bfulgham Exp $
+ * http://shootout.alioth.debian.org/
+ *
+ * this program is modified from:
+ *   http://cm.bell-labs.com/cm/cs/who/bwk/interps/pap.html
+ * Timing Trials, or, the Trials of Timing: Experiments with Scripting
+ * and User-Interface Languages</a> by Brian W. Kernighan and
+ * Christopher J. Van Wyk.
+ *
+ * I added free() to deallocate memory.
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+
+int
+main(int argc, char *argv[]) {
+    int n = ((argc == 2) ? atoi(argv[1]) : 1);
+    int i, k, *x, *y;
+	
+    x = (int *) calloc(n, sizeof(int));
+    y = (int *) calloc(n, sizeof(int));
+
+    for (i = 0; i < n; i++) {
+	x[i] = i + 1;
+    }
+    for (k=0; k<1000; k++) {
+	for (i = n-1; i >= 0; i--) {
+	    y[i] += x[i];
+	}
+    }
+
+    fprintf(stdout, "%d %d\n", y[0], y[n-1]);
+
+    free(x);
+    free(y);
+
+    return(0);
+}
+/*
+ * The Computer Language Benchmarks Game
+ * http://shootout.alioth.debian.org/
+ *
+ * Original C contributed by Kevin Carson
+ * Conversion to Objective-C by Selman Ulug
+ * Modified by Sokolov Yura
+ */
+
+#include <objc/Object.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <math.h>
+
+@interface TreeNode : Object
+{
+  TreeNode *left;
+  TreeNode *right;
+  long      item;
+}
+- init : (id)pLeft : (id)pRight : (long)pItem;
+- (long) itemCheck;
++ bottomUpTree : (long) tItem : (unsigned) tDepth;
+- free;
+@end
+
+@implementation TreeNode
+-init : (id)pLeft : (id)pRight : (long)pItem
+{
+  [super init];
+  left = pLeft;
+  right = pRight;
+  item = pItem;
+  return self;
+}
+
+- (long) itemCheck
+{
+  if (left == nil)
+    return item;
+  else
+    return item + [left itemCheck] - [right itemCheck];
+}
+
++ bottomUpTree : (long)tItem : (unsigned)tDepth
+{
+  if (tDepth > 0)
+    {
+      return [[TreeNode alloc] init
+			       : [self bottomUpTree : 2 * tItem - 1 : tDepth - 1]
+			       : [self bottomUpTree : 2 * tItem : tDepth - 1]
+			       : tItem];
+    }
+  else
+    {
+      return [[TreeNode alloc] init : nil : nil : tItem];
+    }
+}
+
+- free
+{
+  if (left != nil)
+    {
+      [left free];
+      [right free];
+    }
+  return [super free];
+}
+@end
+
+int
+main (int argc, char** argv)
+{
+  unsigned   N, depth, minDepth, maxDepth, stretchDepth;
+  id         stretchTree, longLivedTree, tempTree;
+
+  if(argc>=2)
+    N = atol(argv[1]);
+  else
+    N = 10;
+
+  minDepth = 4;
+
+  if ((minDepth + 2) > N)
+    maxDepth = minDepth + 2;
+  else
+    maxDepth = N;
+
+  stretchDepth = maxDepth + 1;
+
+  stretchTree = [TreeNode bottomUpTree : 0 : stretchDepth];
+  printf
+    (
+     "stretch tree of depth %u\t check: %li\n",
+     stretchDepth,
+     [stretchTree itemCheck]
+     );
+
+  [stretchTree free];
+
+  longLivedTree = [TreeNode bottomUpTree : 0 : maxDepth];
+
+  for (depth = minDepth; depth <= maxDepth; depth += 2)
+    {
+      long    i, iterations, check;
+
+      iterations = 1 << (maxDepth - depth + minDepth);
+
+      check = 0;
+
+      for (i = 1; i <= iterations; i++)
+        {
+	  tempTree = [TreeNode bottomUpTree :i : depth];
+	  check += [tempTree itemCheck];
+	  [tempTree free];
+
+	  tempTree = [TreeNode bottomUpTree : -i : depth];
+	  check += [tempTree itemCheck];
+	  [tempTree free];
+        } /* for(i = 1...) */
+
+      printf
+        (
+	 "%li\t trees of depth %u\t check: %li\n",
+	 iterations * 2,
+	 depth,
+	 check
+	 );
+    } /* for(depth = minDepth...) */
+
+  printf
+    (
+     "long lived tree of depth %u\t check: %li\n",
+     maxDepth,
+     [longLivedTree itemCheck]
+     );
+
+  return 0;
+}
+/* -*- mode: c -*-
+ * $Id: echo.objc,v 1.2 2007-11-05 04:32:34 bfulgham Exp $
+ * http://shootout.alioth.debian.org/
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <signal.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/wait.h>
+#include <netinet/in.h>
+
+
+typedef int (*SOCKACTION_P)(int,struct sockaddr *,socklen_t);
+#define DATA "Hello there sailor\n"
+
+void myabort (char *m) { fprintf(stderr, "%s\n", m); exit(1); }
+void sysabort (char *m) { perror(m); exit(1); }
+
+int sigchld = 0;
+void reaper (int sig) { sigchld = 1; }
+
+int 
+genericSock(int port,SOCKACTION_P action,char *actionExceptionText) {
+    int ss, optval = 1;
+    struct sockaddr_in sin;
+    if ((ss = socket(PF_INET, SOCK_STREAM, 0)) == -1)
+	sysabort("socket");
+    if (setsockopt(ss, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) == -1)
+	sysabort("setsockopt");
+    memset(&sin,0,sizeof(sin));
+    sin.sin_family = AF_INET;
+    sin.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    sin.sin_port = port; 
+    if (action(ss, (struct sockaddr *)&sin,(socklen_t)sizeof(sin)) == -1)
+	sysabort(actionExceptionText);
+
+    return(ss);
+}
+
+int
+server_sock () {
+    int ss = genericSock(0,(SOCKACTION_P)bind,"server/bind");
+    return(listen(ss,2),ss);
+}
+
+int
+client_sock (int port) {
+    return(genericSock(port,(SOCKACTION_P)connect,"client/connect"));
+}
+
+int
+get_port (int sock) {
+    struct sockaddr_in sin;
+    socklen_t slen = sizeof(sin);
+    if (getsockname(sock, (struct sockaddr *)&sin, &slen) == -1)
+	sysabort("server/getsockname");
+    return(sin.sin_port);
+}    
+
+void
+echo_client (int n, int port) {
+    int i, sock, olen, len, nwritten, nread;
+    char *offset, obuf[64], ibuf[64];
+    char *end = ibuf + sizeof(ibuf);
+
+    sock = client_sock(port);
+    strcpy(obuf, DATA);
+    olen = strlen(obuf);
+    for (i=0; i<n; i++) {
+	len = olen;
+	offset = obuf;
+	while (len > 0) {
+	    if ((nwritten = write(sock, offset, len)) == -1)
+		sysabort("client/write");
+	    offset += nwritten;
+	    len -= nwritten;
+	}
+	offset = ibuf;
+	while ((nread = read(sock, offset, (end - offset))) > 0) {
+	    offset += nread;
+	    if (*(offset-1) == '\n') break;
+	}
+	if (nread == -1)
+	    sysabort("client/read");
+	*offset = 0;
+	if ((strcmp(obuf, ibuf)) != 0) {
+	    char mbuf[128];
+	    sprintf(mbuf, "client: \"%s\" ne \"%s\"", obuf, ibuf);
+	    myabort(mbuf);
+	}
+    }
+    close(sock);
+}
+
+void
+echo_server (int n) {
+    int ssock, csock, len, nwritten, total_bytes;
+    pid_t pid;
+    char buf[64], *offset;
+    struct sockaddr_in sin;
+    socklen_t slen = sizeof(sin);
+    int status;
+
+    ssock = server_sock();
+    signal(SIGCHLD, reaper);
+    if ((pid = fork()) == -1)
+	sysabort("server/fork");
+    if (pid) {
+	/* parent is server */
+	if ((csock = accept(ssock, (struct sockaddr *)&sin, &slen)) == -1)
+	    sysabort("server/accept");
+	total_bytes = 0;
+	while ((len = read(csock, buf, sizeof(buf))) > 0) {
+	    if (sigchld) myabort("server/sigchld");
+	    offset = buf;
+	    total_bytes += len;
+	    while (len > 0) {
+		if ((nwritten = write(csock, offset, len)) == -1)
+		    sysabort("server/write");
+		offset += nwritten;
+		len -= nwritten;
+	    }
+	}
+	if (len == -1)
+	    sysabort("server/read");
+	close(csock);
+	fprintf(stdout, "server processed %d bytes\n", total_bytes);
+    } else {
+	/* child is client */
+	echo_client(n, get_port(ssock));
+    }
+    wait(&status);
+}
+
+int
+main(int argc, char *argv[]) {
+    echo_server((argc == 2) ? atoi(argv[1]) : 1);
+    return(0);
+}
+/* The Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   contributed by Josh Goldfoot
+   use -std=gnu99 in gcc's arguments
+*/
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <objc/Object.h>
+
+@interface Fannkuch : Object {
+    int n;
+    int *perm, *perm1, *count, *maxPerm;
+}
+-init : (int) n;
+-(int) calc;
+@end
+
+@implementation Fannkuch
+-init : (int) nn {
+    n = nn;
+    size_t x = n * sizeof(int);
+    perm = (int*) malloc(x);
+    perm1 = (int*) malloc(x);
+    count = (int*) malloc(x);
+    maxPerm = (int*) malloc(x);
+    return self;
+}
+-(int) calc {
+    int check = 0;
+    int maxFlipsCount = 0;
+    int m = n - 1;
+
+    for (int i = 0; i < n; i++) perm1[i] = i;
+    int r = n;
+
+    while (YES) {
+        // write-out the first 30 permutations
+        if (check < 30){
+          for(int i=0; i<n; i++) printf("%d",perm1[i]+1);
+          printf("\n");
+          check++;
+        }
+
+        while (r != 1) { count[r - 1] = r; r--; }
+        if (!(perm1[0] == 0 || perm1[m] == m)) {
+            for (int i = 0; i < n; i++) perm[i] = perm1[i];
+
+            int flipsCount = 0;
+            int k;
+
+            while (!((k = perm[0]) == 0)) {
+                int k2 = (k + 1) >> 1;
+                for (int i = 0; i < k2; i++) {
+                    int temp = perm[i]; perm[i] = perm[k - i]; perm[k - i] = temp;
+                }
+                flipsCount++;
+            }
+
+            if (flipsCount > maxFlipsCount) {
+                maxFlipsCount = flipsCount;
+                for (int i = 0; i < n; i++) maxPerm[i] = perm1[i];
+            }
+        }
+
+        while (YES) {
+            if (r == n) return maxFlipsCount;
+            int perm0 = perm1[0];
+            int i = 0;
+            while (i < r) {
+                int j = i + 1;
+                perm1[i] = perm1[j];
+                i = j;
+            }
+            perm1[r] = perm0;
+
+            count[r] = count[r] - 1;
+            if (count[r] > 0) break;
+            r++;
+        }
+    }
+}
+@end
+
+int main (int argc, char * argv[]) {
+    int n = (argc>1) ? atoi(argv[1]) : 7;
+    Fannkuch* fan = [[Fannkuch alloc] init : n];
+    printf("Pfannkuchen(%d) = %d\n", n, [fan calc] );
+}
+
+/* The Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   contributed by Josh Goldfoot
+   compile with
+     gcc -pipe -Wall -O3 -fomit-frame-pointer -funroll-loops -lobjc
+     
+     (i.e., the same as C, but adding -lobjc and taking out -static)
+*/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <objc/Object.h>
+
+@interface Genepairlist : Object {
+    @public
+    char* genelist;
+    double* iubprobs;
+    int mysize;
+}
+-init: (char*) in_iub : (double*) in_iubprobs;
+-makeCumulative;
+@end
+
+@interface FastaWriter : Object {
+    Genepairlist* iubpairs;
+    char* alu;
+    int alulen;
+    int mark;
+    char* dst;
+    int needed;
+}
+-writeFasta : (SEL) generator : (char*) header : (long) n;
+-randomFasta;
+-repeatFasta;
+-setAlu : (char*) aluin;
+-setGenePairlist : (Genepairlist*) gpin;
+@end
+
+@implementation Genepairlist
+-init: (char*) in_iub : (double*) in_iubprobs {
+    mysize = strlen(in_iub);
+    genelist = in_iub;
+    iubprobs = in_iubprobs;
+    return self;
+}
+-makeCumulative {
+    int i;
+    double cp = 0;
+    for (i = 0; i < mysize; i++) {
+        cp += iubprobs[i];
+        iubprobs[i] = cp;
+    }
+    return self;
+}
+@end
+
+@implementation FastaWriter
+-writeFasta : (SEL) generator : (char*) header : (long) n {
+   long todo = n;
+   char pick[61];
+   dst = pick;
+      printf (">%s\n", header);
+   for (; todo > 0; todo -= 60) {
+       needed = (todo < 60) ? todo : 60;
+       [self perform: generator];
+       pick[needed] = '\0';
+       puts (pick);
+   }
+   return self;
+}
+
+-randomFasta {
+    static long last = 42;
+    int ii, i, lo, hi;
+    double r;
+    for (ii = 0; ii < needed; ii++) {
+        r = ((double) (last = (last * 3877 + 29573) % 139968)) / 139968;
+        if (r >= iubpairs->iubprobs[0]) {
+            lo = 0;
+            hi = iubpairs->mysize-1;
+            while (hi > lo+1) {
+                i = (hi + lo) / 2;
+                if (r < iubpairs->iubprobs[i]) hi = i; else lo = i;
+            }
+            dst[ii] = iubpairs->genelist[hi];   
+        } else {
+            dst[ii] = iubpairs->genelist[0];
+        }  
+    }
+    return self;
+}
+
+-repeatFasta {
+    int copylen, dstmark;
+    dstmark = 0;
+    while (dstmark < needed) {
+        copylen = alulen - mark;
+        if (copylen > needed) copylen = needed;
+        if (! mark && (copylen + dstmark > 60)) copylen = 60 - dstmark;
+        memcpy(dst + dstmark, alu + mark, copylen);
+        mark += copylen;
+        dstmark += copylen;
+        if (mark >= alulen) mark = 0;
+    }
+    return self;
+}
+
+-setAlu : (char*) aluin {
+    alu = aluin;
+    alulen = strlen(alu);
+    mark = 0;
+    return self;
+}
+
+-setGenePairlist : (Genepairlist*) gpin {
+    iubpairs = gpin;
+    return self;
+}
+@end
+
+int main (int argc, char * argv[]) {
+    int n = (argc>1) ? atoi(argv[1]) : 1000;
+    char * alu1 =
+       "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGGGAGGCCGAGGCGGGCGGATCA" \
+       "CCTGAGGTCAGGAGTTCGAGACCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT" \
+       "ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCAGCTACTCGGGAGGCTGAGGCA" \
+       "GGAGAATCGCTTGAACCCGGGAGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC" \
+       "AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA";
+    double a1[] = {0.27, 0.12, 0.12, 0.27, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02,
+       0.02, 0.02, 0.02, 0.02, 0.02};
+    double a2[] = {0.3029549426680, 0.1979883004921, 0.1975473066391,
+       0.3015094502008};
+       
+    Genepairlist* iub = [[[Genepairlist alloc] init : "acgtBDHKMNRSVWY" : a1]
+       makeCumulative];
+    Genepairlist* homosapiens = [[[Genepairlist alloc] init : "acgt" : a2]
+       makeCumulative];
+
+    [[[FastaWriter alloc] setAlu : alu1] writeFasta : @selector(repeatFasta) :
+       "ONE Homo sapiens alu" : n * 2];
+    [[[FastaWriter alloc] setGenePairlist : iub] writeFasta :
+       @selector(randomFasta) : "TWO IUB ambiguity codes" : n * 3];
+    [[[FastaWriter alloc] setGenePairlist : homosapiens] writeFasta :
+       @selector(randomFasta) : "THREE Homo sapiens frequency" : n * 5];
+
+    return 0;
+}
+
+/* -*- mode: c -*-
+ * $Id: fibo.objc,v 1.4 2007-11-05 04:32:34 bfulgham Exp $
+ * http://shootout.alioth.debian.org/
+ *
+ * Brent Fulgham
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+
+unsigned long fib(unsigned long n) {
+    return( (n < 2) ? 1 : (fib(n-2) + fib(n-1)) );
+}
+
+int main(int argc, char *argv[]) {
+    int N = ((argc == 2) ? atoi(argv[1]) : 1);
+    printf("%ld\n", fib(N));
+    return(0);
+}
+/* -*- mode: objc -*-
+ * $Id: hello.objc,v 1.2 2007-11-05 04:32:34 bfulgham Exp $
+ * http://shootout.alioth.debian.org
+ *
+ * Brent Fulgham
+ */
+
+#include <stdio.h>
+
+int main() {
+    printf ("hello world\n");
+    return 0;
+}
+
+/* The Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   contributed by Josh Goldfoot
+   based on the C# by Isaac Guoy
+   use -std=gnu99 in gcc's arguments
+*/
+
+#include <math.h>
+#include <objc/Object.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+const double PI = 3.141592653589793;
+const double SOLAR_MASS = 39.478417604357432; // 4 * PI * PI;
+const double DAYS_PER_YEAR = 365.24;
+
+@interface Body : Object {
+    @public
+    double x, y, z, vx, vy, vz, mass;
+}
+-offsetMomentum : (double) px : (double) py : (double) pz;
+@end
+@interface Jupiter : Body {
+}
+-init;
+@end
+@interface Saturn : Body {
+}
+-init;
+@end
+@interface Uranus : Body {
+}
+-init;
+@end
+@interface Neptune : Body {
+}
+-init;
+@end
+@interface Sun : Body {
+}
+-init;
+@end
+@interface NBodySystem : Object {
+    Body** bodies;
+}
+-init;
+-advance : (int) n : (double) dt;
+-(double) energy;
+@end
+
+@implementation Body
+-offsetMomentum : (double) px : (double) py : (double) pz {
+    vx = -px / SOLAR_MASS;
+    vy = -py / SOLAR_MASS;
+    vz = -pz / SOLAR_MASS;
+    return self;
+}
+@end
+@implementation Jupiter
+-init {
+    x = 4.84143144246472090e+00;
+    y = -1.16032004402742839e+00;
+    z = -1.03622044471123109e-01;
+    vx = 1.66007664274403694e-03 * DAYS_PER_YEAR;
+    vy = 7.69901118419740425e-03 * DAYS_PER_YEAR;
+    vz = -6.90460016972063023e-05 * DAYS_PER_YEAR;
+    mass = 9.54791938424326609e-04 * SOLAR_MASS;
+    return self;
+}
+@end
+@implementation Saturn
+-init {
+    x = 8.34336671824457987e+00;
+    y = 4.12479856412430479e+00;
+    z = -4.03523417114321381e-01;
+    vx = -2.76742510726862411e-03 * DAYS_PER_YEAR;
+    vy = 4.99852801234917238e-03 * DAYS_PER_YEAR;
+    vz = 2.30417297573763929e-05 * DAYS_PER_YEAR;
+    mass = 2.85885980666130812e-04 * SOLAR_MASS;
+    return self;
+}
+@end
+@implementation Uranus
+-init {
+    x = 1.28943695621391310e+01;
+    y = -1.51111514016986312e+01;
+    z = -2.23307578892655734e-01;
+    vx = 2.96460137564761618e-03 * DAYS_PER_YEAR;
+    vy = 2.37847173959480950e-03 * DAYS_PER_YEAR;
+    vz = -2.96589568540237556e-05 * DAYS_PER_YEAR;
+    mass = 4.36624404335156298e-05 * SOLAR_MASS;
+    return self;
+}
+@end
+@implementation Neptune
+-init {
+    x = 1.53796971148509165e+01;
+    y = -2.59193146099879641e+01;
+    z = 1.79258772950371181e-01;
+    vx = 2.68067772490389322e-03 * DAYS_PER_YEAR;
+    vy = 1.62824170038242295e-03 * DAYS_PER_YEAR;
+    vz = -9.51592254519715870e-05 * DAYS_PER_YEAR;
+    mass = 5.15138902046611451e-05 * SOLAR_MASS;
+    return self;
+}
+@end
+@implementation Sun
+-init {
+    mass = SOLAR_MASS;
+    x = y = z = vx = vy = vz = 0;
+    return self;
+}
+@end
+@implementation NBodySystem
+-init {
+    double px, py, pz;
+    bodies = (Body**) malloc(5 * sizeof(Body*));
+    bodies[0] = [[Sun alloc] init];
+    bodies[1] = [[Jupiter alloc] init];
+    bodies[2] = [[Saturn alloc] init];
+    bodies[3] = [[Uranus alloc] init];
+    bodies[4] = [[Neptune alloc] init];
+    px = py = pz = 0;
+    for (int i = 0; i < 5; i++) {
+        px += bodies[i]->vx * bodies[i]->mass;
+        py += bodies[i]->vy * bodies[i]->mass;
+        pz += bodies[i]->vz * bodies[i]->mass;
+    }
+    [bodies[0] offsetMomentum : px : py : pz];
+    return self;
+}
+-advance : (int) n : (double) dt {
+    double dx, dy, dz, distance, mag;
+    for (int count = 0; count < n; count++) {
+        for (int i=0; i < 5; i++) {
+            for (int j=i+1; j < 5; j++) {
+                dx = bodies[i]->x - bodies[j]->x;
+                dy = bodies[i]->y - bodies[j]->y;
+                dz = bodies[i]->z - bodies[j]->z;
+                
+                distance = sqrt(dx*dx + dy*dy + dz*dz);
+                mag = dt / (distance * distance * distance);
+                
+                bodies[i]->vx -= dx * bodies[j]->mass * mag;
+                bodies[i]->vy -= dy * bodies[j]->mass * mag;
+                bodies[i]->vz -= dz * bodies[j]->mass * mag;
+                
+                bodies[j]->vx += dx * bodies[i]->mass * mag;
+                bodies[j]->vy += dy * bodies[i]->mass * mag;
+                bodies[j]->vz += dz * bodies[i]->mass * mag;
+            }
+        }
+        for (int i = 0; i < 5; i++) {
+            bodies[i]->x += dt * bodies[i]->vx;
+            bodies[i]->y += dt * bodies[i]->vy;
+            bodies[i]->z += dt * bodies[i]->vz;
+        }
+    }
+    return self;
+}
+-(double) energy {
+    double dx, dy, dz, distance;
+    double e = 0.0;
+    
+    for (int i=0; i < 5; i++) {
+     e += 0.5 * bodies[i]->mass *
+        ( bodies[i]->vx * bodies[i]->vx
+        + bodies[i]->vy * bodies[i]->vy
+        + bodies[i]->vz * bodies[i]->vz );
+    
+     for (int j=i+1; j < 5; j++) {
+        dx = bodies[i]->x - bodies[j]->x;
+        dy = bodies[i]->y - bodies[j]->y;
+        dz = bodies[i]->z - bodies[j]->z;
+    
+        distance = sqrt(dx*dx + dy*dy + dz*dz);
+        e -= (bodies[i]->mass * bodies[j]->mass) / distance;
+     }
+    }
+    return e;
+}
+@end
+
+int main (int argc, char * argv[]) {
+    int n = (argc>1) ? atoi(argv[1]) : 1000;
+    NBodySystem* sys = [[NBodySystem alloc] init];
+    printf ("%.9f\n", [sys energy]);
+    [sys advance : n : 0.01];
+    printf ("%.9f\n", [sys energy]);
+}
+
+
+
+/* -*- mode: objc -*-
+ * $Id: objinst.objc,v 1.2 2007-11-05 04:32:34 bfulgham Exp $
+ * http://shootout.alioth.debian.org/
+ *
+ * by Brent Fulgham
+ */
+
+#include <objc/Object.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+@interface Toggle: Object
+{
+	BOOL state;
+}
+
+-(void) setTo: (BOOL) s;
+-(BOOL) value;
+-(Toggle*) activate;
+-(Toggle*) initWith: (BOOL) s;
+@end
+
+@interface NthToggle: Toggle
+{
+	int counter;
+	int max_count;
+}
+
+-(void) setTo: (BOOL) s setCount: (int) c;
+-(int) incCount;
+-(int) countMax;
+-(NthToggle*) activate;
+-(NthToggle*) initWith: (BOOL) s maxCount: (int) c;
+@end
+
+@implementation Toggle
+-(void) setTo: (BOOL) s { state = s; }
+-(BOOL) value { return state; }
+-(Toggle*) activate {
+	[self setTo: ![self value]];
+	return self;
+}
+-(Toggle*) initWith: (BOOL) s {
+	self = [super init];
+	if (self) {
+		[self setTo: s];
+	}
+	return self;
+}
+@end
+
+@implementation NthToggle
+-(void) setTo: (BOOL) s setCount: (int) c {
+	[self setTo: s];
+	counter = c;
+}
+-(void) setMaxCount: (int) c {
+	max_count = c;
+}
+-(int) incCount {
+	return ++counter;
+}
+-(int) countMax { return max_count; }
+-(NthToggle*) activate {
+	if ([self incCount] >= [self countMax]) {
+		[self setTo: ! [self value] setCount: 0];
+	}
+	return self;
+}
+-(NthToggle*) initWith: (BOOL) s maxCount: (int) c
+{
+	self = [super init];
+	if (self) {
+		[self setTo: s setCount: 0];
+		[self setMaxCount: c];
+	}
+	return self;
+}
+@end
+
+int main(int argc, char *argv[]) {
+	int i = 0;
+	int n = ((argc == 2) ? atoi(argv[1]) : 1);
+
+	Toggle *toggle1 = [[Toggle alloc] initWith: YES];
+	for (i=0; i<5; i++) {
+		printf("%s\n", [[toggle1 activate] value] ? "true" : "false");
+	}
+	[toggle1 free];
+
+	for (i=0; i<n; i++) {
+		Toggle *toggle = [[Toggle alloc] initWith: YES];
+		[toggle free];
+	}
+
+	printf("\n");
+
+	NthToggle *ntoggle1 = [[NthToggle alloc] initWith: YES maxCount: 3];
+	for (i=0; i<8; i++) {
+		printf("%s\n", [[ntoggle1 activate] value] ? "true" : "false");
+	}
+	[ntoggle1 free];
+
+	for (i=0; i<n; i++) {
+		NthToggle *ntoggle = [[NthToggle alloc] initWith: YES maxCount: 3];
+		[ntoggle free];
+	}
+
+	return 0;
+}
+/* -*- mode: objc -*-
+ *
+ * The Computer Language Benchmarks Game
+ * http://shootout.alioth.debian.org/
+ *
+ * Original C contributed by Mike Pall
+ * Conversion to Objective-C by Selman Ulug
+ */
+
+#include <objc/Object.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <gmp.h>
+
+@interface Pidigits : Object
+{
+  mpz_t q, r, s, t;     /* Transformation matrix components. */
+  mpz_t u, v, w;        /* Temporary numbers. */
+  int d, i, n;          /* Counters. */
+  char digits[10+1];    /* Accumulated digits for one line. */
+}
+- init: (int)c;
+- (void) compose_r: (int)bq : (int)br : (int)bs : (int)bt;
+- (void) compose_l: (int)bq : (int)br : (int)bs : (int)bt;
+- (int) extract: (unsigned int)j;
+- (int) prdigit: (int)y;
+- (void) generate;
+@end
+
+@implementation Pidigits
+- init: (int)c
+{
+  [super init];
+  n = c;
+  return self;
+}
+
+/* Compose matrix with numbers on the right. */
+- (void) compose_r: (int)bq : (int)br : (int)bs : (int)bt;
+{
+  mpz_mul_si(u, r, bs);
+  mpz_mul_si(r, r, bq);
+  mpz_mul_si(v, t, br);
+  mpz_add(r, r, v);
+  mpz_mul_si(t, t, bt);
+  mpz_add(t, t, u);
+  mpz_mul_si(s, s, bt);
+  mpz_mul_si(u, q, bs);
+  mpz_add(s, s, u);
+  mpz_mul_si(q, q, bq);
+}
+
+/* Compose matrix with numbers on the left. */
+- (void) compose_l: (int)bq : (int)br : (int)bs : (int)bt;
+{
+  mpz_mul_si(r, r, bt);
+  mpz_mul_si(u, q, br);
+  mpz_add(r, r, u);
+  mpz_mul_si(u, t, bs);
+  mpz_mul_si(t, t, bt);
+  mpz_mul_si(v, s, br);
+  mpz_add(t, t, v);
+  mpz_mul_si(s, s, bq);
+  mpz_add(s, s, u);
+  mpz_mul_si(q, q, bq);
+}
+
+/* Extract one digit. */
+- (int) extract: (unsigned int)j;
+{
+  mpz_mul_ui(u, q, j);
+  mpz_add(u, u, r);
+  mpz_mul_ui(v, s, j);
+  mpz_add(v, v, t);
+  mpz_tdiv_q(w, u, v);
+  return mpz_get_ui(w);
+}
+
+/* Print one digit. Returns 1 for the last digit. */
+- (int) prdigit: (int)y;
+{
+  digits[d++] = '0'+y;
+  if (++i % 10 == 0 || i == n)
+    {
+      digits[d] = '\0';
+      printf("%-10s\t:%d\n", digits, i);
+      d = 0;
+    }
+  return i == n;
+}
+
+/* Generate successive digits of PI. */
+- (void) generate;
+{
+  int k = 1;
+  d = 0;
+  i = 0;
+  mpz_init_set_ui(q, 1);
+  mpz_init_set_ui(r, 0);
+  mpz_init_set_ui(s, 0);
+  mpz_init_set_ui(t, 1);
+  mpz_init(u);
+  mpz_init(v);
+  mpz_init(w);
+  for (;;)
+    {
+      int y = [self extract: 3];
+      if (y == [self extract: 4])
+	{
+	  if ([self prdigit: y]) return;
+	  [self compose_r: 10 : -10*y : 0 : 1];
+	}
+      else
+	{
+	  [self compose_l: k : 4*k+2 : 0 : 2*k+1];
+	  k++;
+	}
+    }
+}
+@end
+
+int
+main(int argc, char **argv)
+{
+  int n = argc > 1 ? atoi (argv[1]) : 27;
+  Pidigits* pidigits = [[Pidigits alloc] init: n];
+  [pidigits generate];
+  return 0;
+}
+// The Computer Language Shootout
+// http://shootout.alioth.debian.org/
+// converted to Objective-C from C by Scott Christley
+// Compile with: gcc -O3 -s -fomit-frame-pointer -funroll-loops recursive.m -lobjc
+
+#include <stdio.h>
+#include <objc/Object.h>
+
+@interface Fib : Object
+{
+}
+
+- (int)Ack:(int)x :(int)y;
+- (int)Fib:(int)n;
+- (double)FibFP:(double)n;
+- (int)Tak:(int)x :(int)y :(int)z;
+- (double)TakFP:(double)x :(double)y :(double)z;
+@end
+
+@implementation Fib
+
+- (int)Ack:(int)x :(int)y
+{
+  if (x == 0)
+    return y+1;
+  if (y == 0)
+    return [self Ack: x-1 : 1];
+  return [self Ack: x-1 : [self Ack:x : y-1]];
+}
+
+- (int)Fib:(int)n
+{
+  if (n < 2)
+    return 1;
+  return [self Fib: n-2] + [self Fib: n-1];
+}
+
+- (double)FibFP:(double)n
+{
+  if (n < 2.0)
+    return 1.0;
+  return [self FibFP: n-2.0] + [self FibFP: n-1.0];
+}
+
+- (int)Tak:(int)x :(int)y :(int)z
+{
+  if (y < x)
+    return [self Tak: [self Tak: x-1 : y : z]
+		 : [self Tak: y-1 : z : x]
+		 : [self Tak: z-1 : x : y]];
+  return z;
+}
+
+- (double)TakFP:(double)x :(double)y :(double)z
+{
+  if (y < x)
+    return [self TakFP: [self TakFP: x-1.0 : y : z]
+		 : [self TakFP: y-1.0 : z : x]
+		 : [self TakFP: z-1.0 : x : y]];
+  return z;
+}
+
+@end
+
+int main(int argc, char **argv) {
+  int n = atoi(argv[1]) - 1;
+  Fib *aFib = [Fib new];
+  printf("Ack(3,%d): %d\n", n+1, [aFib Ack: 3 : n+1]);
+  printf("Fib(%.1f): %.1f\n", 28.0+n, [aFib FibFP: 28.0+n]);
+  printf("Tak(%d,%d,%d): %d\n", 3*n, 2*n, n, [aFib Tak: 3*n : 2*n : n]);
+  printf("Fib(3): %d\n", [aFib Fib: 3]);
+  printf("Tak(3.0,2.0,1.0): %.1f\n", [aFib TakFP: 3.0 : 2.0 : 1.0]);
+  return 0;
+}
+/* The Computer Language Shootout
+   http://shootout.alioth.debian.org/
+   contributed by Josh Goldfoot
+*/
+
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
+#include <stdlib.h>
+#include <objc/Object.h>
+
+@interface Seq : Object
+{
+  long buflen, bytesread;
+  char *buffer;
+  char header [64];
+  char nextheader [64];
+}
+-init;
+-free;
+-(BOOL) read_seq;
+-reverse_in_place;
+-print_seq;
+@end
+
+@implementation Seq
+
+-init {
+  buflen = 127150;
+  buffer = (char*) malloc(buflen);
+  nextheader[0] = header[0] = 0;
+  return [super init];
+}
+-free {
+  if (buffer)
+    free(buffer);
+  return [super free];
+}
+
+-(BOOL) read_seq {
+  int linelen;
+  char *x, *tmp;
+
+  if (nextheader[0] == 0)
+    fgets(nextheader, 64, stdin);
+  strncpy(header, nextheader, 64);
+  x = buffer;
+  bytesread = 0;
+  while (fgets (x, 64, stdin)) {
+    if (x[0] == '>') {
+      strncpy(nextheader, x, 64);
+      x[0] = 0;
+      return YES;
+    }
+    linelen = strlen(x);
+    bytesread = bytesread + linelen;
+    if (buflen - bytesread < 80) {
+      buflen *= 10;
+      tmp = (char*) realloc (buffer, buflen + 1);
+      if (! tmp) return NO;
+      buffer = tmp;
+      x = &(buffer[bytesread - linelen]);
+    }
+    x += linelen;
+  }
+  return NO;
+}
+
+-reverse_in_place {
+   static char comp[26] = {'T', 'V', 'G', 'H', 'E', 'F', 'C', 'D', 'I', 'J', 
+      'M', 'L', 'K', 'N', 'O', 'P', 'Q', 'Y', 'S', 'A', 'U', 'B', 'W',
+      'X', 'R', 'Z'};
+   char tmp;
+   char* seqstart = buffer;
+   char* seqend = &(buffer[bytesread - 1]);
+      
+   while (seqstart < seqend) {
+     while (*seqstart < 'A')
+	seqstart++;
+     while (*seqend < 'A')
+        seqend--;
+     tmp = comp[toupper(*seqstart) - 'A'];
+     *(seqstart++) = comp[toupper(*seqend) - 'A'];
+     *(seqend--) = tmp;
+   }
+}
+
+-print_seq {
+  printf("%s", header);
+  printf("%s", buffer);
+}
+@end
+
+int main(int argc, char **argv)
+{
+  Seq* seq = [[Seq alloc] init];
+  BOOL moretodo = YES;
+  while (moretodo) {
+    moretodo = [seq read_seq];
+    [seq reverse_in_place];
+    [seq print_seq];
+  }
+  return 0;
+}
+/* -*- mode: objc -*-
+ *
+ * The Computer Language Benchmarks Game
+ * http://shootout.alioth.debian.org/
+ *
+ * Original C# Mono contributed by Isaac Gouy
+ * Conversion to Objective-C by Selman Ulug
+ */
+
+#include <objc/Object.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+
+@interface SpectralNorm : Object
+{
+  int N;
+}
+- (double) approximate: (int)n;
+- (double) A: (int)i : (int)j;
+- (void) multiplyAv: (double[])v : (double[])Av;
+- (void) multiplyAtv: (double[])v : (double[])Atv;
+- (void) multiplyAtAv: (double[])v : (double[])AtAv;
+@end
+
+@implementation SpectralNorm 
+- (double) approximate: (int)n
+{
+  N = n;
+  double u[N], v[N], vBv, vv;
+  int i;
+
+  for (i = 0; i < N; i++)
+    u[i] = 1;
+
+  for (i = 0; i < 10; i++)
+    {
+      [self multiplyAtAv: u : v];
+      [self multiplyAtAv: v : u];
+    }
+  
+  vBv =  vv = 0;
+  for (i = 0; i < n; i++)
+    {
+      vBv += u[i] * v[i];
+      vv += v[i] * v[i];
+    }
+  
+  return sqrt (vBv / vv);
+}
+
+- (double) A: (int)i : (int)j
+{
+  return 1.0 / ((i + j) * (i + j + 1) / 2 + i + 1);
+}
+
+- (void) multiplyAv: (double[])v : (double[])Av
+{
+  int i, j;
+
+  for (i = 0; i < N; i++)
+    {
+      Av[i] = 0;
+      for (j = 0; j < N; j++)
+	Av[i] += [self A: i : j] * v[j];
+    }
+}
+
+- (void) multiplyAtv: (double[])v : (double[])Atv
+{
+  int i, j;
+
+  for (i = 0; i < N; i++)
+    {
+      Atv[i] = 0;
+      for (j = 0; j < N; j++)
+	Atv[i] += [self A: j : i] * v[j];
+    }
+}
+
+- (void) multiplyAtAv: (double[])v : (double[])AtAv
+{
+  double u[N];
+
+  [self multiplyAv: v : u];
+  [self multiplyAtv: u : AtAv];
+}
+@end
+
+int
+main (int argc, char **argv)
+{
+  int N = ((argc == 2) ? atoi (argv[1]) : 2000);
+  
+  SpectralNorm* sn = [[SpectralNorm alloc] init];
+  printf ("%0.9f\n", [sn approximate: N]);
+
+  return 0;
+}
+/* The Computer Language Shootout
+   http://shootout.alioth.debian.org/
+   contributed by Josh Goldfoot
+*/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <objc/Object.h>
+
+@interface Sumcol : Object
+{
+  int sum;
+}
+- read_stdin;
+- print_result;
+@end
+
+@implementation Sumcol
+- read_stdin {
+  sum = 0;
+  char line[128];
+  while(fgets(line, 128, stdin)) {
+    sum += atoi(line);
+  }
+}
+
+- print_result {
+  printf("%d\n", sum);
+}
+@end
+
+int main(int argc, char **argv) {
+  Sumcol* sumcol = [[Sumcol alloc] init];
+  [sumcol read_stdin];
+  [sumcol print_result];
+  return 0;
+}

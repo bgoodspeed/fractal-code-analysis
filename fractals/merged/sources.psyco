@@ -1,0 +1,3380 @@
+# http://www.bagley.org/~doug/shootout/
+# from Brad Knotwell
+# Modified by bearophile, Jan 1 2006
+
+import sys, psyco
+
+def ack(m, n):
+    if not m:
+        return n + 1
+    if not n:
+        return ack(m-1, 1)
+    return ack(m-1, ack(m, n-1))
+
+psyco.bind(ack)
+n = int(sys.argv[1])
+print "Ack(3,%d): %d" % (n, ack(3, n))
+#!/usr/bin/python
+# $Id: ary.psyco,v 1.3 2007-12-04 06:32:37 bfulgham Exp $
+# http://www.bagley.org/~doug/shootout/
+# with help from Brad Knotwell
+
+import sys
+import psyco
+psyco.full()
+
+def main():
+    n = int(sys.argv[1])
+    x = n * [0]       
+    y = n * [0]
+    for i in xrange(0,n):
+        x[i] = i + 1
+    for k in xrange(0,1000):
+        for i in xrange(n-1,-1,-1):
+            y[i] += x[i]
+    print y[0], y[-1]
+
+main()
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+#
+# contributed by Antoine Pitrou
+# modified by Dominique Wahli
+# modified by Heinrich Acker
+
+import sys, gc
+import psyco
+psyco.full()
+gc.disable()
+
+def make_tree(item, depth):
+    if not depth: return item, None, None
+    item2 = item + item
+    depth -= 1
+    return item, make_tree(item2 - 1, depth), make_tree(item2, depth)
+
+def check_tree((item, left, right)):
+    if not left: return item
+    return item + check_tree(left) - check_tree(right)
+
+min_depth = 4
+max_depth = max(min_depth + 2, int(sys.argv[1]))
+stretch_depth = max_depth + 1
+
+print "stretch tree of depth %d\t check:" % stretch_depth, check_tree(make_tree(0, stretch_depth))
+
+long_lived_tree = make_tree(0, max_depth)
+
+iterations = 2**max_depth
+for depth in xrange(min_depth, stretch_depth, 2):
+
+    check = 0
+    for i in xrange(1, iterations + 1):
+        check += check_tree(make_tree(i, depth)) + check_tree(make_tree(-i, depth))
+
+    print "%d\t trees of depth %d\t check:" % (iterations * 2, depth), check
+    iterations /= 4
+
+print "long lived tree of depth %d\t check:" % max_depth, check_tree(long_lived_tree)
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+# Contributed by Daniel Nanz 2008-04-10
+# Adapted to Psyco by bearophile, 2008-07-20
+
+import sys, thread, time
+
+# colors and matching
+creature_colors = ['blue', 'red', 'yellow']
+
+def complement(c1, c2):
+    if c1 == c2:
+        return c1
+    elif c1 == 'blue':
+        if c2 == 'red':
+            return 'yellow'
+        return 'red'
+    elif c1 == 'red':
+        if c2 == 'blue':
+            return 'yellow'
+        return 'blue'
+    elif c2 == 'blue':
+        return 'red'
+    return 'blue'
+
+
+def check_complement():
+    for c1 in creature_colors:
+        for c2 in creature_colors:
+            print '%s + %s -> %s' % (c1, c2, complement(c1, c2))
+    print ''
+
+
+# reporting
+def spellout(n):
+    numbers = ['zero', 'one', 'two', 'three', 'four',
+               'five', 'six', 'seven', 'eight', 'nine']
+    return ' ' + ' '.join(numbers[int(c)] for c in str(n))
+
+
+def report(input_zoo, met, self_met):
+    print ' ' + ' '.join(input_zoo)
+    for m, sm in zip(met, self_met):
+        print str(m) + spellout(sm)
+    print spellout(sum(met)) + '\n'
+
+
+# the zoo
+def creature(my_id, venue, my_lock_acquire, in_lock_acquire, out_lock_release):
+    while True:
+        my_lock_acquire()  # only proceed if not already at meeting place
+        in_lock_acquire()  # only proceed when holding in_lock
+        venue[0] = my_id   # register at meeting place
+        out_lock_release() # signal "registration ok"
+
+
+def let_them_meet(meetings_left, input_zoo):
+    # prepare
+    c_no = len(input_zoo)
+    venue = [-1]
+    met = [0] * c_no
+    self_met = [0] * c_no
+    colors = input_zoo[:]
+
+    in_lock = thread.allocate_lock()
+    in_lock.acquire()
+    out_lock = thread.allocate_lock()
+    out_lock.acquire()
+    locks = [thread.allocate_lock() for c in input_zoo]
+
+    # let creatures wild
+    for ci in xrange(c_no):
+        args = (ci, venue, locks[ci].acquire, in_lock.acquire, out_lock.release)
+        new = thread.start_new_thread(creature, args)
+    time.sleep(1.0) # to reduce work-load imbalance
+
+    in_lock.release()  # signal "meeting_place open for registration"
+    out_lock.acquire() # only proceed with a "registration ok" signal
+    id1 = venue[0]
+    while meetings_left:
+        in_lock.release()
+        out_lock.acquire()
+        id2 = venue[0]
+        if id1 != id2:
+            new_color = complement(colors[id1], colors[id2])
+            colors[id1] = new_color
+            colors[id2] = new_color
+            met[id1] += 1
+            met[id2] += 1
+        else:
+            self_met[id1] += 1
+            met[id1] += 1
+        meetings_left -= 1
+        if meetings_left > 0:
+            locks[id1].release() # signal "you were kicked from meeting place"
+            id1 = id2
+        else:
+            report(input_zoo, met, self_met)
+
+
+def chameneosiate(n):
+    check_complement()
+    let_them_meet(n, ['blue', 'red', 'yellow'])
+    let_them_meet(n, ['blue', 'red', 'yellow', 'red', 'yellow',
+                      'blue', 'red', 'yellow', 'red', 'blue'])
+
+
+import psyco; psyco.full()
+chameneosiate(1000 if len(sys.argv) < 2 else int(sys.argv[1]))
+#!/usr/bin/python -OO
+# The Computer Language Shootout Benchmarks
+# http://shootout.alioth.debian.org/
+#
+# contributed by Kevin Carson
+import sys, psyco
+
+psyco.full()
+
+
+class IBottleState :
+    Empty = None
+    Full = None
+    Sealed = None
+
+
+class BottleState(IBottleState) :
+    def __init__(self) :
+        self.Empty = BottleState.EmptyState()
+        self.Full = BottleState.FullState()
+        self.Sealed = BottleState.SealedState()
+
+    def initialState(self) :
+        return self.Empty
+
+    class EmptyState :
+        def next(self) :
+            return IBottleState.Full
+
+        def tag(self) :
+            return 1
+
+    class FullState :
+        def next(self) :
+            return IBottleState.Sealed
+
+        def tag(self) :
+            return 2
+
+    class SealedState :
+        def next(self) :
+            return IBottleState.Empty
+
+        def tag(self) :
+            return 3
+
+
+class PressurizedBottleState(BottleState) :
+    def __init__(self, tag) :
+        BottleState.__init__(self)
+        self.UnpressurizedEmpty = UnpressurizedEmptyState()
+        self.UnpressurizedFull = UnpressurizedFullState()
+        self.PressurizedSealed = PressurizedSealedState()
+
+    def initialState(self) :
+        return self.UnpressurizedEmpty
+
+    class UnpressurizedEmptyState :
+        def next(self) :
+            return self.UnpressurizedFull
+
+        def tag(self) :
+            return 4
+
+    class UnpressurizedFullState :
+        def next(self) :
+            return self.PressurizedUnsealed
+
+        def tag(self) :
+            return 5
+
+    class PressurizedUnsealedState :
+        def next(self) :
+            return self.Sealed
+
+        def tag(self) :
+            return 6
+
+    class PressurizedSealedState :
+        def next(self) :
+            return self.UnpressurizedEmpty
+
+        def tag(self) :
+            return 7
+
+
+class Bottle :
+    def __init__(self, Id) :
+        self.Id = Id
+        self.state = BottleState()
+        self.state = self.state.initialState()
+
+    def state(self, state) :
+        self.state = state
+
+    def cycle(self) :
+        self.fill(), self.seal(), self.empty()
+
+    def initialState(self) :
+        return self.initialState()
+
+    def empty(self) :
+        self.state.next()
+
+    def fill(self) :
+        self.state.next()
+
+    def seal(self) :
+        self.state.next()
+
+    def check(self, c) :
+        return self.state.tag() + self.Id + c
+
+
+class PressurizedBottle(PressurizedBottleState, Bottle) :
+    def __init__(self, Id) :
+        Bottle.__init__(self, Id)
+
+    def initialState(self) :
+        return PressurizedBottleState.initialState()
+
+    def pressurize(self) :
+        self.state.next()
+
+    def cycle(self) :
+        self.fill(), self.pressurize(), self.seal(), self.empty()
+
+
+def bottleCheck(a1, a2, a3, a4, a5, i) :
+    a1.cycle()
+    a2.cycle()
+    a3.cycle()
+    a4.cycle()
+    a5.cycle()
+
+    r = i % 2
+
+    return a1.check(r) + a2.check(r) + a3.check(r) + a4.check(r) + a5.check(r)
+
+
+def main() :
+    n = int(sys.argv[1])
+
+    b1 = Bottle(1)
+    b2 = Bottle(2)
+    b3 = Bottle(3)
+    b4 = Bottle(4)
+    b5 = Bottle(5)
+    b6 = Bottle(6)
+    b7 = Bottle(7)
+    b8 = Bottle(8)
+    b9 = Bottle(9)
+    b0 = Bottle(0)
+
+    p1 = PressurizedBottle(1)
+    p2 = PressurizedBottle(2)
+    p3 = PressurizedBottle(3)
+    p4 = PressurizedBottle(4)
+    p5 = PressurizedBottle(5)
+    p6 = PressurizedBottle(6)
+    p7 = PressurizedBottle(7)
+    p8 = PressurizedBottle(8)
+    p9 = PressurizedBottle(9)
+    p0 = PressurizedBottle(0)
+
+    check = 0
+
+    for i in xrange(1, n + 1) :
+        check += bottleCheck(b1, b2, b3, b4, b5, i);
+        check += bottleCheck(b6, b7, b8, b9, b0, i);
+
+        check += bottleCheck(p1, p2, p3, p4, p5, i);
+        check -= bottleCheck(p6, p7, p8, p9, p0, i);
+    
+    print check
+
+
+main()
+#!/usr/bin/python
+# $Id: echo.psyco,v 1.3 2007-12-04 06:32:38 bfulgham Exp $
+# http://www.bagley.org/~doug/shootout/
+# with help from Brad Knotwell
+
+import sys, os, psyco
+from socket import *
+psyco.full()
+
+DATA = "Hello there sailor\n"
+bufferSize = len(DATA)
+
+def server_sock():
+    sock = socket(AF_INET, SOCK_STREAM)
+    sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+    sock.bind(('127.0.0.1', 0));
+    sock.listen(2)
+    return(sock)
+
+def get_port(sock):
+    host, port = sock.getsockname()
+    return(port)
+
+def client_sock(port):
+    sock = socket(AF_INET, SOCK_STREAM)
+    sock.connect(('127.0.0.1', port))
+    return(sock)
+
+def echo_client(n, port):
+    sock = client_sock(port)
+    sender,receiver = sock.send,sock.recv
+    for i in range(0,n):
+        sender(DATA)
+        ans = receiver(bufferSize)
+        while ans[-1] != "\n":
+            ans += receiver(bufferSize - len(ans))
+        if ans <> DATA:
+            raise("client: \"%s\" ne \"%s\"" % (DATA, ans))
+    sock.close()
+
+def echo_server(n):
+    ssock = server_sock()
+    if os.fork() > 0:
+        # parent is server
+        csock, addr = ssock.accept()
+        n = 0
+        sender,receiver = csock.send,csock.recv
+        while 1:
+            dat = receiver(bufferSize)
+            if not dat: break
+            sender(dat)
+            n += len(dat)
+        print "server processed %d bytes" % n
+        os.wait()
+    else:
+        # child is client
+        echo_client(n, get_port(ssock))
+
+def main():
+    n = int(sys.argv[1])
+    if n < 1:
+        n = 1
+    echo_server(n)
+
+main()
+#!/usr/bin/python
+# http://www.bagley.org/~doug/shootout/
+
+import sys, psyco
+psyco.full()
+
+HI = 0
+LO = 0
+
+
+class Hi_exception:
+    def __init__(self, value):
+        self.value = value
+    def __str__(self):
+        return `self.value`
+
+
+class Lo_exception:
+    def __init__(self, value):
+        self.value = value
+    def __str__(self):
+        return `self.value`
+
+
+def some_function(num):
+    try:
+        hi_function(num)
+    except:
+        raise "We shouldn't get here (%s)" % sys.exc_info()[0]
+
+
+def hi_function(num):
+    global HI
+    try:
+        lo_function(num)
+    except Hi_exception, ex:
+        HI += 1
+        #print 'Hi_exception occurred, value:', ex.value
+
+
+def lo_function(num):
+    global LO
+    try:
+        blowup(num)
+    except Lo_exception, ex:
+        LO += 1
+        #print 'Lo_exception occurred, value:', ex.value
+
+
+def blowup(num): 
+    raise (((num & 1) and Lo_exception) or Hi_exception)(num)
+
+def main():
+    global LO, HI
+    NUM = int(sys.argv[1])
+    if NUM < 1:
+        NUM = 1
+    for i in xrange(NUM-1,-1,-1):
+        some_function(i)
+    print "Exceptions: HI=%d / LO=%d" % (HI, LO)
+
+
+main()
+# The Computer Language Shootout
+# http://shootout.alioth.debian.org/
+# Adapted for the max speed to Python+Psyco from D by bearophile
+
+import sys, array
+
+def fannkuch(n):
+    perm = array.array('l', [0] * n)
+    perm1 = array.array('l', range(n))
+    count = array.array('l', [0] * n)
+    m = n - 1
+    r = n
+    maxFlipsCount = 0
+    didpr = 0
+
+    while True:
+        if didpr < 30:
+            print "".join(str(i+1) for i in perm1)
+            didpr += 1
+
+        while r != 1:
+            count[r-1] = r
+            r -= 1
+
+        if perm1[0] and perm1[m] != m:
+            for i in xrange(n):
+                perm[i] = perm1[i] # To avoid memory trashing
+
+            i = perm[0]
+            flips = 0
+            while i:
+                temp = perm[i]
+                perm[i] = i
+                i = temp
+
+                j = 1
+                k = i - 1
+                while j < k:
+                    temp = perm[j]
+                    perm[j] = perm[k]
+                    perm[k] = temp
+                    j += 1
+                    k -= 1
+                flips += 1
+
+            if flips > maxFlipsCount:
+                maxFlipsCount = flips
+
+        while True:
+            if r == n:
+                return maxFlipsCount
+            temp = perm1[0]
+            i = 0
+            while i < r:
+                j = i + 1
+                perm1[i] = perm1[j]
+                i = j
+            perm1[r] = temp
+
+            count[r] -= 1
+            if count[r] > 0:
+                break
+            r += 1
+
+
+import psyco; psyco.bind(fannkuch)
+n = int( (sys.argv+[1])[1] )
+r = fannkuch(n)
+print "Pfannkuchen(" + str(n) + ") =", r
+
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+#
+# contributed by Sokolov Yura
+# modified by Tupteq
+
+import psyco
+psyco.full()
+
+def fannkuch(n):
+    count = range(1, n+1)
+    max_flips = 0
+    m = n-1
+    r = n
+    check = 0
+    perm1 = range(n)
+    perm = range(n)
+    perm1_ins = perm1.insert
+    perm1_pop = perm1.pop
+
+    while 1:
+        if check < 30:
+            print "".join(str(i+1) for i in perm1)
+            check += 1
+
+        while r != 1:
+            count[r-1] = r
+            r -= 1
+
+        if perm1[0] != 0 and perm1[m] != m:
+            perm = perm1[:]
+            flips_count = 0
+            k = perm[0]
+            while k:
+                perm[:k+1] = perm[k::-1]
+                flips_count += 1
+                k = perm[0]
+
+            if flips_count > max_flips:
+                max_flips = flips_count
+
+        while r != n:
+            perm1_ins(r, perm1_pop(0))
+            count[r] -= 1
+            if count[r] > 0:
+                break
+            r += 1
+        else:
+            return max_flips
+
+def main():
+    from sys import argv
+    n = int(argv and argv[1] or 1)
+    print "Pfannkuchen(%d) = %d\n" % (n, fannkuch(n)),
+
+if __name__=="__main__":
+    main()
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+#
+# modified by Ian Osgood
+# modified again by Heinrich Acker
+
+import sys, bisect
+import psyco
+psyco.full()
+
+alu = (
+   'GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG'
+   'GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA'
+   'CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT'
+   'ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA'
+   'GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG'
+   'AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC'
+   'AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA')
+
+iub = zip('acgtBDHKMNRSVWY', [0.27, 0.12, 0.12, 0.27] + [0.02]*11)
+
+homosapiens = [
+    ('a', 0.3029549426680),
+    ('c', 0.1979883004921),
+    ('g', 0.1975473066391),
+    ('t', 0.3015094502008),
+]
+
+
+def genRandom(lim, ia = 3877, ic = 29573, im = 139968):
+    seed = 42
+    imf = float(im)
+    while 1:
+        seed = (seed * ia + ic) % im
+        yield lim * seed / imf
+
+Random = genRandom(1.)
+
+def makeCumulative(table):
+    P = []
+    C = []
+    prob = 0.
+    for char, p in table:
+        prob += p
+        P += [prob]
+        C += [char]
+    return (P, C)
+
+def repeatFasta(src, n):
+    width = 60
+    r = len(src)
+    s = src + src + src[:n % r]
+    for j in xrange(n // width):
+        i = j*width % r
+        print s[i:i+width]
+    if n % width:
+        print s[-(n % width):]
+
+def randomFasta(table, n):
+    width = 60
+    r = xrange(width)
+    gR = Random.next
+    bb = bisect.bisect
+    jn = ''.join
+    probs, chars = makeCumulative(table)
+    for j in xrange(n // width):
+        print jn([chars[bb(probs, gR())] for i in r])
+    if n % width:
+        print jn([chars[bb(probs, gR())] for i in xrange(n % width)])
+
+
+n = int(sys.argv[1])
+
+print '>ONE Homo sapiens alu'
+repeatFasta(alu, n*2)
+
+print '>TWO IUB ambiguity codes'
+randomFasta(iub, n*3)
+
+print '>THREE Homo sapiens frequency'
+randomFasta(homosapiens, n*5)
+# The Computer Language Shootout Benchmarks
+# http://shootout.alioth.debian.org/
+# Contributed by Kevin Carson
+# Optimized for speed by bearophile, Jan 7 2006
+
+from sys import argv, stdout
+import psyco
+from array import array
+
+iub = [['a', 0.27],
+       ['c', 0.12],
+       ['g', 0.12],
+       ['t', 0.27],
+       ['B', 0.02],
+       ['D', 0.02],
+       ['H', 0.02],
+       ['K', 0.02],
+       ['M', 0.02],
+       ['N', 0.02],
+       ['R', 0.02],
+       ['S', 0.02],
+       ['V', 0.02],
+       ['W', 0.02],
+       ['Y', 0.02]]
+
+homosapiens = [['a', 0.3029549426680],
+               ['c', 0.1979883004921],
+               ['g', 0.1975473066391],
+               ['t', 0.3015094502008]]
+
+alu = "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGGGAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTT"\
+      "CGAGACCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAATACAAAAATTAGCCGGGCGTGGTGGCGCGCGCC"\
+      "TGTAATCCCAGCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGGAGGCGGAGGTTGCAGTGAGCCGAGATC"\
+      "GCGCCACTGCACTCCAGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA"
+
+IM = 139968
+IA =   3877
+IC =  29573
+
+LAST = 42
+def gen_random(max):
+    global LAST
+    LAST = (LAST * IA + IC) % IM
+    return (max * LAST) / IM
+
+
+def makeCumulative(genelist):
+    cp = 0.0
+    for i in xrange(len(genelist)):
+        cp += genelist[i][1]
+        genelist[i][1] = cp
+
+
+def selectRandom(genelist):
+    r = gen_random(1.0)
+    for pair in genelist:
+        if r < pair[1]:
+            return pair[0]
+
+
+def makeRandomFasta(id, desc, genelist, todo):
+    print ">" + str(id), desc
+    line_length = 60
+    a = array("c", " " * line_length)
+    for i in xrange(todo / line_length):
+        for j in xrange(line_length):
+            a[j] = selectRandom(genelist)
+        a.tofile(stdout)
+        print
+
+    todo = todo % line_length
+    while todo > 0:
+        if todo > line_length:
+            out_length = line_length
+        else:
+            out_length = todo
+
+        pick = ""
+        for i in xrange(out_length):
+            pick += selectRandom(genelist)
+
+        print pick
+        todo -= line_length
+
+
+def makeRepeatFasta(id, desc, s, todo):
+    print ">%s %s" % (id, desc)
+    line_length = 60
+    s_length = len(s)
+    wrap = 0
+
+    while todo > 0:
+        if todo > line_length:
+            out_length = line_length
+        else:
+            out_length = todo
+
+        while out_length >= (s_length - wrap):
+            stdout.write(s[wrap:])
+            out_length -= s_length - wrap
+            wrap = 0
+
+        print s[wrap:wrap + out_length]
+        wrap += out_length
+        todo -= line_length
+
+
+psyco.full()
+n = int(argv[1])
+
+makeCumulative(iub)
+makeCumulative(homosapiens)
+
+makeRepeatFasta("ONE", "Homo sapiens alu", alu, n*2)
+makeRandomFasta("TWO", "IUB ambiguity codes", iub, n*3)
+makeRandomFasta("THREE", "Homo sapiens frequency", homosapiens, n*5)
+#!/usr/bin/python
+# $Id: fibo.psyco,v 1.5 2007-12-04 06:32:38 bfulgham Exp $
+# http://www.bagley.org/~doug/shootout/
+
+import sys, psyco
+psyco.full()
+
+def fib(n):
+    if (n < 2):
+        return(1)
+    return( fib(n-2) + fib(n-1) )
+
+def main():
+    N = int(sys.argv[1])
+    #sys.setrecursionlimit(3000)
+    print fib(N)
+
+main()
+# The Great Computer Language Shootout
+# http://shootout.alioth.debian.org/
+#
+# contributed by Josiah Carlson
+
+import sys
+import psyco; psyco.full()
+
+def main():
+    s = 0
+    for i in xrange(1,int(sys.argv[1])+1):
+        s += 1.0/i
+    print "%.9f" % s
+
+main()
+#!/usr/bin/python
+# $Id: hash.psyco,v 1.3 2007-12-04 06:32:38 bfulgham Exp $
+# http://www.bagley.org/~doug/shootout/
+# with help from from Gustavo Niemeyer
+
+import sys, psyco
+#sys.setcheckinterval(10000)
+psyco.full()
+
+def main():
+    n = int(sys.argv[1])
+    X = {}
+    myhex = hex
+    for i in xrange(1,n+1):
+        X[myhex(i)[2:]] = i
+    c = 0
+    has_key = X.has_key
+    for i in xrange(n, 0, -1):
+        c += has_key(`i`)
+    print c
+
+main()
+#!/usr/bin/python
+# $Id: hash2.psyco,v 1.4 2007-12-04 06:32:38 bfulgham Exp $
+# http://shootout.alioth.debian.org
+# Contributed by Antoine Pitrou, based on code by Mark Baker
+#
+# 1.  Put critical code in a function -- otherwise the local variable
+#     optimizations by the interpreter don't work.
+# 2.  Iterator versions of common functions are often a bit faster than
+#     other methods (e.g., iterkeys() instead of keys() ).
+
+import sys
+import psyco
+psyco.log("psyco.log")
+psyco.full()
+
+def main():
+  n = int(sys.argv[1])
+  hash1 = {}
+  for i in xrange(10000):
+    hash1['foo_' + `i`] = i
+
+  hash2 = {}
+  for i in xrange(n):
+    for k in hash1.iterkeys():
+      try:
+        hash2[k] += hash1[k]
+      except KeyError:
+        hash2[k] = hash1[k]
+
+  print hash1['foo_1'], hash1['foo_9999'], hash2['foo_1'], hash2['foo_9999']
+
+
+main()
+#!/usr/bin/python
+#
+# The Great Computer Language Shootout
+# http://shootout.alioth.debian.org/
+#
+# Updated by Valentino Volonghi for Python 2.4
+# Reworked by Kevin Carson to produce correct results and same intent
+
+import sys
+import psyco
+
+IM = 139968
+IA =   3877
+IC =  29573
+
+LAST = 42
+def gen_random(max) :
+    global LAST
+    LAST = (LAST * IA + IC) % IM
+    return( (max * LAST) / IM )
+
+def heapsort(n, ra) :
+    ir = n
+    l = (n >> 1) + 1
+
+    while True :
+        if l > 1 :
+            l -= 1
+            rra = ra[l]
+        else :
+            rra = ra[ir]
+            ra[ir] = ra[1]
+            ir -= 1
+            if ir == 1 :
+                ra[1] = rra
+                return
+
+        i = l
+        j = l << 1
+        while j <= ir :
+            if (j < ir) and (ra[j] < ra[j + 1]) :
+                j += 1
+
+            if rra < ra[j] :
+                ra[i] = ra[j]
+                i = j
+                j += j
+            else :
+                j = ir + 1;
+        ra[i] = rra;
+
+def main() :
+    if len(sys.argv) == 2 :
+        N = int(sys.argv[1])
+    else :
+        N = 1
+
+    ary = [None]*(N + 1)
+    for i in xrange(1, N + 1) :
+        ary[i] = gen_random(1.0)
+
+    heapsort(N, ary)
+
+    print "%.10f" % ary[N]
+
+main()
+#!/usr/bin/python
+#
+# The Great Computer Language Shootout
+# http://shootout.alioth.debian.org/
+#
+# Updated by Valentino Volonghi for Python 2.4
+# Reworked by Kevin Carson to produce correct results and same intent
+
+import sys
+import psyco
+
+psyco.full()
+
+IM = 139968
+IA =   3877
+IC =  29573
+
+LAST = 42
+def gen_random(max) :
+    global LAST
+    LAST = (LAST * IA + IC) % IM
+    return( (max * LAST) / IM )
+
+def heapsort(n, ra) :
+    ir = n
+    l = (n >> 1) + 1
+
+    while True :
+        if l > 1 :
+            l -= 1
+            rra = ra[l]
+        else :
+            rra = ra[ir]
+            ra[ir] = ra[1]
+            ir -= 1
+            if ir == 1 :
+                ra[1] = rra
+                return
+
+        i = l
+        j = l << 1
+        while j <= ir :
+            if (j < ir) and (ra[j] < ra[j + 1]) :
+                j += 1
+
+            if rra < ra[j] :
+                ra[i] = ra[j]
+                i = j
+                j += j
+            else :
+                j = ir + 1;
+        ra[i] = rra;
+
+def main() :
+    if len(sys.argv) == 2 :
+        N = int(sys.argv[1])
+    else :
+        N = 1
+
+    ary = [None]*(N + 1)
+    for i in xrange(1, N + 1) :
+        ary[i] = gen_random(1.0)
+
+    heapsort(N, ary)
+
+    print "%.10f" % ary[N]
+
+main()
+#!/usr/bin/python
+# $Id: hello.psyco,v 1.3 2007-12-04 06:32:38 bfulgham Exp $
+# http://www.bagley.org/~doug/shootout/
+import psyco
+psyco.full()
+
+print "hello world"
+# The Computer Language Shootout
+# http://shootout.alioth.debian.org/
+#
+# submitted by Ian Osgood
+# modified by Sokolov Yura
+# modified by bearophile
+
+from sys import stdin
+
+def gen_freq(seq, frame, frequences):
+    ns = len(seq) + 1 - frame
+    frequences.clear()
+    for ii in xrange(ns):
+        nucleo = seq[ii:ii + frame]
+        if nucleo in frequences:
+            frequences[nucleo] += 1
+        else:
+            frequences[nucleo] = 1
+    return ns, frequences
+
+
+def sort_seq(seq, length, frequences):
+    n, frequences = gen_freq(seq, length, frequences)
+
+    l = sorted(frequences.items(), reverse=True, key=lambda (seq,freq): (freq,seq))
+
+    print '\n'.join("%s %.3f" % (st, 100.0*fr/n) for st,fr in l)
+    print
+
+
+def find_seq(seq, s, frequences):
+    n,t = gen_freq(seq, len(s), frequences)
+    print "%d\t%s" % (t.get(s, 0), s)
+
+
+def main():
+    frequences = {}
+    for line in stdin:
+        if line[0:3] == ">TH":
+            break
+
+    seq = []
+    for line in stdin:
+        if line[0] in ">;":
+            break
+        seq.append( line[:-1] )
+    sequence = "".join(seq).upper()
+
+    for nl in 1,2:
+        sort_seq(sequence, nl, frequences)
+
+    for se in "GGT GGTA GGTATT GGTATTTTAATT GGTATTTTAATTTATAGT".split():
+        find_seq(sequence, se, frequences)
+
+
+import psyco; psyco.bind(gen_freq)
+main()
+#!/usr/bin/python
+# $Id: lists.psyco,v 1.3 2007-12-04 06:32:38 bfulgham Exp $
+# http://www.bagley.org/~doug/shootout/
+# with improvements from Mark Baker
+
+import sys, psyco
+psyco.full()
+
+SIZE = 10000
+
+def test_lists():
+    Li1 = range(1, SIZE + 1)
+    Li2 = Li1[:]
+    Li3 = []
+
+    # remove each individual item from left side of Li2 and
+    # append to right side of Li3 (preserving order)
+    # 
+    # popping the first element is *expensive*
+    #
+    #while Li2:
+    #    Li3.append(Li2.pop(0))   
+    Li2.reverse()
+    while Li2:
+        Li3.append(Li2.pop())
+    while Li3:
+        Li2.append(Li3.pop())
+    Li1.reverse()
+    if Li1[0] != SIZE:
+        return 0
+    if Li1 == Li2:
+        return len(Li1)
+    else:
+        return 0
+
+def main():
+    NUM = int(sys.argv[1])
+    if NUM < 1:
+        NUM = 1
+    while NUM > 0:
+        result = test_lists()
+        NUM = NUM - 1
+    print result
+
+main()
+#!/usr/bin/python
+##   The Computer Language Shootout
+##   http://shootout.alioth.debian.org/
+##
+##   benchmark implementation (not optimized)
+##   contributed by Josh Goldfoot
+
+import sys
+import Queue
+import bisect
+import psyco
+
+n = mn = 0
+
+class PriorityQueue(Queue.Queue):
+    def _init(self, maxsize):
+        self.maxsize = maxsize
+        self.queue = [] 
+    def _put(self, item):
+        bisect.insort(self.queue, item)
+    def _get(self):
+        return self.queue.pop(0) 
+
+class square(object):
+    __slots__ = ['grid', 'ffm', '__priority']
+    def __init__(self):
+        self.grid = [0 for i in xrange(n * n)]
+        self.ffm = None
+        self.__priority = None
+    def copy(self):
+        ret = square()
+        ret.grid[:] = self.grid
+        return ret
+    def gridRow(self, y):
+        return [ self.grid[x + y * n] for x in xrange(n)]
+    def gridCol(self, x):
+        return [ self.grid[x + y * n] for y in xrange(n)]
+    def __str__(self):
+        return "\n".join( [" ".join([str(self.grid[x + y * n])
+                    for x in xrange(n)]) for y in xrange(n)])
+    def possibleMoves(self, x,y):
+##Return all moves that can go in the cell x,y for a given
+##grid.  A move is possible if the move (number) is not already
+##in the grid, and if, after making that move, it is still possible to
+##satisfy the magic square conditions (all rows, columns, diagonals adding
+##up to mn, the magic number)
+        if self.grid[x + y * n] != 0:
+            return []
+        cellGroups = [self.gridRow(y), self.gridCol(x)]
+        if x == y:
+            cellGroups.append([ self.grid[i + i * n] for i in xrange(n) ])
+        if x + y == n - 1:
+            cellGroups.append([ self.grid[i + (n - 1 - i) * n] for i in xrange(n) ])
+        usedNumbers = set(self.grid)
+        onePossible = set()
+        for g in cellGroups:
+            if g.count(0) == 1:
+                onePossible.add(mn - sum(g))
+        if len(onePossible) == 1:
+            onlyPossibleMove = onePossible.pop()
+            if 1 <= onlyPossibleMove <= n*n and onlyPossibleMove not in usedNumbers:
+                return [onlyPossibleMove]
+            else:
+                return []
+        elif len(onePossible) > 1:
+            return []
+        highestCandidates = [mn - sum(g) for g in cellGroups]
+        highestCandidates.append(n * n)
+        highest = min(highestCandidates)
+        return [ i for i in xrange(highest + 1) if i not in usedNumbers ]
+    def findFewestMoves(self):
+##Go through the grid (starting at the top-left, and moving
+##right and down), checking all 0 cells to find the cell with the fewest
+##possible moves.
+        if self.ffm:
+            return self.ffm
+        minSoFar = []
+        minX = minY = None
+        minLenSoFar = 0
+        for y in xrange(n):
+            for x in xrange(n):
+                ind = x + y * n
+                if self.grid[ind] == 0:
+                    pm = self.possibleMoves(x,y)
+                    if minX == None or len(pm) < minLenSoFar:
+                        minSoFar[:] = pm
+                        minLenSoFar = len(pm)
+                        minX = x
+                        minY = y
+        self.ffm = (minSoFar, minLenSoFar, minX, minY)
+        return self.ffm
+        return (minSoFar, minLenSoFar, minX, minY)
+    
+    def successorNodes(self):
+##successorNodes: Find the cell with the fewest
+##possible moves left, and then creates a new node for each possible move
+##in that cell.  
+        (pm, len_pm, x, y) = self.findFewestMoves()
+        node = self.copy()  # Create a copy of yourself
+        ind = x + y * n
+        for move in pm:
+            node.grid[ind] = move
+            yield node
+    def priority(self):
+##The priority function is:
+##(number of zeros in the grid) plus
+##(number of possible moves in the cell with the fewest possible moves)
+##the lower the priority, the sooner the node will be popped from the queue.
+        if self.__priority == None:
+            (pm, len_pm, x, y) = self.findFewestMoves()
+            self.__priority = self.grid.count(0) + len_pm
+        return self.__priority
+    def __cmp__(self, other):
+##The priority queue is sorted first by
+##the node's calculated priority; then, if the priorities
+##are equal, by whichever node has the lowest numbers
+##in the top-left of the array (or the next cell over,
+##and so on).
+        c = cmp(self.priority(), other.priority())
+        if c == 0:
+            i = 0
+            while c == 0 and i < n * n:
+                c = cmp(self.grid[i], other.grid[i])
+                i += 1
+        return c
+
+def main():
+    global n, mn
+    n = len(sys.argv) > 1 and int(sys.argv[1]) or 3
+    mn = n * (1 + n * n) / 2
+    # Initialize priority queue and push a square full of zeros on it
+    priorityQueue = PriorityQueue()
+    priorityQueue.put( square() )
+    # Loop through the priority queue...
+    while not priorityQueue.empty():
+        node = priorityQueue.get()
+        # if priority is 0, then this is a complete square; stop
+        if node.priority() == 0:
+            break
+        # otherwise, add to the queue all squares that can be derived by filling in
+        #  one cell in this magic square
+        for newnode in node.successorNodes():
+            priorityQueue.put(newnode.copy() )
+    if node.priority() == 0:
+        print node
+
+psyco.bind(main)
+main()
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+#
+# contributed by Tupteq
+
+import sys
+import psyco
+psyco.full()
+
+def main():
+    cout = sys.stdout.write
+    iter = 50
+    limit = 2.
+    size = int(sys.argv[1])
+    fsize = float(size)
+    xr_size = xrange(size)
+    xr_iter = xrange(iter)
+    bit_num = 7
+    byte_acc = 0
+
+    cout("P4\n%d %d\n" % (size, size))
+
+    for y in xr_size:
+        fy = 2j * y / fsize - 1j
+        for x in xr_size:
+            z = 0j
+            c = 2. * x / fsize - 1.5 + fy
+
+            for i in xr_iter:
+                z = z * z + c
+                if abs(z) >= limit:
+                    break
+            else:
+                byte_acc += 1 << bit_num
+
+            if bit_num == 0:
+                cout(chr(byte_acc))
+                bit_num = 7
+                byte_acc = 0
+            else:
+                bit_num -= 1
+
+        if bit_num != 7:
+            cout(chr(byte_acc))
+            bit_num = 7
+            byte_acc = 0
+
+main()
+#!/usr/bin/python -OO
+# The Computer Language Shootout Benchmarks
+# http://shootout.alioth.debian.org/
+#
+# contributed by Kevin Carson
+
+from math import sqrt
+import sys, psyco
+
+psyco.full()
+
+
+def main() :
+    w = h = int(sys.argv[1])
+
+    fractal = mandelbrot(w, h, 50, 4.0)
+
+    wtail = w % 8
+    calc_byte = fractal.calc_byte
+    cout = sys.stdout.write
+
+    cout("P4\n%d %d\n" % (w, h))
+
+    if wtail != 0 :
+        wtail_offset = (w // 8) * 8
+        wtail_shift = 8 - wtail
+        
+        for y in xrange(h):
+            fy = 2j * y / h - 1j
+
+            for x in xrange(0, wtail_offset, 8):
+                cout(chr(calc_byte(8, x, fy)))
+                
+            cout(chr(calc_byte(wtail, wtail_offset, fy) << wtail_shift))
+
+    else :
+        for y in xrange(h):
+            fy = 2j * y / h - 1j
+
+            for x in xrange(0, w, 8):
+                cout(chr(calc_byte(8, x, fy)))
+
+
+class mandelbrot :
+    def __init__(self, w, h, max_iterations, abs_limit) :
+        self.w = w
+        self.h = h
+        self.max_iterations = max_iterations
+        self.abs_limit = abs_limit
+
+    def calc_byte(self, bits, x, fy) :
+        bit_accumulator = 0
+        w = self.w
+        abs_limit_sqrt = sqrt(self.abs_limit)
+        max_iterations = self.max_iterations
+
+        for k in xrange(x, x + bits) :
+            z = 0j
+            c = 2.0 * k / w - 1.5  + fy
+
+            bit_accumulator <<= 1
+
+            for i in xrange(max_iterations) :
+                z = z * z + c
+
+                # Python can natively handle complex numbers.  As such this
+                # would be more reasonably written as "abs(z) >= abs_limit" but
+                # here it is implemented "same way".
+                if abs(z) >= abs_limit_sqrt :
+                    break
+            else :
+                bit_accumulator |= 1
+        return bit_accumulator
+
+
+main()
+#!/usr/bin/env python
+#
+#
+# Author: Åsmund Ødegård
+#         Simula Research Laboratory (2004)
+#
+#         modeled after the original matrix.py at the shootout.
+
+import sys, psyco
+from numarray import *
+
+psyco.full()
+
+size = 30
+
+def mkmatrix(rows,cols):
+    m = array([[i+(j-1)*rows for i in xrange(1,rows+1)] for j in xrange(1,cols+1)])
+    return m
+
+
+def mmult(m1,m2):
+    return dot(m1,m2)
+
+
+def main():
+    try: iter = int(sys.argv[1])
+    except: iter = 1
+
+    m1 = mkmatrix(size,size)
+    m2 = mkmatrix(size,size)
+    for i in xrange(iter):
+        mm = mmult(m1,m2)
+    print mm[0,0], mm[2,3], mm[3,2], mm[4,4]
+
+main()
+
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+#
+# contributed by Olof Kraigher
+# modified by Tupteq
+
+import psyco
+import sys
+
+width = 5
+height = 10
+
+rotate = dict(E='NE', NE='NW', NW='W', W='SW', SW='SE', SE='E')
+flip = dict(E='W', NE='NW', NW='NE', W='E', SW='SE', SE='SW')
+move = dict(E=lambda x, y: (x+1, y),
+            W=lambda x, y: (x-1, y),
+            NE=lambda x, y: (x + (y%2), y-1),
+            NW=lambda x, y: (x + (y%2) - 1, y-1),
+            SE=lambda x, y: (x + (y%2), y+1),
+            SW=lambda x, y: (x + (y%2) - 1, y+1))
+
+solutions = []
+masks = 10 * [0]
+
+valid = lambda x, y: 0 <= x < width and 0 <= y < height
+zerocount = lambda mask: sum(map(lambda x: (1<<x) & mask == 0, xrange(50)))
+
+
+def findFreeCell(board):
+    for y in xrange(height):
+        for x in xrange(width):
+            if board & (1 << (x + width*y)) == 0:
+                return x, y
+
+
+def floodFill(board, (x, y)):
+    if valid(x, y) and board & (1 << (x + width*y)) == 0:
+        board |= 1 << (x + width*y)
+
+        for f in move.values():
+            board |= floodFill(board, f(x, y))
+
+    return board
+
+
+def noIslands(mask):
+    zeroes = zerocount(mask)
+
+    if zeroes < 5:
+        return False
+
+    while mask != 0x3FFFFFFFFFFFF:
+        mask = floodFill(mask, findFreeCell(mask))
+        new_zeroes = zerocount(mask)
+
+        if zeroes - new_zeroes < 5:
+            return False
+
+        zeroes = new_zeroes
+
+    return True
+
+
+def getBitmask(x, y, piece):
+    mask = 1 << (x + width*y)
+
+    for cell in piece:
+        x, y = move[cell](x, y)
+        if valid(x, y):
+            mask = mask | (1 << (x + width*y))
+        else:
+            return False, 0
+
+    return True, mask
+
+def allBitmasks(piece, color):
+    bitmasks = []
+    for orientations in xrange(2):
+        for rotations in xrange(6 - 3*(color == 4)):
+            for y in xrange(height):
+                for x in xrange(width):
+                    isValid, mask = getBitmask(x, y, piece)
+                    if isValid and noIslands(mask):
+                        bitmasks.append(mask)
+
+            piece = map(lambda cell: rotate[cell], piece)
+        piece = map(lambda cell: flip[cell], piece)
+
+    return bitmasks
+
+
+def generateBitmasks():
+    global masksAtCell
+
+    pieces = [["E", "E", "E", "SE"], ["SE", "SW", "W", "SW"],
+        ["W", "W", "SW", "SE"], ["E",  "E", "SW", "SE"],
+        ["NW", "W", "NW", "SE", "SW"], ["E",  "E", "NE", "W"],
+        ["NW", "NE", "NE", "W"], ["NE", "SE", "E", "NE"],
+        ["SE", "SE", "E", "SE"], ["E", "NW", "NW", "NW"]]
+
+    masksAtCell = [[[] for j in xrange(10)] for i in xrange(width*height)]
+
+    color = 0
+    for piece in pieces:
+        masks = allBitmasks(piece, color)
+        masks.sort()
+        cellMask = 1 << (width*height - 1)
+        cellCounter = width*height - 1
+        j = len(masks) - 1
+
+        while (j >= 0):
+            if (masks[j] & cellMask) == cellMask:
+                masksAtCell[cellCounter][color].append(masks[j])
+                j = j-1
+            else:
+                cellMask = cellMask >> 1
+                cellCounter -= 1
+        color += 1
+
+
+def solveCell(cell, board):
+    if to_go <= 0:
+        # Got enough solutions
+        pass
+    elif board == 0x3FFFFFFFFFFFF:
+        # Solved
+        addSolutions()
+    elif board & (1 << cell) != 0:
+        # Cell full
+        solveCell(cell-1, board)
+    elif cell < 0:
+        # Out of board
+        pass
+    else:
+        for color in xrange(10):
+            if masks[color] == 0:
+                for mask in masksAtCell[cell][color]:
+                    if mask & board == 0:
+                        masks[color] = mask
+                        solveCell(cell-1, board | mask)
+                        masks[color] = 0
+
+
+def addSolutions():
+    global to_go
+    s = ''
+    mask = 1
+    for y in xrange(height):
+        for x in xrange(width):
+            for color in xrange(10):
+                if masks[color] & mask != 0:
+                    s += str(color)
+                    break
+                elif color == 9:
+                    s += '.'
+            mask <<= 1
+
+    # Inverse
+    ns = ''
+    for y in xrange(height):
+        for x in xrange(width):
+            ns += s[width - x - 1 + (width - y - 1) * width]
+
+    # Finally append
+    solutions.append(s)
+    solutions.append(ns)
+    to_go -= 2
+
+
+def printSolution(solution):
+    for y in xrange(height):
+        for x in xrange(width):
+            print solution[x + y*width],
+
+        print ""
+        if y % 2 == 0:
+            print "",
+    print
+
+
+def solve(n):
+    global to_go
+    to_go = n
+    generateBitmasks()
+    solveCell(width*height - 1, 0)
+
+
+if __name__ == "__main__":
+    psyco.full()
+    solve(int(sys.argv[1]))
+
+    print "%d solutions found\n" % len(solutions)
+    printSolution(min(solutions))
+    printSolution(max(solutions))
+#!/usr/bin/python
+# http://www.bagley.org/~doug/shootout/
+
+import sys, psyco
+psyco.full()
+
+class Toggle:
+    def __init__(self, start_state):
+        self.bool = start_state
+    def value(self):
+        return(self.bool)
+    def activate(self):
+        self.bool = not self.bool
+        return(self)
+
+class NthToggle(Toggle):
+    def __init__(self, start_state, max_counter):
+        Toggle.__init__(self, start_state)
+        self.count_max = max_counter
+        self.counter = 0
+    def activate(self):
+        self.counter += 1
+        if (self.counter >= self.count_max):
+            self.bool = not self.bool
+            self.counter = 0
+        return(self)
+
+
+def main():
+    NUM = int(sys.argv[1])
+    if NUM < 1:
+        NUM = 1
+
+    val = 1
+    toggle = Toggle(val)
+    for i in xrange(0,NUM):
+        val = toggle.activate().value()
+    if val:
+        print "true"
+    else:
+        print "false"
+
+    val = 1
+    ntoggle = NthToggle(val, 3)
+    for i in xrange(0,NUM):
+        val = ntoggle.activate().value()
+    if val:
+        print "true"
+    else:
+        print "false"
+
+main()
+#!/usr/bin/python
+# $Id: moments.psyco,v 1.4 2007-12-04 06:32:38 bfulgham Exp $
+# http://shootout.alioth.debian.org/
+#
+# Updated by Antoine Pitrou
+# 1.  Simple loops are often faster than 'reduce'.
+# 2.  'abs' function is referenced by a local variable.  (Local variables
+#     are optimized by the Python interpreter.
+# 3.  Some loop invariants are lifted to tighten up the code.
+
+import sys, string, math, operator, psyco
+psyco.full()
+
+def main():
+	sum = 0
+	nums = []
+	_abs = abs
+	
+	nums = [float(s) for s in sys.stdin.xreadlines()]
+	for num in nums:
+		sum += num
+#	sum = reduce(operator.add, nums)
+	
+	n = len(nums)
+	mean = sum/n
+	average_deviation = 0
+	standard_deviation = 0
+	variance = 0
+	skew = 0
+	kurtosis = 0
+	
+	for num in nums:
+		deviation = num - mean
+		d2 = deviation**2
+		average_deviation += _abs(deviation)
+		variance += d2
+		skew += deviation*d2
+		kurtosis += d2**2
+	
+	average_deviation /= n
+	variance /= (n - 1)
+	standard_deviation = math.sqrt(variance)
+	
+	if variance > 0.0:
+		skew /= (n * variance * standard_deviation)
+		kurtosis = kurtosis/(n * variance * variance) - 3.0
+	
+	nums.sort()
+	mid = n / 2
+	
+	if (n % 2) == 0:
+		median = (nums[mid] + nums[mid-1])/2
+	else:
+		median = nums[mid]
+	
+	print "n:                  %d" % n
+	print "median:             %f" % median
+	print "mean:               %f" % mean
+	print "average_deviation:  %f" % average_deviation
+	print "standard_deviation: %f" % standard_deviation
+	print "variance:           %f" % variance
+	print "skew:               %f" % skew
+	print "kurtosis:           %f" % kurtosis
+
+main()
+
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+#
+# contributed by Kevin Carson
+# modified by Tupteq
+# modified by Fredrik Johansson
+# modified by Tupteq (again)
+
+import sys
+import psyco
+psyco.full()
+
+pi = 3.14159265358979323
+solar_mass = 4 * pi * pi
+days_per_year = 365.24
+
+
+def advance(bodies, dt, n):
+    # Create all possible pairs first
+    pairs = [(b, b2) for i, b in enumerate(bodies) for b2 in bodies[i+1:]]
+    for i in xrange(n):
+        for b, b2 in pairs:
+            dx = b[0] - b2[0]
+            dy = b[1] - b2[1]
+            dz = b[2] - b2[2]
+
+            mag = dt * (dx*dx + dy*dy + dz*dz)**-1.5
+            b_mm = b[6] * mag
+            b2_mm = b2[6] * mag
+
+            b[3] -= dx * b2_mm
+            b[4] -= dy * b2_mm
+            b[5] -= dz * b2_mm
+            b2[3] += dx * b_mm
+            b2[4] += dy * b_mm
+            b2[5] += dz * b_mm
+
+        for b in bodies:
+            b[0] += dt * b[3]
+            b[1] += dt * b[4]
+            b[2] += dt * b[5]
+
+
+def energy(bodies):
+    e = 0.0
+    bodies2 = bodies[1:]
+    for b in bodies:
+        e += 0.5 * b[6] * (b[3]*b[3] + b[4]*b[4] + b[5]*b[5])
+        for b2 in bodies2:
+            dx = b[0] - b2[0]
+            dy = b[1] - b2[1]
+            dz = b[2] - b2[2]
+            distance = (dx*dx + dy*dy + dz*dz)**0.5
+            e -= (b[6] * b2[6]) / distance
+        del bodies2[:1]
+
+    return e
+
+
+def offset_momentum(bodies):
+    global sun
+    px = py = pz = 0.0
+
+    for b in bodies:
+        px -= b[3] * b[6]
+        py -= b[4] * b[6]
+        pz -= b[5] * b[6]
+
+    sun[3] = px / solar_mass
+    sun[4] = py / solar_mass
+    sun[5] = pz / solar_mass
+
+
+sun = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, solar_mass]
+
+jupiter = [
+    4.84143144246472090e+00,
+    -1.16032004402742839e+00,
+    -1.03622044471123109e-01,
+    1.66007664274403694e-03 * days_per_year,
+    7.69901118419740425e-03 * days_per_year,
+    -6.90460016972063023e-05 * days_per_year,
+    9.54791938424326609e-04 * solar_mass]
+
+saturn = [
+    8.34336671824457987e+00,
+    4.12479856412430479e+00,
+    -4.03523417114321381e-01,
+    -2.76742510726862411e-03 * days_per_year,
+    4.99852801234917238e-03 * days_per_year,
+    2.30417297573763929e-05 * days_per_year,
+    2.85885980666130812e-04 * solar_mass]
+
+uranus = [
+    1.28943695621391310e+01,
+    -1.51111514016986312e+01,
+    -2.23307578892655734e-01,
+    2.96460137564761618e-03 * days_per_year,
+    2.37847173959480950e-03 * days_per_year,
+    -2.96589568540237556e-05 * days_per_year,
+    4.36624404335156298e-05 * solar_mass]
+
+neptune = [
+    1.53796971148509165e+01,
+    -2.59193146099879641e+01,
+    1.79258772950371181e-01,
+    2.68067772490389322e-03 * days_per_year,
+    1.62824170038242295e-03 * days_per_year,
+    -9.51592254519715870e-05 * days_per_year,
+    5.15138902046611451e-05 * solar_mass]
+
+
+def main():
+    n = int(sys.argv[1])
+    bodies = [sun, jupiter, saturn, uranus, neptune]
+    offset_momentum(bodies)
+    print "%.9f" % energy(bodies)
+    advance(bodies, 0.01, n)
+    print "%.9f" % energy(bodies)
+
+
+main()
+# The Computer Language Shootout Benchmarks
+# http://shootout.alioth.debian.org/
+# Contributed by Kevin Carson
+# Modified by bearophile, Oct 10 2006 (suggestion by Skip)
+
+import sys, psyco
+from math import sqrt, pi
+from psyco.classes import __metaclass__
+
+solar_mass = 4 * pi * pi
+
+
+def advance(bodies, dt, nbodies):
+    for i in xrange(nbodies):
+        b = bodies[i]
+        b_mass = b.mass
+        b_x = b.x
+        b_y = b.y
+        b_z = b.z
+
+        for j in xrange(i + 1, nbodies):
+            b2 = bodies[j]
+
+            dx = b_x - b2.x
+            dy = b_y - b2.y
+            dz = b_z - b2.z
+
+            distance = sqrt(dx*dx + dy*dy + dz*dz)
+            aux = dt / (distance*distance*distance)
+            b_mass_x_mag = b_mass * aux
+            b2_mass_x_mag = b2.mass * aux
+
+            b.vx -= dx * b2_mass_x_mag
+            b.vy -= dy * b2_mass_x_mag
+            b.vz -= dz * b2_mass_x_mag
+            b2.vx += dx * b_mass_x_mag
+            b2.vy += dy * b_mass_x_mag
+            b2.vz += dz * b_mass_x_mag
+
+    for b in bodies:
+        b.x += dt * b.vx
+        b.y += dt * b.vy
+        b.z += dt * b.vz
+
+
+def energy(bodies):
+    e = 0.0
+    for i in xrange(len(bodies)):
+        b = bodies[i]
+        e += 0.5 * b.mass * (b.vx*b.vx + b.vy*b.vy + b.vz*b.vz)
+
+        for j in xrange(i + 1, len(bodies)):
+            b2 = bodies[j]
+
+            dx = b.x - b2.x
+            dy = b.y - b2.y
+            dz = b.z - b2.z
+            distance = sqrt(dx*dx + dy*dy + dz*dz)
+
+            e -= (b.mass * b2.mass) / distance
+    return e
+
+
+def offset_momentum(bodies, sun):
+    px = py = pz = 0.0
+
+    for b in bodies:
+        px += b.vx * b.mass
+        py += b.vy * b.mass
+        pz += b.vz * b.mass
+
+    sun.vx = - px / solar_mass
+    sun.vy = - py / solar_mass
+    sun.vz = - pz / solar_mass
+
+
+def main():
+    class Body:
+        def __init__(self, **data):
+            self.__dict__.update(data)
+
+    days_per_year = 365.24
+
+    sun = Body(x=0, y=0, z=0, vx=0, vy=0, vz=0, mass=solar_mass)
+
+    jupiter = Body(x=4.84143144246472090e+00,
+                   y=-1.16032004402742839e+00,
+                   z=-1.03622044471123109e-01,
+                   vx=1.66007664274403694e-03 * days_per_year,
+                   vy=7.69901118419740425e-03 * days_per_year,
+                   vz=-6.90460016972063023e-05 * days_per_year,
+                   mass=9.54791938424326609e-04 * solar_mass)
+
+    saturn = Body(x=8.34336671824457987e+00,
+                  y=4.12479856412430479e+00,
+                  z=-4.03523417114321381e-01,
+                  vx=-2.76742510726862411e-03 * days_per_year,
+                  vy=4.99852801234917238e-03 * days_per_year,
+                  vz=2.30417297573763929e-05 * days_per_year,
+                  mass=2.85885980666130812e-04 * solar_mass)
+
+    uranus = Body(x=1.28943695621391310e+01,
+                  y=-1.51111514016986312e+01,
+                  z=-2.23307578892655734e-01,
+                  vx=2.96460137564761618e-03 * days_per_year,
+                  vy=2.37847173959480950e-03 * days_per_year,
+                  vz=-2.96589568540237556e-05 * days_per_year,
+                  mass=4.36624404335156298e-05 * solar_mass)
+
+    neptune = Body(x=1.53796971148509165e+01,
+                   y=-2.59193146099879641e+01,
+                   z=1.79258772950371181e-01,
+                   vx=2.68067772490389322e-03 * days_per_year,
+                   vy=1.62824170038242295e-03 * days_per_year,
+                   vz=-9.51592254519715870e-05 * days_per_year,
+                   mass=5.15138902046611451e-05 * solar_mass)
+
+    n = int(sys.argv[1])
+    bodies = [sun, jupiter, saturn, uranus, neptune]
+    nbodies = len(bodies)
+    offset_momentum(bodies, sun)
+    print "%.9f" % energy(bodies)
+
+    for i in xrange(n):
+        advance(bodies, 0.01, nbodies)
+    print "%.9f" % energy(bodies)
+
+
+psyco.bind(main)
+main()
+#!/usr/bin/python
+# $Id: nestedloop.psyco,v 1.3 2007-12-04 06:32:38 bfulgham Exp $
+# http://www.bagley.org/~doug/shootout/
+# with help from Mark Baker
+
+import sys, psyco
+psyco.full()
+
+def main():
+    x = 0
+    iter = int(sys.argv[1])
+    if iter < 1:
+        iter = 1
+    
+    i_r = range(iter)
+    for a in i_r:
+        for b in i_r:
+            for c in i_r:
+                for d in i_r:
+                    for e in i_r:
+                        for f in i_r:
+                            x += 1
+    print x
+
+main()
+# The Computer Language Shootout
+# http://shootout.alioth.debian.org/
+# Optimized for Psyco from the Free Pascal version by bearophile, Jan 2 2006
+
+import sys, psyco
+
+def nsieve(n):
+    flags = [True] * (n+1)
+    count, n1 = 0, n+1
+    for i in xrange(2, n1):
+        if flags[i]:
+            count += 1
+            k = i << 1
+            while k < n1:
+#                if flags[k]: flags[k] = False
+                flags[k] = False
+                k += i
+    print "Primes up to %8u %8u" % (n, count)
+
+psyco.bind(nsieve)
+m = int(sys.argv[1])
+for i in 0, 1, 2:
+    nsieve(10000 << (m-i))
+# The Computer Language Shootout
+# http://shootout.alioth.debian.org
+# Free Pascal version by Joost van der Sluis
+# Adapted to Psyco for max speed by bearophile, Jan 1 2005
+
+import sys, psyco
+
+def nprimes(size):
+    bpc = 31 # used 31 bits only for each int
+    flags = [2147483647] * (size / bpc + 1)
+
+    count = 0
+    for prime in xrange(2, size+1):
+        offset = prime / bpc
+        mask = 1 << (prime % bpc)
+        if flags[offset] & mask:
+            count += 1
+            i = prime << 1
+            while i <= size:
+                offset = i / bpc
+                mask = 1 << (i % bpc)
+                if flags[offset] & mask:
+                    flags[offset] &= ~mask
+                i += prime
+    print "Primes up to %8u %8u" % (size, count)
+
+psyco.bind(nprimes)
+m = int( (sys.argv+[2])[1] )
+for i in 0, 1, 2:
+    nprimes(10000 << (m-i))
+#!/usr/bin/python
+# http://www.bagley.org/~doug/shootout/ 
+
+import sys, psyco
+psyco.full()
+
+class Toggle:
+    def __init__(self, start_state):
+        self.bool = start_state
+    def value(self):
+        return(self.bool)
+    def activate(self):
+        self.bool = not self.bool
+        return(self)
+
+class NthToggle(Toggle):
+    def __init__(self, start_state, max_counter):
+        Toggle.__init__(self, start_state)
+        self.count_max = max_counter
+        self.counter = 0
+    def activate(self):
+        self.counter += 1
+        if (self.counter >= self.count_max):
+            self.bool = not self.bool
+            self.counter = 0
+        return(self)
+
+
+def main():
+    NUM = int(sys.argv[1])
+    if NUM < 1:
+        NUM = 1
+
+    toggle = Toggle(1)
+    for i in xrange(0,5):
+        if toggle.activate().value():
+            print "true"
+        else:
+            print "false"
+    for i in xrange(0,NUM):
+        toggle = Toggle(1)
+
+    print ""
+
+    ntoggle = NthToggle(1, 3)
+    for i in xrange(0,8):
+        if ntoggle.activate().value():
+            print "true"
+        else:
+            print "false"
+    for i in xrange(0,NUM):
+        ntoggle = NthToggle(1, 3)
+
+main()
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+#
+# contributed by Josh Goldfoot
+# modified by Mike Klaas
+# modified by Dani Nanz 2007-09-14, also considering input from Tupteq
+
+import sys
+import math
+import psyco
+
+def doit(n, sin=math.sin, cos=math.cos):
+
+    alt = -1.
+    twothirds = 2. / 3.
+    k = s0 = 1.
+    s1 = s2 = s3 = s4 = s5 = s6 = s7 = s8 = 0.
+    while k <= n:
+        k2 = k * k
+        k3 = k2 * k
+        ks, kc = sin(k), cos(k)
+        alt = -alt
+        s0 += twothirds ** k
+        s1 += k ** -.5
+        s2 += 1. / (k * (k + 1.))
+        s3 += 1. / (k3 * ks * ks)
+        s4 += 1. / (k3 * kc * kc)
+        s5 += 1. / k
+        s6 += 1. / k2
+        s7 += alt / k
+        s8 += alt / (k + k - 1.)
+        k += 1.      
+    fmt = '\n%0.9f\t'
+    nms = ['(2/3)^k', 'k^-0.5', '1/k(k+1)', 'Flint Hills', 'Cookson Hills',
+           'Harmonic', 'Riemann Zeta', 'Alternating Harmonic', 'Gregory']
+    print (fmt[1:] + fmt.join(nms)) % (s0, s1, s2, s3, s4, s5, s6, s7, s8)
+
+psyco.bind(doit)    
+doit(float(sys.argv[1]))
+
+import sys, psyco
+from itertools import *
+
+psyco.full()
+
+def gen_x():
+    return imap(lambda k: (k, 4*k + 2, 0, 2*k + 1), count(1))
+
+def compose((aq, ar, as_, at), (bq, br, bs, bt)):
+    return (aq * bq,
+            aq * br + ar * bt,
+            as_ * bq + at * bs,
+            as_ * br + at * bt)
+
+def extract((q, r, s, t), j):
+    return (q*j + r) // (s*j + t)
+
+def pi_digits():
+    z = (1, 0, 0, 1)
+    x = gen_x()
+    while 1:
+        y = extract(z, 3)
+        while y != extract(z, 4):
+            z = compose(z, x.next())
+            y = extract(z, 3)
+        z = compose((10, -10*y, 0, 1), z)
+        yield y
+
+def main():
+    n = int(sys.argv[1])
+    digits = pi_digits()
+    width = 10
+    for i in xrange(width, n+1, width):
+        print "%s\t:%d" % ("".join(imap(str, islice(digits, width))), i)
+    if n % width > 0:
+        print "%s\t:%d" % ("".join(imap(str, islice(digits, n % width))).ljust(width), n)
+
+
+main()
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+#
+# contributed by - not known -
+# modified by Pilho Kim (first GMP version)
+# modified by Dani Nanz (2007-09-14)
+
+import sys
+import itertools
+import gmpy
+import psyco
+psyco.full()
+
+mpz0, mpz1 = gmpy.mpz(0), gmpy.mpz(1)
+mpz2, mpz3 = gmpy.mpz(2), gmpy.mpz(3)
+mpz4, mpz10 = gmpy.mpz(4), gmpy.mpz(10)
+
+
+def gen_x(k=mpz0):
+
+    while 1:
+        k += mpz1
+        yield (k, mpz4 * k + mpz2, mpz0, mpz2 * k + mpz1)
+
+
+def compose((a, b, c, d), (e, f, g, h)):  
+
+    return (a * e,
+            a * f + b * h,
+            c * e + d * g,
+            c * f + d * h)
+
+
+def extract((a, b, c, d), j):
+    return (a * j + b) // (c * j + d)
+
+
+def pi_digits():
+
+    z = (mpz1, mpz0, mpz0, mpz1)
+    x = gen_x()
+    while 1:
+        y = extract(z, mpz3)
+        while y != extract(z, mpz4):
+            z = compose(z, x.next())
+            y = extract(z, mpz3)
+        z = compose((mpz10, -mpz10 * y, mpz0, mpz1), z)
+        yield str(y)
+
+
+def main(islice=itertools.islice):
+
+    n = int(sys.argv[1])
+    digits = pi_digits()
+    w = 10
+    out = []
+    for i in xrange(w, n+1, w):
+        out.extend([''.join(islice(digits, w)), i])
+    print ('%s\t:%d\n' * (len(out) / 2)) % tuple(out),
+    if n % w > 0:
+        print "%s\t:%d" % (''.join(islice(digits, n % w)).ljust(w), n)
+
+
+main()
+#!/usr/bin/python -OO
+# The Computer Language Shootout Benchmarks
+# http://shootout.alioth.debian.org/
+#
+# contributed by Kevin Carson
+
+from threading import Thread
+from Queue import Queue
+from sys import argv
+import psyco
+
+psyco.full()
+
+
+class link(Thread) :
+    def __init__(self, next) :
+        Thread.__init__(self)
+        self.next = next
+        self.inq = Queue(1)
+
+    def run(self) :
+        self.store = self.inq.get()
+        self.next.inq.put(self.store + 1)
+
+
+class terminus(Thread) :
+    def __init__(self) :
+        Thread.__init__(self)
+        self.inq = Queue(1)
+
+    def run(self) :
+        self.sum = self.inq.get()
+        print "%d" % self.sum
+
+
+N = int(argv[1])
+
+# Create the chain of threads then fire them up
+chain_length = N + 1
+tasks = [None] * chain_length
+tasks[N] = terminus()
+tasks[N - 1] = link(tasks[N])
+
+for i in xrange(N - 2, -1, -1) :
+    tasks[i] = link(tasks[i + 1])
+
+for i in xrange(chain_length) :
+    tasks[i].start()
+
+# Feed the chain with an integer message
+tasks[0].inq.put(0)
+
+# Wait upon the terminus process
+tasks[N].join()
+#!/usr/bin/python
+# $Id: prodcons.psyco,v 1.3 2007-12-04 06:32:39 bfulgham Exp $
+# http://www.bagley.org/~doug/shootout/
+
+import sys, psyco
+from threading import * 
+psyco.full()
+
+access = Condition()
+count = 0
+consumed = 0
+produced = 0
+data = 0
+
+def consumer(n):
+    global count, data, consumed
+    while 1:
+        access.acquire()
+        while count == 0:
+            access.wait()
+        i = data
+        count = 0
+        access.notify()
+        access.release()
+        consumed += 1
+        if i == n:
+            break
+
+def producer(n):
+    global count, data, produced
+    for i in xrange(1,n+1):
+        access.acquire()
+        while count == 1:
+            access.wait()
+        data = i
+        count = 1
+        access.notify()
+        access.release()
+        produced += 1
+
+def main(n):
+    t1 = Thread(target=producer, args=(n,))
+    t2 = Thread(target=consumer, args=(n,))
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
+    print produced, consumed
+    
+main(int(sys.argv[1]))
+
+
+#!/usr/bin/python
+# $Id: random.psyco,v 1.3 2007-12-04 06:32:39 bfulgham Exp $
+# http://www.bagley.org/~doug/shootout/
+# with help from Brent Burley
+
+import sys, psyco
+psyco.full()
+
+IM = 139968
+IA = 3877
+IC = 29573
+
+LAST = 42
+def gen_random(max):
+    global LAST
+    LAST = (LAST * IA + IC) % IM
+    return( (max * LAST) / IM )
+
+def main():
+    N = int(sys.argv[1])
+    if N < 1:
+        N = 1
+    gr = gen_random
+    for i in xrange(1,N):
+        gr(100.0)
+    print "%.9f" % gr(100.0)
+
+main()
+#!/usr/bin/python -OO
+# The Computer Language Shootout Benchmarks 
+# http://shootout.alioth.debian.org/
+#
+# contributed by Kevin Carson
+
+import sys, psyco
+from math import sqrt
+
+psyco.full()
+
+
+rn_coefficient = 3.0 / sqrt(12)
+delta = sqrt(2.220446e-16)
+infinity = 1.797693e+308
+
+
+class Vector :
+    def __init__(self, x, y, z) :
+        self.x = x
+        self.y = y
+        self.z = z
+
+    def __add__(self, v) :
+        return Vector(self.x + v.x, self.y + v.y, self.z + v.z)
+
+    def __sub__(self, v) :
+        return Vector(self.x - v.x, self.y - v.y, self.z - v.z)
+
+    def __rmul__(self, n) :
+        return Vector(self.x * n, self.y * n, self.z * n)
+
+    def dot(self, v) :
+        return self.x * v.x + self.y * v.y + self.z * v.z
+
+    def unitise(self) :
+        return (1 / sqrt(self.dot(self))) * self
+
+
+class Ray :
+    def __init__(self, o, d) :
+        self.origin = o
+        self.direction = d
+
+
+class Scene :
+    def __init__(self) :
+        pass
+
+    def intersect(self, point, vector, ray) :
+        return 0.0, vector
+
+    def delete(self) :
+        if type(self) == Group :
+            for i in self.obs :
+                self.objs[i].delete()
+                self.objs[i] = None
+            self = None
+
+
+class Sphere(Scene) :
+    def __init__(self, center, radius) :
+        Scene.__init__(self)
+        self.center = center
+        self.radius = radius
+
+    def ray_sphere(self, ray) :
+        v = self.center - ray.origin
+        b = v.dot(ray.direction)
+        disc = b * b - v.dot(v) + self.radius * self.radius
+
+        if disc < 0.0 :
+            return infinity
+
+        d = sqrt(disc)
+        t2 = b + d
+
+        if t2 < 0.0 :
+            return infinity
+
+        t1 = b - d
+
+        if t1 > 0.0 :
+            return t1
+
+        else :
+            return t2
+
+
+    def intersect(self, pt, normal, ray) :
+        l = self.ray_sphere(ray)
+
+        if l >= pt :
+            return pt, normal
+
+        normal = (ray.origin + l * ray.direction - self.center).unitise()
+        return l, normal
+
+
+class Group(Scene) :
+    def __init__(self, b) :
+        Scene.__init__(self)
+        self.bound = b
+        self.objs = []
+
+    def intersect(self, pt, normal, ray) :
+        l = self.bound.ray_sphere(ray)
+        
+        if l >= pt :
+            return pt, normal
+
+        for obj in self.objs :
+            pt, normal = obj.intersect(pt, normal, ray)
+
+        return pt, normal
+    
+
+def ray_trace(light, ray, scene) :
+    l = infinity
+    normal = Vector(0.0, 0.0, 0.0)
+    l, normal = scene.intersect(l, normal, ray)
+
+    if l == infinity :
+        return 0.0
+
+    o = ray.origin + l * ray.direction + delta * normal
+    g = -normal.dot(light)
+    l = infinity
+
+    if g <= 0.0 :
+        return 0.0
+
+    l, normal = scene.intersect(
+        l,
+        normal,
+        Ray(o, Vector(0.0, 0.0, 0.0) - light)
+    )
+
+    if l == infinity :
+        return g
+
+    else :
+        return 0.0
+
+
+def create(level, r, x, y, z) :
+    sphere = Sphere(Vector(x, y, z), r)
+
+    if level == 1 :
+        return sphere
+
+    group = Group(Sphere(Vector(x, y, z), 3.0 * r))
+    group.objs.append(sphere)
+
+    rn = rn_coefficient * r
+
+    for dz in xrange(-1, 2, 2) :
+        for dx in xrange(-1, 2, 2) :
+            group.objs.append(
+                create(level - 1, r / 2.0, x - dx * rn, y + rn, z - dz * rn)
+            )
+
+    return group
+
+
+def main() :
+    if len(sys.argv) == 2 :
+        n = int(sys.argv[1])
+        
+    else :
+        n = 256
+
+    level = 6
+    scene = create(level, 1.0, 0.0, -1.0, 0.0)
+
+    ss = 4
+    ss2 = ss * ss
+
+    cout = sys.stdout.write
+
+    cout("P5\n%d %d\n255\n" % (n, n))
+
+    for y in xrange(n - 1, -1, -1) :
+        for x in xrange(n) :
+            g = 0.0
+            for dx in xrange(ss) :
+                for dy in xrange(ss) :
+                    g += ray_trace(
+                        Vector(-1.0, -3.0, 2.0).unitise(),
+                        Ray(
+                            Vector(0.0, 0.0, -4.0),
+                            Vector(
+                                x + dx / float(ss) - n / 2.0,
+                                y + dy / float(ss) - n / 2.0,
+                                float(n)
+                            ).unitise()
+                        ),
+                        scene
+                    )
+            g = 0.5 + 255 * g / ss2
+            cout(chr(int(g)))
+    scene.delete()
+
+
+main()
+# The Computer Language Shootout
+# http://shootout.alioth.debian.org/
+# recursive test, by bearophile, Jan 24 2006
+
+def Ack(x, y):
+    if x == 0: return y+1
+    if y == 0: return Ack(x-1, 1)
+    return Ack(x-1, Ack(x, y-1))
+
+def Fib(n):
+    if n < 2: return 1
+    return Fib(n-2) + Fib(n-1)
+
+def FibFP(n):
+    if n < 2.0: return 1.0
+    return FibFP(n-2.0) + FibFP(n-1.0)
+
+def Tak(x, y, z):
+    if y < x: return Tak( Tak(x-1,y,z), Tak(y-1,z,x), Tak(z-1,x,y) )
+    return z
+
+def TakFP(x, y, z):
+    if y < x: return TakFP( TakFP(x-1.0,y,z), TakFP(y-1.0,z,x), TakFP(z-1.0,x,y) )
+    return z
+
+import psyco; psyco.full()
+from sys import argv
+n = int(argv[1]) - 1
+print "Ack(3,%d):" % (n+1), Ack(3, n+1)
+print "Fib(%.1f): %.1f" % (28.0+n, FibFP(28.0+n))
+print "Tak(%d,%d,%d): %d" % (3*n, 2*n, n, Tak(3*n, 2*n, n))
+print "Fib(3):", Fib(3)
+print "Tak(3.0,2.0,1.0):", TakFP(3.0, 2.0, 1.0)
+#The Computer Language Shootout
+#http://shootout.alioth.debian.org/
+#contributed by Dominique Wahli
+
+import psyco
+from sys import stdin
+from re import sub, findall
+
+psyco.full()
+
+seq = stdin.read()
+ilen = len(seq)
+
+seq = sub('(>.*\n)|(\n)', '', seq)
+clen = len(seq)
+
+variants = (
+      'agggtaaa|tttaccct',
+      '[cgt]gggtaaa|tttaccc[acg]',
+      'a[act]ggtaaa|tttacc[agt]t',
+      'ag[act]gtaaa|tttac[agt]ct',
+      'agg[act]taaa|ttta[agt]cct',
+      'aggg[acg]aaa|ttt[cgt]ccct',
+      'agggt[cgt]aa|tt[acg]accct',
+      'agggta[cgt]a|t[acg]taccct',
+      'agggtaa[cgt]|[acg]ttaccct')
+for f in variants:
+    print f, len(findall(f, seq))
+
+subst = {
+      'B' : '(c|g|t)', 'D' : '(a|g|t)',   'H' : '(a|c|t)', 'K' : '(g|t)',
+      'M' : '(a|c)',   'N' : '(a|c|g|t)', 'R' : '(a|g)',   'S' : '(c|g)',
+      'V' : '(a|c|g)', 'W' : '(a|t)',     'Y' : '(c|t)'}
+for f, r in subst.items(): 
+    seq = sub(f, r, seq)
+
+print
+print ilen
+print clen
+print len(seq)
+
+
+#!/usr/pkg/bin/python
+# $Id: regexmatch.psyco,v 1.3 2007-12-04 06:32:39 bfulgham Exp $
+# http://www.bagley.org/~doug/shootout/
+
+import sys, re, psyco
+psyco.full()
+
+def main():
+    NUM = int(sys.argv[1])
+    if NUM < 1:
+        NUM = 1
+
+    phones = sys.stdin.readlines()
+
+    rx = re.compile(
+        r'(?:^|[^\d\(])'
+        r'(?:\((\d\d\d)\)|(\d\d\d))'
+        r'[ ]'
+        r'(\d\d\d)'
+        r'[ -]'
+        r'(\d\d\d\d)'
+        r'\D'
+        )
+
+    findIt = rx.search
+    count = 0
+    for i in xrange(0,NUM):
+        for line in phones:
+            m = findIt(line)
+            if m:
+                g = m.group
+                num = "(" + (g(1) or g(2)) + ") " + g(3) + "-" + g(4)
+                if 0 == i:
+                    count = count + 1
+                    print "%d: %s" % (count, num)
+
+main()
+# The Computer Language Shootout
+# http://shootout.alioth.debian.org/
+# contributed by Jacob Lee, Steven Bethard, et al
+# modified by bearophile
+
+import string, psyco
+from sys import stdin
+
+def show(seq, table):
+    seq = ''.join(seq).translate(table, "\n")[::-1]
+    result = []
+    result_append = result.append
+    for i in xrange(0, len(seq), 60):
+        result_append(seq[i:i+60])
+    if result: print "\n".join(result)
+
+def main():
+    tab = string.maketrans('ACBDGHKMNSRUTWVYacbdghkmnsrutwvy','TGVHCDMKNSYAAWBRTGVHCDMKNSYAAWBR')
+    seq = []
+    add_line = seq.append
+    for line in stdin:
+        if line[0] in '>;':
+            show(seq, tab)
+            print line,
+            del seq[:]
+        else:
+            add_line(line)
+    show(seq, tab)
+
+psyco.bind(show); psyco.bind(main)
+main()
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+#
+# contributed by Jacob Lee, Steven Bethard, et al
+
+import sys, string
+import psyco
+psyco.full()
+
+
+def show(seq, 
+         table=string.maketrans('ACBDGHK\nMNSRUTWVYacbdghkmnsrutwvy',
+                                'TGVHCDM\nKNSYAAWBRTGVHCDMKNSYAAWBR')):
+                                
+   seq = (''.join(seq)).translate(table)[::-1]
+   for i in xrange(0, len(seq), 60):
+      print seq[i:i+60]
+      
+
+def main():
+   seq = []
+   add_line = seq.append
+   for line in sys.stdin:
+      if line[0] in '>;':
+         show(seq)
+         print line,
+         del seq[:]
+      else:
+         add_line(line[:-1])
+   show(seq)
+
+main()
+#!/usr/bin/python
+# $Id: reversefile.psyco,v 1.3 2007-12-04 06:32:39 bfulgham Exp $
+# http://www.bagley.org/~doug/shootout/
+# from Brad Knotwell
+# with help from Mark Baker
+
+import psyco
+psyco.full()
+
+def main():
+    from sys import stdin, stdout
+    w = stdin.readlines()
+    w.reverse()
+    stdout.writelines(w)
+
+main()
+#!/usr/bin/python 
+# $Id: sieve.psyco,v 1.4 2007-12-04 06:32:39 bfulgham Exp $
+# http://shootout.alioth.debian.org/
+# with help from Brad Knotwell
+
+#uncomment for psyco JIT
+import psyco
+psyco.full()
+
+import sys
+
+def main():
+    try:
+        NUM = int(sys.argv[1])
+    except:
+        NUM = 1
+
+    for foo in xrange(0,NUM):
+        count = 0
+        flags = (8193) * [1]
+        for i in xrange(2,8193):
+            if flags[i]:
+                # remove all multiples of prime: i
+                k = i + i
+                while k < 8193:
+                    flags[k] = 0
+                    k = k + i
+                count += 1    
+    print "Count:", count
+    #uncomment to verify the algorithm
+    #n = 0
+    #for i in range(200):
+    #    if flags[i]:
+    #        print n
+    #    n += 1
+
+main()
+
+
+
+
+
+
+
+
+
+
+
+
+
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+#
+# Contributed by Sebastien Loisel
+# Fixed by Isaac Gouy
+# Modified for Psyco for max speed by bearophile, Jan 1 2005
+# Shortened and a tad accelerated by Dani Nanz, 2007-10-05
+
+import sys
+import psyco
+import array
+
+
+def A(i, j):
+    return 1. / ((i + j) * (i + j + 1) / 2 + i + 1)
+
+
+def AU(u, n, A=A, arr=array.array):
+
+    v = arr('d', [0] * n)
+    for i in xrange(n):
+        for j in xrange(n):
+            v[i] += A(i, j) * u[j]
+    return v
+
+
+def AtU(u, n, A=A, arr=array.array):
+
+    v = arr('d', [0] * n)
+    for i in xrange(n):
+        for j in xrange(n):
+            v[i] += A(j, i) * u[j]
+    return v
+
+
+def AtAU(u, n):
+    return AtU(AU(u, n), n)
+
+
+def main(arr=array.array):
+
+    n = int(sys.argv[1])
+    u = arr('d', [1] * n)
+    for i in xrange(10):
+       v = AtAU(u, n)
+       u = AtAU(v, n)
+    vBv = vv = 0.
+    for i in xrange(n):
+        vBv += u[i] * v[i]
+        vv += v[i] * v[i]
+    print "%0.9f" % (vBv / vv) ** .5
+
+
+psyco.bind(main)
+main()
+# The Computer Language Shootout
+# http://shootout.alioth.debian.org/
+#
+# Contributed by Sebastien Loisel
+# Fixed by Isaac Gouy
+# Modified for Psyco for max speed by bearophile, Jan 1 2005
+
+import sys, psyco
+
+def eval_A(i,j):
+    return 1.0 / ( (i+j) * (i+j+1) / 2 + i + 1 )
+
+def eval_A_times_u(u):
+    lenu = len(u)
+    v = [0.0] * lenu
+    for i in xrange(lenu):
+        aux = 0.0
+        for j in xrange(lenu):
+            aux += eval_A(i,j) * u[j]
+        v[i] = aux
+    return v
+
+def eval_At_times_u(u):
+    lenu = len(u)
+    v = [0.0] * lenu
+    for i in xrange(lenu):
+        aux = 0.0
+        for j in xrange(lenu):
+            aux += eval_A(j,i) * u[j]
+        v[i] = aux
+    return v
+
+def eval_AtA_times_u(u):
+    return eval_At_times_u(eval_A_times_u(u))
+
+def main():
+    n = int(sys.argv[1])
+    u = [1.0] * n
+    for i in xrange(10):
+       v = eval_AtA_times_u(u)
+       u = eval_AtA_times_u(v)
+    vBv = 0.0
+    vv = 0.0
+    for i in xrange(n):
+       vBv += u[i] * v[i]
+       vv += v[i] * v[i]
+    print "%0.9f" % ((vBv/vv)**0.5)
+
+psyco.bind(main)
+main()
+#!/usr/bin/python
+# $Id: spellcheck.psyco,v 1.3 2007-12-04 06:32:39 bfulgham Exp $
+# http://shootout.alioth.debian.org/
+#
+# From Tupteq, based on original code by Fred Bremmer
+
+import sys, psyco
+
+psyco.full()
+
+def main():
+    dict = set(line[:-1] for line in file("Usr.Dict.Words") if line != '\n')
+
+    for line in sys.stdin:
+        word = line[:-1]
+        if word and word not in dict:
+	    print word
+
+main()
+#!/usr/bin/python
+# $Id: strcat.psyco,v 1.2 2007-12-04 06:32:39 bfulgham Exp $
+# http://www.bagley.org/~doug/shootout/
+# from Brad Knotwell
+
+import sys,cStringIO
+
+def main():
+    n = int(sys.argv[1])
+    str = cStringIO.StringIO()
+    for i in xrange(0,n):
+        str.write('hello\n')
+
+    print str.tell()
+
+main()
+#!/usr/bin/python
+# $Id: sumcol.psyco,v 1.3 2007-12-04 06:32:39 bfulgham Exp $
+# http://www.bagley.org/~doug/shootout/
+# with help from Mark Baker
+
+import sys, psyco
+psyco.full()
+
+def main():
+    count = 0
+    for line in sys.stdin.xreadlines():
+        count += int(line)
+    print count
+
+main()
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+#
+# contributed by Josh Hoyt
+
+import sys, itertools
+import psyco
+psyco.full()
+
+print sum(itertools.imap(int, sys.stdin))
+
+
+
+import sys, psyco
+psyco.full()
+
+
+def takfp(x, y, z):
+    if y >= x:
+        return z
+    return takfp(takfp(x - 1.0, y, z), takfp(y - 1.0, z, x), takfp(z - 1.0, x, y))
+
+def main():
+    try:
+        n = float(sys.argv[1])
+    except:
+        print "Usage: %s <N>" % sys.argv[0]
+
+    print takfp(n * 3.0, n * 2.0, n * 1.0)
+
+main()
+#!/usr/bin/python -OO
+# The Computer Language Shootout Benchmarks
+# http://shootout.alioth.debian.org
+#
+# Contributed by Kevin Carson
+
+from sys import argv, stdout
+from socket import socket, gethostbyname, \
+    AF_INET, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR
+from os import fork, wait, _exit
+import psyco
+
+psyco.full()
+
+
+def server(msg_count, msg_mult, reply_size, request_size) :
+    s = socket(AF_INET, SOCK_STREAM)
+    s.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+    s.bind((gethostbyname('localhost'), 11000))
+    s.listen(1)
+    sc, addr = s.accept()
+    reply = " " * reply_size
+    screcv = sc.recv
+    scsendall = sc.sendall
+
+    for i in xrange(msg_count * msg_mult) :
+        request = screcv(request_size)
+        scsendall(reply)
+
+    sc.close()
+    s.close()
+
+
+def client(msg_count, msg_mult, reply_size, request_size) :
+    s = socket(AF_INET, SOCK_STREAM)
+    while s.connect_ex((gethostbyname('localhost'), 11000)) != 0 : pass
+    request = " " * request_size
+    srecv = s.recv
+    ssend = s.send
+
+    replies = bytes = 0
+    for i in xrange(msg_count * msg_mult) :
+        ssend(request)
+        byte_count = 0
+        while byte_count < reply_size :
+            reply = srecv(reply_size)
+            byte_count += len(reply)
+        bytes += byte_count
+        replies += 1
+
+    s.close()
+    print "replies: %d\tbytes: %d" % (replies, bytes)
+    stdout.flush()
+
+
+M = 6400
+reply_size = 64
+request_size = 64
+
+N = int(argv[1])
+
+child_pid = fork()
+
+if child_pid == 0 :
+    client(N, M, reply_size, request_size)
+    _exit(0)
+
+else :
+    server(N, M, reply_size, request_size)
+    wait()
+#!/usr/bin/python -OO
+# The Computer Language Shootout Benchmarks
+# http://shootout.alioth.debian.org
+#
+# Contributed by Kevin Carson
+
+from sys import argv, stdout
+from socket import socket, gethostbyname, \
+    AF_INET, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR
+from os import fork, wait, _exit
+import psyco
+
+psyco.full()
+
+
+def server(msg_count, msg_mult, reply_size, request_size) :
+    s = socket(AF_INET, SOCK_STREAM)
+    s.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+    s.bind((gethostbyname('localhost'), 11000))
+    s.listen(1)
+    sc, addr = s.accept()
+    reply = " " * reply_size
+    screcv = sc.recv
+    scsendall = sc.sendall
+
+    for i in xrange(msg_count * msg_mult) :
+        request = screcv(request_size)
+        scsendall(reply)
+
+    sc.close()
+    s.close()
+
+
+def client(msg_count, msg_mult, reply_size, request_size) :
+    s = socket(AF_INET, SOCK_STREAM)
+    while s.connect_ex((gethostbyname('localhost'), 11000)) != 0 : pass
+    request = " " * request_size
+    srecv = s.recv
+    ssend = s.send
+
+    replies = bytes = 0
+    for i in xrange(msg_count * msg_mult) :
+        ssend(request)
+        byte_count = 0
+        while byte_count < reply_size :
+            reply = srecv(reply_size)
+            byte_count += len(reply)
+        bytes += byte_count
+        replies += 1
+
+    s.close()
+    print "replies: %d\tbytes: %d" % (replies, bytes)
+    stdout.flush()
+        
+
+M = 100
+reply_size = 4096
+request_size = 64
+
+N = int(argv[1])
+
+child_pid = fork()
+
+if child_pid == 0 :
+    client(N, M, reply_size, request_size)
+    _exit(0)
+
+else :
+    server(N, M, reply_size, request_size)
+    wait()
+#!/usr/bin/python -OO
+# The Computer Language Shootout Benchmarks
+# http://shootout.alioth.debian.org
+#
+# Contributed by Kevin Carson
+
+from sys import argv, stdout
+from socket import socket, gethostbyname, \
+    AF_INET, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR
+from os import fork, wait, _exit
+import psyco
+
+psyco.full()
+
+
+def server(msg_count, msg_mult, reply_size, request_size) :
+    s = socket(AF_INET, SOCK_STREAM)
+    s.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+    s.bind((gethostbyname('localhost'), 11000))
+    s.listen(1)
+    sc, addr = s.accept()
+    reply = " " * reply_size
+    screcv = sc.recv
+    scsendall = sc.sendall
+
+    for i in xrange(msg_count * msg_mult) :
+        request = screcv(request_size)
+        scsendall(reply)
+
+    sc.close()
+    s.close()
+
+
+def client(msg_count, msg_mult, reply_size, request_size) :
+    s = socket(AF_INET, SOCK_STREAM)
+    while s.connect_ex((gethostbyname('localhost'), 11000)) != 0 : pass
+    request = " " * request_size
+    srecv = s.recv
+    ssend = s.send
+
+    replies = bytes = 0
+    for i in xrange(msg_count * msg_mult) :
+        ssend(request)
+        byte_count = 0
+        while byte_count < reply_size :
+            reply = srecv(reply_size)
+            byte_count += len(reply)
+        bytes += byte_count
+        replies += 1
+
+    s.close()
+    print "replies: %d\tbytes: %d" % (replies, bytes)
+    stdout.flush()
+        
+
+M = 1
+reply_size = 409600
+request_size = 64
+
+N = int(argv[1])
+
+child_pid = fork()
+
+if child_pid == 0 :
+    client(N, M, reply_size, request_size)
+    _exit(0)
+
+else :
+    server(N, M, reply_size, request_size)
+    wait()
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+# Contributed by Antti Kervinen
+# Modified by Tupteq
+
+import sys
+import thread
+import psyco
+psyco.full()
+
+# Set minimum stack size for threads, otherwise the program may fail
+# to create such a many threads
+thread.stack_size(32*1024)
+
+def threadfun(number, lock_acquire, next_release):
+    global n
+    while 1:
+        lock_acquire()
+        if n > 0:
+            n -= 1
+            next_release()
+        else:
+            print number
+            main_lock.release()
+
+# main
+n = int(sys.argv[1])
+main_lock = thread.allocate_lock()
+main_lock.acquire()
+
+first_lock = thread.allocate_lock()
+next_lock = first_lock
+
+for number in xrange(503):
+    lock = next_lock
+    lock.acquire()
+    next_lock = thread.allocate_lock() if number < 502 else first_lock
+    thread.start_new_thread(threadfun,
+        (number+1, lock.acquire, next_lock.release))
+
+first_lock.release()
+main_lock.acquire()
+#!/usr/bin/python
+# $Id: wc.psyco,v 1.3 2007-12-04 06:32:40 bfulgham Exp $
+# http://www.bagley.org/~doug/shootout/
+# with help from Brad Knotwell
+
+import sys, psyco
+psyco.full()
+
+def main():
+    nl = nw = nc = 0
+    rl = sys.stdin.readlines
+    lines = rl(4096)
+
+    while lines:
+        nl += len(lines)
+        for line in lines:
+            nc += len(line)
+            nw += len(line.split())
+        lines = rl(4096)
+
+    print "%d %d %d" % (nl, nw, nc)
+
+main()
+#!/usr/bin/python
+# $Id: wordfreq.psyco,v 1.3 2007-12-04 06:32:40 bfulgham Exp $
+# http://shootout.alioth.debian.org/
+#
+# adapted from Bill Lear's original python word frequency counter
+#
+# Joel Rosdahl suggested using translate table to speed up
+# word splitting.  That change alone sped this program up by
+# at least a factor of 3.
+#
+# with further speedups from Mark Baker
+
+import sys, psyco
+psyco.full()
+
+def main():
+    count = {}
+    i_r = map(chr, range(256))
+
+    trans = [' '] * 256
+    o_a, o_z = ord('a'), (ord('z')+1)
+    trans[ord('A'):(ord('Z')+1)] = i_r[o_a:o_z]
+    trans[o_a:o_z] = i_r[o_a:o_z]
+    trans = ''.join(trans)
+
+    rl = sys.stdin.readlines
+
+    lines = rl(4095)
+    while lines:
+        for line in lines:
+            for word in line.translate(trans).split():
+                try:
+                    count[word] += 1
+                except KeyError:
+                    count[word] = 1
+        lines = rl(4095)
+
+    l = zip(count.values(), count.keys())
+    l.sort()
+    l.reverse()
+
+    print '\n'.join(["%7s %s" % (count, word) for (count, word) in l])
+
+main()

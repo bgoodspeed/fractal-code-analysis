@@ -1,0 +1,2736 @@
+/* The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+
+   contributed by Kevin Carson
+   modified by Isaac Gouy for CINT
+*/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+
+
+typedef struct tn {
+    struct tn*    left;
+    struct tn*    right;
+    long          item;
+} treeNode;
+
+
+treeNode* NewTreeNode(treeNode* left, treeNode* right, long item)
+{
+    treeNode*    newNode;
+
+    newNode = (treeNode*)malloc(sizeof(treeNode));
+
+    newNode->left = left;
+    newNode->right = right;
+    newNode->item = item;
+
+    return newNode;
+} /* NewTreeNode() */
+
+
+long ItemCheck(treeNode* tree)
+{
+    if (tree->left == NULL)
+        return tree->item;
+    else
+        return tree->item + ItemCheck(tree->left) - ItemCheck(tree->right);
+} /* ItemCheck() */
+
+
+treeNode* BottomUpTree(long item, unsigned depth)
+{
+    if (depth > 0)
+        return NewTreeNode
+        (
+            BottomUpTree(2 * item - 1, depth - 1),
+            BottomUpTree(2 * item, depth - 1),
+            item
+        );
+    else
+        return NewTreeNode(NULL, NULL, item);
+} /* BottomUpTree() */
+
+
+void DeleteTree(treeNode* tree)
+{
+    if (tree->left != NULL)
+    {
+        DeleteTree(tree->left);
+        DeleteTree(tree->right);
+    }
+
+    free(tree);
+} /* DeleteTree() */
+
+
+int main(int argc, char ** argv)
+{
+    unsigned   N, depth, minDepth, maxDepth, stretchDepth;
+    treeNode   *stretchTree, *longLivedTree, *tempTree;
+
+    N = atol(argv[1]);
+
+    minDepth = 4;
+
+    if ((minDepth + 2) > N)
+        maxDepth = minDepth + 2;
+    else
+        maxDepth = N;
+
+    stretchDepth = maxDepth + 1;
+
+    stretchTree = BottomUpTree(0, stretchDepth);
+    printf
+    (
+        "stretch tree of depth %u\t check: %li\n",
+        stretchDepth,
+        ItemCheck(stretchTree)
+    );
+
+    DeleteTree(stretchTree);
+
+    longLivedTree = BottomUpTree(0, maxDepth);
+
+    for (depth = minDepth; depth <= maxDepth; depth += 2)
+    {
+        long    i, iterations, check;
+
+        iterations = pow(2, maxDepth - depth + minDepth);
+
+        check = 0;
+
+        for (i = 1; i <= iterations; i++)
+        {
+            tempTree = BottomUpTree(i, depth);
+            check += ItemCheck(tempTree);
+            DeleteTree(tempTree);
+
+            tempTree = BottomUpTree(-i, depth);
+            check += ItemCheck(tempTree);
+            DeleteTree(tempTree);
+        } /* for(i = 1...) */
+
+        printf
+        (
+            "%li\t trees of depth %u\t check: %li\n",
+            iterations * 2,
+            depth,
+            check
+        );
+    } /* for(depth = minDepth...) */
+
+    printf
+    (
+        "long lived tree of depth %u\t check: %li\n",
+        maxDepth,
+        ItemCheck(longLivedTree)
+    );
+
+    return 0;
+} /* main() */
+/* The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+
+   contributed by Michael Barker
+   based on a Java contribution by Luzius Meisser
+
+   convert to C by dualamd
+*/
+
+#include <stdlib.h>
+#include <stdio.h>
+#include <pthread.h>
+
+
+enum Colour 
+{
+   blue      = 0,
+   red      = 1,
+   yellow   = 2,
+   Invalid   = 3
+};
+
+const char* ColourName[] = {"blue", "red", "yellow"};
+const int STACK_SIZE   = 32*1024;
+
+typedef unsigned int BOOL;
+const BOOL TRUE = 1;
+const BOOL FALSE = 0;
+
+int CreatureID = 0;
+
+
+enum Colour doCompliment(enum Colour c1, enum Colour c2) 
+{
+   switch (c1) 
+   {
+   case blue:
+      switch (c2) 
+      {
+      case blue:
+         return blue;
+      case red:
+         return yellow;
+      case yellow:
+         return red;
+      default:
+         goto errlb;
+      }
+   case red:
+      switch (c2) 
+      {
+      case blue:
+         return yellow;
+      case red:
+         return red;
+      case yellow:
+         return blue;
+      default:
+         goto errlb;
+      }
+   case yellow:
+      switch (c2) 
+      {
+      case blue:
+         return red;
+      case red:
+         return blue;
+      case yellow:
+         return yellow;
+      default:
+         goto errlb;
+      }
+   default:
+      break;
+   }
+
+errlb:   
+   printf("Invalid colour\n");
+   exit( 1 );
+}
+
+/* convert integer to number string: 1234 -> "one two three four" */
+char* formatNumber(int n, char* outbuf)
+{
+   int ochar = 0, ichar = 0;
+   int i;
+   char tmp[64];
+
+   const char* NUMBERS[] =
+   {
+      "zero", "one", "two", "three", "four", "five",
+      "six", "seven", "eight", "nine"
+   };
+
+   ichar = sprintf(tmp, "%d", n);
+
+   for (i = 0; i < ichar; i++)
+      ochar += sprintf( outbuf + ochar, " %s", NUMBERS[ tmp[i] - '0' ] );
+
+   return outbuf;
+}
+
+
+struct MeetingPlace 
+{
+   pthread_mutex_t   mutex;
+   int             meetingsLeft;
+   struct Creature*   firstCreature;
+};
+
+struct Creature
+{
+   pthread_t         ht;
+   pthread_attr_t      stack_att;
+
+   struct MeetingPlace* place;
+   int         count;
+   int         sameCount;
+
+   enum Colour   colour;
+   int          id;
+
+   BOOL      two_met;
+   BOOL      sameid;
+};
+
+
+void MeetingPlace_Init(struct MeetingPlace* m, int meetings ) 
+{
+   pthread_mutex_init( &m->mutex, 0 );
+   m->meetingsLeft = meetings;
+   m->firstCreature = 0;
+}
+
+
+BOOL Meet( struct Creature* cr)
+{
+   BOOL retval = TRUE;
+
+   struct MeetingPlace* mp = cr->place;
+   pthread_mutex_lock( &(mp->mutex) );
+
+   if ( mp->meetingsLeft > 0 )
+   {
+      if ( mp->firstCreature == 0 ) 
+      {
+         cr->two_met = FALSE;
+         mp->firstCreature = cr;
+      } 
+      else 
+      {
+         struct Creature* first;
+         enum Colour newColour;
+
+         first = mp->firstCreature;
+         newColour = doCompliment( cr->colour, first->colour );
+
+         cr->sameid = cr->id == first->id;
+         cr->colour = newColour;
+         cr->two_met = TRUE;
+         
+         first->sameid = cr->sameid;
+         first->colour = newColour;
+         first->two_met = TRUE;
+
+         mp->firstCreature = 0;
+         mp->meetingsLeft--;
+      }
+   } 
+   else 
+      retval = FALSE;
+
+   pthread_mutex_unlock( &(mp->mutex) );
+   return retval;
+}
+
+   
+void* CreatureThreadRun(void* param)
+{
+   struct Creature* cr = (struct Creature*)param;
+   
+   while (TRUE) 
+   {
+      if ( Meet(cr) )
+      {
+         while (cr->two_met == FALSE)
+            sched_yield();
+            
+         if (cr->sameid) 
+            cr->sameCount++;
+         cr->count++;
+      }
+      else
+         break;
+   }
+
+   return 0;
+}
+
+void Creature_Init( struct Creature *cr, struct MeetingPlace* place, enum Colour colour ) 
+{
+   cr->place = place;
+   cr->count = cr->sameCount = 0;
+
+   cr->id = ++CreatureID;
+   cr->colour = colour;
+   cr->two_met = FALSE;
+
+   pthread_attr_init( &cr->stack_att );
+   pthread_attr_setstacksize( &cr->stack_att, STACK_SIZE );
+   pthread_create( &cr->ht, &cr->stack_att, &CreatureThreadRun, (void*)(cr) );
+}
+
+/* format meeting times of each creature to string */
+char* Creature_getResult(struct Creature* cr, char* str) 
+{
+   char numstr[256];
+   formatNumber(cr->sameCount, numstr);
+
+   sprintf( str, "%u%s", cr->count, numstr );
+   return str;
+}
+
+
+void runGame( int n_meeting, int ncolor, const enum Colour* colours ) 
+{
+   int i;
+   int total = 0;
+   char str[256];
+
+   struct MeetingPlace place;
+   struct Creature *creatures = (struct Creature*) calloc( ncolor, sizeof(struct Creature) );
+
+   MeetingPlace_Init( &place, n_meeting );
+
+   /* print initial color of each creature */
+   for (i = 0; i < ncolor; i++)
+   {
+      printf( "%s ", ColourName[ colours[i] ] );
+      Creature_Init( &(creatures[i]), &place, colours[i] );
+   }
+   printf("\n");
+
+   /* wait for them to meet */
+   for (i = 0; i < ncolor; i++) 
+      pthread_join( creatures[i].ht, 0 );      
+
+   /* print meeting times of each creature */
+   for (i = 0; i < ncolor; i++) 
+   {
+      printf( "%s\n", Creature_getResult(&(creatures[i]), str) );
+      total += creatures[i].count;
+   }
+
+   /* print total meeting times, should equal n_meeting */
+   printf( "%s\n\n", formatNumber(total, str) );
+
+   /* cleaup & quit */
+   pthread_mutex_destroy( &place.mutex );
+   free( creatures );
+}
+
+
+void printColours( enum Colour c1, enum Colour c2 ) 
+{
+   printf( "%s + %s -> %s\n", 
+      ColourName[c1], 
+      ColourName[c2], 
+      ColourName[doCompliment(c1, c2)]   );
+}
+
+void printColoursTable(void) 
+{
+   printColours(blue, blue);
+   printColours(blue, red);
+   printColours(blue, yellow);
+   printColours(red, blue);
+   printColours(red, red);
+   printColours(red, yellow);
+   printColours(yellow, blue);
+   printColours(yellow, red);
+   printColours(yellow, yellow);
+}
+
+int main(int argc, char** argv) 
+{
+   int n = (argc == 2) ? atoi(argv[1]) : 600;
+
+   printColoursTable();
+   printf("\n");
+   
+   const enum Colour r1[] = {   blue, red, yellow   };
+   const enum Colour r2[] = {   blue, red, yellow, 
+               red, yellow, blue, 
+               red, yellow, red, blue   };
+
+   runGame( n, sizeof(r1) / sizeof(r1[0]), r1 );
+   runGame( n, sizeof(r2) / sizeof(r2[0]), r2 );
+
+   return 0;
+}
+
+/*
+ * The Computer Lannguage Shootout
+ * http://shootout.alioth.debian.org/
+ * Contributed by Heiner Marxen
+ *
+ * "fannkuch"	for C gcc
+ *
+ * $Id: fannkuch.cint,v 1.1 2006-02-27 04:51:07 igouy-guest Exp $
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+
+#define Int	int
+#define Aint	int
+
+    static long
+fannkuch( int n )
+{
+    Aint*	perm;
+    Aint*	perm1;
+    Aint*	count;
+    long	flips;
+    long	flipsMax;
+    Int		r;
+    Int		i;
+    Int		k;
+    Int		didpr;
+    const Int	n1	= n - 1;
+
+    if( n < 1 ) return 0;
+
+    perm  = calloc(n, sizeof(*perm ));
+    perm1 = calloc(n, sizeof(*perm1));
+    count = calloc(n, sizeof(*count));
+
+    for( i=0 ; i<n ; ++i ) perm1[i] = i;	/* initial (trivial) permu */
+
+    r = n; didpr = 0; flipsMax = 0;
+    for(;;) {
+	if( didpr < 30 ) {
+	    for( i=0 ; i<n ; ++i ) printf("%d", (int)(1+perm1[i]));
+	    printf("\n");
+	    ++didpr;
+	}
+	for( ; r!=1 ; --r ) {
+	    count[r-1] = r;
+	}
+
+#define XCH(x,y)	{ Aint t_mp; t_mp=(x); (x)=(y); (y)=t_mp; }
+
+	if( ! (perm1[0]==0 || perm1[n1]==n1) ) {
+	    flips = 0;
+	    for( i=1 ; i<n ; ++i ) {	/* perm = perm1 */
+		perm[i] = perm1[i];
+	    }
+	    k = perm1[0];		/* cache perm[0] in k */
+	    do {			/* k!=0 ==> k>0 */
+		Int	j;
+		for( i=1, j=k-1 ; i<j ; ++i, --j ) {
+		    XCH(perm[i], perm[j])
+		}
+		++flips;
+		/*
+		 * Now exchange k (caching perm[0]) and perm[k]... with care!
+		 * XCH(k, perm[k]) does NOT work!
+		 */
+		j=perm[k]; perm[k]=k ; k=j;
+	    }while( k );
+	    if( flipsMax < flips ) {
+		flipsMax = flips;
+	    }
+	}
+
+	for(;;) {
+	    if( r == n ) {
+		return flipsMax;
+	    }
+	    /* rotate down perm[0..r] by one */
+	    {
+		Int	perm0 = perm1[0];
+		i = 0;
+		while( i < r ) {
+		    k = i+1;
+		    perm1[i] = perm1[k];
+		    i = k;
+		}
+		perm1[r] = perm0;
+	    }
+	    if( (count[r] -= 1) > 0 ) {
+		break;
+	    }
+	    ++r;
+	}
+    }
+}
+
+    int
+main( int argc, char* argv[] )
+{
+    int		n = (argc>1) ? atoi(argv[1]) : 0;
+
+    printf("Pfannkuchen(%d) = %ld\n", n, fannkuch(n));
+    return 0;
+}
+/*
+ * The Computer Language Benchmarks Game
+ * http://shootout.alioth.debian.org/
+ *
+ * converted to C by Joseph Piché
+ * from Java version by Oleg Mazurov and Isaac Gouy
+ *
+ * modified by Isaac Gouy for CINT
+ *
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+
+inline static int max(int a, int b)
+{
+    return a > b ? a : b;
+}
+
+static int fannkuchredux(int n)
+{
+    int* perm;
+    int* perm1;
+    int* count;
+    int maxFlipsCount = 0;
+    int permCount = 0;
+    int checksum = 0;
+
+    int i;
+
+    perm  = calloc(n, sizeof(*perm ));
+    perm1 = calloc(n, sizeof(*perm1));
+    count = calloc(n, sizeof(*count));
+
+    for (i=0; i<n; i+=1)
+        perm1[i] = i;
+    int r = n;
+
+    while (1) {
+        while (r != 1) {
+            count[r-1] = r;
+            r -= 1;
+        }
+
+        for (i=0; i<n; i+=1)
+            perm[i] = perm1[i];
+        int flipsCount = 0;
+        int k;
+
+        while ( !((k = perm[0]) == 0) ) {
+            int k2 = (k+1) >> 1;
+            for (i=0; i<k2; i++) {
+                int temp = perm[i]; perm[i] = perm[k-i]; perm[k-i] = temp;
+            }
+            flipsCount += 1;
+        }
+
+        maxFlipsCount = max(maxFlipsCount, flipsCount);
+        checksum += permCount % 2 == 0 ? flipsCount : -flipsCount;
+
+        /* Use incremental change to generate another permutation */
+        while (1) {
+            if (r == n) {
+                printf("%d\n", checksum);
+                return maxFlipsCount;
+            }
+
+            int perm0 = perm1[0];
+            i = 0;
+            while (i < r) {
+                int j = i + 1;
+                perm1[i] = perm1[j];
+                i = j;
+            }
+            perm1[r] = perm0;
+            count[r] = count[r] - 1;
+            if (count[r] > 0) break;
+            r++;
+        }
+        permCount++;
+    }
+}
+
+int main(int argc, char ** argv)
+{
+    int n = atoi(argv[1]);
+    printf("Pfannkuchen(%d) = %d\n", n, fannkuchredux(n));
+    return 0;
+}
+/*
+ * The Computer Language Benchmarks Game
+ * http://shootout.alioth.debian.org/
+ *
+ * by Paul Hsieh
+ * modified by Isaac Gouy for CINT
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+
+#define IM 139968
+#define IA   3877
+#define IC  29573
+
+double gen_random (double max) {
+    static long last = 42;
+    return max * (last = (last * IA + IC) % IM) / IM;
+}
+
+struct aminoacids {
+    char c;
+    double p;
+};
+
+/* Weighted selection from alphabet */
+
+void makeCumulative (struct aminoacids * genelist, int count) {
+    double cp = 0.0;
+    int i;
+
+    for (i=0; i < count; i++) {
+        cp += genelist[i].p;
+        genelist[i].p = cp;
+    }
+}
+
+char selectRandom (const struct aminoacids * genelist, int count) {
+    double r = gen_random (1);
+    int i, lo, hi;
+
+    if (r < genelist[0].p) return genelist[0].c;
+
+    lo = 0;
+    hi = count-1;
+
+    while (hi > lo+1) {
+        i = (hi + lo) / 2;
+        if (r < genelist[i].p) hi = i; else lo = i;
+    }
+    return genelist[hi].c;
+}
+
+/* Generate and write FASTA format */
+
+#define LINE_LENGTH (60)
+
+void makeRandomFasta (const char * id, const char * desc, const struct 
+aminoacids * genelist, int count, int n) {
+   int todo = n;
+   int i, m;
+
+   printf (">%s %s\n", id, desc);
+
+   for (; todo > 0; todo -= LINE_LENGTH) {
+       char pick[LINE_LENGTH+1];
+       if (todo < LINE_LENGTH) m = todo; else m = LINE_LENGTH;
+       for (i=0; i < m; i++) pick[i] = selectRandom (genelist, count);
+       pick[m] = '\0';
+       puts (pick);
+   }
+}
+
+void makeRepeatFasta (const char * id, const char * desc, const char * 
+s, int n) {
+   char * ss;
+   int todo = n, k = 0, kn = strlen (s);
+   int m;
+
+   ss = (char *) malloc (kn + 1);
+   memcpy (ss, s, kn+1);
+
+   printf (">%s %s\n", id, desc);
+
+   for (; todo > 0; todo -= LINE_LENGTH) {
+       if (todo < LINE_LENGTH) m = todo; else m = LINE_LENGTH;
+
+       while (m >= kn - k) {
+           printf ("%s", s+k);
+           m -= kn - k;
+           k = 0;
+       }
+
+       ss[k + m] = '\0';
+       puts (ss+k);
+       ss[k + m] = s[m+k];
+       k += m;
+   }
+
+   free (ss);
+}
+
+/* Main -- define alphabets, make 3 fragments */
+
+struct aminoacids iub[] = {
+    { 'a', 0.27 },
+    { 'c', 0.12 },
+    { 'g', 0.12 },
+    { 't', 0.27 },
+
+    { 'B', 0.02 },
+    { 'D', 0.02 },
+    { 'H', 0.02 },
+    { 'K', 0.02 },
+    { 'M', 0.02 },
+    { 'N', 0.02 },
+    { 'R', 0.02 },
+    { 'S', 0.02 },
+    { 'V', 0.02 },
+    { 'W', 0.02 },
+    { 'Y', 0.02 }
+};
+
+#define IUB_LEN (sizeof (iub) / sizeof (struct aminoacids))
+
+struct aminoacids homosapiens[] = {
+    { 'a', 0.3029549426680 },
+    { 'c', 0.1979883004921 },
+    { 'g', 0.1975473066391 },
+    { 't', 0.3015094502008 },
+};
+
+#define HOMOSAPIENS_LEN (sizeof (homosapiens) / sizeof (struct aminoacids))
+
+char * alu =
+   "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG" 
+   "GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA" 
+   "CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT" 
+   "ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA"
+   "GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG" 
+   "AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC" 
+   "AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA";
+
+int main(int argc, char ** argv) {
+    int n = 1000;
+
+    n = atoi(argv[1]);
+
+    makeCumulative (iub, IUB_LEN);
+    makeCumulative (homosapiens, HOMOSAPIENS_LEN);
+
+    makeRepeatFasta ("ONE", "Homo sapiens alu", alu, n*2);
+    makeRandomFasta ("TWO", "IUB ambiguity codes", iub, IUB_LEN, n*3);
+    makeRandomFasta ("THREE", "Homo sapiens frequency", homosapiens, 
+HOMOSAPIENS_LEN, n*5);
+
+    return 0;
+}
+
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   contributed by Greg Buchholz 
+   Optimized by Paul Hsieh
+   compile:  gcc -O2 -o harmonic harmonic.c
+*/
+#include<stdio.h>
+#include<stdlib.h>
+
+int main (int argc, char **argv)
+{
+    double i=1, sum=0;
+    int n;
+
+    for(n = atoi(argv[1]); n > 0; n--, i++)
+        sum += 1/i;
+
+    printf("%.9f\n", sum);
+    return 0;
+}
+
+/* -*- mode: c -*-
+ * $Id: hello.cint,v 1.1 2006-02-26 22:11:58 igouy-guest Exp $
+ * http://www.bagley.org/~doug/shootout/
+ */
+
+#include <stdio.h>
+
+int main() {
+    fputs("hello world\n", stdout);
+    return(0);
+}
+
+/* The Computer Language Benchmarks Game
+ * http://shootout.alioth.debian.org/
+
+   Contributed by Josh Goldfoot
+*/
+
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
+#include <stdlib.h>
+
+// missing in CINT
+char* strdup(const char* in) {
+   char* out = malloc(strlen(in) + 1);
+   strcpy(out, in);
+   return out;
+}
+
+#include "Include/simple_hash.h"
+
+long
+hash_table_size (int fl, long buflen)
+{
+  long maxsize1, maxsize2;
+
+  maxsize1 = buflen - fl;
+  maxsize2 = 4;
+  while (--fl > 0 && maxsize2 < maxsize1)
+    maxsize2 = maxsize2 * 4;
+  if (maxsize1 < maxsize2)
+    return maxsize1;
+  return maxsize2;
+}
+
+struct ht_ht *
+generate_frequencies (int fl, char *buffer, long buflen)
+{
+  struct ht_ht *ht;
+  char *reader;
+  long i;
+  char nulled;
+
+  if (fl > buflen)
+    return NULL;
+
+  ht = ht_create (hash_table_size (fl, buflen));
+  for (i = 0; i < buflen - fl + 1; i++)
+    {
+      reader = &(buffer[i]);
+      nulled = reader[fl];
+      reader[fl] = 0x00;
+      ht_find_new (ht, reader)->val++;
+      reader[fl] = nulled;
+    }
+  return ht;
+}
+
+typedef struct ssorter
+{
+  char *string;
+  int num;
+} sorter;
+
+void
+write_frequencies (int fl, char *buffer, long buflen)
+{
+  struct ht_ht *ht;
+  long total, i, j, size;
+  struct ht_node *nd;
+  sorter *s;
+  sorter tmp;
+
+  ht = generate_frequencies (fl, buffer, buflen);
+  total = 0;
+  size = 0;
+  for (nd = ht_first (ht); nd != NULL; nd = ht_next (ht))
+    {
+      total = total + nd->val;
+      size++;
+    }
+  s = calloc (size, sizeof (sorter));
+  i = 0;
+  for (nd = ht_first (ht); nd != NULL; nd = ht_next (ht))
+    {
+      s[i].string = nd->key;
+      s[i++].num = nd->val;
+    }
+  for (i = 0; i < size - 1; i++)
+    for (j = i + 1; j < size; j++)
+      if (s[i].num < s[j].num)
+	{
+	  memcpy (&tmp, &(s[i]), sizeof (sorter));
+	  memcpy (&(s[i]), &(s[j]), sizeof (sorter));
+	  memcpy (&(s[j]), &tmp, sizeof (sorter));
+	}
+  for (i = 0; i < size; i++)
+    printf ("%s %.3f\n", s[i].string, 100 * (float) s[i].num / total);
+  printf ("\n");
+  ht_destroy (ht);
+  free (s);
+}
+
+void
+write_count (char *searchFor, char *buffer, long buflen)
+{
+  struct ht_ht *ht;
+
+  ht = generate_frequencies (strlen (searchFor), buffer, buflen);
+  printf ("%d\t%s\n", ht_find_new (ht, searchFor)->val, searchFor);
+  ht_destroy (ht);
+}
+
+int
+main ()
+{
+  char c;
+  char *line, *buffer, *tmp, *x;
+  int i, linelen, nothree;
+  long buflen, seqlen;
+
+  line = malloc (256);
+  if (!line)
+    return -1;
+  seqlen = 0;
+  nothree = 1;
+
+  while (nothree && fgets (line, 255, stdin))
+    if (line[0] == '>' && line[1] == 'T' && line[2] == 'H')
+      nothree = 0;
+  free (line);
+
+  buflen = 10240;
+  buffer = malloc (buflen + 1);
+  if (!buffer)
+    return -1;
+  x = buffer;
+
+  while (fgets (x, 255, stdin))
+    {
+      linelen = strlen (x);
+      if (linelen)
+	{
+	  if (x[linelen - 1] == '\n')
+	    linelen--;
+	  c = x[0];
+	  if (c == '>')
+	    break;
+	  else if (c != ';')
+	    {
+	      seqlen = seqlen + linelen;
+	      if (seqlen + 512 >= buflen)
+		{
+		  buflen = buflen + 10240;
+		  tmp = realloc (buffer, buflen + 1);
+		  if (tmp == NULL)
+		    return -1;
+		  buffer = tmp;
+		  x = &(buffer[seqlen]);
+		}
+	      else
+		x = &(x[linelen]);
+	      x[0] = 0;
+	    }
+	}
+    }
+  for (i = 0; i < seqlen; i++)
+    buffer[i] = toupper (buffer[i]);
+  write_frequencies (1, buffer, seqlen);
+  write_frequencies (2, buffer, seqlen);
+  write_count ("GGT", buffer, seqlen);
+  write_count ("GGTA", buffer, seqlen);
+  write_count ("GGTATT", buffer, seqlen);
+  write_count ("GGTATTTTAATT", buffer, seqlen);
+  write_count ("GGTATTTTAATTTATAGT", buffer, seqlen);
+  free (buffer);
+  return 0;
+}
+/* The Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   contributed by Greg Buchholz
+   
+   for the debian (AMD) machine...
+   compile flags:  -O3 -ffast-math -march=athlon-xp -funroll-loops
+
+   for the gp4 (Intel) machine...
+   compile flags:  -O3 -ffast-math -march=pentium4 -funroll-loops
+*/
+
+#include<stdio.h>
+
+int main (int argc, char **argv)
+{
+    int w, h, bit_num = 0;
+    char byte_acc = 0;
+    int i, iter = 50;
+    double x, y, limit = 2.0;
+    double Zr, Zi, Cr, Ci, Tr, Ti;
+    
+    w = h = atoi(argv[1]);
+
+    printf("P4\n%d %d\n",w,h);
+
+    for(y=0;y<h;++y) 
+    {
+        for(x=0;x<w;++x)
+        {
+            Zr = Zi = Tr = Ti = 0.0;
+            Cr = (2.0*x/w - 1.5); Ci=(2.0*y/h - 1.0);
+        
+            for (i=0;i<iter && (Tr+Ti <= limit*limit);++i)
+            {
+                Zi = 2.0*Zr*Zi + Ci;
+                Zr = Tr - Ti + Cr;
+                Tr = Zr * Zr;
+                Ti = Zi * Zi;
+            }
+       
+            byte_acc <<= 1; 
+            if(Tr+Ti <= limit*limit) byte_acc |= 0x01;
+                
+            ++bit_num; 
+
+            if(bit_num == 8)
+            {
+                putc(byte_acc,stdout);
+                byte_acc = 0;
+                bit_num = 0;
+            }
+            else if(x == w-1)
+            {
+                byte_acc <<= (8-w%8);
+                putc(byte_acc,stdout);
+                byte_acc = 0;
+                bit_num = 0;
+            }
+        }
+    }	
+}
+
+/* The Computer Language Benchmarks Game
+ * http://shootout.alioth.debian.org/
+ *
+ * contributed by Christian Vosteen
+ */
+
+#include <stdlib.h>
+#include <stdio.h>
+#define TRUE 1
+#define FALSE 0
+
+/* The board is a 50 cell hexagonal pattern.  For    . . . . .
+ * maximum speed the board will be implemented as     . . . . .
+ * 50 bits, which will fit into a 64 bit long long   . . . . .
+ * int.                                               . . . . .
+ *                                                   . . . . .
+ * I will represent 0's as empty cells and 1's        . . . . .
+ * as full cells.                                    . . . . .
+ *                                                    . . . . .
+ *                                                   . . . . .
+ *                                                    . . . . .
+ */
+
+unsigned long long board = 0xFFFC000000000000ULL;
+
+/* The puzzle pieces must be specified by the path followed
+ * from one end to the other along 12 hexagonal directions.
+ *
+ *   Piece 0   Piece 1   Piece 2   Piece 3   Piece 4
+ *                   
+ *  O O O O    O   O O   O O O     O O O     O   O
+ *         O    O O           O       O       O O
+ *                           O         O         O
+ *
+ *   Piece 5   Piece 6   Piece 7   Piece 8   Piece 9
+ *
+ *    O O O     O O       O O     O O        O O O O
+ *       O O       O O       O       O O O        O
+ *                  O       O O
+ *
+ * I had to make it 12 directions because I wanted all of the
+ * piece definitions to fit into the same size arrays.  It is
+ * not possible to define piece 4 in terms of the 6 cardinal
+ * directions in 4 moves.
+ */
+
+#define E     0
+#define ESE   1
+#define SE    2
+#define S     3
+#define SW    4
+#define WSW   5
+#define W     6
+#define WNW   7
+#define NW    8
+#define N     9
+#define NE    10
+#define ENE   11
+#define PIVOT 12
+
+char piece_def[10][4] = {
+   {  E,  E,  E, SE},
+   { SE,  E, NE,  E},
+   {  E,  E, SE, SW},
+   {  E,  E, SW, SE},
+   { SE,  E, NE,  S},
+   {  E,  E, SW,  E},
+   {  E, SE, SE, NE},
+   {  E, SE, SE,  W},
+   {  E, SE,  E,  E},
+   {  E,  E,  E, SW}
+};
+
+ 
+/* To minimize the amount of work done in the recursive solve function below,
+ * I'm going to allocate enough space for all legal rotations of each piece
+ * at each position on the board. That's 10 pieces x 50 board positions x
+ * 12 rotations.  However, not all 12 rotations will fit on every cell, so
+ * I'll have to keep count of the actual number that do.
+ * The pieces are going to be unsigned long long ints just like the board so
+ * they can be bitwise-anded with the board to determine if they fit.
+ * I'm also going to record the next possible open cell for each piece and
+ * location to reduce the burden on the solve function.
+ */
+unsigned long long pieces[10][50][12];
+int piece_counts[10][50];
+char next_cell[10][50][12];
+
+/* Returns the direction rotated 60 degrees clockwise */
+char rotate(char dir) {
+   return (dir + 2) % PIVOT;
+}
+
+/* Returns the direction flipped on the horizontal axis */
+char flip(char dir) {
+   return (PIVOT - dir) % PIVOT;
+}
+
+
+/* Returns the new cell index from the specified cell in the
+ * specified direction.  The index is only valid if the
+ * starting cell and direction have been checked by the
+ * out_of_bounds function first.
+ */
+char shift(char cell, char dir) {
+   switch(dir) {
+      case E:
+         return cell + 1;
+      case ESE:
+         if((cell / 5) % 2)
+            return cell + 7;
+         else
+            return cell + 6;
+      case SE:
+         if((cell / 5) % 2)
+            return cell + 6;
+         else
+            return cell + 5;
+      case S:
+         return cell + 10;
+      case SW:
+         if((cell / 5) % 2)
+            return cell + 5;
+         else
+            return cell + 4;
+      case WSW:
+         if((cell / 5) % 2)
+            return cell + 4;
+         else
+            return cell + 3;
+      case W:
+         return cell - 1;
+      case WNW:
+         if((cell / 5) % 2)
+            return cell - 6;
+         else
+            return cell - 7;
+      case NW:
+         if((cell / 5) % 2)
+            return cell - 5;
+         else
+            return cell - 6;
+      case N:
+         return cell - 10;
+      case NE:
+         if((cell / 5) % 2)
+            return cell - 4;
+         else
+            return cell - 5;
+      case ENE:
+         if((cell / 5) % 2)
+            return cell - 3;
+         else
+            return cell - 4;
+      default:
+         return cell;
+   }
+}
+
+/* Returns wether the specified cell and direction will land outside
+ * of the board.  Used to determine if a piece is at a legal board
+ * location or not.
+ */
+char out_of_bounds(char cell, char dir) {
+   char i;
+   switch(dir) {
+      case E:
+         return cell % 5 == 4;
+      case ESE:
+         i = cell % 10;   
+         return i == 4 || i == 8 || i == 9 || cell >= 45;
+      case SE:
+         return cell % 10 == 9 || cell >= 45;
+      case S:
+         return cell >= 40;
+      case SW:
+         return cell % 10 == 0 || cell >= 45;
+      case WSW:
+         i = cell % 10;   
+         return i == 0 || i == 1 || i == 5 || cell >= 45;
+      case W:
+         return cell % 5 == 0;
+      case WNW:
+         i = cell % 10;   
+         return i == 0 || i == 1 || i == 5 || cell < 5;
+      case NW:
+         return cell % 10 == 0 || cell < 5;
+      case N:
+         return cell < 10;
+      case NE:
+         return cell % 10 == 9 || cell < 5;
+      case ENE:
+         i = cell % 10;   
+         return i == 4 || i == 8 || i == 9 || cell < 5;
+      default:
+         return FALSE;
+   }
+}
+
+/* Rotate a piece 60 degrees clockwise */
+void rotate_piece(int piece) {
+   int i;
+   for(i = 0; i < 4; i++)
+      piece_def[piece][i] = rotate(piece_def[piece][i]);
+}
+
+/* Flip a piece along the horizontal axis */
+void flip_piece(int piece) {
+   int i;
+   for(i = 0; i < 4; i++)
+      piece_def[piece][i] = flip(piece_def[piece][i]);
+}
+
+/* Convenience function to quickly calculate all of the indices for a piece */
+void calc_cell_indices(char *cell, int piece, char index) {
+   cell[0] = index;
+   cell[1] = shift(cell[0], piece_def[piece][0]);
+   cell[2] = shift(cell[1], piece_def[piece][1]);
+   cell[3] = shift(cell[2], piece_def[piece][2]);
+   cell[4] = shift(cell[3], piece_def[piece][3]);
+}
+
+/* Convenience function to quickly calculate if a piece fits on the board */
+int cells_fit_on_board(char *cell, int piece) {
+   return (!out_of_bounds(cell[0], piece_def[piece][0]) &&
+         !out_of_bounds(cell[1], piece_def[piece][1]) && 
+         !out_of_bounds(cell[2], piece_def[piece][2]) && 
+         !out_of_bounds(cell[3], piece_def[piece][3]));
+}
+
+/* Returns the lowest index of the cells of a piece.
+ * I use the lowest index that a piece occupies as the index for looking up
+ * the piece in the solve function.
+ */
+char minimum_of_cells(char *cell) {
+   char minimum = cell[0];
+   minimum = cell[1] < minimum ? cell[1] : minimum;
+   minimum = cell[2] < minimum ? cell[2] : minimum;
+   minimum = cell[3] < minimum ? cell[3] : minimum;
+   minimum = cell[4] < minimum ? cell[4] : minimum;
+   return minimum;
+}
+
+/* Calculate the lowest possible open cell if the piece is placed on the board.
+ * Used to later reduce the amount of time searching for open cells in the
+ * solve function.
+ */
+char first_empty_cell(char *cell, char minimum) {
+   char first_empty = minimum;
+   while(first_empty == cell[0] || first_empty == cell[1] ||
+         first_empty == cell[2] || first_empty == cell[3] ||
+         first_empty == cell[4])
+      first_empty++;
+   return first_empty;
+}
+
+/* Generate the unsigned long long int that will later be anded with the
+ * board to determine if it fits.
+ */
+unsigned long long bitmask_from_cells(char *cell) {
+   unsigned long long piece_mask = 0ULL;
+   int i;
+   for(i = 0; i < 5; i++)
+      piece_mask |= 1ULL << cell[i];
+   return piece_mask;
+}
+
+/* Record the piece and other important information in arrays that will
+ * later be used by the solve function.
+ */
+void record_piece(int piece, int minimum, char first_empty,
+      unsigned long long piece_mask) {
+   pieces[piece][minimum][piece_counts[piece][minimum]] = piece_mask;
+   next_cell[piece][minimum][piece_counts[piece][minimum]] = first_empty;
+   piece_counts[piece][minimum]++;         
+}
+
+
+/* Fill the entire board going cell by cell.  If any cells are "trapped"
+ * they will be left alone.
+ */
+void fill_contiguous_space(char *board, int index) {
+   if(board[index] == 1)
+      return;
+   board[index] = 1;
+   if(!out_of_bounds(index, E))
+      fill_contiguous_space(board, shift(index, E));   
+   if(!out_of_bounds(index, SE))
+      fill_contiguous_space(board, shift(index, SE));   
+   if(!out_of_bounds(index, SW))
+      fill_contiguous_space(board, shift(index, SW));   
+   if(!out_of_bounds(index, W))
+      fill_contiguous_space(board, shift(index, W));   
+   if(!out_of_bounds(index, NW))
+      fill_contiguous_space(board, shift(index, NW));   
+   if(!out_of_bounds(index, NE))
+      fill_contiguous_space(board, shift(index, NE));   
+}
+
+
+/* To thin the number of pieces, I calculate if any of them trap any empty
+ * cells at the edges.  There are only a handful of exceptions where the
+ * the board can be solved with the trapped cells.  For example:  piece 8 can
+ * trap 5 cells in the corner, but piece 3 can fit in those cells, or piece 0
+ * can split the board in half where both halves are viable.
+ */
+int has_island(char *cell, int piece) {
+   char temp_board[50];
+   char c;
+   int i;
+   for(i = 0; i < 50; i++)
+      temp_board[i] = 0;
+   for(i = 0; i < 5; i++)
+      temp_board[((int)cell[i])] = 1;
+   i = 49;
+   while(temp_board[i] == 1)
+      i--;
+   fill_contiguous_space(temp_board, i);
+   c = 0;
+   for(i = 0; i < 50; i++)
+      if(temp_board[i] == 0)
+         c++;
+   if(c == 0 || (c == 5 && piece == 8) || (c == 40 && piece == 8) ||
+         (c % 5 == 0 && piece == 0))
+      return FALSE;
+   else
+      return TRUE;   
+}
+
+
+/* Calculate all six rotations of the specified piece at the specified index.
+ * We calculate only half of piece 3's rotations.  This is because any solution
+ * found has an identical solution rotated 180 degrees.  Thus we can reduce the
+ * number of attempted pieces in the solve algorithm by not including the 180-
+ * degree-rotated pieces of ONE of the pieces.  I chose piece 3 because it gave
+ * me the best time ;)
+ */
+ void calc_six_rotations(char piece, char index) {
+   char rotation, cell[5];
+   char minimum, first_empty;
+   unsigned long long piece_mask;
+
+   for(rotation = 0; rotation < 6; rotation++) {
+      if(piece != 3 || rotation < 3) { 
+         calc_cell_indices(cell, piece, index);
+         if(cells_fit_on_board(cell, piece) && !has_island(cell, piece)) {
+            minimum = minimum_of_cells(cell);
+            first_empty = first_empty_cell(cell, minimum);
+            piece_mask = bitmask_from_cells(cell);
+            record_piece(piece, minimum, first_empty, piece_mask);
+         }
+      }
+      rotate_piece(piece);
+   }
+}
+
+/* Calculate every legal rotation for each piece at each board location. */
+void calc_pieces(void) {
+   char piece, index;
+
+   for(piece = 0; piece < 10; piece++) {
+      for(index = 0; index < 50; index++) {
+         calc_six_rotations(piece, index);
+         flip_piece(piece);
+         calc_six_rotations(piece, index);
+      }
+   }
+}
+
+
+
+/* Calculate all 32 possible states for a 5-bit row and all rows that will
+ * create islands that follow any of the 32 possible rows.  These pre-
+ * calculated 5-bit rows will be used to find islands in a partially solved
+ * board in the solve function.
+ */
+#define ROW_MASK 0x1F
+#define TRIPLE_MASK 0x7FFF
+char all_rows[32] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+      17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31};
+int bad_even_rows[32][32];
+int bad_odd_rows[32][32];
+int bad_even_triple[32768];
+int bad_odd_triple[32768];
+
+int rows_bad(char row1, char row2, int even) {
+   /* even is referring to row1 */
+   int i, in_zeroes, group_okay;
+   char block, row2_shift;
+   /* Test for blockages at same index and shifted index */
+   if(even)
+      row2_shift = ((row2 << 1) & ROW_MASK) | 0x01;
+   else
+      row2_shift = (row2 >> 1) | 0x10;
+   block = ((row1 ^ row2) & row2) & ((row1 ^ row2_shift) & row2_shift);
+   /* Test for groups of 0's */
+   in_zeroes = FALSE;
+   group_okay = FALSE;
+   for(i = 0; i < 5; i++) {
+      if(row1 & (1 << i)) {
+         if(in_zeroes) {
+            if(!group_okay)
+               return TRUE;
+            in_zeroes = FALSE;
+            group_okay = FALSE;
+         }
+      } else {
+         if(!in_zeroes)
+            in_zeroes = TRUE;
+         if(!(block & (1 << i)))
+            group_okay = TRUE;
+      }
+   }
+   if(in_zeroes)
+      return !group_okay;
+   else
+      return FALSE;
+}
+
+/* Check for cases where three rows checked sequentially cause a false
+ * positive.  One scenario is when 5 cells may be surrounded where piece 5
+ * or 7 can fit.  The other scenario is when piece 2 creates a hook shape.
+ */
+int triple_is_okay(char row1, char row2, char row3, int even) {
+   if(even) {
+      /* There are four cases:
+       * row1: 00011  00001  11001  10101
+       * row2: 01011  00101  10001  10001
+       * row3: 011??  00110  ?????  ?????
+       */
+      return ((row1 == 0x03) && (row2 == 0x0B) && ((row3 & 0x1C) == 0x0C)) ||
+            ((row1 == 0x01) && (row2 == 0x05) && (row3 == 0x06)) ||
+            ((row1 == 0x19) && (row2 == 0x11)) ||
+            ((row1 == 0x15) && (row2 == 0x11));
+   } else {
+      /* There are two cases:
+       * row1: 10011  10101
+       * row2: 10001  10001
+       * row3: ?????  ?????
+       */
+      return ((row1 == 0x13) && (row2 == 0x11)) ||
+            ((row1 == 0x15) && (row2 == 0x11));
+   }
+}
+
+
+void calc_rows(void) {
+   int row1, row2, row3;
+   int result1, result2;
+   for(row1 = 0; row1 < 32; row1++) {
+      for(row2 = 0; row2 < 32; row2++) {
+         bad_even_rows[row1][row2] = rows_bad(row1, row2, TRUE);
+         bad_odd_rows[row1][row2] = rows_bad(row1, row2, FALSE);
+      }
+   }
+   for(row1 = 0; row1 < 32; row1++) {
+      for(row2 = 0; row2 < 32; row2++) {
+         for(row3 = 0; row3 < 32; row3++) {
+            result1 = bad_even_rows[row1][row2];
+            result2 = bad_odd_rows[row2][row3];
+            if(result1 == FALSE && result2 == TRUE
+                  && triple_is_okay(row1, row2, row3, TRUE))
+               bad_even_triple[row1+(row2*32)+(row3*1024)] = FALSE;
+            else
+               bad_even_triple[row1+(row2*32)+(row3*1024)] = result1 || result2;
+
+            result1 = bad_odd_rows[row1][row2];
+            result2 = bad_even_rows[row2][row3];
+            if(result1 == FALSE && result2 == TRUE
+                  && triple_is_okay(row1, row2, row3, FALSE))
+               bad_odd_triple[row1+(row2*32)+(row3*1024)] = FALSE;
+            else
+               bad_odd_triple[row1+(row2*32)+(row3*1024)] = result1 || result2;
+         }
+      }
+   }
+}
+
+
+
+/* Calculate islands while solving the board.
+ */
+int boardHasIslands(char cell) {
+   /* Too low on board, don't bother checking */
+   if(cell >= 40)
+      return FALSE;
+   int current_triple = (board >> ((cell / 5) * 5)) & TRIPLE_MASK;
+   if((cell / 5) % 2)
+      return bad_odd_triple[current_triple];
+   else
+      return bad_even_triple[current_triple];
+}
+
+
+/* The recursive solve algorithm.  Try to place each permutation in the upper-
+ * leftmost empty cell.  Mark off available pieces as it goes along.
+ * Because the board is a bit mask, the piece number and bit mask must be saved
+ * at each successful piece placement.  This data is used to create a 50 char
+ * array if a solution is found.
+ */
+short avail = 0x03FF;
+char sol_nums[10];
+unsigned long long sol_masks[10];
+signed char solutions[2100][50];
+int solution_count = 0;
+int max_solutions = 2100;
+
+void record_solution(void) {
+   int sol_no, index;
+   unsigned long long sol_mask;
+   for(sol_no = 0; sol_no < 10; sol_no++) {
+      sol_mask = sol_masks[sol_no];
+      for(index = 0; index < 50; index++) {
+         if(sol_mask & 1ULL) {
+            solutions[solution_count][index] = sol_nums[sol_no];
+            /* Board rotated 180 degrees is a solution too! */
+            solutions[solution_count+1][49-index] = sol_nums[sol_no];
+         }
+         sol_mask = sol_mask >> 1;
+      }
+   }
+   solution_count += 2;
+}
+
+void solve(int depth, int cell) {
+   int piece, rotation, max_rots;
+   unsigned long long *piece_mask;
+   short piece_no_mask;
+   
+   if(solution_count >= max_solutions)
+      return;
+
+   while(board & (1ULL << cell))
+      cell++;
+
+   for(piece = 0; piece < 10; piece++) {
+      piece_no_mask = 1 << piece;
+      if(!(avail & piece_no_mask))
+         continue;
+      avail ^= piece_no_mask;
+      max_rots = piece_counts[piece][cell];
+      piece_mask = pieces[piece][cell];
+      for(rotation = 0; rotation < max_rots; rotation++) {
+         if(!(board & *(piece_mask + rotation))) {
+            sol_nums[depth] = piece;
+            sol_masks[depth] = *(piece_mask + rotation);
+            if(depth == 9) {
+               /* Solution found!!!!!11!!ONE! */
+               record_solution();
+               avail ^= piece_no_mask;
+               return;
+            }
+            board |= *(piece_mask + rotation);
+            if(!boardHasIslands(next_cell[piece][cell][rotation]))
+               solve(depth + 1, next_cell[piece][cell][rotation]);
+            board ^= *(piece_mask + rotation);
+         }
+      }
+      avail ^= piece_no_mask;
+   }
+}
+
+
+/* qsort comparator - used to find first and last solutions */
+int solution_sort(const void *elem1, const void *elem2) {
+   signed char *char1 = (signed char *) elem1;
+   signed char *char2 = (signed char *) elem2;
+   int i = 0;
+   while(i < 50 && char1[i] == char2[i])
+      i++;
+   return char1[i] - char2[i];
+}
+
+
+/* pretty print a board in the specified hexagonal format */
+void pretty(signed char *b) {
+   int i;
+   for(i = 0; i < 50; i += 10) {
+      printf("%c %c %c %c %c \n %c %c %c %c %c \n", b[i]+'0', b[i+1]+'0',
+            b[i+2]+'0', b[i+3]+'0', b[i+4]+'0', b[i+5]+'0', b[i+6]+'0',
+            b[i+7]+'0', b[i+8]+'0', b[i+9]+'0');
+   }
+   printf("\n");
+}
+
+int main(int argc, char **argv) {
+   if(argc > 1)
+      max_solutions = atoi(argv[1]);
+   calc_pieces();
+   calc_rows();
+   solve(0, 0);
+   printf("%d solutions found\n\n", solution_count);
+   qsort(solutions, solution_count, 50 * sizeof(signed char), solution_sort);
+   pretty(solutions[0]);
+   pretty(solutions[solution_count-1]);
+   return 0;
+}
+/*
+ * The Computer Language Benchmarks Game
+ * http://shootout.alioth.debian.org/
+ *
+ * contributed by Christoph Bauer
+ *  
+ */
+
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+#define pi 3.141592653589793
+#define solar_mass (4 * pi * pi)
+#define days_per_year 365.24
+
+struct planet {
+  double x, y, z;
+  double vx, vy, vz;
+  double mass;
+};
+
+void advance(int nbodies, struct planet * bodies, double dt)
+{
+  int i, j;
+
+  for (i = 0; i < nbodies; i++) {
+    struct planet * b = &(bodies[i]);
+    for (j = i + 1; j < nbodies; j++) {
+      struct planet * b2 = &(bodies[j]);
+      double dx = b->x - b2->x;
+      double dy = b->y - b2->y;
+      double dz = b->z - b2->z;
+      double distance = sqrt(dx * dx + dy * dy + dz * dz);
+      double mag = dt / (distance * distance * distance);
+      b->vx -= dx * b2->mass * mag;
+      b->vy -= dy * b2->mass * mag;
+      b->vz -= dz * b2->mass * mag;
+      b2->vx += dx * b->mass * mag;
+      b2->vy += dy * b->mass * mag;
+      b2->vz += dz * b->mass * mag;
+    }
+  }
+  for (i = 0; i < nbodies; i++) {
+    struct planet * b = &(bodies[i]);
+    b->x += dt * b->vx;
+    b->y += dt * b->vy;
+    b->z += dt * b->vz;
+  }
+}
+
+double energy(int nbodies, struct planet * bodies)
+{
+  double e;
+  int i, j;
+
+  e = 0.0;
+  for (i = 0; i < nbodies; i++) {
+    struct planet * b = &(bodies[i]);
+    e += 0.5 * b->mass * (b->vx * b->vx + b->vy * b->vy + b->vz * b->vz);
+    for (j = i + 1; j < nbodies; j++) {
+      struct planet * b2 = &(bodies[j]);
+      double dx = b->x - b2->x;
+      double dy = b->y - b2->y;
+      double dz = b->z - b2->z;
+      double distance = sqrt(dx * dx + dy * dy + dz * dz);
+      e -= (b->mass * b2->mass) / distance;
+    }
+  }
+  return e;
+}
+
+void offset_momentum(int nbodies, struct planet * bodies)
+{
+  double px = 0.0, py = 0.0, pz = 0.0;
+  int i;
+  for (i = 0; i < nbodies; i++) {
+    px += bodies[i].vx * bodies[i].mass;
+    py += bodies[i].vy * bodies[i].mass;
+    pz += bodies[i].vz * bodies[i].mass;
+  }
+  bodies[0].vx = - px / solar_mass;
+  bodies[0].vy = - py / solar_mass;
+  bodies[0].vz = - pz / solar_mass;
+}
+
+#define NBODIES 5
+struct planet bodies[NBODIES] = {
+  {                               /* sun */
+    0, 0, 0, 0, 0, 0, solar_mass
+  },
+  {                               /* jupiter */
+    4.84143144246472090e+00,
+    -1.16032004402742839e+00,
+    -1.03622044471123109e-01,
+    1.66007664274403694e-03 * days_per_year,
+    7.69901118419740425e-03 * days_per_year,
+    -6.90460016972063023e-05 * days_per_year,
+    9.54791938424326609e-04 * solar_mass
+  },
+  {                               /* saturn */
+    8.34336671824457987e+00,
+    4.12479856412430479e+00,
+    -4.03523417114321381e-01,
+    -2.76742510726862411e-03 * days_per_year,
+    4.99852801234917238e-03 * days_per_year,
+    2.30417297573763929e-05 * days_per_year,
+    2.85885980666130812e-04 * solar_mass
+  },
+  {                               /* uranus */
+    1.28943695621391310e+01,
+    -1.51111514016986312e+01,
+    -2.23307578892655734e-01,
+    2.96460137564761618e-03 * days_per_year,
+    2.37847173959480950e-03 * days_per_year,
+    -2.96589568540237556e-05 * days_per_year,
+    4.36624404335156298e-05 * solar_mass
+  },
+  {                               /* neptune */
+    1.53796971148509165e+01,
+    -2.59193146099879641e+01,
+    1.79258772950371181e-01,
+    2.68067772490389322e-03 * days_per_year,
+    1.62824170038242295e-03 * days_per_year,
+    -9.51592254519715870e-05 * days_per_year,
+    5.15138902046611451e-05 * solar_mass
+  }
+};
+
+int main(int argc, char ** argv)
+{
+  int n = atoi(argv[1]);
+  int i;
+
+  offset_momentum(NBODIES, bodies);
+  printf ("%.9f\n", energy(NBODIES, bodies));
+  for (i = 1; i <= n; i++)
+    advance(NBODIES, bodies, 0.01);
+  printf ("%.9f\n", energy(NBODIES, bodies));
+  return 0;
+}
+
+// The Computer Language Shootout
+// http://shootout.alioth.debian.org/
+// Precedent C entry modified by bearophile for speed and size, 31 Jan 2006
+// Compile with:  -O3 -s -std=c99 -fomit-frame-pointer
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+typedef unsigned char boolean;
+
+
+static void nsieve(int m) {
+    unsigned int count = 0, i, j;
+    boolean * flags = (boolean *) malloc(m * sizeof(boolean));
+    memset(flags, 1, m);
+
+    for (i = 2; i < m; ++i)
+        if (flags[i]) {
+            ++count;
+            for (j = i << 1; j < m; j += i)
+                if (flags[j]) flags[j] = 0;
+    }
+
+    free(flags);
+    printf("Primes up to %8u %8u\n", m, count);
+}
+
+int main(int argc, char * argv[]) {
+    int m = atoi(argv[1]);
+    for (int i = 0; i < 3; i++)
+        nsieve(10000 << (m-i));
+    return 0;
+}
+/*
+ * The Computer Language Shootout
+ * http://shootout.alioth.debian.org/ 
+ * Written by Dima Dorfman, 2004
+ * Modified by Greg Buchholz and Isaac Gouy for CINT
+ */
+
+#include <limits.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+typedef unsigned char bits;
+#define	NBITS	(8 * sizeof(bits))
+
+static unsigned long
+nsieve(const unsigned long m)
+{
+	unsigned long count, i, j;
+	bits a[m / NBITS];
+
+	memset(a, (1 << 8) - 1, sizeof(a));
+	count = 0;
+	for (i = 2; i < m; ++i)
+		if (a[i / NBITS] & (1 << i % NBITS)) {
+			for (j = i + i; j < m; j += i)
+				a[j / NBITS] &= ~(1 << j % NBITS);
+			++count;
+		}
+	return (count);
+}
+
+static void
+test(unsigned long n)
+{
+	unsigned long count, m;
+
+	m = (1 << n) * 10000;
+	count = nsieve(m);
+	printf("Primes up to %8u %8u\n", m, count);
+}
+
+int
+main(int ac, char **av)
+{
+	unsigned long n;
+	char *cp;
+
+	if (ac < 2) {
+usage:		fprintf(stderr, "usage: nsieve N\n");
+		exit(2);
+	}
+	n = strtoul(av[1], &cp, 10);
+	if (*av[1] == '\0' || *cp != '\0' || n == ULONG_MAX)
+		goto usage;
+	test(n);
+	if (n >= 1)
+		test(n - 1);
+	if (n >= 2)
+		test(n - 2);
+	exit(0);
+}
+/*
+** The Computer Language Shootout
+** http://shootout.alioth.debian.org/
+** contributed by Mike Pall
+** de-optimized by Isaac Gouy
+**
+** compile with:
+**   gcc -O3 -fomit-frame-pointer -ffast-math -o partialsums partialsums.c -lm
+**   Adding -march=<yourcpu> may help, too.
+**   On a P4/K8 or later try adding: --march=<yourcpu> -mfpmath=sse -msse2 
+*/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+
+int main(int argc, char **argv)
+{
+  int k, n = atoi(argv[1]);
+  double sum, a;
+
+/*
+** Yes, I (Mike Pall) tried using a double as a primary or secondary loop variable.
+** But the x86 ABI requires a cleared x87 FPU stack before every call
+** (e.g. to sin()) which nullifies any performance gains.
+**
+** Combining all loops does not pay off because the x87 FPU has to shuffle
+** stack slots and/or runs out of registers. This may not be entirely true
+** for SSE2 with fully inlined FPU code (-ffast-math required). Dito for
+** other CPUs with a register-based FPU and a sane FP ABI.
+**
+** Auto vectorization may be a bit easier with separate loops, too.
+*/
+
+// #define kd ((double)k) // made conversion explicit for CINT
+
+  sum = 0.0;
+  for (k = 0; k <= n; k++) sum += pow(2.0/3.0, ((double)k));
+  printf("%.9f\t(2/3)^k\n", sum);
+
+  sum = 0.0;
+  for (k = 1 ; k <= n; k++) sum += 1/sqrt(((double)k));  /* aka pow(((double)k), -0.5) */
+  printf("%.9f\tk^-0.5\n", sum);
+
+  sum = 0.0;
+  for (k = 1; k <= n; k++) sum += 1.0/(((double)k)*(((double)k)+1.0));
+  printf("%.9f\t1/k(k+1)\n", sum);
+
+  sum = 0.0;
+  for (k = 1; k <= n; k++) {
+    double sk = sin(((double)k));
+    sum += 1.0/(((double)k)*((double)k)*((double)k)*sk*sk);
+  }
+  printf("%.9f\tFlint Hills\n", sum);
+
+  sum = 0.0;
+  for (k = 1; k <= n; k++) {
+    double ck = cos(((double)k));
+    sum += 1.0/(((double)k)*((double)k)*((double)k)*ck*ck);
+  }
+  printf("%.9f\tCookson Hills\n", sum);
+
+  sum = 0.0;
+  for (k = 1; k <= n; k++) sum += 1.0/((double)k);
+  printf("%.9f\tHarmonic\n", sum);
+
+  sum = 0.0;
+  for (k = 1; k <= n; k++) sum += 1.0/(((double)k)*((double)k));
+  printf("%.9f\tRiemann Zeta\n", sum);
+
+  sum = 0.0; a = -1.0;
+  for (k = 1; k <= n; k++) sum += (a = -a)/((double)k);
+  printf("%.9f\tAlternating Harmonic\n", sum);
+
+  sum = 0.0;  a = -1.0;
+  for (k = 1; k <= n; k++) sum += (a = -a)/(2.0*((double)k) - 1.0);
+  printf("%.9f\tGregory\n", sum);
+
+  return 0;
+}
+
+/* The Computer Language Benchmarks Game
+  http://shootout.alioth.debian.org/
+
+  contributed by Paolo Bonzini & Sean Bartlett
+  modified by Michael Mellor
+*/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <gmp.h>
+
+static mpz_t numer, accum, denom, tmp1, tmp2;
+
+static int extract_digit()
+{
+  if (mpz_cmp(numer, accum) > 0)
+    return -1;
+
+  /* Compute (numer * 3 + accum) / denom */
+  mpz_mul_2exp(tmp1, numer, 1);
+  mpz_add(tmp1, tmp1, numer);
+  mpz_add(tmp1, tmp1, accum);
+  mpz_fdiv_qr(tmp1, tmp2, tmp1, denom);
+
+  /* Now, if (numer * 4 + accum) % denom... */
+  mpz_add(tmp2, tmp2, numer);
+
+  /* ... is normalized, then the two divisions have the same result.  */
+  if (mpz_cmp(tmp2, denom) >= 0)
+    return -1;
+
+  return mpz_get_ui(tmp1);
+}
+
+static void next_term(unsigned int k)
+{
+  unsigned int y2 = k*2 + 1;
+
+  mpz_mul_2exp(tmp1, numer, 1);
+  mpz_add(accum, accum, tmp1);
+  mpz_mul_ui(accum, accum, y2);
+  mpz_mul_ui(numer, numer, k);
+  mpz_mul_ui(denom, denom, y2);
+}
+
+static void eliminate_digit(unsigned int d)
+{
+  mpz_submul_ui(accum, denom, d);
+  mpz_mul_ui(accum, accum, 10);
+  mpz_mul_ui(numer, numer, 10);
+}
+
+static void pidigits(unsigned int n)
+{
+  int d;
+  unsigned int i = 0, k = 0, m;
+  mpz_init(tmp1);
+  mpz_init(tmp2);
+  mpz_init_set_ui(numer, 1);
+  mpz_init_set_ui(accum, 0);
+  mpz_init_set_ui(denom, 1);
+
+  for(;;)
+  {
+    do {
+      k++;
+      next_term(k);
+      d = extract_digit();
+    } while(d == -1);
+
+    putchar(d + '0');
+
+    i++;
+    m = i%10;
+    if(m == 0)
+      printf("\t:%d\n", i);
+    if(i >= n)
+      break;
+    eliminate_digit(d);
+  }
+
+  if(m) {
+    m = 10 - m;
+    while(m--)
+      putchar(' ');
+    printf("\t:%d\n", n);
+  }
+}
+
+int main(int argc, char **argv)
+{
+  pidigits(argc > 1 ? atoi(argv[1]) : 27);
+  return 0;
+}
+
+/* -*- mode: c -*-
+ * $Id: random.cint,v 1.1 2006-02-26 22:11:58 igouy-guest Exp $
+ * http://www.bagley.org/~doug/shootout/
+ */
+
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+#define IM 139968
+#define IA 3877
+#define IC 29573
+
+inline double gen_random(double max) {
+    static long last = 42;
+    
+    last = (last * IA + IC) % IM;
+    return( max * last / IM );
+}
+
+int main(int argc, char *argv[]) {
+    int N = ((argc == 2) ? atoi(argv[1]) : 1) - 1;
+    
+    while (N--) {
+	gen_random(100.0);
+    }
+    printf("%.9f\n", gen_random(100.0));
+    return(0);
+}
+// The Computer Language Shootout
+// http://shootout.alioth.debian.org/
+// recursive test, by bearophile, Jan 24 2006
+// Compile with: -O3 -s -fomit-frame-pointer -funroll-loops
+
+#include <stdio.h>
+
+int Ack(int x, int y) {
+    if (x == 0)
+        return y+1;
+    if (y == 0)
+        return Ack(x-1, 1);
+    return Ack(x-1, Ack(x, y-1));
+}
+
+int Fib(int n) {
+    if (n < 2)
+        return 1;
+    return Fib(n-2) + Fib(n-1);
+}
+
+double FibFP(double n) {
+    if (n < 2.0)
+        return 1.0;
+    return FibFP(n-2.0) + FibFP(n-1.0);
+}
+
+int Tak(int x, int y, int z) {
+    if (y < x)
+        return Tak( Tak(x-1, y, z), Tak(y-1, z, x), Tak(z-1, x, y) );
+    return z;
+}
+
+double TakFP(double x, double y, double z) {
+    if (y < x)
+        return TakFP( TakFP(x-1.0, y, z), TakFP(y-1.0, z, x), TakFP(z-1.0, x, y) );
+    return z;
+}
+
+int main(int argc, char **argv) {
+    int n = atoi(argv[1]) - 1;
+    printf("Ack(3,%d): %d\n", n+1, Ack(3, n+1));
+    printf("Fib(%.1f): %.1f\n", 28.0+n, FibFP(28.0+n));
+    printf("Tak(%d,%d,%d): %d\n", 3*n, 2*n, n, Tak(3*n, 2*n, n));
+    printf("Fib(3): %d\n", Fib(3));
+    printf("Tak(3.0,2.0,1.0): %.1f\n", TakFP(3.0, 2.0, 1.0));
+    return 0;
+}
+/* The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+   contributed by Josh Goldfoot
+*/
+
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <regex.h>
+
+void regsub2 (char *buffer, char *searchFor, char *replaceWith,
+	 unsigned long buflen, char **returnBuf, unsigned long* newLen)
+{
+  regex_t preg;
+  regmatch_t pmatch;
+  int result, replaceLen;
+  *returnBuf = malloc (buflen * 14 / 10);
+  if (!*returnBuf)
+    return;
+  if (regcomp (&preg, searchFor, REG_EXTENDED | REG_NEWLINE) != 0)
+    return;
+  unsigned long start;
+  replaceLen = strlen (replaceWith);
+  result = 0;
+  start = 0;
+  *newLen = 0;
+  while (result == 0)
+    {
+      result = regexec (&preg, &(buffer[start]), 1, &pmatch, 0);
+      if (result == 0)
+	{
+	  if (pmatch.rm_so > 0) {
+	    memcpy(*returnBuf + *newLen, &(buffer[start]), pmatch.rm_so);
+	    *newLen = *newLen + pmatch.rm_so;
+	  }
+	  memcpy(*returnBuf + *newLen, replaceWith, replaceLen);
+	  *newLen = *newLen + replaceLen;
+	  start = start + pmatch.rm_eo;
+	}
+      else
+	{
+	  memcpy(*returnBuf + *newLen, &(buffer[start]), buflen-start);
+	  *newLen = *newLen + buflen - start;
+	}
+    }
+}
+
+void regsub(char** bufHandle, char* searchFor, char* replaceWith, unsigned long *buflen)
+{
+  char* tmp;
+  unsigned long newlen;
+
+  regsub2(*bufHandle, searchFor, replaceWith, *buflen, &tmp, &newlen);
+  free(*bufHandle);
+  *bufHandle = tmp;
+  *buflen = newlen;
+}
+
+unsigned long
+count_matches (char *buffer, char *searchFor, unsigned long buflen)
+{
+  regex_t preg;
+  regmatch_t pmatch;
+  int result;
+  unsigned long matches, start;
+
+  if (regcomp (&preg, searchFor, REG_EXTENDED) != 0)
+    return buflen;
+  memset (&pmatch, 0, sizeof (pmatch));
+  result = 0;
+  matches = 0;
+  start = 0;
+  while (result == 0)
+    {
+      result = regexec (&preg, &(buffer[start]), 1, &pmatch, 0);
+      if (result == 0)
+	{
+	  matches++;
+	  start = start + pmatch.rm_eo;
+	}
+    }
+  return matches;
+}
+
+
+int main ()
+{
+  char *x, *buffer, *tmp;
+  unsigned long buflen, seqlen, clen, rlen;
+  size_t readlen;
+  int i;
+
+  seqlen = 0;
+  buflen = 206848;
+  buffer = malloc (buflen + 1);
+  if (!buffer)
+    return -1;
+  x = buffer;
+  while (readlen = (fread (x, 1, buflen - seqlen - 1, stdin)) )
+    {
+      seqlen = seqlen + readlen;
+      if (!feof (stdin))
+	{
+	  buflen = buflen + 40960;
+	  tmp = realloc (buffer, buflen + 1);
+	  if (tmp == NULL)
+	    return -1;
+	  buffer = tmp;
+	  x = &(buffer[seqlen]);
+	}
+    }
+  buffer[seqlen] = 0;
+  clen = seqlen;
+  regsub (&buffer, ">.*|\n", "", &clen);
+
+  char variants[9][27] = {
+     "agggtaaa|tttaccct", "[cgt]gggtaaa|tttaccc[acg]",
+     "a[act]ggtaaa|tttacc[agt]t", "ag[act]gtaaa|tttac[agt]ct",
+     "agg[act]taaa|ttta[agt]cct", "aggg[acg]aaa|ttt[cgt]ccct",
+     "agggt[cgt]aa|tt[acg]accct", "agggta[cgt]a|t[acg]taccct",
+     "agggtaa[cgt]|[acg]ttaccct"
+     };
+  for (i = 0; i < 9; i++)
+     printf ("%s %ld\n", variants[i], count_matches (buffer, variants[i], clen));
+  rlen = clen;
+  regsub (&buffer, "B", "(c|g|t)", &rlen);
+  regsub (&buffer, "D", "(a|g|t)", &rlen);
+  regsub (&buffer, "H", "(a|c|t)", &rlen);
+  regsub (&buffer, "K", "(g|t)", &rlen);
+  regsub (&buffer, "M", "(a|c)", &rlen);
+  regsub (&buffer, "N", "(a|c|g|t)", &rlen);
+  regsub (&buffer, "R", "(a|g)", &rlen);
+  regsub (&buffer, "S", "(c|g)", &rlen);
+  regsub (&buffer, "V", "(a|c|g)", &rlen);
+  regsub (&buffer, "W", "(a|t)", &rlen);
+  regsub (&buffer, "Y", "(c|t)", &rlen);
+  printf ("\n%ld\n%ld\n%ld\n", seqlen, clen, rlen);
+  free (buffer);
+  return 0;
+}
+/* The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+   contributed by Mike Pall
+ 
+  regex-dna benchmark using PCRE
+ 
+  compile with:
+    gcc -O3 -fomit-frame-pointer -o regexdna regexdna.c -lpcre
+*/
+
+#define __USE_STRING_INLINES
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <pcre.h>
+
+typedef struct fbuf {
+  char *buf;
+  size_t size, len;
+} fbuf_t;
+
+static void fb_init(fbuf_t *b)
+{
+  b->buf = NULL;
+  b->len = b->size = 0;
+}
+
+static char *fb_need(fbuf_t *b, size_t need)
+{
+  need += b->len;
+  if (need > b->size) {
+    if (b->size == 0) b->size = need;
+    else while (need > b->size) b->size += b->size;
+    if (!(b->buf = realloc(b->buf, b->size))) exit(1);
+  }
+  return b->buf+b->len;
+}
+
+#define FB_MINREAD	(3<<16)
+
+/* Read all of a stdio stream into dst buffer. */
+static size_t fb_readall(fbuf_t *dst, FILE *fp)
+{
+  char *dp;
+  int n;
+  for (dp = fb_need(dst, FB_MINREAD);
+       (n = fread(dp, 1, dst->size-dst->len, fp)) > 0;
+       dp = fb_need(dst, FB_MINREAD)) dst->len += n;
+  if (ferror(fp)) exit(1);
+  return dst->len;
+}
+
+/* Substitute pattern p with replacement r, copying from src to dst buffer. */
+static size_t fb_subst(fbuf_t *dst, fbuf_t *src, const char *p, const char *r)
+{
+  pcre *re;
+  pcre_extra *re_ex;
+  const char *re_e;
+  char *dp;
+  int re_eo, m[3], pos, rlen, clen;
+  if (!(re = pcre_compile(p, PCRE_CASELESS, &re_e, &re_eo, NULL))) exit(1);
+  re_ex = pcre_study(re, 0, &re_e);
+  for (dst->len = 0, rlen = strlen(r), pos = 0;
+       pcre_exec(re, re_ex, src->buf, src->len, pos, 0, m, 3) >= 0;
+       pos = m[1]) {
+    clen = m[0]-pos;
+    dp = fb_need(dst, clen+rlen);
+    dst->len += clen+rlen;
+    memcpy(dp, src->buf+pos, clen);
+    memcpy(dp+clen, r, rlen);
+  }
+  clen = src->len-pos;
+  dp = fb_need(dst, clen);
+  dst->len += clen;
+  memcpy(dp, src->buf+pos, clen);
+  return dst->len;
+}
+
+/* Count all matches with pattern p in src buffer. */
+static int fb_countmatches(fbuf_t *src, const char *p)
+{
+  pcre *re;
+  pcre_extra *re_ex;
+  const char *re_e;
+  int re_eo, m[3], pos, count;
+  if (!(re = pcre_compile(p, PCRE_CASELESS, &re_e, &re_eo, NULL))) exit(1);
+  re_ex = pcre_study(re, 0, &re_e);
+  for (count = 0, pos = 0;
+       pcre_exec(re, re_ex, src->buf, src->len, pos, 0, m, 3) >= 0;
+       pos = m[1]) count++;
+  return count;
+}
+
+static const char *variants[] = {
+  "agggtaaa|tttaccct",         "[cgt]gggtaaa|tttaccc[acg]",
+  "a[act]ggtaaa|tttacc[agt]t", "ag[act]gtaaa|tttac[agt]ct",
+  "agg[act]taaa|ttta[agt]cct", "aggg[acg]aaa|ttt[cgt]ccct",
+  "agggt[cgt]aa|tt[acg]accct", "agggta[cgt]a|t[acg]taccct",
+  "agggtaa[cgt]|[acg]ttaccct", NULL
+};
+
+static const char *subst[] = {
+  "B", "(c|g|t)", "D", "(a|g|t)",   "H", "(a|c|t)", "K", "(g|t)",
+  "M", "(a|c)",   "N", "(a|c|g|t)", "R", "(a|g)",   "S", "(c|g)",
+  "V", "(a|c|g)", "W", "(a|t)",     "Y", "(c|t)",   NULL
+};
+
+int main(int argc, char **argv)
+{
+  fbuf_t seq[2];
+  const char **pp;
+  size_t ilen, clen, slen;
+  int flip;
+  fb_init(&seq[0]);
+  fb_init(&seq[1]);
+  ilen = fb_readall(&seq[0], stdin);
+  clen = fb_subst(&seq[1], &seq[0], ">.*|\n", "");
+  for (pp = variants; *pp; pp++)
+    printf("%s %d\n", *pp, fb_countmatches(&seq[1], *pp));
+  for (slen = 0, flip = 1, pp = subst; *pp; pp += 2, flip = 1-flip)
+    slen = fb_subst(&seq[1-flip], &seq[flip], *pp, pp[1]);
+  printf("\n%zu\n%zu\n%zu\n", ilen, clen, slen);
+  return 0;
+}
+
+/* The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+*/
+
+#include <stdio.h>
+#include <string.h>
+#include <limits.h>
+
+static unsigned char iubpairs[][2] = {
+    {    'A',    'T'    },
+    {    'C',    'G'    },
+    {    'B',    'V'    },
+    {    'D',    'H'    },
+    {    'K',    'M'    },
+    {    'R',    'Y'    },
+    {    '\0',   '\0'   }
+};
+
+static unsigned char iubComplement[1+UCHAR_MAX];
+
+static void buildIubComplement (void) {
+    int i;
+    for (i=0; i <= UCHAR_MAX; i++) iubComplement[i] = (unsigned char) i;
+    for (i=0; iubpairs[i][0] != '\0'; i++) {
+    	iubComplement[iubpairs[i][0]] = iubpairs[i][1];
+    	iubComplement[iubpairs[i][1]] = iubpairs[i][0];
+    	iubComplement[tolower (iubpairs[i][0])] = iubpairs[i][1];
+    	iubComplement[tolower (iubpairs[i][1])] = iubpairs[i][0];
+    }
+}
+
+static void inPlaceReverse (unsigned char * strand, int len) {
+    int i;
+    for (i=0, len--; i < len; i++,len--) {
+    	unsigned char c = strand[i];
+    	strand[i] = iubComplement[strand[len]];
+    	strand[len] = iubComplement[c];
+    }
+    if (i == len) strand[i] = iubComplement[strand[i]];
+}
+
+static void process (char * strand, int len) {
+    char * s, c;
+
+    inPlaceReverse ((unsigned char *) strand, len);
+    s = strand;
+
+    while (len > 60) {
+    	c = s[60];
+    	s[60] = '\0';
+    	puts (s);
+    	s[60] = c;
+    	s += 60;
+    	len -= 60;
+    }
+
+    s[len] = '\0';
+    puts (s);
+}
+
+int main (int argc, char * argv[]) {
+    static char buffer[1024];
+    char * inp = (char *) malloc (129);
+    int mlen = 128;
+    int slen = 0;
+
+    buildIubComplement ();
+
+    while (NULL != fgets (buffer, 1023, stdin)) {
+    	if (buffer[0] == '>') {
+    	    if (slen > 0) {
+    	    	process (inp, slen);
+    	    	slen = 0;
+    	    }
+    	    printf ("%s", buffer);
+    	} else {
+    	    int l = strlen (buffer);
+    	    while (l > 0 && !isalpha (buffer[l-1])) l--;
+    	    while (slen + l > mlen) {
+    	    	mlen += mlen;
+    	    	inp = (char *) realloc (inp, mlen + 1);
+    	    }
+
+    	    memcpy (inp + slen, buffer, l);
+    	    slen += l;
+    	}
+    }
+    if (slen > 0) process (inp, slen);
+    free (inp);
+    return 0;
+}
+
+/*  
+ * The Computer Language Benchmarks Game
+ * http://shootout.alioth.debian.org/
+ *
+ * Contributed by Sebastien Loisel
+ * modified by Isaac Gouy for CINT
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+
+double eval_A(int i, int j) { return 1.0/((i+j)*(i+j+1)/2+i+1); }
+
+void eval_A_times_u(int N, const double u[], double Au[])
+{
+  int i,j;
+  for(i=0;i<N;i++)
+    {
+      Au[i]=0;
+      for(j=0;j<N;j++) Au[i]+=eval_A(i,j)*u[j];
+    }
+}
+
+void eval_At_times_u(int N, const double u[], double Au[])
+{
+  int i,j;
+  for(i=0;i<N;i++)
+    {
+      Au[i]=0;
+      for(j=0;j<N;j++) Au[i]+=eval_A(j,i)*u[j];
+    }
+}
+
+void eval_AtA_times_u(int N, const double u[], double AtAu[])
+{ 
+   double * v = (double *) malloc(N * sizeof(double));
+   eval_A_times_u(N,u,v); 
+   eval_At_times_u(N,v,AtAu); 
+}
+
+
+int main(int argc, char ** argv)
+{
+  int i;
+  int N = atoi(argv[1]);
+
+  double vBv,vv;
+  double * u = (double *) malloc(N * sizeof(double));
+  double * v = (double *) malloc(N * sizeof(double));
+
+  for(i=0;i<N;i++) u[i]=1;
+  for(i=0;i<10;i++)
+    {
+      eval_AtA_times_u(N,u,v);
+      eval_AtA_times_u(N,v,u);
+    }
+  vBv=vv=0;
+  for(i=0;i<N;i++) { vBv+=u[i]*v[i]; vv+=v[i]*v[i]; }
+  printf("%0.9f\n",sqrt(vBv/vv));
+  return 0;
+}
+
+/* -*- mode: c -*-
+ * $Id: sumcol.cint,v 1.1 2006-02-26 22:11:58 igouy-guest Exp $
+ * http://www.bagley.org/~doug/shootout/
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+
+#define MAXLINELEN 128
+
+int
+main() {
+    int sum = 0;
+    char line[MAXLINELEN];
+
+    while (fgets(line, MAXLINELEN, stdin)) {
+	sum += atoi(line);
+    }
+    printf("%d\n", sum);
+    return(0);
+}
+
+/*
+* The Computer Language Benchmarks Game
+* http://shootout.alioth.debian.org/
+
+* contributed by Premysl Hruby
+*/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <string.h>
+#include <limits.h>
+
+#define THREADS (503)
+
+
+struct stack {
+   char x[PTHREAD_STACK_MIN];
+};
+
+
+/* staticaly initialize mutex[0] mutex */
+static pthread_mutex_t mutex[THREADS]; 
+static int data[THREADS];
+static struct stack stacks[THREADS];
+/* stacks must be defined staticaly, or my i386 box run of virtual memory for this
+ * process while creating thread +- #400 */
+
+static void* thread(void *num)
+{
+   int l = (int)num;
+   int r = (l+1) % THREADS;
+   int token;
+
+   while(1) {
+      pthread_mutex_lock(mutex + l);
+      token = data[l];
+      if (token) {
+         data[r] = token - 1;
+         pthread_mutex_unlock(mutex + r);
+      }
+      else {
+         printf("%i\n", l+1);
+         exit(0);
+      }
+   }
+}
+
+
+
+int main(int argc, char **argv)
+{
+   int i;
+   pthread_t cthread;
+   pthread_attr_t stack_attr;
+
+   if (argc != 2)
+      exit(255);
+   data[0] = atoi(argv[1]);
+
+   pthread_attr_init(&stack_attr);
+      
+   for (i = 0; i < THREADS; i++) {
+      pthread_mutex_init(mutex + i, NULL);
+      pthread_mutex_lock(mutex + i);
+
+      pthread_attr_setstack(&stack_attr, &stacks[i], sizeof(struct stack)); 
+      pthread_create(&cthread, &stack_attr, thread, (void*)i);
+   }
+
+   pthread_mutex_unlock(mutex + 0);
+   pthread_join(cthread, NULL);   
+}
+/* The Computer Language Benchmarks Game
+ * http://shootout.alioth.debian.org/
+ *
+ * contributed by Ricardo Garcia
+ */
+
+#include <assert.h>
+#include <pthread.h>
+#include <semaphore.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <limits.h>
+
+#define NUM_THREADS (503)
+
+pthread_t threads[NUM_THREADS];   /* Threads. */
+int names[NUM_THREADS];      /* Thread "names". */
+long mailboxes[NUM_THREADS];   /* Read tokens from here. */
+sem_t greenlights[NUM_THREADS];   /* Semaphores to signal token presence. */
+
+void *ring_routine(void *myname)
+{
+   int name = *(int *)(myname);   /* My name (1..NUM_THREADS). */
+   int index = name - 1;      /* My index for the arrays. */
+   int next = (index + 1) % NUM_THREADS;
+   long token;
+
+   for (;;) {
+      sem_wait(greenlights + index);   /* Wait for a new token. */
+      token = mailboxes[index];   /* Get token. */
+      if (token == 0) {      /* Game over. */
+         printf("%d\n", name);
+         exit(EXIT_SUCCESS);
+      }
+      mailboxes[next] = token - 1;   /* Decrement and pass. */
+      sem_post(greenlights + next);   /* Green ligh for next thr. */
+   }
+   return NULL;
+}
+
+int main(int argc, char *argv[])
+{
+   long first_token;
+   int ii;
+   pthread_attr_t attributes;
+   sem_t permanent_red;
+   
+   /* Read first token. */
+   first_token = strtol(argv[1], NULL, 10);
+
+   /* Initialize attributes. */
+   pthread_attr_init(&attributes);
+   pthread_attr_setdetachstate(&attributes, PTHREAD_CREATE_DETACHED);
+   pthread_attr_setstacksize(&attributes, PTHREAD_STACK_MIN);
+
+   /* Initialize arrays and create threads. */
+   for (ii = 0; ii < NUM_THREADS; ++ii) {
+      names[ii] = ii + 1;
+      sem_init(greenlights + ii, 0, 0);
+      pthread_create(threads + ii, &attributes, ring_routine, names + ii);
+   }
+
+   /* Pass first token. */
+   mailboxes[0] = first_token;
+   sem_post(greenlights + 0);
+
+   /* Wait forever. */
+   sem_init(&permanent_red, 0, 0);
+   sem_wait(&permanent_red);
+   return 0;
+}

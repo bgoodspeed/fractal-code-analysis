@@ -1,0 +1,1642 @@
+\ binary-tree.gforth
+\ http://shootout.alioth.debian.org/
+\ contributed by Ian Osgood
+\ modified by Bernd Paysan
+
+4 constant min-depth
+
+\ read NUM from last command line argument
+0. argc @ 1- arg >number 2drop drop min-depth 2 + max constant NUM
+
+struct{
+  cell left
+  cell right
+  cell item
+} node
+
+: bottom-up-tree ( item depth -- tree )
+  dup if
+    over 2* 1- over 1- recurse  >r
+    over 2*    swap 1- recurse  r>
+  else 0 then ( item right left )
+  sizeof node allocate throw
+  tuck node left !  tuck node right !  tuck node item ! ;
+
+: item-check ( tree -- n )
+  dup node item @
+  over node left @ if
+    over node left @ recurse +  over node right @ recurse -
+  then nip ;
+  
+: free-tree ( tree -- )
+  dup node right @ if
+    dup node right @ recurse  dup node left @ recurse
+  then free throw ;
+
+: .check ( check depth -- )
+  ."  of depth " 1 u.r #tab emit ."  check: " 1 .r ;
+
+: main
+  0 NUM 1+ bottom-up-tree
+  ." stretch tree" dup item-check NUM 1+ .check cr
+  free-tree
+  0 NUM bottom-up-tree
+  NUM 1+ min-depth do
+    1  NUM min-depth + i -  lshift  0 ( iterations check )
+    over 1+ 1 do
+      i        j bottom-up-tree dup item-check swap free-tree +
+      i negate j bottom-up-tree dup item-check swap free-tree +
+    loop
+    swap 2* 1 u.r #tab emit ."  trees" i .check cr
+  2 +loop
+  ." long lived tree" dup item-check NUM .check cr
+  free-tree ;
+
+main bye  \ done!
+\ The Computer Language Shootout
+\ http://shootout.alioth.debian.org/
+\ Submitted by Ian Osgood
+\ modified by Bernd Paysan
+
+\ read NUM from last command line argument
+0. argc @ 1- arg >number 2drop drop constant NUM
+
+import float float also
+
+: mem,
+  here over allot swap move ;
+
+\ random
+42 value seed
+: random ( -- u ) seed 3877 * 29573 + 139968 mod dup to seed ;
+: gen-random ( r -- r' ) random fm* 139968e f/ ;
+
+60 constant line-len
+128 constant lines
+line-len 1+ lines * Constant buf-size
+
+\ data arrays
+Variable linebuf buf-size allot
+
+create ALU
+  s" GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG" mem,
+  s" GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA" mem,
+  s" CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT" mem,
+  s" ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA" mem,
+  s" GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG" mem,
+  s" AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC" mem,
+  s" AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA" mem,
+here constant ALU-end
+
+: f+, ( a f -- a' ) f+ fdup f, ;
+: 0.02-remainder, ( a -- a>=1)
+  begin fdup 1e f< while 0.02e f+, repeat ;
+
+\ " acgtBDHKMNRSVWY"
+falign create IUB   0e
+  0.27e f+,  0.12e f+,  0.12e f+,  0.27e f+,
+  0.02-remainder, fdrop
+
+\ " acgt"
+falign create HomoSap  0e
+  0.3029549426680e f+,  0.1979883004921e f+,
+  0.1975473066391e f+,  0.3015094502008e f+,  fdrop
+
+: next-char ( a -- a' c )
+  dup ALU-end = if drop ALU then  count ;
+
+: flush, linebuf @+ swap type linebuf off ;
+: emit, ( char -- )  linebuf @+ + c!  1 linebuf +! ;
+: cr,  #lf emit, linebuf @ buf-size = IF
+	flush,
+    THEN ;
+
+: ?cr ( col -- col' ) 1- dup 0= if cr, line-len + then ;
+: ?end-cr ( col -- ) line-len < if cr, then flush, ;
+
+: fasta-repeat ( n -- ) ALU
+    begin over 0> while
+	    over line-len min 0 ?DO
+		next-char emit,  LOOP  cr,
+	    swap line-len - swap
+  repeat drop flush, ;
+
+: sel-random ( probs -- probs c )
+  1e gen-random s" acgtBDHKMNRSVWY" drop over
+  begin dup f@ fover f< while float+ swap char+ swap repeat
+  fdrop drop c@ ;
+
+: fasta-random ( n which -- )
+    begin over 0> while
+	    over line-len min 0 ?DO
+		sel-random emit,  LOOP  cr,
+	    swap line-len - swap
+  repeat drop flush, ;
+
+: main
+  ." >ONE Homo sapiens alu" cr
+  NUM 2* fasta-repeat
+  ." >TWO IUB ambiguity codes" cr
+  NUM 3 * IUB fasta-random
+  ." >THREE Homo sapiens frequency" cr
+  NUM 5 * HomoSap fasta-random ;
+
+main bye  \ done!
+
+
+\ The Great Computer Language Shootout
+\ http://shootout.alioth.debian.org/
+\
+\ contributed by  Ian Osgood
+\ Moved to bigFORTH by Bernd Paysan
+\ requires enlarging the dictionary with "-d 8M"
+
+import float float also
+
+wordlist constant word-counts
+variable data
+variable dataEnd
+create word-pointers 100 cells allot
+variable endwp
+
+: count,   1 , ;
+: count-name,
+  endwp @ here over ! cell+ endwp !
+  1 , last @ count $1F and
+  2dup bounds do i c@ capital i c! loop 2, ;
+
+defer data,
+
+: count-word ( addr u -- )
+    2dup word-counts search-wordlist if
+        1 swap >body +! 2drop
+    else
+	&31 min ">tib create data, \ "
+    endif ;
+
+: scanit ( end data n -- total )
+  word-pointers endwp !
+  rot 1+ over - rot 2dup - >r  ( n end-n addr R: total )
+  get-current >r word-counts set-current
+  do i over count-word loop
+  6 swap - set-precision r> set-current r> ;
+
+: comp? ( a1 a2 -- a1 a2 ? )
+  over @ over @ = if
+    over cell+ 2@ drop over cell+ 2@ tuck compare 0< 
+  else over @ over @ > then ;
+: sort
+  word-pointers endwp @ over cell+ do
+    dup i do
+      i @ i cell - @  comp? if
+      i ! i cell - !  else 2drop leave then
+    cell -loop
+  cell +loop drop ;
+
+: ffix. 1000e f* f>d <# # # # '. hold #S #> type ;
+: sortit ( end data n -- )  ['] count-name, is data,
+  scanit sort  ( total )
+  endwp @ word-pointers do
+    i @ cell+ 2@ type space
+    i @ @ 100 * s>d d>f  dup s>d d>f  f/ ffix. cr
+  cell +loop drop ;
+
+: findit ( end data str len -- ) ['] count, is data,
+  s" clean marker clean" evaluate
+  tuck 2>r scanit drop
+  2r@ word-counts search-wordlist if
+    >body @ 1 u.r
+  else '0 emit then  #tab emit 2r> type ;
+ 
+: grow ( end -- newEnd )
+  data @ - ( size )
+  data @ dataEnd @ over - 2* tuck resize throw dup data ! + dataEnd !
+  data @ + ;
+
+: slurp ( -- end ) data @
+  begin dup 80 stdin read-line throw
+  while over c@ '> <>
+  while over c@ '; = if drop else + then
+        dataEnd @ over - 80 < if grow then
+  repeat then drop ;
+
+: report ( end -- ) data @
+  2dup 1 sortit cr
+  2dup 2 sortit cr
+  2dup s" GGT" findit cr
+  2dup s" GGTA" findit cr
+  2dup s" GGTATT" findit cr
+  2dup s" GGTATTTTAATT" findit cr
+  s" GGTATTTTAATTTATAGT" findit cr ;
+
+: main
+  4096 dup allocate throw dup data ! + dataEnd !
+  begin pad 80 stdin read-line throw nip
+  while s" >THREE" pad over compare 0= if slurp report then
+  repeat data @ free throw ;
+
+marker clean
+
+main bye \ done!
+\ The Computer Language Shootout
+\ http://shootout.alioth.debian.org/
+\ Contributed by Ian Osgood
+\ modified by Bernd Paysan
+
+
+\ read NUM from last command line argument
+0. argc @ 1- arg >number 2drop drop constant NUM
+
+import float float also
+include locals.fs
+
+NUM s>f fconstant FNUM
+
+: flush  drop emit 0 128 ;
+: ?flush  dup 128 < if flush then ;
+: write-bit ( b m f -- b' m' )
+  if tuck or swap then
+  2/ dup 0= if flush then ;
+
+: mandel 0e 0e { F: Zi F: Zr -- }
+  ." P4" cr NUM dup . 1 u.r cr
+  0 128  ( byte-accumulator bit-mask )
+  NUM 0 do
+    i 2* s>f FNUM f/ 1e f- to Zi
+    NUM 0 do
+      i 2* s>f FNUM f/ 1.5e f- to Zr
+      Zr Zi 51
+      begin  1- dup
+      while  fover fdup f* fover fdup f*
+             fover fover f+ 4e f<
+      while  f- Zr f+ frot frot f* 2e f* Zi f+
+      repeat fdrop fdrop
+      then 0= write-bit fdrop fdrop
+    loop ?flush
+  loop 2drop ;
+
+\ run and write PPM to stdout
+mandel bye  \ done! 
+\ The Computer Language Shootout
+\ http://shootout.alioth.debian.org/
+\
+\ contributed by Ian Osgood
+\ modified by Bernd Paysan
+
+\ read NUM from last command line argument
+0. argc @ 1- arg >number 2drop drop constant NUM
+
+variable receiver  \ task being poked
+variable data      \ data being poked
+variable finished
+variable sums
+
+: poke ( task data -- )
+  begin receiver @ while pause repeat
+  data ! dup receiver ! wake ;
+
+: peek? ( task -- data T | F )
+  receiver @ = dup if receiver off  data @ swap then ;
+
+Variable xtasks
+
+: sum-task ( -- new-task )
+  1 xtasks +!
+  640 640 NewTask dup dup 0 2 rot pass
+  ( this-task sum -- )
+  begin
+    begin pause over peek? until
+    1+ +
+  finished @ until
+  sums ! drop -1 xtasks +! ;
+
+: xtask ( next-task -- new-task )
+  1 xtasks +!
+  64 dup NewTask tuck 2 over pass
+  ( next-task this-task -- )
+  begin
+    over begin pause over peek? until
+    1+ poke
+  finished @ until 2drop -1 xtasks +! ;
+
+: main   receiver off
+  sum-task
+  500 1 do xtask loop
+  NUM 0 do dup 0 poke loop drop
+  \ wait for all tasks to finish
+  finished on
+  begin pause xtasks @ 0= until
+  sums @ 1 u.r cr ;
+
+main bye  \ done!
+\ The Computer Language Shootout
+\ http://shootout.alioth.debian.org/
+\ Contributed by Ian Osgood
+\ modified by Anton Ertl
+\ Joshua Grams removed most of the double cell manipulation
+\  and added island detection.
+
+: enum ( n -- )  0 do I constant loop ;
+: table create does> ( i -- t[i] )  swap cells + @ ;
+
+7 enum         E   SE   SW    W   NW   NE   STOP
+table offset   1 ,  7 ,  6 , -1 , -7 , -6 ,    0 ,
+table rotate  SE , SW ,  W , NW , NE ,  E , STOP ,
+table reflect  E , NE , NW ,  W , SW , SE , STOP ,
+
+\ paths are more easily transformable than bit masks
+
+create path    5 cells allot
+create offsets 6 cells allot
+
+1024 allot \ padding for Pentium 4 and bigforth shortcomings
+
+: init-path ( 4*dirs -- )
+   E path 5 0 do tuck ! cell+ loop drop ;
+: rotate-path
+   path 5 0 do dup @ rotate  over ! cell+ loop drop ;
+: reflect-path
+   path 5 0 do dup @ reflect over ! cell+ loop drop ;
+
+: path-offsets
+   0 offsets !
+   path offsets
+   5 0 do
+      over @ offset
+      over @ +
+      over cell+ !
+      swap cell+ swap cell+
+   loop 2drop ;
+: minimum-offset ( -- n )
+   offsets @
+   6 1 do offsets I cells + @ min loop ;
+: normalize-offsets
+   minimum-offset negate
+   6 0 do dup offsets I cells + +! loop drop ;
+: offsets-mask ( -- mask )
+   0
+   6 0 do
+      offsets I cells + @
+      1 swap lshift or
+   loop ;
+
+\ make and store the twelve transformations of the path
+
+: path-mask ( -- mask )  path-offsets normalize-offsets offsets-mask ;
+: path-masks ( 4*dirs -- )
+                          false , \ used flag
+            init-path path-mask ,
+   5 0 do rotate-path path-mask , loop
+         reflect-path path-mask ,
+   5 0 do rotate-path path-mask , loop ;
+
+13 cells constant /piece
+
+\  all paths start with an implicit E
+
+create pieces
+ STOP SE  E  E path-masks
+ STOP NE  E SE path-masks
+ STOP SW SE  E path-masks
+ STOP SE SW  E path-masks
+   SW  W  E SE path-masks \ one backtrack, since this shape branches
+ STOP SE NE SE path-masks
+ STOP NE SE SE path-masks
+ STOP  E SW SE path-masks
+ STOP  E SE  E path-masks
+ STOP NE SE  E path-masks
+
+variable #solutions
+create smallest 64 allot
+create largest  64 allot
+
+variable board    \ high word of board; low word on stack
+
+1024 allot \ padding for Pentium 4 and bigforth shortcomings
+
+: put-piece ( piece shift -- )
+   over pieces - /piece / [char] 0 + >r ( R: piece-char )
+   here + swap @ ( buf mask )
+   begin
+      dup 1 and if over r@ swap c! then
+      swap char+ swap 2/
+   dup 0= until 2drop r> drop ;
+
+\ extract solution from stack and store at HERE
+\ (ignore piece0, it was put in solve0)
+\ (non-destructive because we need the data for backtracking).
+: store-solution ( piece0 start-shift piece1 shift1 ... pieceN board )
+   depth 2 - pick ( absolute-shift )
+   depth 3 - 2 swap do
+      i pick over put-piece
+      i 1- pick +
+   -2 +loop drop ;
+
+: check-solution
+   here 64 smallest 64 compare 0< if here smallest 64 move then
+   largest 64  here 64 compare 0< if here  largest 64 move then
+   1 #solutions +! ;  \ throw if #solutions == NUM
+
+: reverse ( buf size -- )
+   1- over +
+   begin 2dup < while
+      dup c@ >r  over c@ over c!  over r> swap c!
+      swap 1+ swap 1-
+   repeat 2drop ;
+
+: .line ( line -- line+6 )
+   5 0 do dup c@ emit space char+ loop cr char+ ;
+: .solution ( buffer -- )
+   5 0 do .line char+  space .line loop drop cr ;
+
+: record ( [st] -- [st] )
+   store-solution  check-solution
+   here 64 reverse   check-solution here 64 reverse ;
+
+\ initial board, with edges filled in
+2 base !
+0000011.000001.0000011.000001.0000011.000001.0000011.000001.0000011.00000
+2constant init-board
+
+\ board mask for a hexagon with an empty center
+110000101000011 constant empty-hex
+
+hex
+80000000 constant hi-bit
+
+decimal
+
+\ is it a single-cell island?
+   \ the center (empty) cell is 7 bits in.
+: island? ( board bit -- flag )  empty-hex * 7 rshift tuck and = ;
+
+\ fun with bit manipulation :)
+: fill-leading ( u -- u' )  dup 1- or ;
+: first-empty ( u -- bit )  dup dup 1+ or xor ;
+
+\ return a bit-mask for the second empty cell on the board.
+: second ( board -- bit )  fill-leading first-empty ;
+
+\ check two spots for single-cell islands
+: prune? ( board -- flag )
+   dup 1 island? if drop true else dup second island? then ;
+
+
+\ remove filled cells at the beginning of the board
+: shift-board ( board -- shift board' )
+   0 swap board @ begin
+      over 1 and while d2/ hi-bit or  rot 1+ -rot
+   repeat board ! ;
+
+\ restore filled cells at the beginning of the board
+: unshift-board ( shift board -- board' )
+   board @ rot 0 ?do d2* swap 1+ swap loop board ! ;
+
+
+: solve ( board -- board )
+   dup prune? if exit then
+   pieces  10 0 do
+      dup @ if
+         /piece +
+      else
+         true over ! cell+        \ mark used
+         12 0 do
+            2dup @ and 0= if
+               tuck @ xor       \ add piece
+               dup invert if
+                  shift-board recurse unshift-board
+               else record then
+               over @ xor swap  \ remove piece
+            then
+         cell+ loop
+         false over /piece - !    \ mark unused
+      then
+   loop drop ;
+
+\ Optimization: fill it one piece on all possible locations on the first
+\  half of the board, then recurse normally.
+\  When solutions are found, record both the solution and 180-rotation.
+\  Empirically, piece 4 caused the most cutoffs
+
+: dlshift ( d n -- d' )  0 ?do d2* loop ;
+: dand ( d d -- d )  rot and >r and r> ;
+: dxor ( d d -- d )  rot xor >r xor r> ;
+
+: solve-row ( piece offset -- piece )
+   dup 5 + swap do
+      dup @ 0 i dlshift init-board dand or 0= if   \ fits?
+         dup i put-piece
+         dup @ 0 i dlshift init-board dxor board !
+         shift-board solve 2drop
+      then
+   loop ;
+: solve0
+   pieces 4 /piece * +   \ use piece 4
+   true over ! cell+   \ mark it used
+   12 0 do
+      0  solve-row
+      7  solve-row
+      13 solve-row
+      \ ignore rotations of longest piece orientations
+      i 4 <> i 7 <> and if 20 solve-row then
+   cell+ loop drop ;
+: main
+   0 #solutions !
+   smallest 64 [char] 9 fill
+   largest  64 [char] 0 fill
+   here 64 erase
+   solve0
+   #solutions @ . ." solutions found" cr cr
+   smallest .solution
+   largest  .solution ;
+
+main bye
+\ The Computer Language Shootout
+\ http://shootout.alioth.debian.org/
+\ Contributed by Ian Osgood
+\ modified by Anton Ertl
+
+: enum ( n -- ) 0 do I constant loop ;
+: table create does> ( i -- t[i] ) swap cells + @ ;
+
+7 enum         E   SE   SW    W   NW   NE   STOP
+table offset   1 ,  7 ,  6 , -1 , -7 , -6 ,    0 ,
+table rotate  SE , SW ,  W , NW , NE ,  E , STOP ,
+table reflect  E , NE , NW ,  W , SW , SE , STOP ,
+
+\ paths are more easily transformable than bit masks
+
+create path 5 cells allot
+create offsets 6 cells allot
+variable found-solutions
+create smallest 64 chars allot
+create largest  64 chars allot
+2variable board
+create used 10 cells allot
+1024 allot \ padding for Pentium 4 and bigforth shortcomings
+
+: init-path ( 4*dirs -- )
+  E path 5 0 do tuck ! cell+ loop drop ;
+: rotate-path
+  path 5 0 do dup @ rotate  over ! cell+ loop drop ;
+: reflect-path
+  path 5 0 do dup @ reflect over ! cell+ loop drop ;
+
+: path-offsets
+  0 offsets !
+  path offsets
+  5 0 do
+    over @ offset
+    over @ +
+    over cell+ !
+    swap cell+ swap cell+
+  loop 2drop ;
+: minimum-offset ( -- n )
+  offsets @
+  6 1 do offsets I cells + @ min loop ;
+: normalize-offsets
+  minimum-offset negate
+  6 0 do dup offsets I cells + +! loop drop ;
+: offsets-mask ( -- mask )
+  0
+  6 0 do
+    offsets I cells + @
+    1 swap lshift or
+  loop ;
+
+\ make and store the twelve transformations of the path
+
+: path-mask ( -- mask )
+  path-offsets normalize-offsets offsets-mask ;
+: path-masks ( 4*dirs -- )
+           init-path path-mask ,
+  5 0 do rotate-path path-mask , loop
+        reflect-path path-mask ,
+  5 0 do rotate-path path-mask , loop ;
+
+\  all paths start with an implicit E
+
+create pieces
+ STOP SE  E  E path-masks
+ STOP NE  E SE path-masks
+ STOP SW SE  E path-masks
+ STOP SE SW  E path-masks
+   SW  W  E SE path-masks \ one backtrack, since this shape branches
+ STOP SE NE SE path-masks
+ STOP NE SE SE path-masks
+ STOP  E SW SE path-masks
+ STOP  E SE  E path-masks
+ STOP NE SE  E path-masks
+
+\ 64-bit support
+
+\ a double cell result lshift
+: dlshift ( u s -- l h )
+  dup 32 < if
+    dup if  \ 32 rshift is not portable
+      2dup lshift -rot ( l u s )
+      negate 32 + rshift
+    then
+  else
+    32 - lshift 0 swap
+  then ;
+
+: 2and   ROT AND >R AND R> ;
+: 2xor   ROT XOR >R XOR R> ;
+
+: put-piece ( shift piece -- )
+  dup pieces - 12 cells / [char] 0 + >r ( R: piece-char )
+  swap chars here + swap @ ( buf mask )
+  begin
+   dup 1 and if
+     over r@ swap c!
+   then
+   swap char+  dup here 64 chars + <
+  while
+   swap 2/  dup 0=
+  until then 2drop r> drop ;
+
+\ extract solution from stack of (shift, piece addr)
+: store-solution
+  here 64 chars [char] * fill
+  depth 1 do
+    i pick i pick put-piece
+  2 +loop ;
+
+: .line ( line -- line+6 )
+  5 0 do dup c@ emit space char+ loop cr char+ ;
+: .solution ( buffer -- )
+  5 0 do .line char+  space .line loop drop cr ;
+
+: check-solution ( [st] -- [st] )
+  store-solution  \ here .solution
+  here 64 smallest 64 compare 0< if
+    here smallest 64 move
+  then
+  largest 64 here 64 compare 0< if
+    here largest 64 move
+  then
+  1 found-solutions +! ;  \ throw if found-solutions == NUM
+
+2 base !
+
+\ initial board, with edges filled in
+0000011.000001.0000011.000001.0000011.000001.0000011.000001.0000011.00000
+2constant init-board
+
+decimal
+
+\ check whether piece sticks off bottom of the board
+: fits? ( shift piece -- shift piece ? )
+  over 39 < if true exit then
+  over negate 64 + 1 swap lshift 1-
+  over @ U< 0= ;
+
+\ add/remove piece to the board
+: mark ( shift piece -- )
+  @ swap dlshift board 2@ 2xor board 2! ;
+
+\ find next free cell (64 if completely full)
+: next-shift ( shift -- shift+n )
+  begin
+    1+ dup 64 = if exit then
+    1 over dlshift board 2@ 2and or 0=
+  until ;
+
+\ variable nodes
+
+: solve ( shift -- )
+  dup 64 = if drop check-solution exit then
+\  1 nodes +!
+  pieces
+  10 0 do
+    used I cells + @ if
+      12 cells +
+    else
+      true used I cells + !
+      12 0 do
+        2dup @ swap dlshift board 2@ 2and or 0= if fits? if
+          2dup mark
+\ .s cr store-solution here .solution key 'q = if abort then
+          over next-shift recurse
+          2dup mark
+        then then
+        cell+
+      loop
+      false used I cells + !
+    then
+  loop 2drop ;
+
+: main
+  0 found-solutions !
+  smallest 64 chars [char] 9 fill
+  largest  64 chars [char] 0 fill
+  init-board board 2!
+  used 10 cells erase
+  0 solve   \ nodes ?
+  found-solutions @ . ." solutions found" cr cr
+  smallest .solution
+  largest  .solution ;
+
+main bye
+
+\ The Computer Language Shootout
+\ http://shootout.alioth.debian.org/
+\ Contributed by Ian Osgood and Josh Grams
+
+: enum ( n -- ) 0 do I constant loop ;
+: table create does> ( i -- t[i] ) swap cells + @ ;
+
+7 enum         E   SE   SW    W   NW   NE   STOP
+table offset   1 ,  7 ,  6 , -1 , -7 , -6 ,    0 ,
+table rotate  SE , SW ,  W , NW , NE ,  E , STOP ,
+table reflect  E , NE , NW ,  W , SW , SE , STOP ,
+
+\ paths are more easily transformable than bit masks
+
+create path 5 cells allot
+create offsets 6 cells allot
+variable #solutions
+create smallest 64 chars allot
+create largest  64 chars allot
+variable board
+1024 allot \ padding for Pentium 4 and bigforth shortcomings
+
+: init-path ( 4*dirs -- )
+  E path 5 0 do tuck ! cell+ loop drop ;
+: rotate-path
+  path 5 0 do dup @ rotate  over ! cell+ loop drop ;
+: reflect-path
+  path 5 0 do dup @ reflect over ! cell+ loop drop ;
+
+: path-offsets
+  0 offsets !
+  path offsets
+  5 0 do
+    over @ offset
+    over @ +
+    over cell+ !
+    swap cell+ swap cell+
+  loop 2drop ;
+: minimum-offset ( -- n )
+  offsets @
+  6 1 do offsets I cells + @ min loop ;
+: normalize-offsets
+  minimum-offset negate
+  6 0 do dup offsets I cells + +! loop drop ;
+: offsets-mask ( -- mask )
+  0
+  6 0 do
+    offsets I cells + @
+    1 swap lshift or
+  loop ;
+
+\ make and store the twelve transformations of the path
+
+: path-mask ( -- mask )
+  path-offsets normalize-offsets offsets-mask ;
+: path-masks ( 4*dirs -- )
+                             0 , \ used flag
+           init-path path-mask ,
+  5 0 do rotate-path path-mask , loop
+        reflect-path path-mask ,
+  5 0 do rotate-path path-mask , loop ;
+
+13 cells constant /piece
+
+\  all paths start with an implicit E
+
+create pieces
+ STOP SE  E  E path-masks
+ STOP NE  E SE path-masks
+ STOP SW SE  E path-masks
+ STOP SE SW  E path-masks
+   SW  W  E SE path-masks \ one backtrack, since this shape branches
+ STOP SE NE SE path-masks
+ STOP NE SE SE path-masks
+ STOP  E SW SE path-masks
+ STOP  E SE  E path-masks
+ STOP NE SE  E path-masks
+
+: put-piece ( shift piece -- )
+        dup pieces - /piece / [char] 0 + >r ( R: piece-char )
+        swap chars here + swap @ ( buf mask )
+        begin
+                dup 1 and if over r@ swap c!  then
+                swap char+
+        dup here 64 chars + < while
+                swap 2/
+        dup 0= until then 2drop r> drop ;
+
+variable shift
+: adjust ( shift -- shift' )
+        shift @ tuck + shift ! ;
+
+\ extract solution from stack and store at HERE
+\ (non-destructive because we need the data for backtracking).
+: store-solution ( pieceN shiftN ... piece0 shift0 board )
+  0 shift !
+  here 64 [char] * fill
+  depth 1- 2 swap do
+    i pick i pick adjust swap put-piece
+  -2 +loop ;
+
+: .line ( line -- line+6 )
+  5 0 do dup c@ emit space char+ loop cr char+ ;
+: .solution ( buffer -- )
+  5 0 do .line char+  space .line loop drop cr ;
+
+: record ( [st] -- [st] )
+  store-solution  \ here .solution
+  here 64 smallest 64 compare 0< if here smallest 64 move then
+  largest 64 here 64 compare 0< if here largest 64 move then
+  1 #solutions +! ;  \ throw if #solutions == NUM
+
+\ initial board, with edges filled in
+2 base !
+0000011.000001.0000011.000001.0000011.000001.0000011.000001.0000011.00000
+2constant init-board
+
+hex
+80000000 constant hi-bit
+
+decimal
+
+
+: shift-board ( board -- shift board' )
+        0 swap board @ begin
+                over 1 and while d2/ hi-bit or rot 1+ -rot
+        repeat board ! ;
+
+: unshift-board ( shift board -- board' )
+        swap >r board @ begin r> dup while 1- >r
+                d2* swap 1+ swap repeat drop board ! ;
+
+
+\ returns true if solution is complete
+: add ( board piece -- piece shift board' flag )
+        tuck @ xor dup invert if shift-board false else 0 swap dup then
+;
+
+: remove ( piece shift board' -- board piece )
+        unshift-board  over @ xor swap ;
+
+
+: solve ( board -- board )
+        pieces  10 0 do
+                dup @ if
+                        /piece +
+                else
+                        true over ! cell+  \ mark used
+                        12 0 do
+                                2dup @ and 0= if
+                                        add if record else recurse then
+remove
+                                then
+                        cell+ loop
+                        false over /piece - !  \ mark unused
+                then
+        loop drop ;
+
+
+: main
+        0 #solutions !
+        smallest 64 [char] 9 fill
+        largest  64 [char] 0 fill
+                init-board board ! solve
+        #solutions @ . ." solutions found" cr cr
+        smallest .solution
+        largest  .solution ;
+
+main bye
+\ The Computer Language Shootout
+\ http://shootout.alioth.debian.org/
+\ Contributed by Ian Osgood
+\ modified by Anton Ertl
+\ Joshua Grams removed most of the double cell manipulation
+\  and added island detection.
+
+: enum ( n -- )  0 do I constant loop ;
+: table create does> ( i -- t[i] )  swap cells + @ ;
+
+7 enum         E   SE   SW    W   NW   NE   STOP
+table offset   1 ,  7 ,  6 , -1 , -7 , -6 ,    0 ,
+table rotate  SE , SW ,  W , NW , NE ,  E , STOP ,
+table reflect  E , NE , NW ,  W , SW , SE , STOP ,
+
+\ paths are more easily transformable than bit masks
+
+create path    5 cells allot
+create offsets 6 cells allot
+
+1024 allot \ padding for Pentium 4 and bigforth shortcomings
+
+: init-path ( 4*dirs -- )
+	E path 5 0 do tuck ! cell+ loop drop ;
+: rotate-path
+	path 5 0 do dup @ rotate  over ! cell+ loop drop ;
+: reflect-path
+	path 5 0 do dup @ reflect over ! cell+ loop drop ;
+
+: path-offsets
+	0 offsets !
+	path offsets
+	5 0 do
+		over @ offset
+		over @ +
+		over cell+ !
+		swap cell+ swap cell+
+	loop 2drop ;
+: minimum-offset ( -- n )
+	offsets @
+	6 1 do offsets I cells + @ min loop ;
+: normalize-offsets
+	minimum-offset negate
+	6 0 do dup offsets I cells + +! loop drop ;
+: offsets-mask ( -- mask )
+	0
+	6 0 do
+		offsets I cells + @
+		1 swap lshift or
+	loop ;
+
+\ make and store the twelve transformations of the path
+
+: path-mask ( -- mask )  path-offsets normalize-offsets offsets-mask ;
+: path-masks ( 4*dirs -- )
+	                       false , \ used flag
+	         init-path path-mask ,
+	5 0 do rotate-path path-mask , loop
+	      reflect-path path-mask ,
+	5 0 do rotate-path path-mask , loop ;
+
+13 cells constant /piece
+
+\  all paths start with an implicit E
+
+create pieces
+ STOP SE  E  E path-masks
+ STOP NE  E SE path-masks
+ STOP SW SE  E path-masks
+ STOP SE SW  E path-masks
+   SW  W  E SE path-masks \ one backtrack, since this shape branches
+ STOP SE NE SE path-masks
+ STOP NE SE SE path-masks
+ STOP  E SW SE path-masks
+ STOP  E SE  E path-masks
+ STOP NE SE  E path-masks
+
+variable #solutions
+create smallest 64 allot
+create largest  64 allot
+
+variable board    \ high word of board; low word on stack
+
+1024 allot \ padding for Pentium 4 and bigforth shortcomings
+
+: put-piece ( piece shift -- )
+	over pieces - /piece / [char] 0 + >r ( R: piece-char )
+	here + swap @ ( buf mask )
+	begin
+		dup 1 and if over r@ swap c! then
+		swap char+ swap 2/
+	dup 0= until 2drop r> drop ;
+
+\ extract solution from stack and store at HERE
+\ (non-destructive because we need the data for backtracking).
+: store-solution ( pieceN shiftN ... piece0 board )
+	\ here 64 [char] * fill
+	0 ( absolute-shift )
+	depth 1- 2 swap do
+		i pick over put-piece
+		i 1- pick +
+	-2 +loop drop ;
+
+: .line ( line -- line+6 )
+	5 0 do dup c@ emit space char+ loop cr char+ ;
+: .solution ( buffer -- )
+	5 0 do .line char+  space .line loop drop cr ;
+
+: record ( [st] -- [st] )
+	store-solution  \ here .solution
+	here 64 smallest 64 compare 0< if here smallest 64 move then
+	largest 64  here 64 compare 0< if here  largest 64 move then
+	1 #solutions +! ;  \ throw if #solutions == NUM
+
+\ initial board, with edges filled in
+2 base !
+0000011.000001.0000011.000001.0000011.000001.0000011.000001.0000011.00000
+2constant init-board
+
+\ board mask for a hexagon with an empty center
+110000101000011 constant empty-hex
+
+hex
+80000000 constant hi-bit
+
+decimal
+
+\ is it a single-cell island?
+	\ the center (empty) cell is 7 bits in.
+: island? ( board bit -- flag )  empty-hex * 7 rshift tuck and = ;
+
+\ fun with bit manipulation :)
+: fill-leading ( u -- u' )  dup 1- or ;
+: first-empty ( u -- bit )  dup dup 1+ or xor ;
+
+\ return a bit-mask for the second empty cell on the board.
+: second ( board -- bit )  fill-leading first-empty ;
+
+\ check two spots for single-cell islands
+: prune? ( board -- flag )
+	dup 1 island? if drop true else dup second island? then ;
+
+
+\ remove filled cells at the beginning of the board
+: shift-board ( board -- shift board' )
+	0 swap board @ begin
+		over 1 and while d2/ hi-bit or  rot 1+ -rot
+	repeat board ! ;
+
+\ restore filled cells at the beginning of the board
+: unshift-board ( shift board -- board' )
+	board @ rot 0 ?do d2* swap 1+ swap loop board ! ;
+
+
+: solve ( board -- board )
+	dup prune? if exit then
+	pieces  10 0 do
+		dup @ if
+			/piece +
+		else
+			true over ! cell+        \ mark used
+			12 0 do
+				2dup @ and 0= if
+					tuck @ xor       \ add piece
+					dup invert if
+						shift-board recurse unshift-board
+					else record then
+					over @ xor swap  \ remove piece
+				then
+			cell+ loop
+			false over /piece - !    \ mark unused
+		then
+	loop drop ;
+
+
+: main
+	0 #solutions !
+	smallest 64 [char] 9 fill
+	largest  64 [char] 0 fill
+		init-board board ! solve drop
+	#solutions @ . ." solutions found" cr cr
+	smallest .solution
+	largest  .solution ;
+
+main bye
+\ The Computer Language Shootout
+\ http://shootout.alioth.debian.org/
+\ Contributed by Ian Osgood
+\ modified by Bernd Paysan
+
+\ read NUM from last command line argument
+0. argc @ 1- arg >number 2drop drop constant NUM
+
+include locals.fs
+
+import float float also forth
+
+1 floats Constant float
+
+struct{
+  float x
+  float y
+  float z
+  float vx
+  float vy
+  float vz
+  float mass
+} planet
+
+pi fdup f* 4e f* fconstant solar-mass
+365.24e          fconstant days/year
+
+falign create bodies
+\ sun
+  0e f, 0e f, 0e f, 0e f, 0e f, 0e f, solar-mass f,
+\ jupiter
+    4.84143144246472090e+00 f,
+   -1.16032004402742839e+00 f,
+   -1.03622044471123109e-01 f,
+    1.66007664274403694e-03 days/year f* f,
+    7.69901118419740425e-03 days/year f* f,
+   -6.90460016972063023e-05 days/year f* f,
+    9.54791938424326609e-04 solar-mass f* f,
+\ saturn
+    8.34336671824457987e+00 f,
+    4.12479856412430479e+00 f,
+   -4.03523417114321381e-01 f,
+   -2.76742510726862411e-03 days/year f* f,
+    4.99852801234917238e-03 days/year f* f,
+    2.30417297573763929e-05 days/year f* f,
+    2.85885980666130812e-04 solar-mass f* f,
+\ uranus
+    1.28943695621391310e+01 f,
+   -1.51111514016986312e+01 f,
+   -2.23307578892655734e-01 f,
+    2.96460137564761618e-03 days/year f* f,
+    2.37847173959480950e-03 days/year f* f,
+   -2.96589568540237556e-05 days/year f* f,
+    4.36624404335156298e-05 solar-mass f* f,
+\ neptune
+    1.53796971148509165e+01 f,
+   -2.59193146099879641e+01 f,
+    1.79258772950371181e-01 f,
+    2.68067772490389322e-03 days/year f* f,
+    1.62824170038242295e-03 days/year f* f,
+   -9.51592254519715870e-05 days/year f* f,
+    5.15138902046611451e-05 solar-mass f* f,
+here constant end-bodies
+
+: offset-momentum  0e 0e 0e ( px py pz )
+  end-bodies bodies do
+    frot i planet vx f@ i planet mass f@ f* f+
+    frot i planet vy f@ i planet mass f@ f* f+
+    frot i planet vz f@ i planet mass f@ f* f+
+  sizeof planet +loop
+  solar-mass f/ fnegate bodies planet vz f!
+  solar-mass f/ fnegate bodies planet vy f!
+  solar-mass f/ fnegate bodies planet vx f! ;
+
+: energy ( -- float ) 0e
+  end-bodies bodies do
+    \ kinetic energy
+    i planet vx f@ fdup f* i planet vy f@ fdup f* f+ i planet vz f@ fdup f* f+
+    i planet mass f@ f* 2e f/ ( e ) f+
+    \ potential energy
+    end-bodies i sizeof planet + ?do
+      j planet x f@ i planet x f@ f- fdup f*
+      j planet y f@ i planet y f@ f- fdup f* f+
+      j planet z f@ i planet z f@ f- fdup f* f+ fsqrt
+      j planet mass f@ i planet mass f@ f* fswap f/ ( e ) f-
+    sizeof planet +loop
+  sizeof planet +loop ;
+
+: advance  0e 0e 0e { F: dx F: dy F: dz -- }
+  end-bodies bodies do
+    end-bodies i sizeof planet + ?do
+      j planet x f@ i planet x f@ f- to dx
+      j planet y f@ i planet y f@ f- to dy
+      j planet z f@ i planet z f@ f- to dz
+      dx fdup f* dy fdup f* f+ dz fdup f* f+ fsqrt
+      fdup fdup f* f* 1e-2 fswap f/  ( mag )
+      fdup j planet mass f@ f* fswap i planet mass f@ f* ( magM1 magM2 )
+      j planet vx f@ fover dx f* f- j planet vx f! 
+      j planet vy f@ fover dy f* f- j planet vy f! 
+      j planet vz f@ fswap dz f* f- j planet vz f! 
+      i planet vx f@ fover dx f* f+ i planet vx f! 
+      i planet vy f@ fover dy f* f+ i planet vy f! 
+      i planet vz f@ fswap dz f* f+ i planet vz f! 
+    sizeof planet +loop
+  sizeof planet +loop
+  end-bodies bodies do
+    i planet vx f@ 1e-2 f* i planet x f@ f+ i planet x f!
+    i planet vy f@ 1e-2 f* i planet y f@ f+ i planet y f!
+    i planet vz f@ 1e-2 f* i planet z f@ f+ i planet z f!
+  sizeof planet +loop ;
+
+\ specialized f. with no trailing space
+: ff.  ff$ type ;
+
+\ run NUM time steps, printing total system energy before and after
+: main  9 set-precision
+  offset-momentum   energy ff. cr
+  0 do advance loop energy ff. cr ; 
+
+NUM main bye  \ done!
+
+\ The Computer Language Shootout
+\ http://shootout.alioth.debian.org/
+\ contributed by Ian Osgood (R. by Brad Eckert)
+\ modified by Bernd Paysan/
+
+\ read NUM from last command line argument
+0. argc @ 1- arg >number 2drop drop constant NUM
+
+import float float also
+
+\ printf("%.9f"): show nine digits past the decimal point
+
+: fsplit        ( F: r -- ) ( precision -- sign Dint Dfrac ) 
+  \ *G Split float into integer component parts. 
+  >R FDUP F0< FABS                \ int part must fit in a double 
+  FDUP F>D 2DUP D>F F-            \ get int, leave frac 
+  2. R> 0 ?DO D2* 2DUP D2* D2* D+ LOOP \ 2 * 10^precision 
+  D>F F* F>D  1. D+ D2/ ;        \ round 
+
+: R.          ( F: r -- ) ( precision -- ) 
+  \ *G Convert float to a string of a given precision 
+  <# DUP >R fsplit R@ 0 ?DO # LOOP D+ 
+  R> IF [CHAR] . HOLD THEN #S ROT SIGN #> type ;
+
+: sumFn ( xt start -- ) 0e
+  NUM 1+ swap do I s>f dup execute f+ f>fd fd>f loop drop  9 R. #tab emit ;
+
+\ all these are ( f -- f )
+
+:noname [ 2e 3e f/ ] fliteral fswap f** ; 0 sumFn ." (2/3)^k" cr
+
+:noname fsqrt 1/f ; 1 sumFn ." k^-0.5" cr
+
+:noname fdup 1e f+ f* 1/f ; 1 sumFn ." 1/k(k+1)" cr
+
+:noname fdup fsin fdup f* fover f* fover f* f* 1/f ; 1 sumFn ." Flint Hills" cr
+
+:noname fdup fcos fdup f* fover f* fover f* f* 1/f ; 1 sumFn ." Cookson Hills" cr
+
+' 1/f 1 sumFn ." Harmonic" cr
+
+:noname fdup f* 1/f ; 1 sumFn ." Riemann Zeta" cr
+
+\ these are ( sum f -- sum f )
+
+:noname 1/f fnegate fswap fnegate fswap ; 1 sumFn ." Alternating Harmonic" cr
+
+:noname f2* 1e f- 1/f fnegate fswap fnegate fswap ; 1 sumFn ." Gregory" cr
+
+bye
+\ The Computer Language Shootout
+\ http://shootout.alioth.debian.org/
+\ contributed by Albert van der Horst, Ian Osgood
+\ modified by Bernd Paysan
+
+\ read NUM from last command line argument
+0. argc @ 1- arg >number 2drop drop constant NUM
+
+include locals.fs
+
+\
+\ Arbitrary precision arithmetic
+\ A p-number consists of a count plus count cells, 2-complement small-endian
+\
+
+\ Shorthand.
+: p>size ( pn -- size ) POSTPONE @ ; IMMEDIATE
+: p>last ( pn -- msb ) DUP p>size CELLS + ;
+: Ith' I CELLS + ; macro
+
+\ Give sign of p
+: p0< ( p -- flag ) p>last @ 0< ;
+
+\ Copy a p-number to another buffer
+: pcopy ( src dst -- ) OVER p>size 1+ CELLS MOVE ;
+
+\ Check for overflow, extend the p-number if needed
+: ?carry ( carry p -- ) 2DUP p0< <> IF 1 OVER +!  p>last ! ELSE 2DROP THEN ;
+
+\ In-place multiply by an unsigned integer
+: p* { n p }
+  p p0<  0. ( sign dcarry )
+  p p>size 1+ 1 DO
+    p Ith       ( digit )
+    n UM* D+ SWAP ( carry digit )
+    p Ith' ! 0
+  LOOP
+  ROT n UM* D+ DROP  p ?carry ;
+
+\ Ensure two p-numbers are the same size before adding
+: extend over p0< { p n sign }
+  p p>size 1+  n p +!
+  p p>size 1+ SWAP DO sign p Ith' ! LOOP ;
+: ?extend ( p1 p2 -- p1 p2 )
+  OVER p>size OVER p>size - ?DUP IF
+    DUP 0< IF >R OVER R> NEGATE
+    ELSE OVER SWAP
+    THEN extend
+  THEN ;
+
+\ In-place addition of another p-number
+: p+  ?extend { src p } 
+  src p0< p p0<  0. ( sign sign dcarry )
+  p p>size 1+ 1 DO
+    p   Ith 0 D+
+    src Ith 0 D+ SWAP
+    p   Ith' ! 0
+  LOOP
+  DROP + + p ?carry ; \ add signs, check for overflow
+  
+\ In-place subtraction of another p-number
+: p-  ?extend { src p } 
+  src p0< p p0<  0. ( sign sign dcarry )
+  p p>size 1+ 1 DO
+    p   Ith 0 D+
+    src Ith 0 D- SWAP
+    p   Ith' ! S>D
+  LOOP
+  DROP + + p ?carry ; \ add signs, check for overflow
+
+\
+\ pi-spigot specific computation
+\
+
+\ approximate upper limit on size required (1000 -> 1166)
+NUM 2* CELLS constant SIZE
+
+\ Current z transformation
+CREATE aq 1 , 1 , SIZE ALLOT
+CREATE ar 1 , 0 , SIZE ALLOT
+    \ "as" identical zero and remains so
+CREATE at 1 , 1 , SIZE ALLOT
+
+\ Generate non-zero parts of next matrix ( K 4K+2 2K+1 )
+VARIABLE K
+: generate ( -- q r t ) 1 K +!   K @  DUP 2* 1+  DUP 2* SWAP ;
+
+\ HERE is used as a temporary p-number
+
+\ Multiply z from the left
+: compose< ( bq br bt -- )
+  DUP at p*  ar p*  aq HERE pcopy  HERE p*  HERE ar p+  aq p* ;
+
+\ Multiply z from the right
+: compose> ( bt br bq -- )
+  DUP aq p*  ar p*  at HERE pcopy  HERE p*  HERE ar p-  at p* ;
+
+\ Calculate z at point 3, leaving integer part and fractional part.
+\ Division is by multiple subtraction until the fractional part is
+\ negative.
+: z(3)  ( -- n pfract ) HERE  aq OVER pcopy  3 OVER p*  ar OVER p+
+  0 BEGIN SWAP at OVER p-  DUP p0< 0= WHILE SWAP 1+ REPEAT ;
+
+\ Calculate z at point 4, based on the result for point 3
+\ and decide whether the integer parts are the same.
+: z(4)same? ( pfract -- flag ) aq OVER p+  p0< ;
+
+: pidigit ( -- nextdigit)
+    BEGIN z(3) z(4)same? 0= WHILE DROP generate compose< REPEAT
+    1   OVER 10 *   10   compose> ;
+
+: .digit ( -- ) pidigit [CHAR] 0 + EMIT ;
+
+: .count ( n -- ) #tab emit ': emit 1 U.R CR ;
+
+\ Spigot n digits with formatting
+: spigot ( digits -- ) 0
+  BEGIN 10 +  2DUP > WHILE
+    10 0 DO .digit LOOP  DUP .count
+  REPEAT
+  2DUP 10 - DO .digit LOOP  OVER - SPACES  .count ;
+
+NUM spigot bye
+\ The Computer Language Shootout
+\ http://shootout.alioth.debian.org/
+\ contributed by Ian Osgood
+\ modified by Bernd Paysan
+\ must use flags "-m 32M -s 16M -r 8M" when running bigforth for NUM=10
+
+\ read NUM from last command line argument
+0. argc @ 1- arg >number 2drop drop 1- constant NUM
+
+import float float also
+
+include locals.fs
+
+: ack ( y x -- n )
+  ?dup if swap ?dup if 1- over recurse swap 1- recurse
+                  else               1 swap 1- recurse then
+     else 1+ then ;
+
+: ffib ( f -- ffib )
+  fdup 2e f< if fdrop 1e
+           else 1e f- fdup f>r recurse fr> fswap f>r 1e f- recurse fr> f+ then ;
+
+: fib ( n -- fib )
+  dup 2 < if drop 1
+        else 1- dup recurse swap 1- recurse + then ;
+
+: tak { z y x -- n }
+  y x < if
+    y x z 1- recurse
+    x z y 1- recurse
+    z y x 1- recurse
+    recurse
+  else z then ;
+
+: ftak { F: z F: y F: x -- n }
+  y x f< if
+    y x z 1e f- recurse
+    x z y 1e f- recurse
+    z y x 1e f- recurse
+    recurse
+  else z then ;
+
+: ff.   f>d d>s 1 u.r ." .0" ;
+
+NUM 1+   ." Ack(3," dup 1 u.r ." ): " 3 ack 1 u.r cr
+NUM 28 + ." Fib(" dup 1 u.r ." .0): " 0 d>f ffib ff. cr
+." Tak(" NUM 3 * 1 u.r ." ," NUM 2* 1 u.r ." ," NUM 1 u.r ." ): "
+                     NUM dup 2* 2dup + tak 1 u.r cr
+." Fib(3): " 3 fib 1 u.r cr
+." Tak(3.0,2.0,1.0): " 1e 2e 3e ftak ff. cr
+
+bye
+\ The Computer Language Shootout
+\ http://shootout.alioth.debian.org/
+
+\ contributed by Bernd Paysan
+
+\ run with "-m 64M"
+
+include locals.fs
+include string.fs
+include regexp.fs
+include filehelp.fs
+
+\ helper word for regexp: Replace current pattern
+\ This will be part of the next release of regexp.fs
+
+[IFUNDEF] <<"
+    0 Value >>ptr
+    0 Value <<ptr
+    Variable >>string
+    : >>  ( addr -- addr )  dup to >>ptr ;
+    : << ( run-addr addr u -- run-addr )
+	<<ptr 0= IF  start$ to <<ptr  THEN
+	>>string @ 0= IF  s" " >>string $!  THEN
+	<<ptr >>ptr over - >>string $+!
+	>>string $+! dup to <<ptr ;
+    : <<"  '" parse postpone SLiteral postpone << ; immediate
+    : >>string@ ( -- addr u )
+	>>string $@len dup allocate throw
+	swap 2dup >>string $@ drop -rot move
+	>>string $off  0 to >>ptr  0 to <<ptr ;
+    : >>next ( -- addr u ) <<ptr end$ over - ;
+[THEN]
+
+\ fast replacement for ="
+\ this replacement will be part of the next relase of regexp.fs
+
+: =" '" parse bounds ?DO
+	]] count [[ I c@ ]] Literal <> ?LEAVE [[
+    LOOP ; immediate
+
+[IFUNDEF] s//
+: s//  ]] BEGIN [[ ; immediate
+: //g  ]] WHILE >>next REPEAT end$ [[
+    s" " ]] SLiteral << >>string@ rot drop [[ ; immediate
+[THEN]
+
+\ counting syntactic sugar
+: //c ]] WHILE 1+ >>ptr end$ over - REPEAT  [[ ; immediate
+: c// ]] false -rot s// [[ ; immediate
+
+charclass [acg] 'a +char 'c +char 'g +char
+charclass [act] 'a +char 'c +char 't +char
+charclass [agt] 'a +char 'g +char 't +char
+charclass [cgt] 'c +char 'g +char 't +char
+
+: remove-newlines ( addr u -- addr u' )
+    s// (( // >> {{ ` > {** .? **} || }} count #lf <> ?LEAVE <<" " )) //g ;
+
+: pat1 ( addr u -- n )
+    c// (( // {{ =" agggtaaa" || =" tttaccct" }} >> )) //c ;
+: pat2 ( addr u -- n )
+    c// (( // {{ [cgt] c? =" gggtaaa" || =" tttaccc" [acg] c? }} >> )) //c ;
+: pat3 ( addr u -- n )
+    c// (( // {{ ` a [act] c? =" ggtaaa" || =" tttacc" [agt] c? ` t }} >> )) //c ;
+: pat4 ( addr u -- n )
+    c// (( // {{ =" ag" [act] c? =" gtaaa" || =" tttac" [agt] c? =" ct" }} >> )) //c ;
+: pat5 ( addr u -- n )
+    c// (( // {{ =" agg" [act] c? =" taaa" || =" ttta" [agt] c? =" cct" }} >> )) //c ;
+: pat6 ( addr u -- n )
+    c// (( // {{ =" aggg" [acg] c? =" aaa" || =" ttt" [cgt] c? =" ccct" }} >> )) //c ;
+: pat7 ( addr u -- n )
+    c// (( // {{ =" agggt" [cgt] c? =" aa" || =" tt" [acg] c? =" accct" }} >> )) //c ;
+: pat8 ( addr u -- n )
+    c// (( // {{ =" agggta" [cgt] c? ` a || ` t [acg] c? =" taccct" }} >> )) //c ;
+: pat9 ( addr u -- n )
+    c// (( // {{ =" agggtaa" [cgt] c? || [acg] c? =" ttaccct" }} >> )) //c ;
+
+stdin slurp-fid dup Constant ilen
+remove-newlines dup Constant clen 2Constant 'stdin
+burp
+
+.( agggtaaa|tttaccct ) 'stdin pat1 1 .r cr
+.( [cgt]gggtaaa|tttaccc[acg] ) 'stdin pat2 1 .r cr
+.( a[act]ggtaaa|tttacc[agt]t ) 'stdin pat3 1 .r cr
+.( ag[act]gtaaa|tttac[agt]ct ) 'stdin pat4 1 .r cr
+.( agg[act]taaa|ttta[agt]cct ) 'stdin pat5 1 .r cr
+.( aggg[acg]aaa|ttt[cgt]ccct ) 'stdin pat6 1 .r cr
+.( agggt[cgt]aa|tt[acg]accct ) 'stdin pat7 1 .r cr
+.( agggta[cgt]a|t[acg]taccct ) 'stdin pat8 1 .r cr
+.( agggtaa[cgt]|[acg]ttaccct ) 'stdin pat9 1 .r cr
+
+: replace-alternatives ( addr u -- )
+    2dup s// (( // >> {{ ` B <<" (c|g|t)" }} )) //g 2swap drop free throw
+    2dup s// (( // >> {{ ` D <<" (a|g|t)" }} )) //g 2swap drop free throw
+    2dup s// (( // >> {{ ` H <<" (a|c|t)" }} )) //g 2swap drop free throw
+    2dup s// (( // >> {{ ` K <<" (g|t)" }} )) //g 2swap drop free throw
+    2dup s// (( // >> {{ ` M <<" (a|c)" }} )) //g 2swap drop free throw
+    2dup s// (( // >> {{ ` N <<" (a|c|g|t)" }} )) //g 2swap drop free throw
+    2dup s// (( // >> {{ ` R <<" (a|g)" }} )) //g 2swap drop free throw
+    2dup s// (( // >> {{ ` S <<" (c|t)" }} )) //g 2swap drop free throw
+    2dup s// (( // >> {{ ` V <<" (a|c|g)" }} )) //g 2swap drop free throw
+    2dup s// (( // >> {{ ` W <<" (a|t)" }} )) //g 2swap drop free throw
+    2dup s// (( // >> {{ ` Y <<" (c|t)" }} )) //g 2swap drop free throw ;
+
+cr
+ilen 1 .r cr
+clen 1 .r cr
+
+'stdin replace-alternatives dup 1 .r cr
+
+bye
+\ The Great Computer Language Shootout
+\ http://shootout.alioth.debian.org/
+\ contributed by Ian Osgood 
+\ modified by Bernd Paysan
+\ use option "-d 32M" to have enough memory to run this program
+
+: mem,
+  here over allot swap move ;
+
+\ complement mappings
+create map s" TVGHefCDijMlKNopqYSAABWxRz" mem,
+
+: map-c ( c -- comp ) 32 or 'a - map + c@ ;
+
+60 constant line-len
+128 constant lines
+line-len 1+ lines * Constant buf-size
+
+\ data arrays
+Variable linebuf buf-size allot
+
+: flush, linebuf @+ swap type linebuf off ;
+: emit, ( char -- )  linebuf @+ + c!  1 linebuf +! ;
+: cr,  #lf emit, linebuf @ buf-size = IF
+	flush,
+    THEN ;
+
+: rev-comp ( end -- start ) line-len
+  begin  over pad u>
+  while  swap 1- dup c@ map-c emit,
+         swap 1- dup 0= if cr, line-len + then
+  repeat line-len < if cr, then flush, ;
+
+: main   pad ( end )
+  begin  dup 80 stdin read-line throw 
+  while  over c@ '> =
+         if   over  rev-comp  -rot type cr
+         else + then
+  repeat drop rev-comp drop ;
+
+main bye  \ done!
+
+\ The Computer Language Shootout
+\ http://shootout.alioth.debian.org/
+\ contributed by Ian Osgood
+\ modified by Bernd Paysan
+
+\ read NUM from last command line argument
+0. argc @ 1- arg >number 2drop drop constant NUM
+
+import float float also forth
+
+\ return element i,j of infinite matrix A
+: A@ ( i j -- f )
+  over + dup 1+ * 2/ + 1+  s>f 1/f ;
+
+\ multiply vector by matrix A
+: A* ( out in -- )
+  NUM 0 do  0e
+    NUM 0 do  dup i floats + f@ j i A@ f* f+  loop
+    over i floats + f!
+  loop 2drop ;
+
+\ multiply vector by matrix A transposed
+: At* ( out in -- )
+  NUM 0 do  0e
+    NUM 0 do  dup i floats + f@ i j A@ f* f+  loop
+    over i floats + f!
+  loop 2drop ;
+
+\ composition of A* and At*
+: AtA* ( out in -- ) falign here dup rot A* At* ;
+
+: 1efill ( n -- ) 0 do 1e f, loop ;
+falign create u NUM 1efill           \ unit vector
+falign create v NUM floats allot
+
+: approx ( -- f ) 
+  10 0 do  v u AtA*  u v AtA*  loop  \ power method
+  0e 0e ( vBv vv )
+  NUM 0 do
+    fswap u i floats + f@ v i floats + f@ f* f+
+    fswap v i floats + f@ fdup f* f+
+  loop
+  f/ fsqrt ;
+
+: ff.  ff$ type ;
+
+approx 10 set-precision ff. cr bye  \ done!

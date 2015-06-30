@@ -1,0 +1,2208 @@
+/* The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+   contributed by Xavier Oswald
+   modified by Isaac Gouy
+*/
+
+// SPLITFILE=binarytrees.li
+Section Header
+
+  + name := BINARYTREES;
+
+Section Inherit
+
+  - parent_any:OBJECT := OBJECT;
+
+Section Private
+
+  - min_depth :INTEGER := 4;
+
+Section Public
+
+  - main <-
+  ( + n, check        :INTEGER;
+    + max_depth       :INTEGER;
+    + stretch_depth   :INTEGER;
+    + depth           :INTEGER;
+    + iterations      :INTEGER;
+    + long_lived_tree :TREENODE;
+    + short_lived_tree:TREENODE;
+
+    (COMMAND_LINE.upper = 1).if {
+      n := COMMAND_LINE.item 1.to_integer;
+    };
+
+    (min_depth + 2 > n).if {
+      max_depth := min_depth+2;
+    } else {
+      max_depth := n;
+    };
+    stretch_depth := max_depth+1;
+    short_lived_tree := TREENODE.clone;
+    check := short_lived_tree.bottom_up_tree (0,stretch_depth).item_check;
+
+    "stretch tree of depth ".print;
+    stretch_depth.print;
+    "\t check: ".print;
+    check.print;
+    '\n'.print;
+
+    long_lived_tree := TREENODE.clone.bottom_up_tree (0, max_depth);
+    depth := min_depth;
+    {depth <= max_depth}.while_do {
+      iterations := 1 << (max_depth - depth  + min_depth);
+      check := 0;
+      1.to iterations do { i:INTEGER;
+        check := check + short_lived_tree.bottom_up_tree (i,depth) .item_check;
+        check := check + short_lived_tree.bottom_up_tree (-i,depth).item_check;
+      };
+      (iterations * 2).print;
+      "\t trees of depth ".print;
+      depth.print;
+      "\t check: ".print;
+      check.print;
+      '\n'.print;
+      depth := depth + 2;
+    };
+
+    "long lived tree of depth ".print;
+    max_depth.print;
+    "\t check: ".print;
+    long_lived_tree.item_check.print;
+    '\n'.print;
+  );
+
+// class BINARYTREES
+
+// SPLITFILE=treenode.li
+Section Header
+
+  + name := TREENODE;
+
+Section Inherit
+
+  - parent_any:OBJECT := OBJECT;
+
+Section Private
+
+  + left  :TREENODE;
+
+  + right :TREENODE;
+
+  + item  :INTEGER;
+
+Section Public
+
+  - item_check:INTEGER <-
+  ( + item_tmp:INTEGER;
+
+    (left = NULL).if {
+      item_tmp := item;
+    } else {
+      item_tmp := item + left.item_check - right.item_check;
+
+      left  := NULL; // try to help GC
+      right := NULL;
+    };
+    item_tmp
+  );
+
+  - bottom_up_tree (itm, depth:INTEGER) :TREENODE <-
+  (
+    item := itm;
+    (depth > 0).if {
+
+/* Why was only half the tree being allocated?
+
+      (left = NULL).if {
+        left  := TREENODE.clone;
+        right := TREENODE.clone;
+      };
+*/
+
+      left  := TREENODE.clone;
+      right := TREENODE.clone;
+
+      left.bottom_up_tree  (2*itm-1, depth-1);
+      right.bottom_up_tree (2*itm  , depth-1);
+    } else {
+      left := right := NULL;
+    };
+    Self
+  );
+// class TREENODE
+
+/* The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+   contributed by Xavier Oswald
+*/
+
+Section Header
+  
+  + name := FANNKUCH;
+
+Section Inherit
+  
+  - parent_any:OBJECT := OBJECT;
+
+Section Private
+
+  - fannkuch(n:INTEGER) :INTEGER <-
+  ( + perm            :FAST_ARRAY[INTEGER];
+    + perm1           :FAST_ARRAY[INTEGER];
+    + count           :FAST_ARRAY[INTEGER];
+    + max_perm        :FAST_ARRAY[INTEGER];
+    + exit, exit1     :BOOLEAN;    
+    + check           :INTEGER;
+    + perm0           :INTEGER;
+    + max_flips_count :INTEGER;
+    + flips_count     :INTEGER;
+    + k, k2           :INTEGER;
+    + i1, j           :INTEGER;
+    + r, m            :INTEGER;
+    m := n - 1;
+
+    perm     := FAST_ARRAY[INTEGER].create n;
+    count    := FAST_ARRAY[INTEGER].create n;
+    max_perm := FAST_ARRAY[INTEGER].create n;
+    perm1    := FAST_ARRAY[INTEGER].create_with_capacity n;
+
+    0.to m do { i:INTEGER;
+      perm1.add_last i; 
+    };
+    r := n;
+
+    (n < 1).if {
+      exit := TRUE;
+    };
+
+    {exit = FALSE}.while_do {
+      (check < 30).if {
+        perm1.foreach { elt : INTEGER;
+          (elt+1).print;
+        };
+        '\n'.print;
+        check := check + 1;
+      };
+      
+      {r != 1}.while_do {
+        count.put r to (r-1);
+        r := r-1;
+      };
+
+      (! ((perm1.item 0 = 0) || {perm1.item m = m})).if {
+        0.to m do { i:INTEGER;
+          perm.put (perm1.item i) to i;
+        };
+
+        flips_count := 0;
+        k := 0;
+       
+        {!((k:= perm.item 0) = 0)}.while_do {
+          k2 := (k+1) >> 1;
+          j := 0;
+          {j < k2}.while_do {
+            perm.swap j with (k-j);
+            j := j+1;
+          };
+          flips_count := flips_count + 1;
+        };
+
+        (flips_count > max_flips_count).if {
+          max_flips_count := flips_count;
+          0.to m do { i:INTEGER;
+            max_perm.put (perm1.item i) to i;
+          };
+        };
+      };
+
+      exit1 := FALSE;
+      {exit1 = FALSE}.while_do {
+        (r = n).if {
+          exit  := TRUE;
+          exit1 := TRUE;
+        };
+        perm0 := perm1.item 0;
+        i1 := 0;
+        {i1 < r}.while_do {
+          j := i1+1;
+          perm1.put (perm1.item j) to i1;
+          i1 := j;
+        };
+        perm1.put perm0 to r;
+        count.put ((count.item r) -1) to r;
+        (count.item r > 0).if {
+          exit1 := TRUE;
+        } else {
+          r := r+1;
+        };
+      };
+    };
+    max_flips_count
+  );
+
+Section Public
+ 
+  - main <-
+  ( + n      :INTEGER;
+    + result :INTEGER;
+
+    (COMMAND_LINE.upper = 1).if {
+      n := COMMAND_LINE.item 1.to_integer;
+    } else {
+      n := 0;
+    };
+    result := fannkuch(n);
+    "Pfannkuchen(".print;
+    n.print;
+    ") = ".print;
+    result.print;
+    '\n'.print;
+  );
+/* The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+   contributed by Xavier Oswald
+*/
+
+// SPLITFILE=fasta.li
+Section Header
+
+  + name := FASTA;
+
+Section Inherit
+
+  - parent_any:OBJECT := OBJECT;
+
+Section Private
+
+  - im           :INTEGER := 139968;
+
+  - ia           :INTEGER := 3877;
+
+  - ic           :INTEGER := 29573;
+
+  - last         :INTEGER := 42;
+
+  - line_length  :INTEGER := 60;
+
+  - buffer_size  :INTEGER := 1024;
+
+  - index        :INTEGER;
+
+  - iub          :FAST_ARRAY[FREQUENCY];
+
+  - homo_sapiens :FAST_ARRAY[FREQUENCY];
+
+  - alu :STRING_CONSTANT :=
+            "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG\
+            \GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA\
+            \CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT\
+            \ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA\
+            \GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG\
+            \AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC\
+            \AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA";
+
+  - alub    :FAST_ARRAY[CHARACTER] := FAST_ARRAY[CHARACTER].create (alu.count);
+
+  - bbuffer :FAST_ARRAY[CHARACTER] := FAST_ARRAY[CHARACTER].create buffer_size;
+
+  - rand (max:REAL_64) :REAL_64 <-
+  (
+    last := (last * ia + ic) % im;
+    max * last / im
+  );
+
+  - create_iub <-
+  (
+    iub := FAST_ARRAY[FREQUENCY].create_with_capacity 15;
+    iub.add_last(FREQUENCY.create('a', 0.27));
+    iub.add_last(FREQUENCY.create('c', 0.12));
+    iub.add_last(FREQUENCY.create('g', 0.12));
+    iub.add_last(FREQUENCY.create('t', 0.27));
+    iub.add_last(FREQUENCY.create('B', 0.02));
+    iub.add_last(FREQUENCY.create('D', 0.02));
+    iub.add_last(FREQUENCY.create('H', 0.02));
+    iub.add_last(FREQUENCY.create('K', 0.02));
+    iub.add_last(FREQUENCY.create('M', 0.02));
+    iub.add_last(FREQUENCY.create('N', 0.02));
+    iub.add_last(FREQUENCY.create('R', 0.02));
+    iub.add_last(FREQUENCY.create('S', 0.02));
+    iub.add_last(FREQUENCY.create('V', 0.02));
+    iub.add_last(FREQUENCY.create('W', 0.02));
+    iub.add_last(FREQUENCY.create('Y', 0.02));
+  );
+
+  - create_homo_sapiens <-
+  (
+    homo_sapiens := FAST_ARRAY[FREQUENCY].create_with_capacity 4;
+    homo_sapiens.add_last(FREQUENCY.create('a', 0.3029549426680));
+    homo_sapiens.add_last(FREQUENCY.create('c', 0.1979883004921));
+    homo_sapiens.add_last(FREQUENCY.create('g', 0.1975473066391));
+    homo_sapiens.add_last(FREQUENCY.create('t', 0.3015094502008));
+  );
+
+  - make_cumulative (a:FAST_ARRAY[FREQUENCY]) <-
+  ( + cp :REAL_64;
+    0.to (a.upper) do { i:INTEGER;
+      cp := cp + (a.item i).p;
+      (a.item i).put_p cp;
+    };
+  );
+
+  - select_random a:FAST_ARRAY[FREQUENCY] :CHARACTER <-
+  ( + return_char :CHARACTER;
+    + random :REAL_64;
+    + i,up:INTEGER;
+
+    up := a.upper;
+    random := rand (1.0);
+
+    i := a.lower;
+    {(i <= up) && {random >= a.item i.p}}.while_do {
+      i := i + 1;
+    };
+    (i <= up).if {
+      return_char := a.item i.c;
+    } else {
+      return_char := a.last.c;
+    };
+
+    return_char
+  );
+
+  - puts tab:NATIVE_ARRAY[CHARACTER] <- `puts(@tab)`;
+
+  - pick:NATIVE_ARRAY[CHARACTER] := NATIVE_ARRAY[CHARACTER].create (line_length + 1);
+
+  - make_random_fasta(id, desc:STRING_CONSTANT, a :FAST_ARRAY[FREQUENCY], n:INTEGER) <-
+  ( + m :INTEGER;
+    + n_temp :INTEGER;
+
+    index  := 0;
+    n_temp := n;
+
+    '>'.print;
+    id.print;
+    ' '.print;
+    desc.print;
+    '\n'.print;
+
+    {n_temp > 0}.while_do {
+      m := n_temp.min line_length;
+      0.to (m-1) do { i:INTEGER;
+        pick.put (select_random a) to i;
+      };
+      pick.put '\0' to m;
+      puts pick;
+      n_temp := n_temp - line_length;
+    };
+  );
+
+  - make_repeat_fasta(id, desc:STRING_CONSTANT, alu:STRING_CONSTANT, n:INTEGER ) <-
+  ( + k, kn,j,i,idx :INTEGER;
+
+    '>'.print;
+    id.print;
+    ' '.print;
+    desc.print;
+    '\n'.print;
+
+    kn := alu.count;
+    k := 1;
+    i := n;
+    {i >= 1}.while_do {
+      j := i.min line_length;
+      idx := 0;
+      {j >= 1}.while_do {
+        (k > kn).if {
+           k := 1;
+        };
+        pick.put (alu.item k) to idx;
+        k := k + 1;
+        j := j - 1;
+        idx := idx + 1;
+      };
+      pick.put '\0' to idx;
+      puts pick;
+      i := i - line_length;
+    };
+  );
+
+Section Public
+
+  - main <-
+  ( + n :INTEGER;
+
+    n := COMMAND_LINE.item 1.to_integer;
+
+    create_iub;
+    create_homo_sapiens;
+    make_cumulative iub;
+    make_cumulative(homo_sapiens);
+
+    make_repeat_fasta("ONE", "Homo sapiens alu", alu, n * 2);
+    make_random_fasta("TWO", "IUB ambiguity codes", iub, n * 3);
+    make_random_fasta("THREE", "Homo sapiens frequency", homo_sapiens, n * 5);
+  );
+// class FASTA
+
+// SPLITFILE=frequency.li
+Section Header
+
+  + name := FREQUENCY;
+
+Section Inherit
+
+  - parent_any:OBJECT := OBJECT;
+
+Section Public
+
+  + c :CHARACTER;
+
+  + p :REAL_64;
+
+  - create (p_c:CHARACTER, p_p:REAL_64) :SELF <-
+  ( + result :SELF;
+
+    result := clone;
+    result.make(p_c,p_p);
+    result
+  );
+
+  - make (p_c:CHARACTER, p_p:REAL_64) <-
+  (
+    c := p_c;
+    p := p_p;
+  );
+
+  - put_p r:REAL_64  <-
+  (
+    p := r;
+  );
+// class FREQUENCY
+
+/* The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+   contributed by Xavier Oswald
+*/
+
+Section Header
+  
+  + name  := HELLO;
+  
+Section Inherit
+  
+  - parent_any:OBJECT := OBJECT;
+
+Section Public
+    
+  - main <-
+  ( + tmp:INTEGER;
+    + st:STRING_CONSTANT;
+    st := "hello world";
+    tmp := st.count;
+    `/* @tmp */`;
+    st.println;
+  );
+/* The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+   contributed by Benoit Sonntag
+*/
+
+// SPLITFILE=knucleotide.li
+Section Header
+  
+  + name := KNUCLEOTIDE;
+  
+Section Inherit
+  
+  - parent_object:OBJECT := OBJECT;
+  
+Section Public
+  
+  - buffer:STRING;
+  
+  - dico:HASHED_SET[SORTER];
+  
+  - idf:STRING_CONSTANT := "GGTATTTTAATTTATAGT";
+  - key:SORTER;
+  - key2:SORTER;
+  
+  - main <-
+  (
+    key := SORTER.clone;
+    key2 := SORTER.clone;
+    // Read file.
+    buffer := STRING.create 10240;
+    {      
+      buffer.clear;
+      IO.read_line_in buffer;      
+    }.do_until {buffer.has_prefix ">THREE"};
+    buffer.clear;
+    
+    {! IO.end_of_input}.while_do {      
+      IO.read_line_in buffer;      
+    };
+    buffer.to_upper;
+    // Compute frequently.
+    dico := HASHED_SET[SORTER].create;
+    
+    //
+    sort 1;    
+    sort 2;
+    //
+    key2.init_with (idf.storage);
+    display 3; 
+    display 4; 
+    display 6;
+    display 12;
+    display 18;
+    
+  );
+  
+  - count n:INTEGER <-
+  (     
+    dico.clear;
+    (buffer.lower).to (buffer.upper-n+1) do { j:INTEGER;            
+      key.init_with (buffer.storage + (j - 1));
+      //
+      key.set_count n;
+      inc_key;
+    };    
+  );
+  
+  - inc_key <-
+  ( + new_key:SORTER;
+        
+    new_key := dico.reference_at key;
+    (new_key = NULL).if {      
+      new_key := key.clone;      
+      dico.add new_key;
+    } else {
+      new_key.inc_freq;
+    };
+  );
+  
+  - display n:INTEGER <-
+  ( + ref:SORTER;
+    
+    count n;
+    key2.set_count n;
+    ref := dico.reference_at key2;
+    (ref = NULL).if {
+      '0'.print;
+    } else {
+      ref.freq.print;
+    };
+    '\t'.print;
+    key2.print;
+    '\n'.print;
+  );
+  
+  - array:NATIVE_ARRAY[SORTER] := NATIVE_ARRAY[SORTER].create 16;
+  - string_tmp:STRING := STRING.create 5;
+  
+  - sort n:INTEGER <-
+  ( + cnt,low,up,i,freq:INTEGER;
+    + r:INTEGER;
+    + swap:BOOLEAN;
+    + s:SORTER;
+    + tmp:SORTER;
+    
+    count n;
+    (dico.lower).to (dico.upper) do { j:INTEGER;
+      s := dico.item j;      
+      array.put s to (j-1);      
+      cnt := cnt + s.freq;
+    };
+    
+    low := 0;
+    up  := dico.count - 2;
+    {
+      swap := FALSE;
+      (low).to (up) do { j:INTEGER;
+        (array.item j.freq < array.item (j+1).freq).if {
+          tmp := array.item j;
+          array.put (array.item (j+1)) to j;
+          array.put tmp to (j+1);
+          swap := TRUE;	  
+        };
+        i := dico.count - 2 - j;
+        (array.item i.freq < array.item (i+1).freq).if {
+          tmp := array.item i;
+          array.put (array.item (i+1)) to i;
+          array.put tmp to (i+1);
+          swap := TRUE;	  
+        };
+
+      };
+      low := low + 1;
+      up  := up  - 1;
+      }.do_while {swap};    
+      0.to (dico.count-1) do { j:INTEGER;
+        s := array.item j;
+        s.print;
+        ' '.print;      
+        freq := s.freq;
+        //
+        r := (freq * 100_000) / cnt;
+        (r / 1000).print;
+        '.'.print;
+        string_tmp.clear;
+        (r % 1000).append_in string_tmp format 3 with '0';      
+        string_tmp.print;
+        //
+        '\n'.print;
+      };
+      '\n'.print;
+    );
+// class KNUCLEOTIDE
+
+// SPLITFILE=sorter.li
+Section Header
+  
+  + name := SORTER;
+  
+Section Inherit
+  
+  + parent_string:Expanded STRING;
+  
+Section Public
+  
+  + hash_code:INTEGER;
+  
+  + freq:INTEGER := 1;
+  
+  - init_with buf:NATIVE_ARRAY[CHARACTER] <-
+  (
+    storage   := buf;
+    hash_code := count := 0;    
+  );
+  
+  - set_count new_count:INTEGER <-
+  ( + result,low:INTEGER;
+    
+    result := hash_code;
+    low    := count + 1;
+    count  := new_count;
+    (low).to (new_count) do { i:INTEGER;
+      result := (result * 5) + item i.code;
+    };
+    (result < 0).if {
+      result := ~ result;
+    };
+    hash_code := result;
+    capacity := count;
+  );
+  
+  - '==' Left 40 other:SELF :BOOLEAN <-
+  ( + result:BOOLEAN;
+   
+    ((count = other.count) && {hash_code = other.hash_code}).if {
+      ? {count != 0};
+      result:=storage.fast_memcmp (other.storage) until count;
+    };
+    result
+  );
+  
+  - inc_freq <-
+  ( 
+    freq := freq + 1;
+  );
+// class SORTER
+
+/* The Computer Language Shootout Benchmarks
+   http://shootout.alioth.debian.org/
+   contributed by Xavier Oswald & Anthony Pajot
+*/
+
+Section Header
+
+  + name := MANDELBROT;
+  
+Section Inherit
+  
+  - parent_object : OBJECT := OBJECT;
+  
+Section Public
+   
+  - main <-
+  ( + w, h, bit_num:INTEGER;
+    + iter:INTEGER;
+    + byte_acc:INTEGER_8;
+    + four:REAL_64;
+    + delta0,delta1:REAL_64;
+    + mod_w,wm1:INTEGER;
+    + cmd:STRING;
+    + civ:REAL_64;        
+    
+    iter := 50;
+    four := 4.0;
+
+    cmd := COMMAND_LINE.item 1;
+            
+    h := w := cmd.to_integer;    
+
+    "P4\n".print;
+    cmd.print;
+    ' '.print;
+    cmd.print;
+    '\n'.print;
+
+    mod_w := 8 - (w & 7);
+    wm1   := w - 1;
+
+    0.to (h - 1) do { y:INTEGER;
+      
+      civ := (y * 2).to_real_64 / h - 1.0;
+      
+      0.to wm1 by 2 do { x:INTEGER;
+        + crv0,crv1:REAL_64;        
+        + zrv0,zrv1:REAL_64;
+        + ziv0,ziv1:REAL_64;
+        + trv0,trv1:REAL_64;
+        + tiv0,tiv1:REAL_64;
+        + i:INTEGER;
+        
+        crv0 := (x * 2).to_real_64 / w - 1.5;
+        crv1 := ((x + 1) * 2).to_real_64 / w - 1.5;
+        {
+          ziv0 := (zrv0 * ziv0) + (zrv0 * ziv0) + civ;
+          ziv1 := (zrv1 * ziv1) + (zrv1 * ziv1) + civ;
+          
+          zrv0 := trv0 - tiv0 + crv0;
+          zrv1 := trv1 - tiv1 + crv1;
+          
+          trv0 := zrv0 * zrv0;
+          trv1 := zrv1 * zrv1;
+          
+          tiv0 := ziv0 * ziv0;
+          tiv1 := ziv1 * ziv1;
+          
+          delta0 := four - trv0 - tiv0;
+          delta1 := four - trv1 - tiv1;
+          
+          i  := i + 1;	  
+        }.do_while {
+          (i < iter) && {
+            (delta0 >= 0) || {delta1 >= 0}
+          }
+        };
+        byte_acc := byte_acc << 2;                  
+        
+        (delta0 >= 0).if {
+          byte_acc := byte_acc | 02h;        
+        };
+        (delta1 >= 0).if {
+          byte_acc := byte_acc | 01h;
+        };	
+
+        bit_num := bit_num + 2;
+        (bit_num = 8).if {
+          byte_acc.to_character.print; 
+          byte_acc := bit_num := 0;
+        };        
+      };
+      (bit_num != 0).if {
+        byte_acc := byte_acc << mod_w;
+        byte_acc.to_character.print;         
+        byte_acc := bit_num := 0;
+      };
+    };		    
+  );
+/* The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+   contributed by Xavier Oswald & Anthony Pajot
+*/
+
+// SPLITFILE=nbody.li
+Section Header
+
+  + name := NBODY;
+
+Section Inherit
+
+  - parent_object : OBJECT := OBJECT;
+
+Section Private
+
+  - nbodies : INTEGER;
+
+  - bodies:NATIVE_ARRAY[Expanded PLANET];
+
+  - b:Strict PLANET;
+  - b2:Strict PLANET;
+  - dx:REAL_64;
+  - dy:REAL_64;
+  - dz:REAL_64;
+  - distance:REAL_64;
+  - mag : REAL_64;
+
+Section External
+
+  - advance (dt:REAL_64,n:INTEGER) <-
+  (
+    0.to n do { i : INTEGER;
+      b := bodies.item i.this;
+
+      (i + 1).to n do { j : INTEGER;
+
+        b2 := bodies.item j.this;
+
+        dx := b.x - b2.x;
+        dy := b.y - b2.y;
+        dz := b.z - b2.z;
+
+        distance := (dx * dx + dy * dy + dz * dz).sqrt;
+
+        mag := dt / (distance * distance * distance);
+
+        b.set_vx (b.vx - dx * b2.mass * mag);
+        b.set_vy (b.vy - dy * b2.mass * mag);
+        b.set_vz (b.vz - dz * b2.mass * mag);
+
+        b2.set_vx (b2.vx + dx * b.mass * mag);
+        b2.set_vy (b2.vy + dy * b.mass * mag);
+        b2.set_vz (b2.vz + dz * b.mass * mag);
+      };
+    };
+    0.to n do { i : INTEGER;
+      b := bodies.item i.this;
+
+      b.set_x (b.x + dt * b.vx);
+      b.set_y (b.y + dt * b.vy);
+      b.set_z (b.z + dt * b.vz);
+    };
+  );
+
+  - energy n:INTEGER :REAL_64 <-
+  ( + e : REAL_64;
+    + b : Strict PLANET;
+    + b2 : Strict PLANET;
+    + dx, dy, dz : REAL_64;
+    + distance : REAL_64;
+
+    0.to nbodies do { i : INTEGER;
+      b := bodies.item i.this;
+      e := e + b.mass * 0.5 * (b.vx * b.vx + b.vy * b.vy + b.vz * b.vz);
+
+      (i + 1).to nbodies do { j : INTEGER;
+        b2 := bodies.item j.this;
+
+        dx := b.x - b2.x;
+        dy := b.y - b2.y;
+        dz := b.z - b2.z;
+
+        distance := (dx * dx + dy * dy + dz * dz).sqrt;
+
+        e := e - (b.mass * b2.mass) / distance;
+      };
+    };
+
+    e
+  );
+
+  - offset_momentum n:INTEGER <-
+  ( + px, py, pz : REAL_64;
+    + b : Strict PLANET;
+    0.to n do { i : INTEGER;
+      b := bodies.item i.this;
+      px := px + b.vx * b.mass;
+      py := py + b.vy * b.mass;
+      pz := pz + b.vz * b.mass;
+    };
+
+    bodies.first.set_speed_to (
+      - px / PLANET.solar_mass,
+      - py / PLANET.solar_mass,
+      - pz / PLANET.solar_mass
+    );
+
+  );
+Section Public
+
+  - main <-
+  ( + n:INTEGER;
+
+    n := COMMAND_LINE.item 1.to_integer;
+    nbodies := 4;
+    bodies  := NATIVE_ARRAY[Expanded PLANET].calloc_intern nbodies;
+
+    bodies.item 0.make_sun;
+    bodies.item 1.make_jupiter;
+    bodies.item 2.make_saturn;
+    bodies.item 3.make_uranus;
+    bodies.item 4.make_neptune;
+
+    offset_momentum nbodies;
+
+    energy nbodies.print_format_c "%.9f\n";
+
+    1.to n do { i:INTEGER;
+      advance (`0.01`:REAL_64,nbodies);
+    };
+
+    energy nbodies.print_format_c "%.9f\n";
+  );
+// class NBODY
+
+// SPLITFILE=planet.li
+Section Header
+
+  + name := PLANET;
+
+Section Inherit
+
+  - parent_object : OBJECT := OBJECT;
+
+Section Public
+
+  - this:Strict PLANET <- `&@Self`:Strict PLANET;
+
+  - pi : REAL_64 := `3.141592653589793`:REAL_64;
+
+  - solar_mass:REAL_64 := pi * pi * 4.0;
+
+  - days_per_year:REAL_64 := 365.24;
+
+  + x : REAL_64;
+  + y : REAL_64;
+  + z : REAL_64;
+
+  + px : REAL_64;
+  + py : REAL_64;
+  + pz : REAL_64;
+
+  + vx : REAL_64;
+  + vy : REAL_64;
+  + vz : REAL_64;
+
+  + pvx : REAL_64;
+  + pvy : REAL_64;
+  + pvz : REAL_64;
+
+  + mass : REAL_64;
+
+  - set_x v:REAL_64 <-
+  (
+    x := v;
+  );
+  - set_y v:REAL_64 <-
+  (
+    y := v;
+  );
+  - set_z v:REAL_64 <-
+  (
+    z := v;
+  );
+
+  - set_vx v:REAL_64 <-
+  (
+    vx := v;
+  );
+  - set_vy v:REAL_64 <-
+  (
+    vy := v;
+  );
+  - set_vz v:REAL_64 <-
+  (
+    vz := v;
+  );
+
+  - set_speed_to (pvx, pvy, pvz:REAL_64) <-
+  (
+    vx := pvx;
+    vy := pvy;
+    vz := pvz;
+  );
+
+  //different planets used in the test.
+
+  - make_sun <-
+  (
+    mass := solar_mass;
+  );
+
+  - make_jupiter <-
+  (
+    x := `4.84143144246472090E+00`:REAL_64;
+    y := `-1.16032004402742839E+00`:REAL_64;
+    z := `-1.03622044471123109E-01`:REAL_64;
+
+    vx := `1.66007664274403694E-03`:REAL_64 * days_per_year;
+    vy := `7.69901118419740425E-03`:REAL_64 * days_per_year;
+    vz := `-6.90460016972063023E-05`:REAL_64 * days_per_year;
+
+    mass := `9.54791938424326609E-04`:REAL_64 * solar_mass;
+  );
+
+  - make_saturn <-
+  (
+    x := `8.34336671824457987E+00`:REAL_64;
+    y := `4.12479856412430479E+00`:REAL_64;
+    z := `-4.03523417114321381E-01`:REAL_64;
+
+    vx := `-2.76742510726862411E-03`:REAL_64 * days_per_year;
+    vy := `4.99852801234917238E-03`:REAL_64 * days_per_year;
+    vz := `2.30417297573763929E-05`:REAL_64 * days_per_year;
+
+    mass := `2.85885980666130812E-04`:REAL_64 * solar_mass;
+  );
+
+  - make_uranus <-
+  (
+    x := `1.28943695621391310E+01`:REAL_64;
+    y := `-1.51111514016986312E+01`:REAL_64;
+    z := `-2.23307578892655734E-01`:REAL_64;
+
+    vx := `2.96460137564761618E-03`:REAL_64 * days_per_year;
+    vy := `2.37847173959480950E-03`:REAL_64 * days_per_year;
+    vz := `-2.96589568540237556E-05`:REAL_64 * days_per_year;
+
+    mass := `4.36624404335156298E-05`:REAL_64 * solar_mass;
+  );
+
+  - make_neptune <-
+  (
+    x := `1.53796971148509165E+01`:REAL_64;
+    y := `-2.59193146099879641E+01`:REAL_64;
+    z := `1.79258772950371181E-01`:REAL_64;
+
+    vx := `2.68067772490389322E-03`:REAL_64  * days_per_year;
+    vy := `1.62824170038242295E-03`:REAL_64  * days_per_year;
+    vz := `-9.51592254519715870E-05`:REAL_64 * days_per_year;
+
+    mass := `5.15138902046611451E-05`:REAL_64 * solar_mass;
+  );
+// class PLANET
+
+/* The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+   contributed by Xavier Oswald and Pierre-Alexandre Voye
+*/
+
+Section Header
+  
+  + name := NSIEVE;
+  
+Section Inherit
+  
+  - parent_any:OBJECT := OBJECT;
+
+Section Private  
+  
+  - string_tmp:STRING := STRING.create 64;
+  
+  - flags:FAST_ARRAY[BOOLEAN];
+
+  - primes m:INTEGER <-
+  ( + result,j,i,tmp: INTEGER;    
+
+    flags.fast_resize m;      
+    flags.set_all_with TRUE;    
+
+    tmp := m - 1;
+    i   := 2;    
+    {i <= tmp}.while_do {      
+      (flags.item i).if {
+        j := i << 1;
+        {j <= tmp}.while_do {        
+          flags.put FALSE to j;
+          j := j + i;
+        };
+        result := result + 1;
+      };
+    i := i + 1;      
+    };
+
+    "Primes up to ".print;    
+    string_tmp.clear;
+    m.append_in string_tmp format 8;
+    string_tmp.add_last ' ';    
+    result.append_in string_tmp format 8;
+    string_tmp.add_last '\n';
+    string_tmp.print;
+  );
+
+Section Public
+
+  - main <-
+  ( + n:INTEGER;
+    + m:INTEGER;
+
+    n := COMMAND_LINE.item 1.to_integer;
+    m := 10_000 * (1 << n);
+    flags := FAST_ARRAY[BOOLEAN].create_with_capacity m; 
+    primes m;
+    m := m >> 1;
+    primes m;
+    m := m >> 1;
+    primes m;
+  );
+/* The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+   contributed by Xavier Oswald
+*/
+
+Section Header
+  
+  + name := NSIEVEBITS;
+  
+Section Inherit
+  
+  - parent_any:OBJECT := OBJECT;
+
+Section Private
+
+  - primes      :FAST_ARRAY[UINTEGER_32];
+
+  - sizeof_bits :UINTEGER_32 := 4;  
+
+  - bbits       :UINTEGER_32 := 32; 
+  
+  - bsize x:UINTEGER_32 :UINTEGER_32 <-
+  (
+    (x / 8) + sizeof_bits
+  ); 
+
+  - bmask x:UINTEGER_32 :UINTEGER_32 <-
+  (
+    1 << (x % bbits)
+  );
+
+  - btest(p: FAST_ARRAY[UINTEGER_32], x :UINTEGER_32) :UINTEGER_32 <-
+  (
+    (p.item (x / bbits)) & bmask x
+  );
+
+  - bflip(p: FAST_ARRAY[UINTEGER_32], x :UINTEGER_32) :UINTEGER_32 <-
+  ( + t,idx :UINTEGER_32;
+    
+    idx := x / bbits;
+    t := p.item idx ^ bmask x;
+    p.put t to idx;
+    t
+  );
+
+Section Public
+ 
+  - main <-
+  ( + sz, param :UINTEGER_32;
+    + count, n :UINTEGER_32;
+    + j :UINTEGER_32;
+    + size :UINTEGER_32;
+
+    (COMMAND_LINE.upper = 1).if {
+      param := COMMAND_LINE.item 1.to_integer;
+    } else {
+      param := 1;
+    };
+    
+    sz := 10000 << param;
+    primes := FAST_ARRAY[UINTEGER_32].create (bsize(sz));
+    
+    0.to 2 do { m:UINTEGER_32;
+      count := 0;
+      n := sz >> m;
+      
+      size := bsize(n);
+      ? {size & 3 = 0};
+
+      0.to (size / 4) do { j1:INTEGER;
+        primes.put (~0) to j1;
+      };
+      
+      2.to n do { i:UINTEGER_32;
+        (btest(primes,i) != 0).if {
+          count := count + 1;
+          j := i + i;
+          {j <= n}.while_do {
+            (btest(primes,j) != 0).if {
+              bflip(primes,j);
+            };
+            j := j + i;
+          };
+        };
+      };
+      "Primes up to ".print;
+      n.print_format 8;
+      ' '.print;
+      count.print_format 8;
+      '\n'.print;
+    };
+  );
+/* The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+   contributed by Xavier Oswald
+*/
+
+Section Header
+  
+  + name := PARTIALSUMS;
+  
+Section Inherit
+  
+  - parent_any:OBJECT := OBJECT;
+
+Section Public
+  
+  - two_third :REAL_64 := 2.to_real_64/3.0;
+
+  - main <-
+  ( + n :INTEGER;
+    + a1, a2, a3, a4, a5   :REAL_64;
+    + a6, a7, a8, a9, alt  :REAL_64;
+    + nr :REAL_64;
+    
+    alt := 1.0;
+
+    (COMMAND_LINE.upper = 1).if {
+      n := COMMAND_LINE.item 1.to_integer;
+      nr := n.to_real_64;
+    };
+
+    0.to_real_64.to (nr-1.0) do { k:REAL_64;
+      a1 := a1 + two_third.pow k; 
+    };
+    1.to_real_64.to nr do { k:REAL_64;
+      a2 := a2 + 1.to_real_64/k.sqrt;
+    };
+    1.to_real_64.to nr do { k:REAL_64;
+      a3 := a3 + 1.to_real_64/(k * (k + 1.0));
+    };            
+    1.to_real_64.to nr do { k:REAL_64;      
+      a4 := a4 + 1.to_real_64/(k.sin * k.sin*k*k*k);
+    };            
+    1.to_real_64.to nr do { k:REAL_64;      
+      a5 := a5 + 1.to_real_64/(k.cos * k.cos*k*k*k);
+    };        
+    1.to n do { k:INTEGER;
+      a6 := a6 + 1.to_real_64/k.to_real_64;
+    };    
+    1.to_real_64.to nr do { k:REAL_64;
+      a7 := a7 + 1.to_real_64/(k * k);
+    };
+    
+    alt := 1.0;
+    1.to n do { k:INTEGER;
+      a8 := a8 + alt/k.to_real_64;
+      alt := -alt;
+    };    
+    
+    alt := 1.0;
+    1.to n do { k:INTEGER;
+      a9 := a9 + alt/(k*2-1).to_real_64;
+      alt := -alt;
+    };
+    
+    a1.print_format_c "%.9f";
+    "\t(2/3)^k\n".print;
+    a2.print_format_c "%.9f";
+    "\tk^-0.5\n".print;
+    a3.print_format_c "%.9f";
+    "\t1/k(k+1)\n".print;
+    a4.print_format_c "%.9f";
+    "\tFlint Hills\n".print;
+    a5.print_format_c "%.9f";
+    "\tCookson Hills\n".print;
+    a6.print_format_c "%.9f";
+    "\tHarmonic\n".print;
+    a7.print_format_c "%.9f";
+    "\tRiemann Zeta\n".print;
+    a8.print_format_c "%.9f";
+    "\tAlternating Harmonic\n".print;
+    a9.print_format_c "%.9f";
+    "\tGregory\n".print;
+  );
+/* The Computer Language Shootout Benchmarks
+   http://shootout.alioth.debian.org/
+   contributed by Benoit Sonntag
+*/
+
+// SPLITFILE=pidigits.li
+Section Header
+
+  + name := PIDIGITS;
+
+Section Public
+
+  - main <-
+  ( + n:INTEGER;
+
+    (COMMAND_LINE.count > 1).if {
+      n := COMMAND_LINE.item 1.to_integer;
+    } else {
+      n := 27;
+    };
+    CTX.pidigits n;
+  );
+// class PIDIGITS
+
+// SPLITFILE=ctx.li
+Section Header
+
+  + name := CTX;
+
+  - external := `#include <gmp.h>`;
+
+Section Private
+
+  // Transformation matrix components.
+  - q:MPZ := ( `((/*`; `n`:MPZ); // */
+  - r:MPZ;
+  - s:MPZ;
+  - t:MPZ;
+
+  // Temporary numbers.
+  - u:MPZ;
+  - v:MPZ;
+  - w:MPZ := ( `*/NULL`:MPZ);
+
+  // Counters.
+  - d:INTEGER;
+  - i:INTEGER;
+  - n:INTEGER;
+
+  // Accumulated digits for one line.
+  - digits:STRING;
+
+Section Private
+
+  - compose_r (bq,br,bs,bt:INTEGER) <-
+  // Compose matrix with numbers on the right.
+  (
+    mul_si (u,r,bs);
+    mul_si (r,r,bq);
+    mul_si (v,t,br);
+    add    (r,r,v);
+    mul_si (t,t,bt);
+    add    (t,t,u);
+    mul_si (s,s,bt);
+    mul_si (u,q,bs);
+    add    (s,s,u);
+    mul_si (q,q,bq);
+  );
+
+  - compose_l (bq,br,bs,bt:INTEGER) <-
+  // Compose matrix with numbers on the left.
+  (
+    mul_si (r,r,bt);
+    mul_si (u,q,br);
+    add    (r,r,u);
+    mul_si (u,t,bs);
+    mul_si (t,t,bt);
+    mul_si (v,s,br);
+    add    (t,t,v);
+    mul_si (s,s,bq);
+    add    (s,s,u);
+    mul_si (q,q,bq);
+  );
+
+  - extract j:UINTEGER_32 :INTEGER <-
+  // Extract one digit.
+  (
+    mul_ui (u,q,j);
+    add    (u,u,r);
+    mul_ui (v,s,j);
+    add    (v,v,t);
+    tdiv_q (w,u,v);
+    get_ui w
+  );
+
+  - prdigit y:INTEGER :BOOLEAN <-
+  // Print one digit. Returns TRUE for the last digit.
+  (
+    digits.add_last (y.decimal_digit);
+    i := i + 1;
+    ((digits.count = 10) || {i = n}).if {
+      digits.add_last '\t';
+      digits.add_last ':';
+      i.append_in digits;
+      digits.add_last '\n';
+      digits.print;
+      digits.clear;
+    };
+    i = n
+  );
+
+Section Public
+
+  - pidigits nb:INTEGER <-
+  // Generate successive digits of PI.
+  ( + k,y:INTEGER;
+    + stop:BOOLEAN;
+    k := 1;
+    n := nb;
+    d := i:= 0;
+    digits := STRING.create 20;
+    init_set_ui (q,1);
+    init_set_ui (r,0);
+    init_set_ui (s,0);
+    init_set_ui (t,1);
+    init u;
+    init v;
+    init w;
+    {
+      y := extract 3;
+      (y = extract 4).if {
+        (prdigit y).if {
+          stop := TRUE;
+        } else {
+          compose_r (10, -10*y, 0, 1);
+        };
+      } else {
+        compose_l (k, 4*k+2, 0, 2*k+1);
+        k := k + 1;
+      };
+    }.do_while {! stop};
+  );
+
+Section Private
+
+  //
+  // External mapping.
+  //
+
+  - init vu:MPZ <- `mpz_init(@vu)`;
+
+  - init_set_ui (vq:MPZ,vi:INTEGER) <- `mpz_init_set_ui(@vq, @vi)`;
+
+  - mul_si (vu,vr:MPZ,vs:INTEGER) <- `mpz_mul_si(@vu,@vr,@vs)`;
+
+  - mul_ui (vu,vq:MPZ,vj:INTEGER) <- `mpz_mul_ui(@vu,@vq, @vj)`;
+
+  - tdiv_q (vw,vu,vv:MPZ) <- `mpz_tdiv_q(@vw,@vu,@vv)`;
+
+  - add (a,b:MPZ,res:MPZ) <- `mpz_add(@a,@b,@res)`;
+
+  - get_ui vw:MPZ :INTEGER <- `mpz_get_ui(@vw)`:INTEGER;
+
+// class CTX
+
+// SPLITFILE=mpz.li
+Section Header
+
+  + name := Expanded MPZ;
+
+  - type := `mpz_t`;
+
+  - default := `n`:MPZ;
+// class MPZ
+
+/* The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+   contributed by Xavier Oswald & Pierre-Alexandre Voye
+*/
+
+Section Header
+  
+  + name := RECURSIVE;
+  
+Section Inherit
+  
+  - parent_any:OBJECT := OBJECT;
+
+Section Private  
+
+  - ack x : INTEGER and y : INTEGER : INTEGER <-
+  ( + result : INTEGER;
+  
+    (x = 0).if {
+      result := y + 1;
+    }.elseif {y = 0} then {
+      result := ack (x - 1) and 1;
+    } else {
+      result := ack (x - 1) and (ack x and (y - 1));
+    };
+    result
+  );
+
+
+  - fib n : INTEGER : INTEGER <-
+  (	+ result : INTEGER;
+    (n < 2).if { 
+      result := 1;
+    } else { 
+      result := fib (n - 2) + fib (n - 1);
+    };
+    result		
+  );
+
+  - fibfp n : REAL_64 : REAL_64 <-
+  ( + result : REAL_64;
+    (n < 2).if {
+      result := 1;
+    } else {
+      result := fibfp (n - 2) + fibfp (n - 1);
+    };
+    result
+  );
+
+  - tak (x,y,z : INTEGER) : INTEGER <-
+  (
+    + result : INTEGER;
+    (y < x).if {
+      result := tak(tak(x - 1,y, z), tak(y - 1, z, x), tak(z - 1, x, y) );
+    } else {
+      result := z;
+    };
+    result
+  );
+
+
+  - takfp (x,y,z : REAL_64) : REAL_64 <-
+  (
+    + result: REAL_64;
+    (y < x).if {
+      result := takfp(takfp(x - 1,y, z), takfp(y - 1, z, x), takfp(z - 1, x, y) );
+    } else {
+      result := z;
+    };
+    result
+ );
+
+
+Section Public
+
+  + n : INTEGER;
+
+  - main <-
+  (
+
+    (COMMAND_LINE.count = 2).if {
+      n := COMMAND_LINE.item 1.to_integer - 1;
+      //"valeur trouvée".print;
+      //n.print;
+      //"\n".print;
+    } else {
+      n := 2;
+    };
+    "Ack(3,".print;
+    (n + 1).print;
+    "): ".print;
+    ack 3 and (n+1).print;
+    "\n".print;
+
+    "Fib(".print; 
+    (28.0 + n.to_real_64).to_integer.print;
+    ".0): ".print;
+    fibfp (28.0 + n.to_real_64).print_format_c "%.1f";
+    "\n".print;
+
+    "Tak(".print;
+    ( 3 * n).print;
+    ",".print;
+    ( 2 * n).print; 
+    ",".print;
+    n.print;
+    "): ".print;
+    tak(3*n, 2*n, n).print;
+    "\n".print;
+	
+    "Fib(3): ".print;
+    fib 3.print;
+    "\n".print;
+
+    "Tak(3.0,2.0,1.0): ".print;
+    takfp(3.0,2.0,1.0).print_format_c "%.1f";
+    "\n".print;
+  );
+/* The Computer Language Shootout Benchmarks
+   http://shootout.alioth.debian.org/
+   contributed by Xavier Oswald
+*/
+
+Section Header
+  
+  + name := REGEXDNA;
+  
+  - external := 
+`
+#define __USE_STRING_INLINES
+#include <pcre.h>
+pcre *re;
+pcre_extra *re_ex;
+int re_eo;
+const char *re_e;
+`;
+
+Section Inherit
+  
+  - parent_object:OBJECT := OBJECT;
+
+Section Public
+  
+  - mem:NATIVE_ARRAY[INTEGER] := NATIVE_ARRAY[INTEGER].create 3;
+  
+  - fb_subst(dst,src:STRING, p:STRING_CONSTANT,r:STRING_CONSTANT) :INTEGER <-
+  // Substitute pattern p with replacement r, copying from src to dst buffer. 
+  ( + pos:INTEGER;
+        
+    pcre_compile p;
+    pcre_study;
+    dst.clear;    
+    pos := src.lower;
+    {pcre_exec src position pos mem mem >= 0}.while_do {                   
+      pos.to (mem.item 0) do { j:INTEGER;
+        dst.add_last (src.item j);
+      };    
+      dst.append r;
+      pos  := mem.item 1 + 1;
+    };    
+    // Copy end.    
+    pos.to (src.upper) do { j:INTEGER;
+      dst.add_last (src.item j);
+    };      
+    dst.count
+  );
+
+  - fb_countmatches (src:STRING, p:STRING_CONSTANT) :INTEGER <-
+  // Count all matches with pattern p in src buffer. 
+  ( + pos,count:INTEGER;
+    
+    pcre_compile p;
+    pcre_study;    
+    pos := src.lower;
+    {pcre_exec src position pos mem mem >= 0}.while_do {
+      pos := mem.item 1 + 1;
+      count := count + 1;
+    };
+    count
+  );
+
+  - variants:FAST_ARRAY[STRING_CONSTANT] := 
+  ( + result:FAST_ARRAY[STRING_CONSTANT];
+    
+    result := FAST_ARRAY[STRING_CONSTANT].create_with_capacity 9;
+    result.add_last "agggtaaa|tttaccct";         result.add_last "[cgt]gggtaaa|tttaccc[acg]";
+    result.add_last "a[act]ggtaaa|tttacc[agt]t"; result.add_last "ag[act]gtaaa|tttac[agt]ct";
+    result.add_last "agg[act]taaa|ttta[agt]cct"; result.add_last "aggg[acg]aaa|ttt[cgt]ccct";
+    result.add_last "agggt[cgt]aa|tt[acg]accct"; result.add_last "agggta[cgt]a|t[acg]taccct";
+    result.add_last "agggtaa[cgt]|[acg]ttaccct"; 
+    result
+  );
+
+  - subst:FAST_ARRAY[STRING_CONSTANT] := 
+  ( + result:FAST_ARRAY[STRING_CONSTANT];
+    
+    result := FAST_ARRAY[STRING_CONSTANT].create_with_capacity 22;
+    result.add_last "B"; result.add_last "(c|g|t)"; 
+    result.add_last "D"; result.add_last "(a|g|t)";
+    result.add_last "H"; result.add_last "(a|c|t)";
+    result.add_last "K"; result.add_last "(g|t)";
+    result.add_last "M"; result.add_last "(a|c)";
+    result.add_last "N"; result.add_last "(a|c|g|t)";
+    result.add_last "R"; result.add_last "(a|g)";
+    result.add_last "S"; result.add_last "(c|g)";
+    result.add_last "V"; result.add_last "(a|c|g)";
+    result.add_last "W"; result.add_last "(a|t)";
+    result.add_last "Y"; result.add_last "(c|t)";
+    result
+  );
+  
+  - string_tmp:STRING := STRING.create 512;
+  
+  - main <-
+  ( + seq:FAST_ARRAY[STRING];
+    + ilen, clen, slen:INTEGER;
+    + flip:INTEGER;
+    
+    seq := FAST_ARRAY[STRING].create_with_capacity 2;
+    seq.add_last (STRING.create (5.mb));
+    seq.add_last (STRING.create (5.mb));
+    read_stdin (seq.first);    
+    
+    ilen := seq.first.count;
+        
+    clen := fb_subst (seq.second,seq.first, ">.*|\n", "");
+    
+    (variants.lower).to (variants.upper) do { i:INTEGER;
+      string_tmp.append (variants.item i);
+      string_tmp.add_last ' ';
+      fb_countmatches (seq.second, variants.item i).append_in string_tmp;
+      string_tmp.add_last '\n';
+    };
+            
+    flip := 1;    
+    (subst.lower).to (subst.upper) by 2 do { i:INTEGER;    
+      slen := fb_subst(seq.item (1-flip), seq.item flip, subst.item i, subst.item (i+1));
+      flip := 1-flip;
+    };
+    string_tmp.add_last '\n';    
+    ilen.append_in string_tmp;
+    string_tmp.add_last '\n';    
+    clen.append_in string_tmp;
+    string_tmp.add_last '\n';
+    slen.append_in string_tmp;
+    string_tmp.println;
+  );
+  
+Section Private
+  
+  - read_stdin str:STRING <-
+  // BS: put this function in library...
+  ( + storage:NATIVE_ARRAY[CHARACTER];
+    + n,cap:INTEGER;
+    {
+      cap := str.capacity;
+      ((cap - str.count) < 1024).if {
+        cap := cap * 2;
+        str.set_capacity cap;
+      };
+      storage := str.storage + str.upper;
+      n := `fread(@storage,1,@cap,stdin)`:INTEGER;
+      str.set_count (str.count+n);
+    }.do_until {n = 0};    
+  );
+  
+  //
+  // External Function.
+  //
+  
+  - pcre_compile p:STRING_CONSTANT <-
+  ( + storage:NATIVE_ARRAY[CHARACTER];
+    storage := p.storage;
+    `re = pcre_compile(@storage, PCRE_CASELESS, &re_e, &re_eo, NULL)`;
+  );
+  
+  - pcre_study <-
+  (
+    `re_ex = pcre_study(re, 0, &re_e)`;
+  );
+  
+  - pcre_exec src:STRING position pos:INTEGER mem m:NATIVE_ARRAY[INTEGER] :INTEGER <-
+  ( + storage:NATIVE_ARRAY[CHARACTER];
+    + len:INTEGER;
+    storage := src.storage;
+    len := src.count;
+    `pcre_exec(re, re_ex, @storage, @len, @pos-1, 0, @m, 3)`:INTEGER
+  );
+/* The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+   contributed by Xavier Oswald
+*/
+
+Section Header
+  
+  + name := REVCOMP;
+  
+Section Inherit
+  
+  - parent_any:OBJECT := OBJECT;
+
+Section Public
+      
+  - iub_pairs:STRING_CONSTANT := "\0TVGH\0\00h\CD\0\0M\0KN\0\0\0YSAABW\0R";
+    
+  - main <-
+  ( + buf:STRING;
+    + size:INTEGER;
+    + i,j,end:INTEGER;
+    + tmp:CHARACTER;
+   
+    buf := STRING.create 25416746;
+        
+    size := FS_MIN.read `stdin`:POINTER in buf size 25416745;
+    i := 1;
+    {i <= size}.while_do {
+      {buf.item i != '\n'}.while_do { i := i + 1; };
+      i := i + 1;
+      j := i;
+      {(buf.item j != '>') && {buf.item j != 0}}.while_do { j := j + 1; };
+      end := j;
+      j := j - 1;
+      {i < j}.while_do {
+        (buf.item i = '\n').if { i := i + 1; };
+        (buf.item j = '\n').if { j := j - 1; };
+        tmp := iub_pairs.item ((buf.item i.to_integer & 1Fh)+1);
+        buf.put (iub_pairs.item ((buf.item j.to_integer & 1Fh)+1)) to i;
+        buf.put tmp to j;
+        i := i + 1;
+        j := j - 1;
+      };
+      i := end;
+    };
+    buf.remove_last 1;
+    buf.println;        
+  );
+/* The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+   contributed by Xavier Oswald
+*/
+
+Section Header
+  
+  + name := REVCOMP;
+  
+Section Inherit
+  
+  - parent_any:OBJECT := OBJECT;
+
+Section Public
+  
+  - puts tab:NATIVE_ARRAY[CHARACTER] <- `puts(@tab)`;
+  
+  - buffer :STRING;
+    
+  - iub_pairs:STRING_CONSTANT := "ATCGBVDHKMRY";
+  
+  - iub_complement :NATIVE_ARRAY[CHARACTER] := NATIVE_ARRAY[CHARACTER].create 256; 
+    
+  - build_iub_complement <-
+  ( 
+    0.to 256 do { i:INTEGER;
+      iub_complement.put (i.to_character) to i;   
+    };
+    
+    (iub_pairs.lower).to (iub_pairs.upper) by 2 do { j:INTEGER;
+      iub_complement.put(iub_pairs.item (j+1)) to (iub_pairs.item  j   .to_integer); 
+      iub_complement.put(iub_pairs.item  j   ) to (iub_pairs.item (j+1).to_integer);
+      iub_complement.put(iub_pairs.item (j+1)) to (iub_pairs.item  j   .to_lower.to_integer); 
+      iub_complement.put(iub_pairs.item  j   ) to (iub_pairs.item (j+1).to_lower.to_integer);
+    };    
+  );
+
+  - in_place_reverse <-
+  ( + i,len:INTEGER;
+    + c:CHARACTER;    
+    + s:NATIVE_ARRAY[CHARACTER];
+    
+    i := 0;
+    len := buffer.count - 1;
+    s := buffer.storage;
+    
+    {i < len}.while_do {
+      c := s.item i;
+      s.put (iub_complement.item((s.item len).to_integer)) to i;
+      s.put (iub_complement.item(c.to_integer)) to len;
+      i := i + 1;
+      len := len - 1;
+    };
+    
+    (i = len).if {
+      s.put(iub_complement.item((s.item i).to_integer)) to i;
+    };
+  );
+  
+  - process <-
+  ( + c :CHARACTER;
+    + s :NATIVE_ARRAY[CHARACTER];
+    + len:INTEGER;
+    
+    in_place_reverse;
+    
+    s := buffer.storage;
+    len := buffer.count;
+        
+    {len > 60}.while_do{
+      c := s.item 60;
+      s.put '\0' to 60;
+      puts s;
+      s.put c to 60;
+      s := s + 60; 
+      len := len - 60;
+    };
+    
+    s.put '\0' to len;
+    puts s;    
+  );
+
+  - main <-
+  ( + mlen   :INTEGER;
+    + line:STRING;
+   
+    buffer := STRING.create 16777216;
+    mlen := 128;
+    build_iub_complement;
+              
+    IO.read_line;
+    line := IO.last_string;        
+    {IO.end_of_input}.until_do {
+      (! line.is_empty).if {
+        (line.first = '>').if {
+          (buffer.is_empty).if_false {
+            process;
+          };
+          IO.put_string line;
+          IO.put_new_line;
+          buffer.clear;
+        } else {
+          buffer.append line;
+        };
+      };
+      IO.read_line;
+    };
+  
+    (! buffer.is_empty).if {
+      process;
+    };
+
+  );
+/* The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+   contributed by Xavier Oswald
+*/
+
+Section Header
+  
+  + name := SPECTRALNORM;
+  
+Section Inherit
+  
+  - parent_any:OBJECT := OBJECT;
+
+Section Private
+  
+  - n:INTEGER;
+  
+  - eval_a(i,j:INTEGER) :REAL_64 <- 
+  (
+    1.0 /((i+j)*(i+j+1)/2+i+1)
+  );
+
+  - eval_a_times_u(u,au:NATIVE_ARRAY[REAL_64]) <- 
+  ( 
+    0.to n do { i:INTEGER;
+      au.put 0 to i;
+      0.to n do { j:INTEGER;
+        au.put (au.item i + eval_a(i,j) * u.item j) to i;
+      };
+    };
+  );
+
+  - eval_at_times_u(u,au:NATIVE_ARRAY[REAL_64]) <-
+  (
+    0.to n do { i:INTEGER;
+      au.put 0 to i;
+      0.to n do { j:INTEGER;
+        au.put (au.item i + eval_a(j,i) * u.item j) to i;
+      };
+    };
+  );
+  
+  - vtmp:NATIVE_ARRAY[REAL_64];
+  
+  - eval_ata_times_u(u,atau:NATIVE_ARRAY[REAL_64]) <-
+  ( 
+    eval_a_times_u(u,vtmp);
+    eval_at_times_u(vtmp,atau);
+  );
+
+Section Public
+ 
+  - main <-
+  ( + vbv,vv:REAL_64;
+    + u :NATIVE_ARRAY[REAL_64];
+    + v :NATIVE_ARRAY[REAL_64];    
+ 
+    ( COMMAND_LINE.upper = 1).if {
+      n := COMMAND_LINE.item 1.to_integer;
+    } else {
+      n := 2000;
+    };
+    
+    u    := NATIVE_ARRAY[REAL_64].calloc_intern n;
+    vtmp := NATIVE_ARRAY[REAL_64].calloc_intern n;
+    v    := NATIVE_ARRAY[REAL_64].calloc_intern n;
+    
+    n := n - 1;    
+    0.to n do { i:INTEGER;
+      u.put 1 to i;    
+    };
+
+    0.to 9 do { i:INTEGER;
+      eval_ata_times_u(u,v);
+      eval_ata_times_u(v,u);
+    };
+
+    0.to n do { i:INTEGER;
+      vbv := vbv + u.item i * v.item i;
+      vv  :=  vv + v.item i * v.item i;
+    };
+     
+    ((vbv/vv).sqrt).print_format_c "%.9f\n";    
+  );
+/* The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+   contributed by Xavier Oswald
+*/
+
+Section Header
+  
+  + name := SUMCOL;
+  
+Section Inherit
+  
+  - parent_any:OBJECT := OBJECT;
+
+Section Public
+
+  - main <-
+  ( + sum:INTEGER;
+
+    IO.read_line;
+    {IO.end_of_input}.until_do {
+      sum := sum + IO.last_string.to_integer; 
+      IO.read_line;
+    };
+
+    sum.print;
+    '\n'.print;
+  );
+/* The Computer Language Shootout Benchmarks
+   http://shootout.alioth.debian.org/
+   contributed by Benoit Sonntag
+*/
+
+// SPLITFILE=threadring.li
+Section Header
+
+  + name := THREADRING;
+
+  - external :=
+`
+#include <pthread.h>
+pthread_attr_t stack_attr;
+`;
+
+Section Inherit
+
+  - parent_object:OBJECT := OBJECT;
+
+Section Public
+
+  - threads:INTEGER := 503;
+
+  // staticaly initialize mutex[0] mutex
+  - mutex:FAST_ARRAY[MUTEX] := FAST_ARRAY[MUTEX].create threads;
+
+  - data:FAST_ARRAY[INTEGER] := FAST_ARRAY[INTEGER].create threads;
+
+  - stacks:FAST_ARRAY[STACK] := FAST_ARRAY[STACK].create threads;
+
+  // stacks must be defined staticaly, or my i386 box run of virtual memory for this
+  // process while creating thread +- #400
+
+Section External
+
+  - thread num:POINTER :POINTER <-
+  ( +l,r,token:INTEGER;
+
+    l := CONVERT[POINTER,INTEGER].on num;
+    r := (l+1) % threads;
+
+    {`(1)`:BOOLEAN(TRUE,FALSE)}.while_do { // It's always TRUE
+      mutex.item l.lock;
+      token := data.item l;
+      (token != 0).if {
+        data.put (token - 1) to r;
+        mutex.item r.unlock;
+      } else {
+        (l+1).print;
+        '\n'.print;
+        die_with_code 0;
+      };
+    };
+    NULL
+  );
+
+Section Public
+
+  - main <-
+  (
+    data.put (COMMAND_LINE.item 1.to_integer) to 0;
+
+    init_attr;
+
+    0.to (threads-1) do { i:INTEGER;
+      mutex.item i.init;
+      mutex.item i.lock;
+
+      stacks.item i.set_attr;
+      THREAD.create i;
+    };
+
+    mutex.first.unlock;
+    THREAD.join;
+    die_with_code 0;
+    thread 0;
+    thread 1;
+  );
+
+Section Private
+
+  - init_attr <- `pthread_attr_init(&stack_attr)`;
+// class THREADRING
+
+// SPLITFILE=mutex.li
+Section Header
+
+  + name := Expanded MUTEX;
+
+  - type := `pthread_mutex_t`;
+
+  - default := `MUTEX__`:MUTEX;
+
+  - external := `pthread_mutex_t MUTEX__;`;
+
+Section Insert
+
+  - parent_object:OBJECT := OBJECT;
+
+Section Public
+
+  - init   <- `pthread_mutex_init(&@Self, NULL)`;
+
+  - lock   <- `pthread_mutex_lock(&@Self)`;
+
+  - unlock <- `pthread_mutex_unlock(&@Self)`;
+// class MUTEX
+
+// SPLITFILE=stack.li
+Section Header
+
+  + name := Expanded STACK;
+
+  - type := `struct stack`;
+
+  - default := `STACK__`:STACK;
+
+  - external :=
+`
+#include <limits.h>
+struct stack {
+  char x[PTHREAD_STACK_MIN];
+};
+struct stack STACK__;
+`;
+
+Section Insert
+
+  - parent_object:OBJECT := OBJECT;
+
+Section Public
+
+  - set_attr <- `pthread_attr_setstack(&stack_attr, &@Self, sizeof(struct stack))`;
+// class STACK
+
+
+// SPLITFILE=thread.li
+Section Header
+
+  + name := THREAD;
+
+  - type := `pthread_t`;
+
+  - external := `pthread_t THREAD__;`;
+
+Section Insert
+
+  - parent_object:OBJECT := OBJECT;
+
+Section Public
+
+  - create i:INTEGER <- `pthread_create(&@Self, &stack_attr, thread, (void*)@i)`;
+
+  - join <- `pthread_join(@Self, NULL)`;
+// class THREAD
+

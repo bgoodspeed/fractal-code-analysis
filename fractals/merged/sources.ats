@@ -1,0 +1,5387 @@
+(*
+** The Computer Language Benchmarks Game
+** http://shootout.alioth.debian.org/
+**
+** contributed by Hongwei Xi
+**
+** compilation command:
+**   atscc -O3 binary-trees2.dats -o binary-trees2 -D_ATS_GCATS
+*)
+
+(* ****** ****** *)
+
+staload _(*anonymous*) = "prelude/DATS/reference.dats"
+
+(* ****** ****** *)
+
+dataviewtype tree (int) =
+  Nil(0) | {n1,n2:two} Node(1) of (tree n1, int, tree n2)
+// end of [tree]
+
+viewtypedef Tree = [n:two] tree n
+
+fun tree_make (d: int, i: int): Tree =
+  if d > 0 then let
+    val d1 = d-1 and i2 = i << 1 in
+    Node (tree_make (d1, i2 - 1), i, tree_make (d1, i2))
+  end else Node (Nil (), i, Nil ())
+// end of [tree_make]
+
+fun check_and_free (t: Tree):<!ntm> int =  case+ t of
+  | ~Node (tl, i, tr) => i + check_and_free tl - check_and_free tr
+  | ~Nil () => 0
+// end of [check_and_free]
+
+fun check (t: !Tree):<!ntm> int = case+ t of
+  | Node (!tl, i, !tr) => let
+      val ans = i + check (!tl) - check (!tr) in (fold@ t; ans)
+    end // end of [Node]
+  | Nil () => (fold@ t; 0)
+// end of [check]
+
+fun check_ref (r: ref Tree): int = let
+  val (vbox pf | p) = ref_get_view_ptr r in check !p     
+end // end of [check_ref]
+
+(* ****** ****** *)
+
+#define MIN_DEPTH 4
+
+fn stretch (max_depth: Nat): void = let
+   val stretch_depth = max_depth + 1
+   val t = tree_make (stretch_depth, 0)
+   val c = check_and_free (t)
+in
+   printf ("stretch tree of depth %i\t check: %i\n", @(stretch_depth, c));
+end // end of [stretch]
+
+fn long_lived_tree_make
+  (max_depth: Nat): ref Tree = let
+  val t = tree_make (max_depth, 0); val t_r = ref<Tree> (t)
+in
+  t_r
+end // end of [long_lived_tree_make]
+
+fun loop_depths (d: Nat, max_depth: Nat): void = begin
+  if d <= max_depth then let
+    val n = 1 << (max_depth - d + MIN_DEPTH)
+    fun loop (i: Nat, c: int):<cloref1> int =
+      if i < n then let
+        val t = tree_make(d,  i); val c1 = check_and_free t
+        val t = tree_make(d, ~i); val c2 = check_and_free t
+      in
+        loop (i+1, c + c1 + c2)
+      end else c
+    val c = loop (0, 0)
+  in
+    printf ("%i\t trees of depth %i\t check: %i\n", @(2 * n, d, c));
+    loop_depths (d + 2, max_depth)
+  end
+end // end of [loop_depths]
+
+implement main (argc, argv) = let
+  val () = assert_errmsg
+    (argc = 2, "Exit: wrong command format!\n")
+  val n = int1_of argv.[1]
+  val () = assert_errmsg
+    (n >= 0, "The input integer needs to be a natural number.\n")
+  // this simply means that no garbage collection can be triggered
+  // and memory allocation and deallocation must be handled manually
+  val () = gc_chunk_count_limit_max_set (~1) // infinite
+  val max_depth = max (MIN_DEPTH + 2, n)
+  val () = stretch (max_depth)
+  val long_lived_tree = long_lived_tree_make (max_depth)
+in
+  loop_depths (MIN_DEPTH, max_depth);
+  printf ("long lived tree of depth %i\t check: %i\n", @(max_depth, check_ref long_lived_tree))
+end // end of [main]
+
+(* ****** ****** *)
+
+(* end of [binary-tree2.dats] *)
+(*
+** The Computer Language Benchmarks Game
+** http://shootout.alioth.debian.org/
+**
+** contributed by Hongwei Xi
+**
+** compilation command:
+**   atscc -D_GNU_SOURCE -D_ATS_MULTITHREAD -O3 binary-trees3.dats -o binary-trees3 -D_ATS_GCATS -lpthread
+*)
+
+(* ****** ****** *)
+
+staload "libats/SATS/parworkshop.sats"
+staload _ = "libats/DATS/parworkshop.dats"
+
+(* ****** ****** *)
+
+staload _(*anon*) = "prelude/DATS/reference.dats"
+
+(* ****** ****** *)
+
+dataviewtype tree (int) =
+  Nil(0) | {n1,n2:two} Node(1) of (tree n1, int, tree n2)
+
+viewtypedef Tree = [n:two] tree n
+
+fun tree_make (d: int, i: int): Tree =
+  if d > 0 then
+    let val d1 = d-1 and i2 = i << 1 in      
+      Node (tree_make (d1, i2 - 1), i, tree_make (d1, i2))
+    end
+  else Node (Nil (), i, Nil ())
+// end of [tree_make]
+
+fun check_and_free (t: Tree):<!ntm> int =  case+ t of
+  | ~Node (tl, i, tr) => i + check_and_free tl - check_and_free tr
+  | ~Nil () => 0
+// end of [check_and_free]
+
+fun check (t: !Tree):<!ntm> int =  case+ t of
+  | Node (!tl, i, !tr) =>
+    let val ans = i + check (!tl) - check (!tr) in (fold@ t; ans) end
+  | Nil () => (fold@ t; 0)
+// end of [check]
+
+fun check_ref (r: ref Tree): int = let
+  val (vbox pf | p) = ref_get_view_ptr r in check !p     
+end // end of [check_ref]
+
+//
+
+#define MIN_DEPTH 4
+
+//
+
+fn stretch (max_depth: Nat): void = let
+   val stretch_depth = max_depth + 1
+   val t = tree_make (stretch_depth, 0)
+   val c = check_and_free (t)
+in
+   printf ("stretch tree of depth %i\t check: %i\n", @(stretch_depth, c));
+end // end of [stretch]
+
+fn long_lived_tree_make
+  (max_depth: Nat): ref Tree = let
+  val t = tree_make (max_depth, 0); val t_r = ref<Tree> (t)
+in
+  t_r
+end // end of [long_lived_tree_make]
+
+(* ****** ****** *)
+
+fun doWork
+  {l_n,l_d,l_c:addr} {d,md:nat | d <= md} (
+    pf_n: !int @ l_n
+  , pf_d: !int @ l_d
+  , pf_c: !int @ l_c
+  | p_n: ptr l_n, p_d: ptr l_d, p_c: ptr l_c
+  , d: int d, max_depth: int md
+  ) : void = let
+  val n = 1 << (max_depth - d + MIN_DEPTH)
+  fun loop (i: Nat, c: int):<cloref1> int =
+    if i < n then let
+      val t = tree_make(d,  i); val c1 = check_and_free t
+      val t = tree_make(d, ~i); val c2 = check_and_free t
+    in
+      loop (i+1, c + c1 + c2)
+    end else begin
+      c // return value
+    end // end of [if]
+  val () = !p_n := n
+  val () = !p_d := d;
+  val () = !p_c := loop (0, 0)
+in
+  // nothing
+end // end of [doWork]
+
+(* ****** ****** *)
+
+dataviewtype CONT =
+  | CONTnil of ()
+  | CONTcons of (int(*n*), int(*d*), int(*c*), CONT)
+// end of [CONT]
+
+fun finishup (cont: CONT): void = case+ cont of
+  | ~CONTcons (n, d, c, cont) => let
+      val () = printf (
+        "%i\t trees of depth %i\t check: %i\n", @(2 * n, d, c)
+      ) // end of printf
+    in
+      finishup (cont)
+    end (* end of [locklst_cons] *)
+  | ~CONTnil () => ()
+// end of [finishup]
+
+(* ****** ****** *)
+
+viewtypedef work = () -<lincloptr1> void
+viewtypedef WSptr (l:addr) = WORKSHOPptr (work, l)
+
+(* ****** ****** *)
+
+fun fwork {l:addr}
+  (ws: !WSptr l, wk: &work >> work?): int = let
+  val wk = wk
+  val pfun = __cast (wk) where {
+    extern castfn __cast
+      (wk: !work >> opt (work, i >= 1)): #[i:nat] uintptr i
+  } // end of [val]
+in
+  if pfun >= (uintptr1_of_uint1)1U then let
+    prval () = opt_unsome {work} (wk)
+    val () = wk ()
+    val () = cloptr_free (wk)
+  in
+    1 // the worker is to continue
+  end else let
+    val u = uint1_of_uintptr1 (pfun)
+    val i = int_of_uint (u)
+    prval () = opt_unnone {work} (wk)
+    prval () = cleanup_top {work} (wk)
+  in
+    ~i // the worker is to pause or quit
+  end // end of [if]
+end // end of [fwork]
+
+(* ****** ****** *)
+
+fun loop_depths {lws:agz}
+  (ws: !WSptr lws, d: Nat, max_depth: Nat, res: &CONT? >> CONT): void = let
+  extern prfun __ref {v:view} (pf: !v): v
+  extern prfun __unref {v:view} (pf: v): void
+in
+  if d <= max_depth then let
+    val () = res := CONTcons (0, 0, 0, ?)
+    val+ CONTcons (!p_n, !p_d, !p_c, !p_res1) = res
+    stavar l_n:addr and l_d:addr and l_c:addr
+    prval pf_n = __ref {int@l_n} (view@ !p_n)
+    prval pf_d = __ref {int@l_d} (view@ !p_d)
+    prval pf_c = __ref {int@l_c} (view@ !p_c)
+    val () = workshop_insert_work (ws, f) where {
+      val f = lam (): void =<lincloptr1> let
+        val () = doWork (pf_n, pf_d, pf_c | p_n, p_d, p_c, d, max_depth)
+        prval () = __unref (pf_n)
+        prval () = __unref (pf_d)
+        prval () = __unref (pf_c)
+      in
+        // nothing
+      end
+    } // end of [workshop_add_work]
+    val () = loop_depths (ws, d + 2, max_depth, !p_res1)
+  in
+    fold@ (res)
+  end else begin
+    res := CONTnil ()
+  end // end of [if]
+end (* end of [loop_depths] *)
+
+(* ****** ****** *)
+
+staload "libc/SATS/sched.sats"
+staload TYPES = "libc/sys/SATS/types.sats"
+macdef pid_t = $TYPES.pid_of_int
+
+extern fun ncore_get (): int
+implement ncore_get () = let
+  var cs: cpu_set0_t // uninitialized
+  prval () = cpusetinit (cs) // not a real initialization
+  stavar nset: int
+  val nset = cpusetsize_get (cs)
+  val () = assert_errmsg (nset >= 2, #LOCATION)
+  val err = sched_getaffinity ((pid_t)0, nset, cs)
+  var count: Nat = 0
+  var i: natLte 16 // uninitialized
+  val () = for* (cs: cpu_set_t nset) =>
+    (i := 0; i < 16; i := i + 1)
+    if (CPU_ISSET (i, cs) > 0) then count := count + 1
+  // end of [val]
+in
+  count
+end // end of [ncore_get]
+
+(* ****** ****** *)
+
+#define QSZ 1024
+
+implement main (argc, argv) = let
+//
+  val () = gc_chunk_count_limit_set (1 << 15)
+  val () = gc_chunk_count_limit_max_set (~1) // no max
+//
+  val () = assert_errmsg
+    (argc >= 2, "Exit: wrong command format!\n")
+  val n = int1_of argv.[1]
+  val () = assert_errmsg
+    (n >= 0, "The input integer needs to be a natural number.\n")
+//
+  val NWORKER = ncore_get ()
+  val nworker =
+    (if (argc >= 3) then int_of argv.[2] else NWORKER): int
+  val nworker = int1_of_int(nworker)
+  val () = assert_errmsg (nworker >= 1, #LOCATION)
+  val ws = workshop_make<work> (QSZ, fwork)
+  val _err = workshop_add_nworker (ws, nworker)
+  val () = assert_errmsg (_err = 0, #LOCATION)
+//
+  val max_depth = max (MIN_DEPTH + 2, n)
+  var res: CONT // uninitialized
+  val () = loop_depths (ws, MIN_DEPTH, max_depth, res)
+  val () = stretch (max_depth)
+  val long_lived_tree = long_lived_tree_make (max_depth)
+//
+  val () = workshop_wait_blocked_all (ws)
+  val () = finishup (res)
+//
+  var i: Nat = 0
+  val () = while (i < nworker) let
+    val _quit = $extval (work, "(void*)0")
+    val () = workshop_insert_work (ws, _quit) in i := i + 1
+  end // end of [val]
+  val () = workshop_wait_quit_all (ws)
+  val () = workshop_free_vt_exn (ws)
+in
+  printf ("long lived tree of depth %i\t check: %i\n", @(max_depth, check_ref long_lived_tree))
+end // end of [main]
+
+(* ****** ****** *)
+
+(* end of [binary-tree3.dats] *)
+(*
+** The Computer Language Benchmarks Game
+** http://shootout.alioth.debian.org/
+**
+** contributed by Hongwei Xi
+**
+** compilation command:
+**   atscc -fomit-frame-pointer -O3 fannkuch2.dats -o fannkuch2
+*)
+
+(* ****** ****** *)
+
+staload _(*anonymous*) = "prelude/DATS/array.dats"
+
+(* ****** ****** *)
+
+macdef iarr (n) = array_make_elt (,(n)+1, 0)
+typedef iarr (n:int) = array (natLte n, n+1)
+
+(* ****** ****** *)
+
+%{^
+
+/*
+** HX: it is really difficult to beat [memcpy] :)
+*/
+
+static inline
+ats_void_type iarr_copy
+  (ats_ptr_type src, ats_ptr_type dst, ats_int_type n) {
+  memcpy ((int*)dst+1, (int*)src+1,  n * sizeof(ats_int_type)) ;
+  return ;
+} // end of iarr_copy
+
+%}
+
+extern fun iarr_copy {n:nat}
+  (src: iarr n, dst: iarr n, n: int n): void = "iarr_copy"
+
+(* ****** ****** *)
+
+fn fprint_iarr {n:nat}
+  (out: FILEref, A: iarr n, n: int n): void = () where {
+  var i: intGte 1 = 1
+  val () = while (i <= n) (fprint_int (out, A[i]); i := i+1)
+  val () = fprint_char (out, '\n')
+} (* end of [fprint_iarr] *)
+
+macdef print_iarr (A, n) = fprint_iarr (stdout_ref, ,(A), ,(n))
+
+(* ****** ****** *)
+
+fun perm_rotate
+  {n,i:int | 1 <= i; i <= n}
+  (P: iarr n, i: int i): void = () where {
+  var k: intGte 1 = 1; var k1: int?; val P1 = P[1]
+  val () = while (k < i) (k1 := k+1; P[k] := P[k1]; k := k1)
+  val () = P[i] := P1
+} (* end of [perm_rotate] *)
+
+fun perm_next {n,i:int | 1 <= i; i <= n}
+  (C: iarr n, P: iarr n, n: int n, i: int i): natLte (n+1) = let
+  val x = C[i]; val x1 = x-1; val () = perm_rotate {n,i} (P, i)
+in
+  case+ 0 of
+  | _ when x1 > 0 => (C[i] := x1; i) | _ (* x1 = 0 *) => let
+      val () = C[i] := i; val i1 = i + 1
+    in
+      if i1 <= n then perm_next (C, P, n, i1) else i1
+    end
+end (* end of [perm_next] *)
+
+fun fannkuch_count {n:int | n >= 2}
+  (C: iarr n, P: iarr n, S: iarr n, n: int n, max: int): int = let
+  fun rev0
+    {l,u:int | 1 <= l; l <= u+1; u <= n}
+    (S: iarr n, l: int l, u: int u): void = if (l < u) then let
+      val tmp = S[u] in S[u] := S[l]; S[l] := tmp; rev0 (S, l+1, u-1)
+    end
+  fn fannkuch_rev1
+    {u:int | 1 < u; u <= n} (S: iarr n, u: int u): void = let
+    val tmp = S[u] in
+    S[u] := S[1]; S[1] := tmp; if tmp <> 1 then rev0 (S, 2, u-1)
+  end // end of [fannkuch_rev1]
+  var max: int = max
+  val () =
+    if P[1] = 1 then () else
+    if P[n] = n then () else let
+      var cnt: int = 0
+      val () = iarr_copy (P, S, n)
+      var S1: natLte n = S[1]
+      val () = while (S1 > 1) begin
+        cnt := cnt + 1; fannkuch_rev1 (S, S1); S1 := S[1]
+      end (* end of [val] *)
+    in
+      if max < cnt then max := cnt
+    end (* end of [if] *)
+  // end of [val]
+in
+  if perm_next (C, P, n, 2) <= n then fannkuch_count (C, P, S, n, max) else max
+end (* end of [fannkuch] *)
+
+fun iarr_init {n:nat} (A: iarr n, n: int n): void =
+  let var i: intGte 1 = 1 in while (i <= n) (A[i] := i; i := i+1) end
+// end of [iarr_init]
+
+#define NPRINT 30
+
+implement main (argc, argv) = let
+  val () = assert (argc >= 2)
+  val [n:int] n = int1_of argv.[1]
+  val () = assert (n >= 2)
+  val sz = size1_of_int1 (n)
+  val C = iarr sz; val () = iarr_init (C, n)
+  val P = iarr sz; val () = iarr_init (P, n)
+  val () = if NPRINT > 0 then print_iarr (P, n) else ()
+  var times: int = 1; val () = while (times < NPRINT) let
+    val _ = perm_next (C, P, n, 2) in print_iarr (P, n); times := times + 1
+  end // end of [val]
+  val () = iarr_init (C, n); val () = iarr_init (P, n); val S = iarr sz
+  val ans = fannkuch_count (C, P, S, n, 0)
+in
+  printf ("Pfannkuchen(%i) = %i\n", @(n, ans))
+end (* end of [main] *)
+
+(* end of [fannkuch2.dats] *)
+(*
+** The Computer Language Benchmarks Game
+** http://shootout.alioth.debian.org/
+**
+** contributed by Hongwei Xi 
+**
+** compilation command:
+**   atscc -D_ATS_MULTITHREAD -O3 -fomit-frame-pointer fannkuch3.dats -o fannkuch3 -lpthread -lats_mt
+*)
+
+(* ****** ****** *)
+
+staload "libc/SATS/pthread.sats"
+staload "libc/SATS/pthread_uplock.sats"
+
+(* ****** ****** *)
+
+absviewt@ype intarr = $extype "intarr" // integer arrays
+
+%{^
+
+static inline
+ats_ptr_type int_make () {
+  return malloc(sizeof(ats_int_type)) ;
+}
+
+static inline
+ats_void_type int_free (ats_ptr_type p) { free (p); return ; }
+
+static inline
+ats_ptr_type
+intarr_make (ats_int_type n) { return malloc((n+1) * sizeof(ats_int_type)) ; }
+
+static inline
+ats_void_type intarr_free (ats_ptr_type A) { free (A) ; return ; }
+
+static inline
+ats_int_type // unsafe
+intarr_get (ats_ptr_type A, ats_int_type i) { return ((ats_int_type*)A)[i] ; }
+
+static inline
+ats_void_type // unsafe
+intarr_set (
+  ats_ptr_type A
+, ats_int_type i, ats_int_type x
+) {
+  ((ats_int_type*)A)[i] = x ; return ;
+} // end of [intarr_set]
+
+%} // end of [%{^]
+
+extern fun int_make (): [l:addr] (int @ l | ptr l) = "int_make"
+extern fun int_free {l:addr} (pf: int @ l | p: ptr l): void = "int_free"
+extern fun intarr_make (sz: int): [l:addr] (intarr @ l | ptr l) = "intarr_make"
+extern fun intarr_free {l:addr} (pf: intarr @ l | p: ptr l): void = "intarr_free"
+// unsafe version
+extern fun intarr_get (A: &intarr, i: int): int = "intarr_get"
+extern fun intarr_set (A: &intarr, i: int, x: int): void = "intarr_set"
+overload [] with intarr_get
+overload [] with intarr_set
+
+(* ****** ****** *)
+
+%{^
+
+static inline
+ats_void_type intarr_copy
+  (ats_ptr_type src, ats_ptr_type dst, ats_int_type sz) {
+  memcpy ((int*)dst+1, (int*)src+1,  sz * sizeof(ats_int_type)) ; return ;
+} // end of [intarr_copy]
+
+%} // end of [%{^]
+
+extern fun intarr_copy (src: &intarr, dst: &intarr, sz: int): void = "intarr_copy"
+
+(* ****** ****** *)
+
+// printing an integer array
+fun print_intarr (A: &intarr, sz: int): void = let
+  var i: int = 1 in while (i <= sz) (print_int A[i]; i := i+1); print_newline ()
+end // end of [print_intarr]
+
+fun perm_rotate (P: &intarr, i: int): void = let
+  var k: int = 0; val P1 = P[1]
+  val () = while (k < i) begin
+    let val k1 = k+1 in P[k] := P[k1]; k := k1 end
+  end // end of [while]
+  val () = P[i] := P1
+in
+  // empty
+end // end of [perm_rotate]
+
+// counting permutations
+fun perm_next
+  (C: &intarr, P: &intarr, i: int): int = let
+  val x = C[i]; val x1 = x - 1; val () = perm_rotate (P, i)
+in
+  case+ 0 of
+  | _ when x1 > 0 => (C[i] := x1; i) | _ (* x1 = 0 *) => begin
+      C[i] := i; perm_next (C, P, i+1)
+    end
+end // end of [perm_next]
+
+(* ****** ****** *)
+
+fn fannkuch_one
+  (P: &intarr, S: &intarr, sz: int): int = let
+  fun rev (S: &intarr, l: int, u: int): void =
+    if (l < u) then let
+      val tmp = S[l] in S[l] := S[u]; S[u] := tmp; rev (S, l+1, u-1)
+    end
+  fun loop (S: &intarr, cnt: int): int = let
+    val x = S[1]
+  in
+    if x > 1 then (rev (S, 1, x); loop (S, cnt + 1)) else cnt
+  end
+in
+  intarr_copy (P, S, sz); loop (S, 0)
+end // end of [fannkuch_one]
+
+(* ****** ****** *)
+
+fn fannkuch_all (
+    ans: &int? >> int
+  , C: &intarr, P: &intarr, S: &intarr
+  , sz: int
+  ) : void = let
+  fun loop (
+      C: &intarr
+    , P: &intarr
+    , S: &intarr
+    , sz: int, max: int
+    ) : int = let
+    val times = fannkuch_one (P, S, sz)
+    val max = if (times > max) then times else max
+    val i = perm_next (C, P, 2)
+  in
+    if i >= sz then max else loop (C, P, S, sz, max)
+  end // end of [loop]
+in
+  ans := loop (C, P, S, sz, 0)
+end // end of [fannkuch_all]
+
+(* ****** ****** *)
+
+viewdef
+fannkuch_v
+  (l_a: addr, l_C: addr, l_P: addr, l_S: addr) = (
+  int @ l_a, intarr @ l_C, intarr @ l_P, intarr @ l_S
+) // end of [fannkuch_v]
+
+viewtypedef
+lock (l_a:addr, l_C:addr, l_P:addr, l_S:addr) =
+  uplock (1, fannkuch_v (l_a, l_C, l_P, l_S))
+
+viewtypedef
+ticket (l_a:addr, l_C:addr, l_P:addr, l_S:addr) =
+  upticket (fannkuch_v (l_a, l_C, l_P, l_S))
+
+fun intarr_init (A: &intarr, i: int, n: int): void =
+  if i <= n then (A[i] := i; intarr_init (A, i+1, n)) else ()
+
+fn fannkuch_worker {l_a, l_C, l_P, l_S: addr} (
+    pf_a: int? @ l_a
+  , pf_C: intarr @ l_C
+  , pf_P: intarr @ l_P
+  , pf_S: intarr @ l_S
+  | tick: ticket (l_a, l_C, l_P, l_S)
+  , p_a: ptr l_a, p_C: ptr l_C, p_P: ptr l_P, p_S: ptr l_S
+  , sz: int, i: int
+  ) : void = let
+  val () = intarr_init (!p_C, 2, sz+1)
+  val () = intarr_init (!p_P, 1, sz+1)
+  val () = (intarr_set (!p_P, i, sz); intarr_set (!p_P, sz, i))
+  val () = fannkuch_all (!p_a, !p_C, !p_P, !p_S, sz)
+  prval pf = @(pf_a, pf_C, pf_P, pf_S)
+in
+  pthread_upticket_upload_and_destroy (pf | tick)
+end // end of [fannkuch_worker]
+
+(* ****** ****** *)
+
+dataviewtype locklst =
+  | locklst_nil of () | {l_a,l_C,l_P,l_S:addr} locklst_cons of
+      (ptr l_a, ptr l_C, ptr l_P, ptr l_S, lock (l_a, l_C, l_P, l_S), locklst)
+// end of [locklst]
+
+(* ****** ****** *)
+
+fun fannkuch_locklst_gen (sz: int): locklst = let
+  fun loop (i: int, sz: int, res: &locklst? >> locklst): void =
+    if i < sz then let
+      val [l_a:addr] (pf_a | p_a) = int_make ()
+      val [l_C:addr] (pf_C | p_C) = intarr_make (sz+1)
+      val [l_P:addr] (pf_P | p_P) = intarr_make (sz+1)
+      val [l_S:addr] (pf_S | p_S) = intarr_make (sz)
+      viewdef V = fannkuch_v (l_a, l_C, l_P, l_S)
+      val lock =  pthread_uplock_create {V} ()
+      val tick = pthread_upticket_create {V} (lock)
+      val () = pthread_create_detached_cloptr (
+         lam () =<lin,cloptr1> fannkuch_worker
+           (pf_a, pf_C, pf_P, pf_S | tick, p_a, p_C, p_P, p_S, sz, i)
+      ) // end of [pthread_create_detached_cloptr]
+      val () = res := locklst_cons (p_a, p_C, p_P, p_S, lock, ?)
+      val+ locklst_cons (_, _, _, _, _, !res1) = res
+    in
+      loop (i+1, sz, !res1); fold@ res
+    end else begin
+      res := locklst_nil ()
+    end // end of [if]
+  var res : locklst // uninitialized
+in
+  loop (1, sz, res); res
+end // end of [fannkuch_locklst_gen]
+
+(* ****** ****** *)
+
+fun fannkuch_locklst_free
+  (locks: locklst): int = loop (locks, 0) where {
+  fun loop (locks: locklst, max: int): int = case+ locks of
+    | ~locklst_cons (p_a, p_C, p_P, p_S, lock, locks) => let
+        val (pf | ()) = pthread_uplock_download (lock)
+        prval pf_a = pf.0
+        val ans = !p_a
+        val () = int_free (pf_a | p_a)
+        val () = intarr_free (pf.1 | p_C)
+        val () = intarr_free (pf.2 | p_P)
+        val () = intarr_free (pf.3 | p_S)
+      in
+        if ans <= max then loop (locks, max) else loop (locks, ans)
+      end // end of [locklst_cons]
+    | ~locklst_nil () => max
+} // end of [fannkuch_locklst_free]
+
+(* ****** ****** *)
+
+#define NPRINT 30
+
+fn usage (cmd: string): void =
+  printf ("usage: %s [integer]\n", @(cmd))
+
+implement main (argc, argv) = let
+  val () = if argc < 2 then (usage argv.[0]; exit (1))
+  val () = assert (argc >= 2)
+  val sz = int_of_string argv.[1]
+  val locks = fannkuch_locklst_gen (sz)
+  val [l_C:addr] (pf_C | p_C) = intarr_make (sz+1)
+  val [l_P:addr] (pf_P | p_P) = intarr_make (sz+1)
+  val () = intarr_init (!p_C, 2, sz+1)
+  val () = intarr_init (!p_P, 1, sz+1)
+  val () = if 0 < NPRINT then print_intarr (!p_P, sz) else ()
+  val () = loop (!p_C, !p_P, sz, 1) where {
+    fun loop (C: &intarr, P: &intarr, sz: int, n: int) : void =
+      if n < NPRINT then let
+        val _ = perm_next (C, P, 2) in print_intarr (P, sz); loop (C, P, sz, n+1)
+      end // end of [if]
+  }  // end of [where]
+  val () = intarr_free (pf_C | p_C)
+  val () = intarr_free (pf_P | p_P)
+  val ans = fannkuch_locklst_free (locks)
+in
+  printf ("Pfannkuchen(%i) = %i\n", @(sz, ans))
+end // end of [main]
+
+(* ****** ****** *)
+
+(* end of [fannkuch3.dats] *)
+(*
+** The Computer Language Benchmarks Game
+** http://shootout.alioth.debian.org/
+**
+** contributed by Hongwei Xi 
+**
+** compilation command:
+**   atscc -fomit-frame-pointer -O3 fannkuch-redux.dats -o fannkuch-redux
+*)
+
+(* ****** ****** *)
+
+staload _(*anonymous*) = "prelude/DATS/array.dats"
+
+(* ****** ****** *)
+
+macdef iarr (n) = array_make_elt (,(n)+1, 0)
+typedef iarr (n:int) = array (natLte n, n+1)
+
+(* ****** ****** *)
+
+%{^
+// HX: it is really difficult to beat [memcpy] :)
+static inline
+ats_void_type iarr_copy
+  (ats_ptr_type src, ats_ptr_type dst, ats_int_type n) {
+  memcpy ((int*)dst+1, (int*)src+1,  n * sizeof(ats_int_type)) ;
+  return ;
+} // end of iarr_copy
+%} // end of [%{^]
+extern fun iarr_copy {n:nat}
+  (src: iarr n, dst: iarr n, n: int n): void = "iarr_copy"
+// end of [iarr_copy]
+
+(* ****** ****** *)
+
+fn fprint_iarr {n:nat}
+  (out: FILEref, A: iarr n, n: int n): void = () where {
+  var i: intGte 1 = 1
+  val () = while (i <= n) (fprint_int (out, A[i]); i := i+1)
+  val () = fprint_char (out, '\n')
+} (* end of [fprint_iarr] *)
+macdef print_iarr (A, n) = fprint_iarr (stdout_ref, ,(A), ,(n))
+
+(* ****** ****** *)
+
+%{^
+int thePermCnt = 0;
+int thePermCnt_get () { return thePermCnt ; }
+void thePermCnt_inc () {
+  thePermCnt += 1 ; if (thePermCnt == 1048576) thePermCnt = 0; return ;
+}
+int theCheckSum = 0;
+int theCheckSum_get () { return theCheckSum ; }
+void theCheckSum_add (ats_int_type x) { theCheckSum += x ; return ; }
+%} // end of [%{^]
+extern fun thePermCnt_get (): int = "thePermCnt_get"
+extern fun thePermCnt_inc (): void = "thePermCnt_inc"
+extern fun theCheckSum_get (): int = "theCheckSum_get"
+extern fun theCheckSum_add (x: int): void = "theCheckSum_add"
+
+(* ****** ****** *)
+
+fun perm_rotate
+  {n,i:int | 1 <= i; i <= n}
+  (P: iarr n, i: int i): void = () where {
+  var k: intGte 1 = 1; var k1: int?; val P1 = P[1]
+  val () = while (k < i) (k1 := k+1; P[k] := P[k1]; k := k1)
+  val () = P[i] := P1
+} (* end of [perm_rotate] *)
+
+fun perm_next {n,i:int | 1 <= i; i <= n} (
+    C: iarr n, P: iarr n, n: int n, i: int i
+  ) : natLte (n+1) = let
+  val x = C[i]; val x1 = x-1; val () = perm_rotate {n,i} (P, i)
+in
+  case+ 0 of
+  | _ when x1 > 0 => (C[i] := x1; i)
+  | _ (* x1 = 0 *) => let
+      val () = C[i] := i; val i1 = i + 1
+    in
+      if i1 <= n then perm_next (C, P, n, i1) else i1
+    end
+end (* end of [perm_next] *)
+
+(* ****** ****** *)
+
+fun fannkuch_count {n:int | n >= 2}
+  (C: iarr n, P: iarr n, S: iarr n, n: int n, max: int): int = let
+  fun rev0
+    {l,u:int | 1 <= l; l <= u+1; u <= n}
+    (S: iarr n, l: int l, u: int u): void = if (l < u) then let
+      val tmp = S[u] in S[u] := S[l]; S[l] := tmp; rev0 (S, l+1, u-1)
+    end
+  fn fannkuch_rev1
+    {u:int | 1 < u; u <= n} (S: iarr n, u: int u): void = let
+    val tmp = S[u] in
+    S[u] := S[1]; S[1] := tmp; if tmp <> 1 then rev0 (S, 2, u-1)
+  end // end of [fannkuch_rev1]
+  var max: int = max
+  val () =
+    if P[1] = 1 then () else let
+      var cnt: int = 0
+      val () = iarr_copy (P, S, n)
+      var S1: natLte n = S[1]
+      val () = while (S1 > 1) begin
+        cnt := cnt + 1; fannkuch_rev1 (S, S1); S1 := S[1]
+      end (* end of [val] *)
+      val () = if max < cnt then max := cnt
+      val thePermCnt = thePermCnt_get ()
+      val () = if thePermCnt mod 2 = 0
+        then theCheckSum_add (cnt) else theCheckSum_add (~cnt)
+      // end of [val]
+    in
+      // nothing
+    end (* end of [if] *)
+  // end of [val]
+  val n1 = perm_next (C, P, n, 2)
+  val () = thePermCnt_inc ()
+in
+  if n1 <= n then fannkuch_count (C, P, S, n, max) else max
+end (* end of [fannkuch] *)
+
+fun iarr_init {n:nat} (A: iarr n, n: int n): void =
+  let var i: intGte 1 = 1 in while (i <= n) (A[i] := i; i := i+1) end
+// end of [iarr_init]
+
+(* ****** ****** *)
+
+implement main (argc, argv) = let
+  val () = assert (argc >= 2)
+  val [n:int] n = int1_of argv.[1]
+  val () = assert (n >= 2)
+  val sz = size1_of_int1 (n)
+  val C = iarr sz; val () = iarr_init (C, n)
+  val P = iarr sz; val () = iarr_init (P, n)
+  val () = iarr_init (C, n); val () = iarr_init (P, n); val S = iarr sz
+  val ans = fannkuch_count (C, P, S, n, 0)
+in
+  printf ("%i\n", @(theCheckSum_get()));
+  printf ("Pfannkuchen(%i) = %i\n", @(n, ans))
+end (* end of [main] *)
+
+(* ****** ****** *)
+
+(* end of [fannkuch-redux.dats] *)
+(*
+** The Computer Language Benchmarks Game
+** http://shootout.alioth.debian.org/
+**
+** based on code by Hongwei Xi, Miroslav Rubanets, and Oleg Mazurov
+** contributed by Julian Beaumont
+**
+** compilation command:
+**   atscc -fomit-frame-pointer -O3 fannkuchredux.dats -o fannkuchredux
+*)
+
+(* ****** ****** *)
+
+staload _ = "prelude/DATS/pointer.dats"
+
+(* ****** ****** *)
+
+%{^
+//
+// HX: this is the best choice on my machine
+//
+typedef ats_uint_type ats_ussi_type ;
+%}
+abst@ype ussiLt (n: int) = $extype "ats_ussi_type"
+
+extern castfn ussiLt_of {n : nat | n <= 256} (x : sizeLt  n) :<> ussiLt n
+extern castfn sizeLt_of  {n : nat | n <= 256} (x : ussiLt n) :<> sizeLt n
+
+(* ****** ****** *)
+
+viewtypedef iarray (n : int, l : addr)
+  = [0 < n && n <= 256] @( array_v (ussiLt n, n, l) | ptr l )
+
+fn array_get {n : nat} {l : addr} {i : nat | i < n}
+  (xs : ! iarray (n, l), i : size_t i) :<> sizeLt n = let
+  prval pf = xs.0
+  val p = xs.1
+  val result = p->[i]
+  prval () = xs.0 := pf
+in sizeLt_of {n} (result) end
+
+fn array_set {n : nat} {l : addr} {i : nat | i < n}
+  (xs : ! iarray (n, l), i : size_t i, x : sizeLt n) :<> void = let
+  prval pf = xs.0
+  val p = xs.1
+  val () = p->[i] := (ussiLt_of)x
+  prval () = xs.0 := pf
+in () end
+
+overload [] with array_get
+overload [] with array_set
+
+(* ****** ****** *)
+
+%{^
+ATSinline()
+ats_void_type array_copy
+ (ats_ptr_type src, ats_ptr_type dst, ats_size_type n) {
+  memcpy (dst, src, n*sizeof(ats_ussi_type));
+}
+%}
+
+extern fun array_copy {n : nat} {s, d : addr}
+    ( src : ! iarray (n, s), dst : ! iarray (n, d), n : size_t n
+    ) :<> void = "array_copy"
+
+(* ****** ****** *)
+
+fn array_fprint {n : nat} {l : addr}
+  ( out : FILEref, xs : ! iarray (n, l), n : size_t n ) : void = let
+  var i : sizeLte n = size1_of_int1 0
+  val () = while (i < n) (fprint_size (out, xs[i]); i := i + 1)
+  val () = fprint_char (out, '\n')
+in end
+
+fn array_print {n : nat} {l : addr}
+  ( xs : ! iarray (n, l), n : size_t n ) : void = begin
+  array_fprint (stdout_ref, xs, n)
+end
+
+(* ****** ****** *)
+
+fun array_init {n : nat} {l : addr} {i : nat | i <= n} .< n - i >.
+        (xs : ! iarray (n, l), n : size_t n, i : size_t i) :<> void =
+    if i < n then (xs[i] := i ; array_init (xs, n, i + 1))
+
+fun array_shift {n, i, j : nat | i <= j ; j < n} {l : addr} .< j - i >.
+        (xs : ! iarray (n, l), i : size_t i, j : size_t j) :<> void =
+    if i < j then (xs[i] := xs[i + 1] ; array_shift (xs, i + 1, j))
+
+fn array_rotate {n : nat} {l : addr}
+        (xs : ! iarray (n, l), i : sizeLt n) :<> void = let
+    val x0 = xs[size1_of_int1 0]
+    val () = array_shift (xs, 0, i)
+    val () = xs[i] := x0
+in () end
+
+fun array_reverse {n : nat} {x : addr} 
+            {l, u : nat | l - 1 <= u ; u < n} .< u - l + 1 >.
+        (xs : ! iarray (n, x), l : size_t l, u : size_t u) :<> void = begin
+    if l < u then let
+        val xl = xs[l]
+        val () = xs[l] := xs[u]
+        val () = xs[u] := xl
+        val () = array_reverse (xs, l + 1, u - 1)
+    in () end
+end
+
+fun array_next_permutation {n : nat} {c, p : addr} 
+            {i : nat | i < n} .< n - i >.
+        ( cs : ! iarray (n, c), ps : ! iarray (n, p)
+        , n : size_t n, i : size_t i
+        ) :<> sizeLte n = let
+    val () = array_rotate (ps, i)
+    val ci = cs[i] in
+    if ci > 0 then (cs[i] := ci - 1 ; i) else let
+        val () = cs[i] := i in
+        if i + 1 >= n then i + 1 else
+            array_next_permutation (cs, ps, n, i + 1)
+    end
+end
+
+(* ****** ****** *)
+
+typedef result =
+    @{ maxFlips = int
+     , checksum = int
+     }
+
+fun fannkuch {n : nat | n >= 2} {c, p, s : addr}
+        ( cs : ! iarray (n, c), ps : ! iarray (n, p), ss : ! iarray (n, s)
+        , n : size_t n, count : int, result : &result
+        ) : void = let
+    val () =
+        if array_get (ps, 0) = 0 then () else let
+            var flips : int = 0
+            val () = array_copy (ps, ss, n)
+            var s0 : sizeLt n = ss[size1_of_int1 0]
+            val () = while (s0 > 0) let
+                val () = flips := flips + 1
+                val () = array_reverse (ss, 0, s0)
+                val () = s0 := ss[size1_of_int1 0]
+            in () end
+            val () = result.maxFlips :=
+                (if result.maxFlips < flips
+                    then flips else result.maxFlips)
+            val () = result.checksum := result.checksum +
+                (if count mod 2 = 0 then flips else ~flips)
+        in () end
+    val i = array_next_permutation (cs, ps, n, 1)
+in
+    if i < n then
+        fannkuch (cs, ps, ss, n, count + 1, result)
+end
+
+(* ****** ****** *)
+
+implement main (argc, argv) = let
+    val () = assert (argc >= 2)
+    val [n : int] n = int1_of argv.[1]
+    val () = assert (1 < n && n <= 256)
+    val n = size1_of_int1 n
+    val z = ussiLt_of (size1_of_int1 (0))
+    var !cs with pcs = @[ussiLt n][n](z)
+    var !ps with pps = @[ussiLt n][n](z)
+    var !ss with pss = @[ussiLt n][n](z)
+    val acs = @(pcs | cs)
+    val aps = @(pps | ps)
+    val ass = @(pss | ss)
+    val () = array_init (acs, n, 0)
+    val () = array_init (aps, n, 0)
+    var ans : result = @{ maxFlips = 0, checksum = 0 }
+    val () = fannkuch (acs, aps, ass, n, 0, ans)
+    prval () = pcs := acs.0
+    prval () = pps := aps.0
+    prval () = pss := ass.0
+in
+    printf ("%i\n", @(ans.checksum));
+    printf ("Pfannkuchen(%i) = %i\n", @(int1_of_size1 (n), ans.maxFlips))
+end
+
+(* ****** ****** *)
+
+(*
+** The Computer Language Benchmarks Game
+** http://shootout.alioth.debian.org/
+** 
+** contributed by Hongwei Xi 
+**
+** compilation command:
+**   atscc -O3 fasta2.dats -msse2 -mfpmath=sse -o fasta2
+*)
+
+(* ****** ****** *)
+
+staload "libc/SATS/stdio.sats"
+
+(* ****** ****** *)
+
+typedef float = float; #define i2f float_of_int
+
+// this is about 10% slower:
+// typedef float = double; #define i2f double_of_int
+
+(* ****** ****** *)
+
+local
+
+#define IM 139968
+#define IA 3877
+#define IC 29573
+
+var state: int = 42
+val (pfbox | ()) = vbox_make_view_ptr {int} (view@ state | &state)
+
+in // in of [local]
+
+fn random_gen
+  (max: float): float = let
+  prval vbox pf = pfbox
+  val () = state := (state * IA + IC) mod IM in (max * i2f state) / IM
+end // end of [random_gen]
+
+end // end of [local]
+
+(* ****** ****** *)
+
+typedef amino = @{ c= char, p= float }
+typedef aminoarr (n:int) = @[amino][n] // amino array of size n
+
+fn make_cumulative {n:nat}
+  (table: &aminoarr(n), n: size_t n): void = let
+  fun loop {i:nat | i <= n} .<n-i>. (
+      table: &aminoarr(n), n: size_t n, i: int i, prob: float
+    ) : void =
+    if i < n then let
+      val prob = prob + table.[i].p in
+      table.[i].p := prob; loop (table, n, i+1, prob)
+    end // end of [if]
+  // end of [loop]
+in
+  loop (table, n, 0, 0.0: float)
+end // end of [make_cumulative]
+
+(* ****** ****** *)
+
+extern fun fwrite_substring {m,p,n:nat | p + n <= m}
+  (str: string m, beg: size_t p, n: size_t n, out: FILEref): void
+  = "fasta_fwrite_substring"
+
+extern fun fputc (c: char, out: FILEref): void = "fasta_fputc"
+
+extern fun fwrite_byte {bsz,n:nat | n <= bsz}
+  (buf: &bytes (bsz), n: size_t n, out: FILEref):<> sizeLte n
+  = "fasta_fwrite_byte"
+
+(* ****** ****** *)
+
+#define WIDTH 60
+
+fn repeat_fasta {len:nat} {n:nat}
+  (out: FILEref, str: string len, n: size_t n): void = let
+  macdef WIDTH_sz = size1_of_int1 (WIDTH)
+  val len = string1_length str; val () = assert (len >= WIDTH_sz)
+  fun loop {n,pos:nat | pos <= len}
+    (out: FILEref, n: size_t n, pos: size_t pos):<cloref1> void =
+    if n > WIDTH_sz then let
+      val left = len - pos in
+      if left >= WIDTH_sz then begin
+        fwrite_substring (str, pos, WIDTH_sz, out); fputc ('\n', out);
+        loop (out, n - WIDTH_sz, pos + WIDTH_sz)
+      end else begin
+        fwrite_substring (str, pos, left, out);
+	fwrite_substring (str, 0, WIDTH_sz - left, out); fputc ('\n', out);
+	loop (out, n - WIDTH_sz, WIDTH_sz - left)
+      end // end of [if]
+    end else let
+      val left = len - pos in
+      if left >= n then begin
+        fwrite_substring (str, pos, n, out); fputc ('\n', out)
+      end else begin
+        fwrite_substring (str, pos, left, out);
+	fwrite_substring (str, 0, n-left, out); fputc ('\n', out)
+      end // end of [if]
+    end (* end of [if] *)
+  // end of [loop]
+in
+  loop (out, n, 0)
+end // end of [repeat_fasta]
+
+fun random_char {n:pos} {l:addr} (
+    pf_tbl: !aminoarr(n) @ l | p_tbl: ptr l, n: size_t n, prob: float
+  ) : char = let
+  prval (pf1, pf2) = array_v_uncons {amino} (pf_tbl)
+in
+  if prob >= p_tbl->p then let
+    prval () = __meta_info () where {
+      extern prfun __meta_info (): [n > 1] void // a piece of meta information
+    }
+    val ans = random_char (pf2 | p_tbl + sizeof<amino>, n - 1, prob)
+    prval () = pf_tbl := array_v_cons {amino} (pf1, pf2)
+  in
+    ans
+  end else let
+    val ans = p_tbl->c
+    prval () = pf_tbl := array_v_cons {amino} (pf1, pf2)
+  in
+    ans
+  end (* end of [if] *)
+end // end of [random_char]
+
+fun random_buf
+  {n:pos} {i,len,bsz:nat | i <= len; len <= bsz}
+  (tbl: &aminoarr(n), buf: &bytes(bsz), n: size_t n, len: size_t len, i: size_t i)
+  : void =
+  if i < len then let
+    val c = random_char (view@ tbl | &tbl, n, random_gen (1.0: float))
+    val () = buf.[i] := byte_of_char c
+  in
+    random_buf (tbl, buf, n, len, i+1)
+  end (* end of [if] *)
+// end of [random_buf]
+
+fn random_fasta {n:pos} {len:nat} (
+    out: FILEref, tbl: &aminoarr(n), n: size_t n, len: size_t len
+  ) : void = () where {
+  macdef WIDTH_sz = size1_of_int1 (WIDTH)
+  fun loop {len:nat} .<len>. (
+      out: FILEref
+    , tbl: &aminoarr(n), buf: &bytes(WIDTH+1), n: size_t n, len: size_t len
+    ) : void =
+    if (len > WIDTH_sz) then let
+      val () = random_buf (tbl, buf, n, WIDTH_sz, 0)
+      val _(*int*) = fwrite_byte (buf, WIDTH_sz+1, out)
+    in
+      loop (out, tbl, buf, n, len-WIDTH_sz)
+    end else let
+      val () = random_buf (tbl, buf, n, len, 0)
+      val _(*int*) = fwrite_byte (buf, len, out)
+      val () = fputc ('\n', out)
+    in
+      // empty
+    end // end of [loop]
+  val () = make_cumulative (tbl, n)
+  var !p_buf with pf_buf = @[byte][WIDTH+1]()
+  prval () = pf_buf := bytes_v_of_b0ytes_v (pf_buf)
+  val () = p_buf->[WIDTH_sz] := byte_of_char '\n'
+  val () = loop (out, tbl, !p_buf, n, len)
+} // end of [random_fasta]
+
+val alu ="\
+GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG\
+GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA\
+CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT\
+ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA\
+GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG\
+AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC\
+AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA"
+
+//
+
+implement main (argc, argv) = () where {
+
+val () = assert (argc = 2)
+val n = int1_of_string (argv.[1])
+val () = assert (n >= 0)
+val @(pf_gc, pf_iub | p_iub, iub_sz) = $arrsz{amino}(
+  @{c='a', p=0.27}
+, @{c='c', p=0.12}
+, @{c='g', p=0.12}
+, @{c='t', p=0.27}
+, @{c='B', p=0.02}
+, @{c='D', p=0.02}
+, @{c='H', p=0.02}
+, @{c='K', p=0.02}
+, @{c='M', p=0.02}
+, @{c='N', p=0.02}
+, @{c='R', p=0.02}
+, @{c='S', p=0.02}
+, @{c='V', p=0.02}
+, @{c='W', p=0.02}
+, @{c='Y', p=0.02}
+) // end of [val]
+
+val @(pf_homo_gc, pf_homo | p_homo, homo_sz) = $arrsz{amino}(
+  @{c='a', p=0.3029549426680}
+, @{c='c', p=0.1979883004921}
+, @{c='g', p=0.1975473066391}
+, @{c='t', p=0.3015094502008}
+) // end of [val]
+
+#define i2sz size1_of_int1
+val () = fprint (stdout_ref, ">ONE Homo sapiens alu\n")
+val () = repeat_fasta (stdout_ref, alu, i2sz (2 * n))
+val () = fprint (stdout_ref, ">TWO IUB ambiguity codes\n")
+val () = random_fasta (stdout_ref, !p_iub, iub_sz, i2sz (3 * n))
+val () = array_ptr_free {amino} (pf_gc, pf_iub | p_iub)
+val () = fprint (stdout_ref, ">THREE Homo sapiens frequency\n")
+val () = random_fasta (stdout_ref, !p_homo, homo_sz, i2sz (n * 5))
+val () = array_ptr_free {amino} (pf_homo_gc, pf_homo | p_homo)
+
+} // end of [main]
+
+(* ****** ****** *)
+
+%{^
+
+ats_void_type
+fasta_fwrite_substring (
+  ats_ptr_type str, ats_size_type beg
+, ats_size_type len, ats_ptr_type out
+) {
+  fwrite_unlocked(((char*)str)+beg, 1, len, (FILE*)out) ; return ;
+}
+
+ats_void_type
+fasta_fputc (ats_char_type c, ats_ptr_type out) {
+  fputc_unlocked ((char)c, (FILE*)out) ; return ;
+}
+
+ats_size_type
+fasta_fwrite_byte
+  (ats_ptr_type buf, ats_size_type n, ats_ptr_type fil) {
+  return fwrite_unlocked ((void*)buf, (size_t)1, (size_t)n, (FILE*)fil) ;
+}
+
+%}
+
+(* ****** ****** *)
+
+(* end of [fasta2.dats] *)
+(*
+** The Computer Language Benchmarks Game
+** http://shootout.alioth.debian.org/
+** 
+** Contributed by Hongwei Xi and Zhiqiang Ren, January 2010
+**
+** compilation command:
+**   atscc -O3 fasta4.dats -msse2 -mfpmath=sse -o fasta4
+*)
+
+(* ****** ****** *)
+
+%{^
+#define likely(x) __builtin_expect((x), 1)
+#define unlikely(x) __builtin_expect((x), 0)
+%} // end of [{%^]
+extern fun unlikely0 (x: bool): bool = "#unlikely"
+
+(* ****** ****** *)
+
+staload "libc/SATS/stdio.sats"
+  
+(* ****** ****** *)
+
+macdef IM = 139968U
+macdef IA = 3877U
+macdef IC = 29573U
+
+#define BUFLEN 60
+#define LOOKUP_SIZE 4096
+macdef LOOKUP_SCALE = (float_of)(LOOKUP_SIZE - 1)
+
+(* ****** ****** *)
+
+typedef random_t = uint // unsigned int
+extern typedef "random_t" = random_t
+
+extern fun random_init
+  (seed: &random_t? >> random_t):<> void = "random_init"
+
+implement random_init (seed) = seed := 42U
+
+fn random_next_lookup
+  (seed: &random_t): float = let
+  val () = seed := (seed * IA + IC) mod IM
+in
+  (float_of)seed * (LOOKUP_SCALE / (float_of)IM)
+end // end of [random_next_lookup]
+
+(* ****** ****** *)
+
+typedef amino_acid =
+  $extype_struct "amino_acid" of {
+  sym= char, prob= float, cprob_lookup= float
+} // end of [amino_acid]
+
+typedef aminoarr (n:int) = @[amino_acid][n]
+
+(* ****** ****** *)
+
+extern fun fwrite_substring {m,p,n:nat | p + n <= m}
+  (str: string m, beg: size_t p, n: size_t n, out: FILEref): void
+  = "fwrite_substring"
+
+extern
+fun repeat_fasta {len:nat} {n:nat}
+  (out: FILEref, str: string len, n: size_t n): void
+  = "repeat_fasta"
+  
+implement repeat_fasta
+  {len} {n} (out, str, n): void = let
+  macdef BUFLEN_sz = size1_of_int1 (BUFLEN)
+  val len = string1_length str
+  val () = assert (len >= BUFLEN_sz)
+  fun loop {n,pos:nat | pos <= len}
+    (out: FILEref, n: size_t n, pos: size_t pos):<cloref1> void =
+    if n > BUFLEN_sz then let
+      val left = len - pos in
+      if left >= BUFLEN_sz then let
+        val () = fwrite_substring (str, pos, BUFLEN_sz, out)
+        val _err = fputc_err ('\n', out)
+      in
+        loop (out, n - BUFLEN_sz, pos + BUFLEN_sz)
+      end else let
+        val () = fwrite_substring (str, pos, left, out)
+        val () = fwrite_substring (str, 0, BUFLEN_sz - left, out)
+        val _err = fputc_err ('\n', out)
+      in
+        loop (out, n - BUFLEN_sz, BUFLEN_sz - left)
+      end // end of [if]
+    end else let
+      val left = len - pos in
+      if left >= n then let
+        val () = fwrite_substring (str, pos, n, out)
+        val _err = fputc_err ('\n', out)
+      in
+        // nothing
+      end else let
+        val () = fwrite_substring (str, pos, left, out)
+        val () = fwrite_substring (str, 0, n-left, out)
+        val _err = fputc_err ('\n', out)
+      in
+        // nothing
+      end // end of [if]
+    end (* end of [if] *)
+  // end of [loop]
+in
+  loop (out, n, 0)
+end // end of [repeat_fasta]
+
+(* ****** ****** *)
+
+fun fill_lookuparr {n0:pos} (
+    lookuparr: &(@[ptr?][LOOKUP_SIZE]) >> @[ptr][LOOKUP_SIZE]
+  , aminoarr: &aminoarr(n0), n0: size_t n0
+  ) : void = let
+  typedef T = amino_acid
+  fun loop1 {n:nat} {l:addr} .<n>.
+    (pf: !array_v (T, n, l) | p: ptr l, n: size_t n, acc: float):<> void =
+    if n > 0 then let
+      prval (pf1, pf2) = array_v_uncons {T} (pf)
+      val acc = acc + p->prob
+      val () = p->cprob_lookup := acc * LOOKUP_SCALE
+      val () = loop1 (pf2 | p + sizeof<T>, n-1,  acc)
+      prval () = pf := array_v_cons {T} (pf1, pf2)
+    in
+      // nothing
+    end // end of [if]
+  // end of [loop1]
+  val () = loop1 (view@ aminoarr | &aminoarr, n0, (float_of)0.0)
+  val () = aminoarr.[n0-1].cprob_lookup := LOOKUP_SCALE
+  fun loop2 {n:nat} {l:addr} .<n>. (
+      pf: !array_v (ptr?, n, l) >> array_v (ptr, n, l)
+    | aminoarr: &(@[T][n0]), p: ptr l, n: size_t n, fi: float, j0: natLt n0
+    ) : void =
+    if n > 0 then let
+      var j: natLt n0 = j0
+      val () = while*
+        {j:nat | j < n0} (j: int j): (j: natLt n0) =>
+        (aminoarr.[j].cprob_lookup < fi) let
+        prval () = _meta_info () where {
+          extern prfun _meta_info (): [j+1 < n0] void
+        }
+      in
+        j := j + 1
+      end // end of [val]
+      prval (pf1, pf2) = array_v_uncons {ptr?} (pf)
+      val () = !p := &aminoarr.[j]
+      val () = loop2 (pf2 | aminoarr, p+sizeof<ptr>, n-1, fi+(float_of)1, j)
+    in
+      pf := array_v_cons {ptr} (pf1, pf2)
+    end else let
+      prval () = array_v_unnil {ptr?} pf
+      prval () = pf := array_v_nil {ptr} ()
+    in
+      // nothing
+    end // end of [if]
+  // end of [loop2]
+  val () = loop2 (view@ lookuparr | aminoarr, &lookuparr, LOOKUP_SIZE, (float_of)0.0, 0)
+in
+  // nothing
+end // end of [fill_lookuparr]
+
+(* ****** ****** *)
+
+typedef lookuparr = @[ptr][LOOKUP_SIZE]
+
+(* ****** ****** *)
+
+extern
+fun randomize {n0:pos} {n:nat} (
+    aminoarr: &aminoarr(n0), n0: size_t n0, n: int n, seed: &random_t
+  ) : void
+  = "randomize"
+ 
+implement randomize
+  (aminoarr, n0, n, seed) = () where {
+//
+  extern fun fwrite_byte
+    (buf: ptr, n: int, out: FILEref):<> void = "fwrite_byte"
+  // end of [fwrite_byte]
+//
+  var !p_lookuparr with pf_lookuparr = @[ptr][LOOKUP_SIZE]()
+  var !p_buf with pf_buf = @[char?][BUFLEN+1]()
+  val () = p_buf->[BUFLEN] := '\n'
+  val () = fill_lookuparr (!p_lookuparr, aminoarr, n0)
+  var i: Nat = 0 and j: natLte (BUFLEN) = 0
+  val () = while (i < n) let
+    val () = if :(j: natLt (BUFLEN)) =>
+      (j = BUFLEN) then
+      (fwrite_byte (p_buf, BUFLEN+1, stdout_ref); j := 0)
+    // end of [if]
+//
+    val r = random_next_lookup (seed)
+    val ri = int_of_float (r)
+    val [ri:int] ri = int1_of_int (ri)
+    prval () = _meta_info () where {
+      extern prfun _meta_info (): [0 <= ri && ri < LOOKUP_SIZE] void
+    }
+//
+    typedef T = amino_acid
+    var u: ptr = p_lookuparr->[ri]
+//
+    extern castfn __cast (u: ptr)
+      :<> [l:addr] (T @ l, T @ l -<lin,prf> void | ptr l)
+    val () = while (true) let
+      val (pf, fpf | u1) = __cast (u)
+      val r1 = u1->cprob_lookup
+      prval () = fpf (pf)
+    in
+      if unlikely0(r1 < r) then u := u + sizeof<T> else break
+    end // end of [val]
+//
+    val (pf, fpf | u1) = __cast (u)
+    val () = p_buf->[j] := u1->sym
+    prval () = fpf (pf)
+//
+  in
+    i := i + 1; j := j + 1
+  end // end of [while]
+  val () = p_buf->[j] := '\n'
+  val () = fwrite_byte (p_buf, j+1, stdout_ref)
+} // end of [randomize]
+
+(* ****** ****** *)
+
+implement main_dummy () = ()
+
+(* ****** ****** *)
+
+%{$
+
+#define ARRAY_SIZE(a) (sizeof(a)/sizeof(a[0]))
+
+ats_void_type
+mainats (
+  ats_int_type argc, ats_ptr_type argv0
+) {
+  char **argv = (char**)argv0 ;
+  int n = argc > 1 ? atoi( argv[1] ) : 512;
+  random_t rand;
+  random_init(&rand);
+//
+  fprintf(stdout, ">ONE Homo sapiens alu\n");
+  repeat_fasta((ats_ref_type)stdout, (ats_ptr_type)alu, n*2);
+//
+  fprintf(stdout, ">TWO IUB ambiguity codes\n");
+  randomize(aminoacids, ARRAY_SIZE(aminoacids), n*3, &rand);
+//
+  fprintf(stdout, ">THREE Homo sapiens frequency\n");
+  randomize(homosapiens, ARRAY_SIZE(homosapiens), n*5, &rand);
+//
+  return;
+} // end of [mainats]
+                                                    
+%}
+
+(* ****** ****** *)
+
+%{^
+
+typedef
+struct _amino_acid {
+  char sym;
+  float prob;
+  float cprob_lookup;
+} amino_acid ;
+
+//
+// let us do initialization in C to avoid many hassels
+//
+         
+amino_acid aminoacids[] = {
+   { 'a', 0.27 },
+   { 'c', 0.12 },
+   { 'g', 0.12 },
+   { 't', 0.27 },
+//            
+   { 'B', 0.02 },
+   { 'D', 0.02 },
+   { 'H', 0.02 },
+   { 'K', 0.02 },
+   { 'M', 0.02 },
+   { 'N', 0.02 },
+   { 'R', 0.02 },
+   { 'S', 0.02 },
+   { 'V', 0.02 },
+   { 'W', 0.02 },
+   { 'Y', 0.02 },
+} ;
+                                             
+amino_acid homosapiens[] = {
+  { 'a', 0.3029549426680 },
+  { 'c', 0.1979883004921 },
+  { 'g', 0.1975473066391 },
+  { 't', 0.3015094502008 },
+} ;
+                                                         
+static const char alu[] =
+"GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTG"
+"GGAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGA"
+"GACCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAA"
+"AATACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAAT"
+"CCCAGCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAAC"
+"CCGGGAGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTG"
+"CACTCCAGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA";
+
+//
+
+ats_void_type
+fwrite_substring (
+  ats_ptr_type str, ats_size_type beg
+, ats_size_type len, ats_ptr_type out
+) {
+  fwrite_unlocked(((char*)str)+beg, 1, len, (FILE*)out) ; return ;
+} // end of [fwrite_substring]
+
+ats_void_type
+fwrite_byte
+  (ats_ptr_type buf, ats_int_type n, ats_ptr_type fil) {
+   fwrite_unlocked ((void*)buf, (size_t)1, (size_t)n, (FILE*)fil) ;
+   return ;
+} // end of [fasta_fwrite_byte]
+                                                                              
+//
+
+static ats_void_type
+  mainats (ats_int_type argc, ats_ptr_type argv) ;
+
+%} // end of [%{^]
+
+(* ****** ****** *)
+
+(* end of [fasta4.dats] *)
+(*
+** The Computer Language Benchmarks Game
+** http://shootout.alioth.debian.org/
+**
+** contributed by Hongwei Xi
+**
+** compilation command:
+**   atscc -O3 k-nucleotide2.dats -o k-nucleotide2 -D_ATS_GCATS
+*)
+
+(* ****** ****** *)
+
+staload "libc/SATS/stdio.sats"
+staload "libc/SATS/stdlib.sats"
+staload "libc/SATS/string.sats"
+staload _(*anonymous*) = "prelude/DATS/array.dats"
+staload _(*anonymous*) = "prelude/DATS/list_vt.dats"
+
+(* ****** ****** *)
+
+// The hashtable implementation is based on linear-probing
+// #include "symtbl.dats"
+
+(* ****** ****** *)
+
+%{^
+
+typedef char *symbol_t ;
+typedef struct { symbol_t sym ; int cnt ; } tblent_t ;
+
+%}
+
+(* ****** ****** *)
+
+abstype dna_t // boxed type
+abst@ype symbol_t = $extype "symbol_t"
+abstype symtbl_t // boxed type
+
+extern fun symtbl_make (dna: dna_t, size: Nat) : symtbl_t
+extern fun symtbl_clear (tbl: symtbl_t) : void = "symtbl_clear"
+
+extern fun symtbl_search (tbl: symtbl_t, name: String) : int
+  = "symtbl_search"
+extern fun symtbl_insert (tbl: symtbl_t, sym: symbol_t, cnt: int) : void
+  = "symtbl_insert"
+
+extern fun symtbl_fold {a:viewt@ype}
+  (tbl: symtbl_t, f: &(symbol_t, int, &a) -<clo> void, res: &a) : void
+
+extern fun symtbl_dna_get (tbl: symtbl_t): dna_t = "symtbl_dna_get"
+extern fun symtbl_symlen_get (tbl: symtbl_t): int = "symtbl_symlen_get"
+extern fun symtbl_symlen_set (tbl: symtbl_t, len: int): void = "symtbl_symlen_set"
+
+(* ****** ****** *)
+
+abst@ype tblent_t = $extype "tblent_t"
+
+viewtypedef symtbl (sz:int, n:int, l:addr) = @{
+  dna= dna_t
+, ptr= ptr l
+, view_arr= @[tblent_t][sz] @ l
+, view_arr_gc= free_gc_v l
+, size= int sz
+, symlen= int
+, nitm= int n
+}
+
+viewtypedef symtbl0 = symtbl (0, 0, null)
+viewtypedef symtbl = [sz,n:nat | sz > 0] [l:addr] symtbl (sz, n, l)
+assume symtbl_t = [l_tbl: addr] (vbox (symtbl @ l_tbl) | ptr l_tbl)
+
+(* ****** ****** *)
+
+implement symtbl_dna_get (tbl) = begin
+  let val (vbox pf_tbl | p_tbl) = tbl in p_tbl->dna end
+end (* end of [symtbl_dna_get] *)
+
+implement symtbl_symlen_get (tbl) = begin
+  let val (vbox pf_tbl | p_tbl) = tbl in p_tbl->symlen end
+end (* end of [symtbl_symlen_get] *)
+
+implement symtbl_symlen_set (tbl, len) = begin
+  let val (vbox pf_tbl | p_tbl) = tbl in p_tbl->symlen := len end
+end (* end of [symtbl_symlen_set] *)
+
+(* ****** ****** *)
+
+extern fun print_symbol (sym: symbol_t, len: int): void = "print_symbol"
+
+%{^
+
+ats_void_type print_symbol
+  (symbol_t sym, ats_int_type len) {
+  while (len > 0) { fputc ( *sym, stdout) ; --len ; ++sym ; }
+  return ;
+}
+
+%}
+
+(* ****** ****** *)
+
+extern fun hash_string {n:nat} (s: string n, n: size_t n):<> uInt
+  = "hash_string"
+  
+extern fun hash_symbol (sym: symbol_t, len: int):<> uInt
+  = "hash_symbol"
+
+%{^
+
+// a commonly used simple hash function
+
+static // inline
+ats_uint_type hash_symbol (symbol_t sym, ats_int_type len) {
+  unsigned int hash_val = 0 ;
+  while (len >= 4) {
+    hash_val += hash_val * 33 ;
+    hash_val += sym[0] << 24 ;
+    hash_val += sym[1] << 16 ;
+    hash_val += sym[2] <<  8 ;
+    hash_val += sym[3] ;
+    sym += 4 ; len -= 4 ;
+  } // end of [while]
+  if (len >= 2) {
+    hash_val = hash_val * 33 + (sym[0] << 8) + sym[1] ;
+    sym += 2 ; len -= 2 ;
+  } // end of [if]
+  if (len >= 1) {
+    hash_val = hash_val * 33 + sym[0] ;
+  } // end of [while]
+  return hash_val ;
+}
+
+static inline
+ats_uint_type
+hash_string (ats_ptr_type str, ats_size_type len) {
+  return hash_symbol (str, len) ;
+}
+
+%}
+
+(* ****** ****** *)
+
+%{^
+
+ats_ptr_type
+tblent_array_make (ats_int_type sz) {
+  return ats_calloc_gc (sz, sizeof(tblent_t)) ;
+} /* end of [tblent_array_make] */
+
+%}
+
+extern fun tblent_array_make {sz: nat} (sz: int sz)
+  :<> [l:addr] (free_gc_v l, array_v (tblent_t, sz, l) | ptr l)
+  = "tblent_array_make"
+
+(* ****** ****** *)
+
+implement symtbl_make (dna, sz) = (pfbox | p_tbl) where {
+  val sz = max (sz, 1)
+  val (pf_tbl_gc, pf_tbl | p_tbl) = ptr_alloc_tsz {symtbl0} (sizeof<symtbl0>)
+  val (pf_arr_gc, pf_arr | p_arr) = tblent_array_make (sz)
+
+  val () = begin
+    p_tbl->dna := dna;
+    p_tbl->ptr := p_arr;
+    p_tbl->view_arr := pf_arr;
+    p_tbl->view_arr_gc := pf_arr_gc;
+    p_tbl->size := sz;
+    p_tbl->symlen := 0;
+    p_tbl->nitm := 0
+  end (* end of [val] *)
+
+  prval () = free_gc_elim (pf_tbl_gc)
+  val (pfbox | ()) = vbox_make_view_ptr (pf_tbl | p_tbl)
+} // symtbl_make
+
+(* ****** ****** *)
+
+extern fun tblent_array_clear {sz:nat} {l:addr}
+  (pf: !array_v (tblent_t, sz, l) | p: ptr l, sz: int sz):<> void
+  = "tblent_array_clear"
+
+%{
+
+ats_void_type
+tblent_array_clear
+  (ats_ptr_type p, ats_int_type sz) {
+  memset (p, 0, sz * sizeof(tblent_t)) ; return ;
+} /* end of [tblent_array_clear] */
+
+%}
+
+implement symtbl_clear (tbl) = () where {
+  val (vbox pf_tbl | p_tbl) = tbl
+  val () = tblent_array_clear (p_tbl->view_arr | p_tbl->ptr, p_tbl->size)
+  val () = p_tbl->nitm := 0
+} (* end of [symtbl_clear] *)
+
+//
+
+(* ****** ****** *)
+
+// linear probing
+extern fun symtbl_search_probe
+  {sz,i:nat | i < sz} {l:addr} (
+  pf: !array_v(tblent_t, sz, l) | p: ptr l, sz: int sz, len: int, name: string, i: int i
+  ) :<> int
+  = "symtbl_search_probe"
+
+%{
+
+ats_int_type symtbl_search_probe
+  (ats_ptr_type p, ats_int_type sz, ats_int_type len, ats_ptr_type name, ats_int_type i) {
+  tblent_t *ent ; symbol_t sym;
+  ent = ((tblent_t*)p) + i ; while (1) {
+    sym = ent->sym ;
+    if (sym == (symbol_t)0) return 0 ; // the entry is unoccupied
+    if (!strncmp (sym, (char*)name, len)) { return ent->cnt ; }
+    i += 1 ;
+    if (i >= sz) { i = 0 ; ent = (tblent_t*)p ; } else ent += 1;
+  } // end of [while]
+} /* end of [symtbl_search_probe] */
+
+%}
+
+implement symtbl_search (tbl, name) = let
+
+val hash_val = hash_string (name, string1_length name)
+(*
+val () = begin
+  prerr "symtbl_search: hash_val = "; prerr hash_val; prerr_newline ()
+end // end [val]
+*)
+val (vbox pf_tbl | p_tbl) = tbl
+val i = hash_val uimod p_tbl->size
+
+in
+
+symtbl_search_probe (
+  p_tbl->view_arr | p_tbl->ptr, p_tbl->size, p_tbl->symlen, name, i
+)
+
+end // end of [symtbl_search]
+
+(* ****** ****** *)
+
+extern fun symtbl_insert_probe {sz,i:nat | i < sz} {l:addr}
+  (pf: !array_v (tblent_t, sz, l) | p: ptr l, sz: int sz, len: int, sym: symbol_t, cnt: int, i: int i)
+  :<> bool = "symtbl_insert_probe"
+
+%{
+
+ats_bool_type symtbl_insert_probe
+  (ats_ptr_type p, ats_int_type sz, ats_int_type len, symbol_t sym, ats_int_type cnt, ats_int_type i) {
+  tblent_t *ent ;
+  ent = ((tblent_t*)p) + i ;
+  while (ent->sym) {
+    if (strncmp (ent->sym, sym, len) == 0) {
+      if (cnt > 0) ent->cnt = cnt ; else ent->cnt += 1 ;
+      return 0 ;
+    }
+    i += 1;
+    if (i >= sz) { i = 0 ; ent = (tblent_t*)p ; } else ent += 1 ;
+  }
+  ent->sym = sym ;
+  if (cnt > 0) ent->cnt = cnt ; else ent->cnt = 1 ;
+  return 1 ;
+}
+
+%}
+
+(* ****** ****** *)
+
+implement symtbl_insert (tbl, sym, cnt) = let
+  val (vbox pf_tbl | p_tbl) = tbl
+  val len = p_tbl->symlen
+  val hash_val = hash_symbol (sym, len)
+  val i = hash_val uimod p_tbl->size
+  val is_new = symtbl_insert_probe
+    (p_tbl->view_arr | p_tbl->ptr, p_tbl->size, len, sym, cnt, i)
+in
+  if is_new then p_tbl->nitm := 1 + p_tbl->nitm else ()
+end // end of [symtbl_insert]
+
+(* ****** ****** *)
+
+extern fun tblent_array_fold
+  {a:viewt@ype} {sz: nat} {l:addr} (
+    pf: !array_v (tblent_t, sz, l)
+  | p: ptr l, sz: int sz, f: &(symbol_t, int, &a) -<clo> void, res: &a
+  ) :<> void
+  = "tblent_array_fold"
+
+%{
+
+ats_void_type tblent_array_fold
+  (ats_ptr_type p, ats_int_type sz, ats_ref_type f, ats_ptr_type res) {
+  int i ; tblent_t *ent ;
+  i = 0 ; ent = (tblent_t*)p ; while (i < sz) {
+    if (!ent->sym) { i += 1; ent += 1; continue ; }
+    ((ats_void_type ( *)(ats_clo_ptr_type, symbol_t, ats_int_type, ats_ptr_type))(ats_closure_fun(f)))(f, ent->sym, ent->cnt, res) ;
+    i += 1 ; ent += 1 ;
+  } // end of [while]
+  return ;
+}
+
+%}
+
+implement symtbl_fold {a} (tbl, f, res) = let
+  val (vbox pf_tbl | p_tbl) = tbl
+in
+  tblent_array_fold {a} (p_tbl->view_arr | p_tbl->ptr, p_tbl->size, f, res)
+end // end of [symtbl_insert]
+
+(* ****** ****** *)
+
+extern fun dna_count {n,k:nat | k <= n}
+  (tbl: symtbl_t, n: size_t n, k: size_t k) : symtbl_t = "dna_count"
+
+typedef symflt = @(symbol_t, float)
+
+fn compare_symflt_symflt // [>=]
+  (x1: &symflt, x2: &symflt):<> Sgn = compare_float_float (x2.1, x1.1)
+// end of [compare_symflt_symflt]
+
+viewtypedef frqlst = List_vt symflt
+
+// print and free
+fun print_free_frqlst
+  (kfs: frqlst, len: int): void = begin case+ kfs of
+  | ~list_vt_cons (kf, kfs) => begin print_symbol (kf.0, len);
+       printf (" %.3f\n", @(double_of kf.1)); print_free_frqlst (kfs, len)
+    end // end of [FRQLSTcons]
+  | ~list_vt_nil () => ()
+end // end of [print_free_frqlst]
+
+fn write_frequencies {n,k:nat | k <= n}
+  (tbl: symtbl_t, n: size_t n, k: size_t k): void = let
+  val tbl = dna_count (tbl, n, k)
+  var total: int = (0: int)
+  var !p_clo = @lam (k: symbol_t, cnt: int, res: &int): void =<clo>
+    (res := res + cnt)
+  val () = symtbl_fold {int} (tbl, !p_clo, total); val ftotal = float_of total
+  var frqs: frqlst = list_vt_nil ()
+  var !p_clo = @lam
+    (k: symbol_t, cnt: int, res: &frqlst): void =<clo> let 
+    val f = (float_of 100) * float_of cnt / ftotal; val kf = @(k, f) in
+    res := list_vt_cons (kf, res)
+  end // end of [f]
+  val () = symtbl_fold {frqlst} (tbl, !p_clo, frqs)
+  val () = list_vt_quicksort (frqs, compare_symflt_symflt)
+in
+  print_free_frqlst (frqs, symtbl_symlen_get tbl)
+end // end of [write_frequencies]
+
+(* ****** ****** *)
+
+fn write_count {n,k:nat}
+  (tbl: symtbl_t, n: size_t n, seq: string k): void = let
+  val k = string1_length seq
+  val () = assert (k <= n)
+  val tbl = dna_count (tbl, n, k)
+  val cnt = symtbl_search (tbl, seq)
+in
+  printf ("%d\t%s\n", @(cnt, seq))
+end // end of [write_count]
+
+(* ****** ****** *)
+
+extern fun getline (): string = "__getline"
+extern fun getrest (sz: &size_t? >> size_t n): #[n:nat] string n = "__getrest"
+
+%{$
+
+#define LINEBUFSZ 1024
+char theLineBuffer[LINEBUFSZ] ;
+ats_ptr_type __getline () {
+  fgets (theLineBuffer, LINEBUFSZ, stdin) ; return theLineBuffer ;
+} /* end of [getline] */
+
+#define RESTBUFSZ (128 * 1024 * 1024)
+char theRestBuffer[RESTBUFSZ] ;
+
+ats_ptr_type __getrest (ats_ref_type p_n) {
+  int c ; size_t i ; char *s ;
+  s = theRestBuffer ; i = 0 ;
+  while ((c = fgetc(stdin)) != EOF) {
+    if (c != '\n') { *s++ = toupper(c) ; i++ ; }
+  }
+  *s = '\000' ; *((size_t*)p_n) = i ;
+  if (i >= RESTBUFSZ) {
+    fprintf (stderr, "exit(ATS): too much data for processing\n") ; exit(1) ;
+  }
+  return theRestBuffer ;
+} /* end of [__getrest] */
+
+%}
+
+(* ****** ****** *)
+
+fun is_three (s: string): bool =
+  if strncmp (s, ">THREE", 6) = 0 then true else false
+// end of [is_three]
+
+(* ****** ****** *)
+
+extern fun dna_of_string (s: string): dna_t = "dna_of_string"
+
+implement main (argc, argv) = let
+  fun dna_three_get
+    (n: &size_t? >> size_t n): #[n:nat] string n = let
+    val s = getline (); val is3 = is_three (s)
+  in
+    if is3 then getrest (n) else dna_three_get (n)
+  end // end of [dna_three_get]
+  var n: size_t // uninitialized
+  val dna_three = dna_three_get (n)
+  val () = assert (n >= 2)
+(*
+  val () = (prerr "main: n = "; prerr n; prerr_newline ())
+*)
+  val dna3 =
+    dna_of_string dna_three where {
+    extern castfn dna_of_string (str: string): dna_t
+  }
+  val dna_table = symtbl_make (dna3, (*393241*)196613(*98317*))
+in
+  write_frequencies (dna_table, n, 1) ; print_newline () ;
+  write_frequencies (dna_table, n, 2) ; print_newline () ;
+  write_count (dna_table, n, "GGT") ;
+  write_count (dna_table, n, "GGTA") ;
+  write_count (dna_table, n, "GGTATT") ;
+  write_count (dna_table, n, "GGTATTTTAATT") ;
+  write_count (dna_table, n, "GGTATTTTAATTTATAGT") ;
+end (* end of [main] *)
+
+(* ****** ****** *)
+
+%{$
+
+ats_ptr_type
+dna_count (ats_ptr_type tbl, ats_size_type n, ats_size_type k) {
+  char *sym ;
+  symtbl_clear (tbl) ;
+  symtbl_symlen_set (tbl, k) ;
+  sym = (char*)symtbl_dna_get (tbl) ;
+  while (n >= k) {
+    symtbl_insert (tbl, sym, 0) ; n -= 1 ; sym += 1 ;
+  }
+  return tbl ;
+}
+
+%}
+
+(* ****** ****** *)
+
+(* end of [k-nucleotide2.dats] *)
+(*
+** The Computer Language Benchmarks Game
+** http://shootout.alioth.debian.org/
+**
+** contributed by Hongwei Xi
+**
+** compilation command:
+**   atscc -D_GNU_SOURCE -D_ATS_MULTITHREAD -D_ATS_GCATS -O3 -o k-nucleotide3_smp -lpthread k-nucleotide3_smp.dats
+*)
+
+(* ****** ****** *)
+
+staload "libc/SATS/stdio.sats"
+staload "libc/SATS/stdlib.sats"
+staload "libc/SATS/string.sats"
+staload _(*anonymous*) = "prelude/DATS/array.dats"
+staload _(*anonymous*) = "prelude/DATS/list_vt.dats"
+
+(* ****** ****** *)
+
+staload H = "libats/SATS/hashtable_chain.sats"
+staload _(*anon*) = "libats/DATS/hashtable_chain.dats"
+
+(* ****** ****** *)
+
+%{^
+typedef char *symbol_t ;
+%} // end of [%{^]
+
+(* ****** ****** *)
+
+abstype dna_t // boxed type
+abst@ype symbol_t = $extype "symbol_t"
+
+(* ****** ****** *)
+
+%{^
+
+ats_void_type print_symbol
+  (symbol_t sym, ats_size_type len) {
+  while (len > 0) { fputc ( *sym, stdout) ; --len ; ++sym ; }
+  return ;
+} // end of [print_symbol]
+
+%} // end of [%{^]
+
+extern fun print_symbol
+  (sym: symbol_t, len: size_t): void = "print_symbol"
+// end of [print_symbol]
+
+(* ****** ****** *)
+
+%{^
+
+size_t the_symlen = 0 ;
+ats_size_type symlen_get () { return the_symlen ; }
+ats_void_type symlen_set
+  (ats_size_type len) { the_symlen = len ; return ; }
+// end of [symlen_set]
+
+%} // end of [%{^]
+extern fun symlen_get ():<> size_t = "symlen_get"
+extern fun symlen_set (len: size_t):<> void = "symlen_set"
+
+(* ****** ****** *)
+
+%{^
+
+// a commonly used simple hash function
+
+static // inline
+ats_ulint_type hash_symbol_len (
+  symbol_t sym, ats_size_type len
+) {
+  unsigned long int hash_val = 31415927UL ;
+  while (len >= 4) {
+    hash_val += hash_val * 33 ;
+    hash_val += sym[0] << 24 ;
+    hash_val += sym[1] << 16 ;
+    hash_val += sym[2] <<  8 ;
+    hash_val += sym[3] ;
+    sym += 4 ; len -= 4 ;
+  } // end of [while]
+  if (len >= 2) {
+    hash_val = hash_val * 33 + (sym[0] << 8) + sym[1] ;
+    sym += 2 ; len -= 2 ;
+  } // end of [if]
+  if (len >= 1) {
+    hash_val = hash_val * 33 + sym[0] ;
+  } // end of [while]
+  return hash_val ;
+} // end of [hash_symbol_len]
+
+%} // end of [%{^]
+
+extern fun hash_symbol_len
+  (sym: symbol_t, len: size_t):<> ulint = "hash_symbol_len"
+// end of [hash_symbol]
+
+(* ****** ****** *)
+
+implement $H.hash_key<symbol_t>
+  (x, _) = hash_symbol_len (x, symlen_get ())
+// end of [implement]
+
+implement
+$H.equal_key_key<symbol_t> (x1, x2, _) = let
+  extern castfn __cast (x: symbol_t):<> string
+  val x1 = __cast x1 and x2 = __cast x2
+  val k = symlen_get ()
+  val k = size1_of_size (k)
+in
+  strncmp (x1, x2, k) = 0
+end // end of [implement]
+
+(* ****** ****** *)
+
+viewtypedef symtbl (l:addr) = $H.HASHTBLptr (symbol_t, int, l)
+viewtypedef symtbl0 = [l:agez] symtbl l
+viewtypedef symtbl1 = [l:addr | l > null] symtbl l
+
+(* ****** ****** *)
+
+extern fun succ_symbol
+  (x: symbol_t): symbol_t = "#atspre_psucc"
+extern fun add_symbol_size
+  (x: symbol_t, n: size_t): symbol_t = "#atspre_padd_size"
+
+fn dna_count_one {l:agz} {n1,n2:nat}
+  (tbl: !symtbl l, dna: dna_t, n1: size_t n1, n2: size_t n2): void = let
+  var n1: size_t = n1
+  val sym0: symbol_t =
+    __cast (dna) where { extern castfn __cast (x: dna_t): symbol_t }
+  // end of [var]
+  var sym: symbol_t = add_symbol_size (sym0, n1)
+in
+  while (n1 < n2) let
+    val [l_itm:addr] p_itm = $H.hashtbl_search_ref<symbol_t,int> (tbl, sym)
+    val () = if p_itm <> null then let
+      prval (fpf, pf) = __assert () where {
+        extern prfun __assert (): (int@l_itm -<prf> void, int@l_itm)
+      } // end of [prval]
+      val () = !p_itm := !p_itm + 1
+      prval () = fpf (pf)
+    in
+      // nothing
+    end else $H.hashtbl_insert (tbl, sym, 1)
+  in
+    n1 := n1 + 1; sym := succ_symbol sym
+  end // end of [while]
+end // end of [dna_count_one]
+
+(* ****** ****** *)
+
+staload "libats/SATS/parworkshop.sats"
+staload _ = "libats/DATS/parworkshop.dats"
+
+(* ****** ****** *)
+
+viewtypedef work = () -<lincloptr1> void
+viewtypedef WSptr (l:addr) = WORKSHOPptr (work, l)
+
+(* ****** ****** *)
+
+fun fwork {l:addr}
+  (ws: !WSptr l, wk: &work >> work?): int = let
+  val wk = wk
+  val pfun = __cast (wk) where {
+    extern castfn __cast
+      (wk: !work >> opt (work, i >= 1)): #[i:nat] uintptr i
+  } // end of [val]
+in
+  if pfun >= (uintptr1_of_uint1)1U then let
+    prval () = opt_unsome {work} (wk)
+    val () = wk ()
+    val () = cloptr_free (wk)
+  in
+    1 // the worker is to continue
+  end else let
+    val u = uint1_of_uintptr1 (pfun)
+    val i = int_of_uint (u)
+    prval () = opt_unnone {work} (wk)
+    prval () = cleanup_top {work} (wk)
+  in
+    ~i // the worker is to pause or quit
+  end // end of [if]
+end // end of [fwork]
+
+(* ****** ****** *)
+
+val eqfn = $extval ($H.eqfn symbol_t, "0")
+val fhash = $extval ($H.hash symbol_t, "0")
+macdef hastbl_make () = $H.hashtbl_make_hint (fhash, eqfn, 24593)
+
+fn dna_count {lws:agz} {n:pos;k:pos} {N:pos} (
+    ws: !WSptr lws
+  , dna: dna_t
+  , n: size_t n
+  , k: size_t k
+  , N: int N // nthread
+  ) : List_vt (symtbl1) = let
+  val () = symlen_set (k)
+  val INC = ((n + N - 1) / N): size_t
+  val [inc:int] INC = size1_of_size (INC)
+  prval () = __assert () where {
+    extern prfun __assert (): [inc > 0] void
+  }
+  fun split {n1,n2:nat} (
+      ws: !WSptr lws, n1: size_t n1, n2: size_t n2
+    ) :<cloref1> List_vt (symtbl1) =
+    if n1 < n2 then let
+      val n11 = min (n1 + INC, n2)
+      val [l:addr] tbl = hastbl_make ()
+      extern castfn __ref (x: !symtbl l):<> symtbl l 
+      val tbl1 = __ref (tbl)
+      val f = lam (): void =<lincloptr1> () where {
+        val () = dna_count_one (tbl1, dna, n1, n11)
+        prval () = __unref tbl1 where { extern prfun __unref (x: symtbl l): void }
+      } // end of [val]
+      val () = workshop_insert_work (ws, f)
+    in
+      list_vt_cons (tbl, split (ws, n11, n2))
+    end else list_vt_nil ()
+  // end of [split]
+  val res = split (ws, 0, n)
+  val () = workshop_wait_blocked_all (ws)
+in
+  res
+end // end of [dna_count]
+
+extern fun symtbls_merge (xs: List_vt symtbl1): symtbl0
+implement symtbls_merge (xs) = let
+  fun loop {l:addr} {l:agz}
+    (x: !symtbl l, xs: List_vt symtbl1): void =
+    case+ xs of
+    | ~list_vt_cons (x1, xs) => let
+        val xp = $H.ptr_of_HASHTBLptr (x)
+        var !p_clo = @lam
+          (pf: !unit_v | k: symbol_t, i: &int): void =<clo> let
+          val x = __ref (xp) where {
+            extern castfn __ref (x: ptr l):<> symtbl l
+          }
+          val [l_itm:addr] p_itm = $H.hashtbl_search_ref<symbol_t,int> (x, k)
+          val () = if p_itm <> null then let
+            prval (fpf, pf) = __assert () where {
+              extern prfun __assert (): (int@l_itm -<prf> void, int@l_itm)
+            } // end of [prval]
+            val () = !p_itm := !p_itm + i
+            prval () = fpf (pf)
+          in
+            // nothing
+          end else $H.hashtbl_insert (x, k, i)
+          prval () = __unref (x) where {
+            extern prfun __unref (x: symtbl l): void
+          }
+        in
+          // nothing
+        end // end of [var]
+        prval pf = unit_v ()
+        val () = $H.hashtbl_foreach_clo {unit_v} (pf | x1, !p_clo)
+        prval unit_v () = pf
+        val () = $H.hashtbl_free (x1)
+      in
+        loop (x, xs)
+      end // end of [list_vt_cons]
+    | ~list_vt_nil () => ()
+  // end of [loop]
+in
+  case+ xs of
+  | ~list_vt_cons (x, xs) =>
+      let val () = loop (x, xs) in x end
+    // end of [list_vt_cons]
+  | ~list_vt_nil () => __cast (null) where {
+      extern castfn __cast (x: ptr null):<> $H.HASHTBLptr (symbol_t, int, null)
+    } // end of [list_vt_nil]
+end // end of [symtbls_merge]
+
+(* ****** ****** *)
+
+typedef symflt = @(symbol_t, float)
+
+fn compare_symflt_symflt // [>=]
+  (x1: &symflt, x2: &symflt):<> Sgn = compare_float_float (x2.1, x1.1)
+// end of [compare_symflt_symflt]
+
+viewtypedef frqlst = List_vt symflt
+
+(* ****** ****** *)
+
+// print and free
+fun print_free_frqlst
+  (kfs: frqlst, len: size_t): void = begin case+ kfs of
+  | ~list_vt_cons (kf, kfs) => begin print_symbol (kf.0, len);
+       printf (" %.3f\n", @(double_of kf.1)); print_free_frqlst (kfs, len)
+    end // end of [FRQLSTcons]
+  | ~list_vt_nil () => ()
+end // end of [print_free_frqlst]
+
+fn write_frequencies
+  {lws:agz} {n,k:pos | k <= n} {N:pos} (
+    ws: !WSptr lws, dna: dna_t, n: size_t n, k: size_t k, N: int N
+  ) : void = let
+//
+  val tbls = dna_count (ws, dna, n-k+1, k, N)
+  val tbl = symtbls_merge (tbls)
+  val ptbl = $H.ptr_of_HASHTBLptr tbl
+  val () = assert_errmsg (ptbl <> null, ": " + #LOCATION)
+//
+  var total: int = 0
+  var !p_clo = @lam (pf: !int@total | k: symbol_t, i: &int): void =<clo>
+    (total := total + i)
+  val () = $H.hashtbl_foreach_clo {int@total} (view@ total | tbl, !p_clo)
+  val ftotal = float_of total
+  var frqs: frqlst = list_vt_nil ()
+  var !p_clo = @lam
+    (pf: !frqlst @ frqs | k: symbol_t, cnt: &int): void =<clo> let 
+    val f = (float_of 100) * float_of cnt / ftotal; val kf = @(k, f) in
+    frqs := list_vt_cons (kf, frqs)
+  end // end of [f]
+  val () = $H.hashtbl_foreach_clo {frqlst@frqs} (view@ frqs | tbl, !p_clo)
+  val () = $H.hashtbl_free (tbl)
+  val () = list_vt_quicksort (frqs, compare_symflt_symflt)
+in
+  print_free_frqlst (frqs, symlen_get ())
+end // end of [write_frequencies]
+
+(* ****** ****** *)
+
+fn write_count {lws:agz} {n,k:pos} {N:pos} (
+    ws: !WSptr lws, dna: dna_t, n: size_t n, seq: string k, N: int N
+  ): void = let
+  val k = string1_length seq
+  val () = assert_errmsg (k <= n, ": " + #LOCATION)
+//
+  val tbls = dna_count (ws, dna, n-k+1, k, N)
+  val seq1 = __cast seq where {
+    extern castfn __cast (x: string): symbol_t
+  } // end of [var]
+  val cnt = loop (tbls, seq1, 0) where {
+    fun loop (xs: List_vt symtbl1, seq: symbol_t, cnt: int): int =
+      case+ xs of
+      | ~list_vt_cons (x, xs) => let
+          var res : int
+          val ans = $H.hashtbl_search (x, seq, res)
+          val () = $H.hashtbl_free (x)
+          val () = if ans then let
+            prval () = opt_unsome {int} (res) in (*none*)
+          end else let
+            prval () = opt_unnone {int} (res) in res := 0
+          end : void // end of [val]
+        in
+          loop (xs, seq, cnt + res)
+        end // end of [list_vt_cons]
+      | ~list_vt_nil () => cnt
+    // end of [loop]
+  } // end of [cnt]
+//
+in
+  printf ("%d\t%s\n", @(cnt, seq))
+end // end of [write_count]
+
+(* ****** ****** *)
+
+extern fun getline (): string = "__getline"
+extern fun getrest (sz: &size_t? >> size_t n): #[n:nat] string n = "__getrest"
+
+%{$
+
+#define LINEBUFSZ 1024
+char theLineBuffer[LINEBUFSZ] ;
+ats_ptr_type __getline () {
+  fgets (theLineBuffer, LINEBUFSZ, stdin) ; return theLineBuffer ;
+} /* end of [getline] */
+
+#define RESTBUFSZ (128 * 1024 * 1024)
+char theRestBuffer[RESTBUFSZ] ;
+
+ats_ptr_type __getrest (ats_ref_type p_n) {
+  int c ; size_t i ; char *s ;
+  s = theRestBuffer ; i = 0 ;
+  while ((c = fgetc(stdin)) != EOF) {
+    if (c != '\n') { *s++ = toupper(c) ; i++ ; }
+  }
+  *s = '\000' ; *((size_t*)p_n) = i ;
+  if (i >= RESTBUFSZ) {
+    fprintf (stderr, "exit(ATS): too much data for processing\n") ; exit(1) ;
+  }
+  return theRestBuffer ;
+} /* end of [__getrest] */
+
+%} // end of [%{^]
+
+(* ****** ****** *)
+
+fun is_three (s: string): bool =
+  if strncmp (s, ">THREE", 6) = 0 then true else false
+// end of [is_three]
+
+(* ****** ****** *)
+
+staload "libc/SATS/sched.sats"
+staload TYPES = "libc/sys/SATS/types.sats"
+macdef pid_t = $TYPES.pid_of_int
+
+extern fun ncore_get (): int
+implement ncore_get () = let
+  var cs: cpu_set0_t // uninitialized
+  prval () = cpusetinit (cs) // not a real initialization
+  stavar nset: int
+  val nset = cpusetsize_get (cs)
+  val () = assert_errmsg (nset >= 2, ": " + #LOCATION)
+  val err = sched_getaffinity ((pid_t)0, nset, cs)
+  var count: Nat = 0
+  var i: natLte 16 // uninitialized
+  val () = for* (cs: cpu_set_t nset) =>
+    (i := 0; i < 16; i := i + 1)
+    if (CPU_ISSET (i, cs) > 0) then count := count + 1
+  // end of [val]
+in
+  count
+end // end of [ncore_get]
+
+(* ****** ****** *)
+
+extern fun dna_of_string (s: string): dna_t = "dna_of_string"
+
+(* ****** ****** *)
+
+#define QSZ 1024
+
+implement main (argc, argv) = let
+//
+  val () = gc_chunk_count_limit_set (1 << 15)
+  val () = gc_chunk_count_limit_max_set (~1) // no max
+//
+  val ncore = ncore_get ()
+  val nworker =
+    (if (argc >= 2) then int_of argv.[1] else 0): int
+  val nworker : int = if nworker > 0 then nworker else ncore
+  val nworker = int1_of_int (nworker)
+  val () = assert_errmsg (nworker > 0, ": " + #LOCATION)
+//
+  fun dna_three_get
+    (n: &size_t? >> size_t n): #[n:nat] string n = let
+    val s = getline (); val is3 = is_three (s)
+  in
+    if is3 then getrest (n) else dna_three_get (n)
+  end // end of [dna_three_get]
+  var n: size_t // uninitialized
+  val dna_three = dna_three_get (n)
+  val () = assert_errmsg (n >= 2, ": " + #LOCATION)
+(*
+  val () = (prerr "main: n = "; prerr n; prerr_newline ())
+*)
+  val dna3 =
+    dna_of_string dna_three where {
+    extern castfn dna_of_string (str: string): dna_t
+  } // end of [val]
+//
+  // val () = (print "nworker = "; print nworker; print_newline ())
+//
+  val ws = workshop_make<work> (QSZ, fwork)
+  val _err = workshop_add_nworker (ws, nworker)
+  val () = assert_errmsg (_err = 0, ": " + #LOCATION)
+//  
+  val () = write_frequencies (ws, dna3, n, 1, nworker)
+  val () = print_newline ()
+  val () = write_frequencies (ws, dna3, n, 2, nworker)
+  val () = print_newline ()
+  val () = write_count (ws, dna3, n, "GGT", nworker)
+  val () = write_count (ws, dna3, n, "GGTA", nworker)
+  val () = write_count (ws, dna3, n, "GGTATT", nworker)
+  val () = write_count (ws, dna3, n, "GGTATTTTAATT", nworker)
+  val () = write_count (ws, dna3, n, "GGTATTTTAATTTATAGT", nworker)
+//
+  var i: Nat = 0
+  val () = while (i < nworker) let
+    val _quit = $extval (work, "(void*)0")
+    val () = workshop_insert_work (ws, _quit) in i := i + 1
+  end // end of [val]
+  val () = workshop_wait_quit_all (ws)
+  val () = workshop_free_vt_exn (ws)
+in
+  // nothing
+end (* end of [main] *)
+
+(* ****** ****** *)
+
+(* end of [k-nucleotide3_smp.dats] *)
+(*
+** The Computer Language Benchmarks Game
+** http://shootout.alioth.debian.org/
+**
+** contributed by Hongwei Xi 
+**
+** compilation command:
+**   atscc -D_GNU_SOURCE -D_ATS_MULTITHREAD -lpthread -msse2 -O3 mandelbrot2.dats -o mandelbrot2
+**
+*)
+
+(* ****** ****** *)
+
+#define TIMES 50
+#define LIMIT 2.0; #define LIMIT2 (LIMIT * LIMIT)
+
+(* ****** ****** *)
+
+staload "libc/SATS/SIMD_v2df.sats" // no dynamic loading
+
+(* ****** ****** *)
+
+staload "libc/SATS/sched.sats"
+staload TYPES = "libc/sys/SATS/types.sats"
+macdef pid_t = $TYPES.pid_of_int
+
+staload "libats/SATS/parworkshop.sats"
+staload _ = "libats/DATS/parworkshop.dats"
+
+(* ****** ****** *)
+
+viewtypedef work = () -<lincloptr1> void
+viewtypedef WSptr (l:addr) = WORKSHOPptr (work, l)
+
+(* ****** ****** *)
+
+fun fwork {l:agz}
+  (ws: !WSptr l, wk: &work >> work?): int = let
+  val wk = wk
+  val pfun = __cast (wk) where {
+    extern castfn __cast
+      (wk: !work >> opt (work, i >= 1)): #[i:nat] uintptr i
+  } // end of [val]
+in
+  if pfun >= (uintptr1_of_uint1)1U then let
+    prval () = opt_unsome {work} (wk)
+    val () = wk ()
+    val () = cloptr_free (wk)
+  in
+    1 // the worker is to continue
+  end else let
+    val u = uint1_of_uintptr1 (pfun)
+    val i = int_of_uint (u)
+    prval () = opt_unnone {work} (wk)
+    prval () = cleanup_top {work} (wk)
+  in
+    ~i // the worker is to pause or quit
+  end // end of [if]
+end // end of [fwork]
+
+(* ****** ****** *)
+
+#define i2d double_of_int
+
+%{^
+ATSinline()
+ats_void_type output_byte (
+  ats_ptr_type A, ats_int_type i, ats_byte_type b
+) {
+  ((char*)A)[i] = b ; return ;
+} // end of [output_byte]
+%}
+extern
+fun output_byte (A: ptr, i: int, b: byte): void = "output_byte"
+// end of [output_byte]
+
+(* ****** ****** *)
+
+fn mandelbrot {l:agz}
+  (ws: !WSptr l, A: ptr, h: int, w: int): void = let
+
+  val h_rcp = 1.0 / (i2d h) and w_rcp = 1.0 / (i2d w)
+  
+  fun test (x: int, y: int):<cloref1> int = let
+    val x2 = i2d (x << 1)
+    val Cr0 = x2 * w_rcp - 1.5
+    val Cr1 = (x2 + 2.0) * w_rcp - 1.5
+    val y2 = i2d (y << 1)
+    val Ci0 = y2 * h_rcp - 1.0
+    val Ci1 = Ci0
+    val Crv = v2df_make (Cr0, Cr1)
+    val Civ = v2df_make (Ci0, Ci1)
+  
+    fun loop (
+        eo: int
+      , Cr: double, Ci: double, Zr: double, Zi: double
+      , times: int
+      ) :<fun1> int = let
+      val Tr = Zr * Zr and Ti = Zi * Zi; val Tri = Tr + Ti
+    in
+      case+ 0 of
+      | _ when Tri <= LIMIT2 => begin
+          if times = 0 then eo else let
+            val Zr_new = Tr - Ti + Cr; val Zi_new = 2.0 * (Zr * Zi) + Ci
+          in
+            loop (eo, Cr, Ci, Zr_new, Zi_new, times-1)
+          end // end of [if]
+        end // end of [_ when ...]
+      | _ => 0
+    end // end of [loop]
+  
+    fun loopv
+      (Zrv: v2df, Ziv: v2df, times: int):<cloref1> int = let
+      val Trv = Zrv * Zrv and Tiv = Ziv * Ziv; val Triv = Trv + Tiv
+      val Tri0 = v2df_get_fst (Triv) and Tri1 = v2df_get_snd (Triv)
+      val Zrv_new = Trv - Tiv + Crv
+      val Ziv_new = (x + x) + Civ  where { val x = Zrv * Ziv }
+    in
+      case+ 0 of
+      | _ when Tri0 <= LIMIT2 => begin case+ 0 of
+        | _ when Tri1 <= LIMIT2 => begin
+            if times = 0 then 0x3 else loopv (Zrv_new, Ziv_new, times-1)
+          end // end of [_ when ...]
+        | _ => begin
+            if times = 0 then 0x2 else let
+              val Zr0_new = v2df_get_fst (Zrv_new) and Zi0_new = v2df_get_fst (Ziv_new)
+            in
+              loop (0x2(*eo*), Cr0, Ci0, Zr0_new, Zi0_new, times-1)
+            end // end of [if]
+          end // end of [_]
+        end // end of [_ when ...]
+      | _ => begin case+ 0 of
+        | _ when Tri1 <= LIMIT2 => begin
+            if times = 0 then 0x1 else let
+              val Zr1_new = v2df_get_snd (Zrv_new) and Zi1_new = v2df_get_snd (Ziv_new)
+            in
+              loop (0x1(*eo*), Cr1, Ci1, Zr1_new, Zi1_new, times-1)
+            end // end of [if]
+          end // end of [_ when ...]
+        | _ => 0x0 // return value
+        end // end of [_]
+    end // end of [loopv]
+  in
+    loopv (v2df_0_0, v2df_0_0, TIMES)
+  end // end of [test]
+  
+  #define i2b byte_of_int
+  fun output_one (
+      x: int, y: int, i: int, b: byte, n: natLte 8
+    ) :<cloref1> void =
+    if x < w then let
+      val res = test (x, y); val res = i2b res in
+      case+ 0 of
+      | _ when n >= 2 => begin
+          output_one (x + 2, y, i, (b << 2) + res, n - 2)
+        end // end of [_ when ...]
+      | _ (*n=0*) => let
+          val () = output_byte (A, i, b) // A[i] = b
+        in
+          output_one (x + 2, y, i+1, res, 6)
+        end // end of [_]
+    end else begin
+      output_byte (A, i, b << n)
+    end // end of [if]
+  // end of [output_one]
+  
+  macdef byte = byte_of_int
+  val () = output_all (ws, 0) where {
+    fun output_all {l:agz}
+      (ws: !WSptr l, y: int):<cloref1> void =
+      if y < h then let
+        val () = workshop_insert_work (ws, f) where {
+          val i = y * ((w + 7) / 8)
+          val f = lam (): void =<lincloptr1> output_one (0, y, i, (byte)0, 8)
+        } // end of [val]
+      in
+        output_all (ws, y+1) 
+      end // end of [if]
+    // end of [output_all]
+  } // end of [val]  
+  val () = workshop_wait_blocked_all (ws)
+in
+  // nothing
+end // end of [mandelbrot]
+
+(* ****** ****** *)
+
+fun ncore_get (): int = let
+  var cs: cpu_set0_t // uninitialized
+  prval () = cpusetinit (cs) // not a real initialization
+  stavar nset: int
+  val nset = cpusetsize_get (cs)
+  val err = sched_getaffinity ((pid_t)0, nset, cs)
+  val () = assert_errmsg (nset >= 2, #LOCATION)
+  var count: Nat = 0
+  var i: Nat // uninitialized
+  val () = for* (cs: cpu_set_t nset) =>
+    (i := 0; i < 16; i := i + 1)
+    if (CPU_ISSET (i, cs) > 0) then (count := count + 1)
+  // end of [val]
+in
+  count
+end // end of [ncore_get]
+
+(* ****** ****** *)
+
+%{^
+ats_void_type
+print_bytearr (
+  ats_ptr_type A, ats_size_type sz
+) {
+  int n, lft = sz ;
+  while (lft > 0) { n = fwrite (A, 1, lft, stdout) ; lft -= n ; }
+  return ;
+} // end of [print_bytearr]
+%} // end of [%{^]
+
+
+#define QSZ 1024
+
+implement main (argc, argv) = let
+  val () = assert_errmsg_bool1
+    (argc >= 2, "Exit: wrong command format!\n")
+  val i = int1_of_string (argv.[1])
+  val () = assert_errmsg_bool1
+    (i >= 2, "The input integer needs to be at least 2.\n")
+//
+  val ncore = ncore_get ()
+  val nworker =
+    (if (argc >= 3) then int_of argv.[2] else ncore): int
+  // val () = (prerr "nworker = "; prerr nworker; prerr_newline ())
+  val nworker = int1_of_int (nworker)
+  val () = assert_errmsg (nworker > 0, #LOCATION)
+  val ws = workshop_make<work> (QSZ, fwork)
+  val _err = workshop_add_nworker (ws, nworker)
+  val () = assert_errmsg (_err = 0, #LOCATION)
+//
+  val h = i
+  val w8 = (i + 7) / 8
+  val sz = h nmul w8
+  val sz = size1_of_int1 (sz)
+  val [l0:addr] (pfgc, pfarr | p) = malloc_gc (sz)
+  val () = mandelbrot (ws, p, i, i)
+  extern fun print_bytearr (A: ptr, sz: size_t): void = "print_bytearr"
+  val () = begin
+    printf ("P4\n%i %i\n", @(i, i)); if (h > 0) then print_bytearr (p, sz)
+  end // end of [val]
+  val () = free_gc (pfgc, pfarr | p)
+//
+  var i: Nat = 0
+  val () = while (i < nworker) let
+    val _quit = $extval (work, "(void*)0")
+    val () = workshop_insert_work (ws, _quit) in i := i + 1
+  end // end of [val]
+  val () = workshop_wait_quit_all (ws)
+  val () = workshop_free_vt_exn (ws)
+in
+  // nothing
+end // end of [main]
+
+(* ****** ****** *)
+
+(* end of [mandelbrot2.dats] *)
+(*
+** The Computer Language Benchmarks Game
+** http://shootout.alioth.debian.org/
+**
+** contributed by Hongwei Xi 
+**
+** compilation command:
+**   atscc -O3 -fomit-frame-pointer -D_ISOC9X_SOURCE -mfpmath=sse -msse2 -o mandelbrot_simd mandelbrot_simd.dats
+**
+**)
+
+%{^
+ 
+// vector of two doubles
+typedef double v2df __attribute__ ((vector_size(16))) ;
+typedef v2df ats_v2df_type ;
+
+%}
+
+(* ****** ****** *)
+
+abst@ype v2df = $extype "ats_v2df_type"
+
+#define TIMES 50
+#define LIMIT 2.0; #define LIMIT2 (LIMIT * LIMIT)
+
+(* ****** ****** *)
+
+%{^
+
+ats_v2df_type ats_zero_v2df = { 0.0, 0.0 } ;
+
+ats_v2df_type
+ats_v2df_make
+  (ats_double_type d0, ats_double_type d1) {
+  v2df dd ;
+  ((double*)&dd)[0] = d0 ; ((double*)&dd)[1] = d1 ;
+  return dd ;
+}
+
+static inline
+ats_double_type
+ats_v2df_fst (ats_v2df_type dd) { return ((double*)&dd)[0] ; }
+
+static inline
+ats_double_type
+ats_v2df_snd (ats_v2df_type dd) { return ((double*)&dd)[1] ; }
+
+static inline
+ats_v2df_type
+ats_dbl_v2df (ats_v2df_type dd) { return (dd + dd) ; }
+
+static inline
+ats_v2df_type
+ats_add_v2df_v2df (ats_v2df_type dd1, ats_v2df_type dd2) {
+  return (dd1 + dd2) ;
+}
+
+static inline
+ats_v2df_type
+ats_sub_v2df_v2df (ats_v2df_type dd1, ats_v2df_type dd2) {
+  return (dd1 - dd2) ;
+}
+
+static inline
+ats_v2df_type
+ats_mul_v2df_v2df (ats_v2df_type dd1, ats_v2df_type dd2) {
+  return (dd1 * dd2) ;
+}
+
+%}
+
+extern val zero_v2df: v2df = "ats_zero_v2df"
+
+extern fun v2df_make
+  (d0: double, d1: double): v2df = "ats_v2df_make"
+
+extern fun v2df_fst (dd: v2df): double = "ats_v2df_fst"
+extern fun v2df_snd (dd: v2df): double = "ats_v2df_snd"
+
+extern fun dbl_v2df (_: v2df): v2df = "ats_dbl_v2df"
+extern fun add_v2df_v2df (_: v2df, _: v2df): v2df = "ats_add_v2df_v2df"
+extern fun sub_v2df_v2df (_: v2df, _: v2df): v2df = "ats_sub_v2df_v2df"
+extern fun mul_v2df_v2df (_: v2df, _: v2df): v2df = "ats_mul_v2df_v2df"
+overload + with add_v2df_v2df
+overload - with sub_v2df_v2df
+overload * with mul_v2df_v2df
+
+(* ****** ****** *)
+
+#define i2d double_of_int
+fn mandelbrot (h: int, w: int): void = let
+
+val h_recip = 1.0 / (i2d h) and w_recip = 1.0 / (i2d w)
+
+fun test (x: int, y: int):<cloref1> int = let
+  val x2 = i2d (x << 1)
+  val Cr0 = x2 * w_recip - 1.5
+  val Cr1 = (x2 + 2.0) * w_recip - 1.5
+  val y2 = i2d (y << 1)
+  val Ci0 = y2 * h_recip - 1.0
+  val Ci1 = Ci0
+  val Crv = v2df_make (Cr0, Cr1)
+  val Civ = v2df_make (Ci0, Ci1)
+
+  fun loop (
+      eo: int
+    , Cr: double, Ci: double, Zr: double, Zi: double
+    , times: int
+    ) :<fun1> int = let
+(*
+    val () = begin
+      print "loop: Cr = "; print Cr; print_newline ();
+      print "loop: Ci = "; print Ci; print_newline ();
+      print "loop: Zr = "; print Zr; print_newline ();
+      print "loop: Zi = "; print Zi; print_newline ();
+    end
+*)
+    val Tr = Zr * Zr and Ti = Zi * Zi; val Tri = Tr + Ti
+(*
+    val () = begin
+      print "loop: eo = "; print eo; print_newline ();
+      print "loop: Tr = "; print Tr; print_newline ();
+      print "loop: Ti = "; print Ti; print_newline ();
+      print "loop: Tri = "; print Tri; print_newline ();
+    end
+*)
+  in
+    case+ 0 of
+    | _ when Tri <= LIMIT2 => begin
+        if times = 0 then 1 + eo else let
+          val Zr_new = Tr - Ti + Cr
+          val Zi_new = 2.0 * (Zr * Zi) + Ci
+        in
+          loop (eo, Cr, Ci, Zr_new, Zi_new, times-1)
+        end // end of [if]
+      end // end of [_ when ...]
+    | _ => 0
+  end // end of [loop]
+
+  fun loopv
+    (Zrv: v2df, Ziv: v2df, times: int):<cloref1> int = let
+    val Trv = Zrv * Zrv and Tiv = Ziv * Ziv; val Triv = Trv + Tiv
+    val Tri0 = v2df_fst (Triv) and Tri1 = v2df_snd (Triv)
+(*
+    val () = begin
+      print "loopv: Tri0 = "; print Tri0; print_newline ();
+      print "loopv: Tri1 = "; print Tri1; print_newline ();
+    end
+*)
+  in
+    case+ 0 of
+    | _ when Tri0 <= LIMIT2 => begin case+ 0 of
+      | _ when Tri1 <= LIMIT2 => begin
+          if times = 0 then 0x3 else let
+            val Zrv_new = Trv - Tiv + Crv
+            val Ziv_new = dbl_v2df (Zrv * Ziv) + Civ
+          in
+            loopv (Zrv_new, Ziv_new, times-1)
+          end // end of [if]
+        end // end of [_ when ...]
+      | _ => begin
+          if times = 0 then 0x2 else let
+            val Zr0 = v2df_fst (Zrv) and Zi0 = v2df_fst (Ziv)
+            val Tr0 = v2df_fst (Trv) and Ti0 = v2df_fst (Tiv)
+            val Zr0_new = Tr0 - Ti0 + Cr0
+            val Zi0_new = 2.0 * (Zr0 * Zi0) + Ci0
+          in
+            loop (1(*eo*), Cr0, Ci0, Zr0_new, Zi0_new, times-1)
+          end // end of [if]
+        end // end of [_]
+      end // end of [_ when ...]
+    | _ => begin case+ 0 of
+      | _ when Tri1 <= LIMIT2 => begin
+          if times = 0 then 0x1 else let
+            val Zr1 = v2df_snd (Zrv) and Zi1 = v2df_snd (Ziv)
+            val Tr1 = v2df_snd (Trv) and Ti1 = v2df_snd (Tiv)
+            val Zr1_new = Tr1 - Ti1 + Cr1
+            val Zi1_new = 2.0 * (Zr1 * Zi1) + Ci1
+          in
+            loop (0(*eo*), Cr1, Ci1, Zr1_new, Zi1_new, times-1)
+          end // end of [if]
+        end // end of [_ when ...]
+      | _ => 0x0 // return value
+      end // end of [_]
+  end // end of [loopv]
+in
+  loopv (zero_v2df, zero_v2df, TIMES)
+end // end of [test]
+
+#define i2b byte_of_int
+
+fun output
+  (x: int, y: int, b: byte, n: natLte 8):<cloref1> void = begin
+  case+ 0 of
+  | _ when x < w => let
+      val res = test (x, y)
+(*
+      val () = (print "res = "; print res; print_newline ())
+*)
+    in
+      case+ 0 of
+      | _ when n >= 2 => begin
+          output (x + 2, y, (b << 2) + i2b res, n - 2)
+        end // end of [_ when ...]
+      | _ (*n=0*) => let
+(*
+          val () = begin
+            print "b = "; print (int_of_byte b); print_newline ()
+          end
+*)
+          val () = print_byte b in output (x + 2, y, i2b res, 6)
+        end // end of [_]
+    end // end of [_ when ...]
+  | _ => let
+      val () = print_byte (b << n)
+    in
+      if (y < h - 1) then output (0, y + 1, i2b 0, 8) else ()
+    end // end of [_]
+end // end of [output]
+
+val () = printf ("P4\n%i %i\n", @(h, w))
+
+in
+
+if (h > 0) then output (0, 0, i2b 0, 8)
+
+end // end of [mandelbrot]
+
+(* ****** ****** *)
+
+implement main (argc, argv) = let
+  val () = assert_errmsg_bool1
+    (argc = 2, "Exit: wrong command format!\n")
+  val i = int1_of_string argv.[1]
+  val () = assert_errmsg_bool1
+    (i >= 2, "The input integer needs to be at least 2.\n")
+in
+  mandelbrot (i, i)
+end // end of [main]
+
+(* ****** ****** *)
+
+(* end of [mandelbrot_simd.dats] *)
+(*
+** The Computer Language Benchmarks Game
+** http://shootout.alioth.debian.org/
+**
+** contributed by Hongwei Xi
+**
+** compilation command:
+**   atscc -msse2 -mfpmath=sse -O3 n-body.dats -o n-body -lm
+*)
+
+(* ****** ****** *)
+
+staload "libc/SATS/math.sats"
+
+(* ****** ****** *)
+
+typedef planet = @{
+  x= double, y= double, z= double
+, vx= double, vy= double, vz= double
+, mass= double
+} // end of [planet]
+
+typedef planetarr (n:int) = @[planet][n]
+
+(* ****** ****** *)
+
+infix 0 += -=  // for similar C notation
+macdef += (x, d) = (,(x) := ,(x) + ,(d))
+macdef -= (x, d) = (,(x) := ,(x) - ,(d))
+
+fn advance {n:pos}
+  (bodies: &planetarr n, n: int n, dt: double):<> void = () where {
+  fun loop_inner
+    {l1:addr} {n2:nat} {l2:addr} .<n2>. (
+      pf1: !planet @ l1, pf2: !planetarr n2 @ l2
+    | p1: ptr l1, p2: ptr l2, n2: int n2, dt: double
+    ) :<> void =
+    if n2 > 0 then let
+      prval (pf21, pf22) = array_v_uncons {planet} (pf2)
+      val dx = p1->x - p2->x and dy = p1->y - p2->y and dz = p1->z - p2->z
+      val dist2 = dx * dx + dy * dy + dz * dz
+      val dist = sqrt (dist2)
+      val mag = dt / (dist * dist2)
+//
+      val mass = p2->mass
+      val () = p1->vx -= dx * mass * mag
+      val () = p1->vy -= dy * mass * mag
+      val () = p1->vz -= dz * mass * mag
+//
+      val mass = p1->mass
+      val () = p2->vx += dx * mass * mag
+      val () = p2->vy += dy * mass * mag
+      val () = p2->vz += dz * mass * mag
+//
+      val () = loop_inner (pf1, pf22 | p1, p2+sizeof<planet>, n2-1, dt)
+      prval () = pf2 := array_v_cons {planet} (pf21, pf22)
+    in
+      // empty
+    end // end of [if]
+  // end of [loop_inner]
+  fun loop_outer {n1:pos} {l1:addr} .<n1>. (
+      pf1: !planetarr n1 @ l1 | p1: ptr l1, n1: int n1, dt: double
+    ) :<> void =
+    if n1 >= 2 then let
+      prval (pf11, pf12) = array_v_uncons {planet} (pf1)
+      val p2 = p1+sizeof<planet> and n2 = n1-1
+      val () = loop_inner (pf11, pf12 | p1, p2, n2, dt)
+      val () = loop_outer (pf12 | p2, n2, dt)
+      prval () = pf1 := array_v_cons {planet} (pf11, pf12)
+    in
+      // empty
+    end // end of [if]
+  // end of [loop_outer]
+  val () = loop_outer (view@ bodies | &bodies, n, dt)
+  fun loop {n1:nat} {l1:addr} .<n1>. (
+      pf1: !planetarr n1 @ l1 | p1: ptr l1, n1: int n1, dt: double
+    ) :<> void =
+    if n1 > 0 then let
+      prval (pf11, pf12) = array_v_uncons {planet} (pf1)
+      val () = p1->x += dt * p1->vx
+      val () = p1->y += dt * p1->vy
+      val () = p1->z += dt * p1->vz
+      val () = loop (pf12 | p1+sizeof<planet>, n1-1, dt)
+      prval () = pf1 := array_v_cons {planet} (pf11, pf12)
+    in
+      // empty
+    end // end of [if]
+  // end of [loop]
+  val () = loop (view@ bodies | &bodies, n, dt)
+} // end of [advance]
+
+fn energy {n:pos}
+  (bodies: &planetarr n, n: int n):<> double = e where {
+  fun loop_inner
+    {l1:addr} {n2:nat} {l2:addr} .<n2>. (
+      pf1: !planet @ l1, pf2: !planetarr n2 @ l2
+    | p1: ptr l1, p2: ptr l2, n2: int n2, e: &double
+    ) :<> void =
+    if n2 > 0 then let
+      prval (pf21, pf22) = array_v_uncons {planet} (pf2)
+      val dx = p1->x - p2->x
+      and dy = p1->y - p2->y
+      and dz = p1->z - p2->z
+      val dist = sqrt (dx * dx + dy * dy + dz * dz)
+      val () = e -= (p1->mass * p2->mass) / dist
+      val () = loop_inner (pf1, pf22 | p1, p2+sizeof<planet>, n2-1, e)
+      prval () = pf2 := array_v_cons {planet} (pf21, pf22)
+    in
+      // empty
+    end // end of [if]
+  // end of [loop_inner]
+  fun loop_outer {n1:nat} {l1:addr} .<n1>. (
+      pf1: !planetarr n1 @ l1 | p1: ptr l1, n1: int n1, e: &double
+    ) :<> void =
+    if n1 > 0 then let
+      prval (pf11, pf12) = array_v_uncons {planet} (pf1)
+      val vx = p1->vx and vy = p1->vy and vz = p1->vz
+      val () = e += 0.5 * p1->mass * (vx * vx + vy * vy + vz * vz)
+      val p2 = p1+sizeof<planet> and n2 = n1-1
+      val () = loop_inner (pf11, pf12 | p1, p2, n2, e)
+      val () = loop_outer (pf12 | p2, n2, e)
+      prval () = pf1 := array_v_cons {planet} (pf11, pf12)
+    in
+      // empty
+    end // end of [loop_outer]
+  // end of [loop_outer]
+  var e: double = 0.0
+  val () = loop_outer (view@ bodies | &bodies, n, e)
+} // end of [energy]
+
+(* ****** ****** *)
+
+#define PI 3.1415926535898
+#define SOLAR_MASS (4.0 * PI * PI)
+
+fn offmoment {n:pos}
+  (bodies: &planetarr n, n: int n):<> void = () where {
+  var px: double = 0.0 and py: double = 0.0 and pz: double = 0.0
+  var i: natLte (n) // uninitialized
+  val () = for* {i: nat | i <= n} .<n-i>. 
+    (i: int i) => (i := 0; i < n; i := i + 1) let
+    val mass = bodies.[i].mass
+    val () = px += bodies.[i].vx * mass
+    val () = py += bodies.[i].vy * mass
+    val () = pz += bodies.[i].vz * mass
+  in
+    // empty
+  end // end of [val]
+  val () = bodies.[0].vx := ~ px / SOLAR_MASS
+  val () = bodies.[0].vy := ~ py / SOLAR_MASS
+  val () = bodies.[0].vz := ~ pz / SOLAR_MASS
+} // end of [offset]
+
+(* ****** ****** *)
+
+#define N 5
+
+sta l_theBodies: addr
+extern prval pfbox_theBodies: vbox (planetarr(N) @ l_theBodies)
+val p_theBodies = $extval (ptr (l_theBodies), "&theBodies[0]")
+
+implement main (argc, argv) = () where {
+  val () = assert (argc = 2)
+  val n = int1_of (argv.[1]); val () = assert (n >= 2)
+  prval vbox (pf_theBodies) = pfbox_theBodies
+  val () = offmoment (!p_theBodies, N)
+  val e_beg = energy (!p_theBodies, N)
+  val () = $effmask_ref (printf ("%.9f\n", @(e_beg)))
+  var i: int // unintialized ()
+  val dt = 0.01
+  val () = for (i := 0; i < n; i := i + 1) advance (!p_theBodies, N, dt)
+  val e_fin = energy (!p_theBodies, N)
+  val () = $effmask_ref (printf ("%.9f\n", @(e_fin)))
+} // end of [main]
+
+(* ****** ****** *)
+
+// reuse some existing C code for initialization
+
+%{^ // put at the beginning
+
+#define PI 3.1415926535898
+#define SOLAR_MASS (4.0 * PI * PI)
+#define DAYS_PER_YEAR 365.24
+
+#define NBODY 5
+
+struct planet {
+  double x; double y; double z; double vx; double vy; double vz; double mass;
+} ;
+
+struct planet theBodies[NBODY] = {
+  { /* sun */
+    0, 0, 0, 0, 0, 0, SOLAR_MASS
+  }
+, { /* jupiter */
+    4.84143144246472090e+00,
+   -1.16032004402742839e+00,
+   -1.03622044471123109e-01,
+    1.66007664274403694e-03 * DAYS_PER_YEAR,
+    7.69901118419740425e-03 * DAYS_PER_YEAR,
+   -6.90460016972063023e-05 * DAYS_PER_YEAR,
+    9.54791938424326609e-04 * SOLAR_MASS
+  }
+, {  /* saturn */
+    8.34336671824457987e+00,
+    4.12479856412430479e+00,
+   -4.03523417114321381e-01,
+   -2.76742510726862411e-03 * DAYS_PER_YEAR,
+    4.99852801234917238e-03 * DAYS_PER_YEAR,
+    2.30417297573763929e-05 * DAYS_PER_YEAR,
+    2.85885980666130812e-04 * SOLAR_MASS
+  }
+, { /* uranus */
+    1.28943695621391310e+01,
+   -1.51111514016986312e+01,
+   -2.23307578892655734e-01,
+    2.96460137564761618e-03 * DAYS_PER_YEAR,
+    2.37847173959480950e-03 * DAYS_PER_YEAR,
+   -2.96589568540237556e-05 * DAYS_PER_YEAR,
+    4.36624404335156298e-05 * SOLAR_MASS
+  }
+, { /* neptune */
+    1.53796971148509165e+01,
+   -2.59193146099879641e+01,
+    1.79258772950371181e-01,
+    2.68067772490389322e-03 * DAYS_PER_YEAR,
+    1.62824170038242295e-03 * DAYS_PER_YEAR,
+   -9.51592254519715870e-05 * DAYS_PER_YEAR,
+    5.15138902046611451e-05 * SOLAR_MASS
+  }
+} ;
+
+%}
+
+(* ****** ****** *)
+
+(* end of [n-body2.dats] *)
+(*
+** The Computer Language Benchmarks Game
+** http://shootout.alioth.debian.org/
+**
+** contributed by Hongwei Xi
+**
+** compilation command:
+**   atscc -O3 -fomit-frame-pointer pidigits.dats -o pidigits -lgmp
+*)
+
+staload "libc/SATS/gmp.sats"
+
+fn print_digit (i: int, d: int): void = begin
+  print (char_of_int (d + int_of '0')) ;
+  if i mod 10 = 0 then printf ("\t:%i\n", @(i))
+end
+
+fun g (
+    q: &mpz_vt, r: &mpz_vt, t: &mpz_vt
+  , k: int, n: &mpz_vt, l: int, i: int, N: int
+  ) : void = let
+  var x1: mpz_vt? and x2: mpz_vt?
+  val () = mpz_init x1 and () = mpz_init x2
+  val () = mpz_mul (x1, q, 4) // x1 = 4*q
+  val () = mpz_add (x1, r) // x1 = 4*q + r
+  val () = mpz_add (x2, n, 1) // x2 = n+1
+  val () = mpz_mul (x2, t) // x2 = t * (n+1)
+  val cmp = mpz_cmp (x1, x2)
+in
+  case+ 0 of
+  | _ when cmp >= 0 => begin
+      mpz_mul (x1, q, 7 * k + 2);
+      mpz_mul (x2, r, l);
+      mpz_add (x1, x2);
+      mpz_mul (t, l);
+      mpz_tdiv_q (n, x1, t);
+      mpz_mul (x2, q, 2);
+      mpz_add (x2, r);
+      mpz_mul (r, x2, l);
+      mpz_mul (q, k);
+      mpz_clear x1; mpz_clear x2;
+      g (q, r, t, k+1, n, l+2, i, N)
+    end
+  | _ => begin
+      print_digit (i, mpz_get_int n);
+      mpz_mul (x1, t, n);
+      mpz_sub (x2, r, x1);
+      mpz_mul (x2, 10);
+      mpz_mul (x1, q, 3);
+      mpz_add (x1, r);
+      mpz_mul (x1, 10);
+      mpz_tdiv_q (x1, t);
+      mpz_set (r, x2);
+      mpz_mul (x2, n, 10);
+      mpz_sub (n, x1, x2);
+      mpz_mul (q, 10);
+      mpz_clear x1; mpz_clear x2;
+      if i < N then g (q, r, t, k, n, l, i+1, N)
+    end
+end // end of [g]
+
+implement main (argc, argv) = let
+  var q: mpz_vt and r: mpz_vt and t: mpz_vt and n: mpz_vt
+  val () = assert (argc = 2)
+  val N = int1_of argv.[1]
+  val () = assert_errmsg_bool1
+    (N >= 2, "The input integer needs to be a natural number.\n")
+in
+  mpz_init_set (q, 1);
+  mpz_init_set (r, 0);
+  mpz_init_set (t, 1);
+  mpz_init_set (n, 3);
+  g (q, r, t, 1, n, 3, 1, N);
+  mpz_clear q; mpz_clear r; mpz_clear t; mpz_clear n;
+end // end of [main]
+
+(* ****** ****** *)
+
+(* end of [pidigits.dats] *)
+(*
+** The Computer Language Benchmarks Game
+** http://shootout.alioth.debian.org/
+**
+** contributed by Hongwei Xi
+**
+** This code is a direct translation from a C submission by
+** Sean Bartell, which is based on the Scheme PLT #4 version
+**
+** compilation command:
+**   atscc -O3 -fomit-frame-pointer pidigits2.dats -o pidigits2 -lgmp
+*)
+
+(* ****** ****** *)
+
+staload "libc/SATS/gmp.sats"
+
+(* ****** ****** *)
+
+var tmp: mpz_vt with pf_tmp
+viewdef v_tmp = mpz_vt @ tmp
+val () = mpz_init (tmp)
+
+var acc: mpz_vt with pf_acc
+viewdef v_acc = mpz_vt @ acc
+val () = mpz_init_set (acc, 0)
+
+var num: mpz_vt with pf_num
+viewdef v_num = mpz_vt @ num
+val () = mpz_init_set (num, 1)
+
+var den: mpz_vt with pf_den
+viewdef v_den = mpz_vt @ den
+val () = mpz_init_set (den, 1)
+
+(* ****** ****** *)
+
+viewdef v_all = @(v_tmp, v_acc, v_num, v_den)
+prval pf_all = @(pf_tmp, pf_acc, pf_num, pf_den)
+prval pfbox_all =
+  vbox_make {v_all} (pf_all) where {
+  extern prfun vbox_make {v:view} (pf: v): vbox (v)
+} // end of [val]
+
+(* ****** ****** *)
+
+fn extract_digit (
+    pf_tmp: !v_tmp, pf_acc: !v_acc, pf_num: !v_num, pf_den: !v_den
+  | nth: uint
+  ) :<(*pure*)> uint = let
+  val () = begin
+    mpz_mul (tmp, num, nth); mpz_add (tmp, acc); mpz_tdiv_q (tmp, den)
+  end // end of [val]
+in
+  mpz_get_uint (tmp)
+end // end of [extract_digit]
+
+(* ****** ****** *)
+
+fn next_term (
+    pf_tmp: !v_tmp, pf_acc: !v_acc, pf_num: !v_num, pf_den: !v_den
+  | k: uint
+  ) :<(*pure*)> void = () where {
+  val y2 = k * 2U + 1U (* : uint *); val () = begin
+    mpz_addmul (acc, num, 2U); mpz_mul (acc, y2); mpz_mul (num, k); mpz_mul (den, y2)
+  end // end of [val]
+} // end of [next_term]
+
+(* ****** ****** *)
+
+fn eliminate_digit (
+    pf_acc: !v_acc, pf_num: !v_num, pf_den: !v_den | d: uint
+  ) :<(*pure*)> void = () where {
+  val () = begin
+    mpz_submul (acc, den, d); mpz_mul (acc, 10); mpz_mul (num, 10)
+  end // end of [val]
+} // end of [eliminate_digit]
+
+(* ****** ****** *)
+
+fn pidigits (
+    pf_tmp: !v_tmp, pf_acc: !v_acc, pf_num: !v_num, pf_den: !v_den
+  | n: int
+  ) : void = () where {
+  var i: int = 0 and m: int = 0
+  var d: uint with pf_d = 0U and k: uint with pf_k = 0U
+  val () = while (true) let
+    fun loop (
+        pf_tmp: !v_tmp, pf_acc: !v_acc, pf_num: !v_num, pf_den: !v_den
+      , pf_k: !uint @ k, pf_d: !uint @ d
+      | (*none*)
+      ) :<cloref1> void = let
+      val () = k := k + 1U
+      val () = next_term (pf_tmp, pf_acc, pf_num, pf_den | k)
+      val sgn = mpz_cmp (num, acc)
+    in
+      if sgn > 0 then loop
+        (pf_tmp, pf_acc, pf_num, pf_den, pf_k, pf_d | (*none*))
+      else let
+        val () =
+          d := extract_digit (pf_tmp, pf_acc, pf_num, pf_den | 3U)
+        // end of [val]
+        val d4 = extract_digit (pf_tmp, pf_acc, pf_num, pf_den | 4U)
+      in
+        if d <> d4 then loop
+          (pf_tmp, pf_acc, pf_num, pf_den, pf_k, pf_d | (*none*))
+        // end of [if]
+      end // end of [if]
+    end (* end of [loop] *)
+    val () = loop
+      (pf_tmp, pf_acc, pf_num, pf_den, pf_k, pf_d | (*none*))
+    // end of [val]
+    val () = print (char_of_uint (d + uint_of_char '0'))
+    val () = i := i + 1
+    val () = m := i mod 10
+    val () = if m = 0 then printf ("\t:%d\n", @(i))
+    val () = if (i >= n) then break
+    val () = eliminate_digit (pf_acc, pf_num, pf_den | d)
+  in
+    // empty
+  end // end of [val]
+  
+  val () = if (m > 0) then let
+    fun loop (i: int): void = if i > 0 then (print (' '); loop (i-1))
+  in
+    loop (10-m); printf ("\t:%d\n", @(n))
+  end // end of [val]
+} (* end of [pidigits] *)
+
+(* ****** ****** *)
+
+implement main (argc, argv) = let
+  val n = (if argc > 1 then int_of_string (argv.[1]) else 27): int
+  prval vbox pf_all = pfbox_all
+in
+  $effmask_ref (pidigits (pf_all.0, pf_all.1, pf_all.2, pf_all.3 | n))
+end // end of [main]
+  
+(* ****** ****** *)
+
+(* end of [pidigits2.dats] *)
+(*
+** The Computer Language Benchmarks Game
+** http://shootout.alioth.debian.org/
+**
+** contributed by Hongwei Xi 
+** contributed by Zhiqiang Ren 
+**
+** This code is nearly a direct translation from a C submission
+** by Bonzini, Bartell and Mellor
+**
+** compilation command:
+**   atscc -O3 -fomit-frame-pointer pidigits3.dats -o pidigits3 -lgmp
+*)
+
+(* ****** ****** *)
+
+staload "libc/SATS/gmp.sats"
+
+(* ****** ****** *)
+
+var numer: mpz_vt
+viewdef v_numer = mpz_vt @ numer
+val () = mpz_init_set_uint (numer, 1U)
+
+var denom: mpz_vt
+viewdef v_denom = mpz_vt @ denom
+val () = mpz_init_set_uint (denom, 1U)
+
+var accum: mpz_vt
+viewdef v_accum = mpz_vt @ accum
+val () = mpz_init_set_uint (accum, 0U)
+
+var tmp1: mpz_vt
+viewdef v_tmp1 = mpz_vt @ tmp1
+val () = mpz_init (tmp1)
+
+var tmp2: mpz_vt
+viewdef v_tmp2 = mpz_vt @ tmp2
+val () = mpz_init (tmp2)
+
+(* ****** ****** *)
+
+viewdef v_all = @(v_numer, v_denom, v_accum, v_tmp1, v_tmp2)
+prval pf_all = @(
+  view@ numer, view@ denom, view@ accum, view@ tmp1, view@ tmp2
+)
+prval pfbox_all =
+  vbox_make {v_all} (pf_all) where {
+  extern prfun vbox_make {v:view} (pf: v): vbox (v)
+} // end of [val]
+
+(* ****** ****** *)
+
+extern
+fun mpz_mul_2exp (
+    _: &mpz_vt, _: &mpz_vt, _: int
+  ) :<> void = "__mpz_mul_2exp"
+
+extern
+fun mpz_fdiv_qr (
+    _: &mpz_vt, _: &mpz_vt, _: &mpz_vt, _: &mpz_vt
+  ) :<> void = "__mpz_fdiv_qr"
+
+%{^
+
+// for backward compatibility
+
+static inline
+ats_void_type
+__mpz_mul_2exp (
+  ats_mpz_ptr_type x
+, ats_mpz_ptr_type y
+, ats_int_type n
+) {
+  mpz_mul_2exp((mpz_ptr)x, (mpz_ptr)y, n) ; return ;
+} // end of [atslib_mpz_mul_2exp]
+
+static inline
+ats_void_type
+__mpz_fdiv_qr (
+  ats_mpz_ptr_type q
+, ats_mpz_ptr_type r
+, ats_mpz_ptr_type x
+, ats_mpz_ptr_type y
+) {
+  mpz_fdiv_qr((mpz_ptr)q, (mpz_ptr)r, (mpz_ptr)x, (mpz_ptr)y) ; return ;
+} // end of [__mpz_fdiv_qr]
+
+%} // end of [%{^]
+
+(* ****** ****** *)
+
+fn extract_digit (
+    pf_numer: !v_numer
+  , pf_denom: !v_denom
+  , pf_accum: !v_accum
+  , pf_tmp1: !v_tmp1, pf_tmp2: !v_tmp2
+  | (*none*)
+  ) :<> int = let
+  val sgn = mpz_cmp (numer, accum)
+in
+  case+ 0 of
+  | _ when sgn > 0 => ~1
+  | _ => let
+      val () = mpz_mul_2exp (tmp1, numer, 1)
+      val () = mpz_add (tmp1, numer)
+      val () = mpz_add (tmp1, accum)
+      val () = mpz_fdiv_qr (tmp1, tmp2, &tmp1, denom) where {
+        extern fun mpz_fdiv_qr
+          (_: &mpz_vt, _: &mpz_vt, _: ptr, _: &mpz_vt):<> void = "__mpz_fdiv_qr"
+      } // end of [val]
+      val () = mpz_add (tmp2, numer)
+    in
+      if mpz_cmp (tmp2, denom) >= 0 then ~1 else mpz_get_int (tmp1)
+    end // end of [_]
+end // end of [extract_digit]
+
+(* ****** ****** *)
+
+fn next_term (
+    pf_numer: !v_numer
+  , pf_denom: !v_denom
+  , pf_accum: !v_accum
+  , pf_tmp1: !v_tmp1, pf_tmp2: !v_tmp2
+  | k: uint
+  ) :<> void = let
+  val y2 = 2U * k + 1U
+  val () = mpz_mul_2exp (tmp1, numer, 1)
+  val () = mpz_add (accum, tmp1)
+  val () = mpz_mul (accum, y2)
+  val () = mpz_mul (numer, k)
+  val () = mpz_mul (denom, y2)
+in
+  // nothing
+end // end of [next_term] 
+
+(* ****** ****** *)
+
+fn eliminate_digit (
+    pf_numer: !v_numer
+  , pf_denom: !v_denom
+  , pf_accum: !v_accum
+  | d: uint
+  ) :<> void = () where {
+  val () = begin
+    mpz_submul (accum, denom, d); mpz_mul (accum, 10); mpz_mul (numer, 10)
+  end // end of [val]
+} // end of [eliminate_digit]
+
+(* ****** ****** *)
+
+staload "libc/SATS/stdio.sats"
+
+fn pidigits (
+    pf_numer: !v_numer
+  , pf_denom: !v_denom
+  , pf_accum: !v_accum
+  , pf_tmp1: !v_tmp1, pf_tmp2: !v_tmp2
+  | n: int
+  ) :<!ntm> void = () where {
+  var d: int = ~1 // not needed at run-time
+  var i: int = 0 and k: uint = 0U and m: int?
+  val () = while (true) let
+    val () = while (true) let
+      val () = k := k+1U
+      val () = next_term
+        (pf_numer, pf_denom, pf_accum, pf_tmp1, pf_tmp2 | k)
+      val () = d := extract_digit
+        (pf_numer, pf_denom, pf_accum, pf_tmp1, pf_tmp2 | (*none*))
+    in
+      if d <> ~1 then break
+    end // end of [while]
+    val _ = fputc_err (char_of_int (0x30(*'0'*) + d), stdout_ref)
+    val () = i := i+1
+    val () = m := i mod 10
+    val () = if (m = 0) then $effmask_all (fprintf (stdout_ref, "\t:%d\n", @(i)))
+    val () = if (i >= n) then break
+    val () = eliminate_digit (pf_numer, pf_denom, pf_accum | uint_of_int d);
+  in
+    // nothing
+  end // end of [while]
+} // end of [pidigits]
+
+(* ****** ****** *)
+
+implement main (argc, argv) = let
+  val n = (if argc > 1 then int_of_string (argv.[1]) else 27): int
+  prval vbox pf_all = pfbox_all
+in
+  pidigits (pf_all.0, pf_all.1, pf_all.2, pf_all.3, pf_all.4 | n)
+end // end of [main]
+
+(* ****** ****** *)
+
+(* end of [pidigits3.dats] *)
+(*
+** The Computer Language Benchmarks Game
+** http://shootout.alioth.debian.org/
+** contributed by Hongwei Xi 
+**
+** regex-dna benchmark using PCRE
+**
+** compilation command:
+**   atscc -O3 -fomit-frame-pointer -o regex-dna2 regex-dna2.dats -lpcre
+*)
+
+(* ****** ****** *)
+
+%{^
+#include <pcre.h>
+%}
+
+(* ****** ****** *)
+
+staload _(*anonymous*) = "prelude/DATS/array.dats"
+
+(* ****** ****** *)
+
+viewdef bytes_v (n:int, l:addr) = bytes n @ l
+
+(* ****** ****** *)
+
+%{^
+ATSinline()
+ats_ptr_type
+malloc_atm (ats_int_type n) { return malloc (n) ; }
+
+ATSinline()
+ats_void_type free_atm (ats_ptr_type p) { free (p) ; return ; }
+%}
+
+extern fun malloc_atm {n:nat}
+  (n: int n): [l:addr] @(bytes_v (n, l) | ptr l) = "malloc_atm"
+extern fun free_atm {n:nat} {l:addr}
+  (pf: bytes_v (n, l) | p: ptr l): void = "free_atm"
+
+(* ****** ****** *)
+
+viewdef block_v (sz:int, l:addr) = bytes_v (sz, l)
+dataviewtype blocklst (int) =
+  | {n:nat} {sz:nat} {l:addr} blocklst_cons (n+1) of
+      (block_v (sz, l) | int sz, ptr l, blocklst n)
+  | blocklst_nil (0)
+viewtypedef blocklst = [n:nat] blocklst (n)
+
+(* ****** ****** *)
+
+extern typedef "blocklst_cons_pstruct" =
+  blocklst_cons_pstruct (void | int, ptr, blocklst)
+
+(* ****** ****** *)
+
+extern fun fread_stdin_block {sz:nat} {l:addr}
+  (pf: !block_v (sz, l) | sz: int sz, p: ptr l): natLte sz
+  = "fread_stdin_block"
+
+%{$
+
+ats_int_type
+fread_stdin_block (
+  ats_int_type sz0, ats_ptr_type p0
+) {
+  char *p ; int nread, sz ;
+  p = p0; sz = sz0 ;
+  while (sz > 0) {
+    nread = fread (p, 1, sz, stdin) ;
+    if (nread > 0) { p += nread ; sz -= nread ; continue ; }
+    if (feof (stdin)) break ;
+  }
+  return (sz0 - sz) ;
+} /* end of [fread_stdin_block] */
+
+%} // end of [%{$]
+
+(* ****** ****** *)
+
+fn fread_stdin_blocklst {sz:nat}
+  (sz: int sz, tot: &int): blocklst = let
+  fun loop {tot: addr} (
+      pf_tot: !int @ tot |
+      sz: int sz, p_tot: ptr tot, res: &blocklst? >> blocklst
+    ) : void = let
+    val (pf | p) = malloc_atm (sz)
+    val n = fread_stdin_block (pf | sz, p); val () = !p_tot := !p_tot + n
+    val () = (res := blocklst_cons {0} (pf | sz, p, ?))
+    val+ blocklst_cons (_ | _, _, !res1) = res
+  in
+    if n < sz then begin
+      !res1 := blocklst_nil (); fold@ res
+    end else begin
+      loop (pf_tot | sz, p_tot, !res1); fold@ res
+    end // end of [if]
+  end // end of [loop]
+  var res: blocklst; val () = loop (view@ tot | sz, &tot, res)
+in
+  res
+end // end of [fread_stdin_blocklst]
+
+(* ****** ****** *)
+
+extern fun blocklst_concat_and_free
+  {n:nat} (n: int n, blks: blocklst): [l:addr] @(bytes_v (n, l) | ptr l)
+  = "blocklst_concat_and_free"
+
+%{$
+
+ats_ptr_type
+blocklst_concat_and_free
+  (ats_int_type tot, ats_ptr_type blks) {
+  char *res0, *res, *p_blk ;
+  int lft, sz ; blocklst_cons_pstruct blks_nxt ;
+
+  lft = tot ; res0 = res = malloc_atm (tot) ;
+
+  while (blks) {
+    sz = ((blocklst_cons_pstruct)blks)->atslab_0 ;
+    p_blk = ((blocklst_cons_pstruct)blks)->atslab_1 ;
+    if (sz < lft) {
+      memcpy (res, p_blk, sz) ;
+    } else {
+      memcpy (res, p_blk, lft) ; lft = 0 ; break ;
+    }
+    res += sz ; lft -= sz ;
+    blks_nxt = ((blocklst_cons_pstruct)blks)->atslab_2 ;
+    free_atm (p_blk) ; ATS_FREE (blks) ;
+    blks = blks_nxt ;
+  }
+  return res0 ;
+}
+
+%} // end of [{%$]
+
+(* ****** ****** *)
+
+%{$
+
+ats_int_type
+count_pattern_match
+  (ats_int_type nsrc, ats_ptr_type src, ats_ptr_type pat) {
+  int count ;
+  pcre *re; pcre_extra *re_ex ; const char *re_e ;
+  int err, re_eo, m[3], pos ;
+
+  re = pcre_compile
+    ((char*)pat, PCRE_CASELESS, &re_e, &re_eo, NULL) ;
+  if (!re) exit (1) ;
+  re_ex = pcre_study (re, 0, &re_e);  
+
+  for (count = 0, pos = 0 ; ; ) {
+    err = pcre_exec (re, re_ex, (char*)src, nsrc, pos, 0, m, 3) ;
+    if (err < 0) break ; count += 1 ; pos = m[1] ;
+  }
+  return count ;
+} /* end of [count_pattern_match] */
+
+%} // end of [%{$]
+
+(* ****** ****** *)
+
+extern fun count_pattern_match {n:nat} {l:addr}
+  (pf: !bytes_v (n, l) | n: int n, p: ptr l, pat: string): int
+  = "count_pattern_match"
+
+(* ****** ****** *)
+
+#define variants_length 9
+val variants: array (string, variants_length) = array_make_arrsz $arrsz{string}(
+  "agggtaaa|tttaccct"
+, "[cgt]gggtaaa|tttaccc[acg]"
+, "a[act]ggtaaa|tttacc[agt]t"
+, "ag[act]gtaaa|tttac[agt]ct"
+, "agg[act]taaa|ttta[agt]cct"
+, "aggg[acg]aaa|ttt[cgt]ccct"
+, "agggt[cgt]aa|tt[acg]accct"
+, "agggta[cgt]a|t[acg]taccct"
+, "agggtaa[cgt]|[acg]ttaccct"
+) // end of [variants]
+
+fun count_loop {i:nat} {n:nat} {l:addr}
+  (pf: !bytes_v (n, l) | n: int n, p: ptr l, i: int i): void =
+  if i < variants_length then let
+    val pat = variants[i]
+    val cnt = count_pattern_match (pf | n, p, pat)
+    val () = (print pat ; print ' '; print cnt ; print_newline ())
+  in
+    count_loop (pf | n, p, i + 1)
+  end // end of [if]
+
+(* ****** ****** *)
+
+datatype seglst (int) =
+  | {n:nat} seglst_cons (n+1) of (int(*beg*), int(*len*), seglst n)
+  | seglst_nil (0)
+typedef seglst0 = seglst 0
+typedef seglst = [n:nat] seglst (n)
+
+extern typedef "seglst_cons_pstruct" =
+  seglst_cons_pstruct (int, int, seglst)
+
+extern fun seglst_cons_make
+  (beg: int, len: int): seglst_cons_pstruct (int, int, seglst0?)
+  = "seglst_cons_make"
+
+implement seglst_cons_make (beg, len) = seglst_cons {0} (beg, len, ?)
+
+extern typedef "int_ptr_type" = @(void | int, ptr)
+
+(* ****** ****** *)
+
+%{$
+
+ats_void_type subst_copy (
+  char *dst, char *src, int nsrc, seglst_cons_pstruct sgs, char *sub, int nsub
+) {
+  int ofs, beg, len ; seglst_cons_pstruct sgs_nxt ;
+  for (ofs = 0 ; ; ) {
+    if (!sgs) break ;
+    beg = sgs->atslab_0 ; len = beg - ofs ;
+    memcpy (dst, src, len) ; dst += len ; src += len ; ofs = beg ;
+    len = sgs->atslab_1 ;
+    memcpy (dst, sub, nsub) ; dst += nsub ; src += len ; ofs += len ;
+    sgs_nxt = sgs->atslab_2 ; ATS_FREE (sgs); sgs = sgs_nxt ;
+  }
+  len = nsrc - ofs ;  memcpy (dst, src, len) ; return ;
+} /* end of [subst_copy] */
+
+int_ptr_type subst_pattern_string
+  (ats_int_type nsrc, ats_ptr_type src, ats_ptr_type pat, ats_ptr_type sub) {
+  char *dst ; int ndst, nsub ; int beg, len, nxt ;
+  pcre *re; pcre_extra *re_ex ; const char *re_e ;
+  int err, re_eo, m[3], pos ;
+  seglst_cons_pstruct sgs0, sgs, *sgs_ptr ;
+  int_ptr_type ans ;
+
+  ndst = nsrc ; nsub = strlen ((char*)sub) ;
+  re = pcre_compile
+    ((char*)pat, PCRE_CASELESS, &re_e, &re_eo, NULL) ;
+  if (!re) exit (1) ;
+  re_ex = pcre_study (re, 0, &re_e);  
+  for (pos = 0, sgs_ptr = &sgs0 ; ; ) {
+    err = pcre_exec (re, re_ex, (char*)src, nsrc, pos, 0, m, 3) ;
+    if (err >= 0) {
+      beg = m[0] ; pos = m[1] ;
+      len = pos - beg ; ndst -= len ; ndst += nsub ;
+      sgs = (seglst_cons_pstruct)seglst_cons_make (beg, len) ;
+      *sgs_ptr = sgs ; sgs_ptr = (seglst_cons_pstruct*)&(sgs->atslab_2) ;
+    } else {
+     *sgs_ptr = (seglst_cons_pstruct)0 ; break ;
+    }
+  } // end of [for]
+  dst = malloc_atm (ndst) ;
+  ans.atslab_1 = ndst ; ans.atslab_2 = dst ;
+  subst_copy (dst, src, nsrc, sgs0, sub, nsub) ;
+  return ans ;
+} /* end of [subst_pattern_string] */
+
+%} // end of [%{$]
+
+extern fun subst_pattern_string {n:nat} {l:addr}
+  (pf: !bytes_v (n, l) | n: int n, p: ptr l, pat: string, sub: string)
+  : [n:nat] [l:addr] @(bytes_v (n, l) | int n, ptr l)
+  = "subst_pattern_string"
+
+(* ****** ****** *)
+
+#define subst_length 22
+val subst: array (string, subst_length) = array_make_arrsz $arrsz{string}(
+  "B", "(c|g|t)"
+, "D", "(a|g|t)"
+, "H", "(a|c|t)"
+, "K", "(g|t)"
+, "M", "(a|c)"
+, "N", "(a|c|g|t)"
+, "R", "(a|g)"
+, "S", "(c|g)"
+, "V", "(a|c|g)"
+, "W", "(a|t)"
+, "Y", "(c|t)"
+) // end of [subst]
+
+(* ****** ****** *)
+
+fun subst_loop {i:nat} {n:nat} {l:addr}
+  (pf: bytes_v (n, l) | n: int n, p: ptr l, i: int i): int =
+  if i < subst_length - 1 then let
+    val pat = subst[i]; val sub = subst[i+1]
+    val (pf1 | n1, p1) = subst_pattern_string (pf | n, p, pat, sub)
+    val () = free_atm (pf | p)
+  in
+    subst_loop (pf1 | n1, p1, i + 2)
+  end else begin
+    let val () = free_atm (pf | p) in n end
+  end // end of [if]
+
+(* ****** ****** *)
+
+#define BLOCKSIZE 0x10000 // 0x4000000
+
+implement main () = let
+  var n0: int = 0
+  val blks = fread_stdin_blocklst (BLOCKSIZE, n0)
+  val n0 = int1_of_int (n0); val () = assert (n0 >= 0)
+  val (pf_bytes | p0) = blocklst_concat_and_free (n0, blks)
+  val (pf1_bytes | n1, p1) =
+    subst_pattern_string (pf_bytes | n0, p0, ">.*|\n", "")
+  val () = free_atm (pf_bytes | p0)
+  val () = count_loop (pf1_bytes | n1, p1, 0)
+  val n_last = subst_loop (pf1_bytes | n1, p1, 0)
+in
+  printf ("\n%i\n%i\n%i\n", @(n0, n1, n_last))
+end // end of [main]
+
+(* ****** ****** *)
+
+(* end of [regex-dna2.dats] *)
+(*
+** The Computer Language Shootout
+** http://shootout.alioth.debian.org/
+** contributed by Hongwei Xi
+**
+** multicore version of regex-dna benchmark using PCRE
+**
+** compilation command:
+**   atscc -D_ATS_MULTITHREAD -lpthread -lpcre -O3 -fomit-frame-pointer regex-dna_smp.dats -o regex-dna_smp
+*)
+
+(* ****** ****** *)
+
+%{^
+#include <pcre.h>
+#include <pthread.h>
+%} // end of [%{^]
+
+(* ****** ****** *)
+
+staload _(*anonymous*) = "prelude/DATS/array.dats"
+
+(* ****** ****** *)
+
+extern fun malloc_atm {n:nat}
+  (n: int n): [l:addr] @(bytes n @ l | ptr l) = "malloc_atm"
+extern fun free_atm {n:nat} {l:addr}
+  (pf: bytes n @ l | p: ptr l): void = "free_atm"
+
+%{^
+
+ATSinline()
+ats_ptr_type malloc_atm (ats_int_type n) {
+  ats_ptr_type p = malloc (n) ;
+  if (!p) {
+    fprintf (stderr, "Exit: [malloc_atm] failed.\n") ; exit (1) ;
+  }
+  return p ;
+}
+
+ATSinline()
+ats_void_type free_atm (ats_ptr_type p) { free (p) ; return ; }
+
+%}
+
+(* ****** ****** *)
+
+viewdef block_v (sz:int, l:addr) = bytes (sz) @ l
+dataviewtype blocklst (int) =
+  | {n:nat} {sz:nat} {l:addr} blocklst_cons (n+1) of
+      (block_v (sz, l) | int sz, ptr l, blocklst n)
+  | blocklst_nil (0)
+viewtypedef blocklst = [n:nat] blocklst (n)
+
+(* ****** ****** *)
+
+extern typedef "blocklst_cons_pstruct" =
+  blocklst_cons_pstruct (void | int, ptr, blocklst)
+
+(* ****** ****** *)
+
+extern fun fread_stdin_block {sz:nat} {l:addr}
+  (pf: !block_v (sz, l) | sz: int sz, p: ptr l): natLte sz
+  = "fread_stdin_block"
+
+%{$
+
+ats_int_type
+fread_stdin_block (ats_int_type sz0, ats_ptr_type p0) {
+  char *p ; int nread, sz ;
+  p = p0; sz = sz0 ;
+  while (sz > 0) {
+    nread = fread (p, 1, sz, stdin) ;
+    if (nread > 0) { p += nread ; sz -= nread ; continue ; }
+    if (feof (stdin)) break ;
+  }
+  return (sz0 - sz) ;
+}
+
+%} // end of [%{$]
+
+(* ****** ****** *)
+
+fn fread_stdin_blocklst {sz:nat}
+  (sz: int sz, tot: &int): blocklst = let
+  fun loop {tot: addr} (
+      pf_tot: !int @ tot |
+      sz: int sz, p_tot: ptr tot, res: &blocklst? >> blocklst
+    ) : void = let
+    val (pf | p) = malloc_atm (sz)
+    val n = fread_stdin_block (pf | sz, p); val () = !p_tot := !p_tot + n
+    val () = (res := blocklst_cons {0} (pf | sz, p, ?))
+    val+ blocklst_cons (_ | _, _, !res1) = res
+  in
+    if n < sz then begin
+      !res1 := blocklst_nil (); fold@ res
+    end else begin
+      loop (pf_tot | sz, p_tot, !res1); fold@ res
+    end // end of [if]
+  end // end of [loop]
+  var res: blocklst; val () = loop (view@ tot | sz, &tot, res)
+in
+  res
+end // end of [fread_stdin_blocklst]
+
+(* ****** ****** *)
+
+extern fun blocklst_concat_and_free
+  {n:nat} (n: int n, blks: blocklst): [l:addr] @(bytes (n) @ l | ptr l)
+  = "blocklst_concat_and_free"
+
+%{$
+
+ats_ptr_type
+blocklst_concat_and_free
+  (ats_int_type tot, ats_ptr_type blks) {
+  char *res0, *res, *p_blk ;
+  int lft, sz ; blocklst_cons_pstruct blks_nxt ;
+
+  lft = tot ; res0 = res = malloc_atm (tot) ;
+
+  while (blks) {
+    sz = ((blocklst_cons_pstruct)blks)->atslab_0 ;
+    p_blk = ((blocklst_cons_pstruct)blks)->atslab_1 ;
+    if (sz < lft) {
+      memcpy (res, p_blk, sz) ;
+    } else {
+      memcpy (res, p_blk, lft) ; lft = 0 ; break ;
+    }
+    res += sz ; lft -= sz ;
+    blks_nxt = ((blocklst_cons_pstruct)blks)->atslab_2 ;
+    free_atm (p_blk) ; ATS_FREE (blks) ;
+    blks = blks_nxt ;
+  }
+  return res0 ;
+}
+
+%} // end of [%{$]
+
+(* ****** ****** *)
+
+%{$
+
+ats_int_type count_pattern_match
+  (ats_int_type nsrc, ats_ptr_type src, ats_ptr_type pat) {
+  int count ;
+  pcre *re; pcre_extra *re_ex ; const char *re_e ;
+  int err, re_eo, m[3], pos ;
+  re = pcre_compile
+    ((char*)pat, PCRE_CASELESS, &re_e, &re_eo, NULL) ;
+  if (!re) exit (1) ;
+  re_ex = pcre_study (re, 0, &re_e);  
+  for (count = 0, pos = 0 ; ; ) {
+    err = pcre_exec (re, re_ex, (char*)src, nsrc, pos, 0, m, 3) ;
+    if (err < 0) break ; count += 1 ; pos = m[1] ;
+  }
+  return count ;
+}
+
+%} // end of [%{$]
+
+(* ****** ****** *)
+
+extern fun count_pattern_match {n:nat} {l:addr}
+  (pf: !bytes n @ l | n: int n, p: ptr l, pat: string): int
+  = "count_pattern_match"
+
+(* ****** ****** *)
+
+#define variants_length 9
+val variants: array (string, variants_length) = array_make_arrsz $arrsz{string}(
+  "agggtaaa|tttaccct"
+, "[cgt]gggtaaa|tttaccc[acg]"
+, "a[act]ggtaaa|tttacc[agt]t"
+, "ag[act]gtaaa|tttac[agt]ct"
+, "agg[act]taaa|ttta[agt]cct"
+, "aggg[acg]aaa|ttt[cgt]ccct"
+, "agggt[cgt]aa|tt[acg]accct"
+, "agggta[cgt]a|t[acg]taccct"
+, "agggtaa[cgt]|[acg]ttaccct"
+)
+
+// a linear list would be better, but ...
+val answers: array (int, variants_length) = array_make_elt<int> (variants_length, ~1)
+
+(* ****** ****** *)
+
+%{^
+
+// this is all standard and should probably go into a library
+static pthread_mutex_t mutex_fin = PTHREAD_MUTEX_INITIALIZER;
+
+ATSinline()
+ats_void_type finlock_lock () {
+  pthread_mutex_lock (&mutex_fin) ; return ;
+}
+
+static the_nticket ; static the_nthread ;
+static pthread_mutex_t mutex_nticket = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t mutex_nthread = PTHREAD_MUTEX_INITIALIZER;
+
+ATSinline()
+ats_void_type thread_v_return () {
+  int n ;
+  pthread_mutex_lock (&mutex_nthread) ;
+  n = the_nthread ; the_nthread = n - 1;
+  pthread_mutex_unlock (&mutex_nthread) ;
+  if (n == 1) {
+    pthread_mutex_unlock (&mutex_fin) ; // conditional wait?
+  } // end of [if]
+  return ;
+}
+
+ats_int_type nticket_get () {
+  int n ;
+  pthread_mutex_lock (&mutex_nticket) ;
+  n = the_nticket ; the_nticket = n + 1 ;
+  pthread_mutex_unlock (&mutex_nticket) ;
+  return n ;
+}
+
+ATSinline()
+ats_void_type main_init () {
+  pthread_mutex_lock (&mutex_fin) ; return ;
+}
+
+ATSinline()
+ats_void_type nthread_init (ats_int_type n) {
+  the_nticket = 0 ; the_nthread = n ; return ;
+}
+
+%}
+
+absview thread_v; absview nthread_v (int)
+
+extern fun thread_v_return
+  (pf: thread_v | (*none*)): void = "thread_v_return"
+extern praxi nthread_v_take {n:pos}
+  (pf: !nthread_v n >> nthread_v (n-1)): thread_v
+extern praxi nthread_v_elim (pf: nthread_v 0):<> void
+extern fun nticket_get
+  (pf: !thread_v | (*none*)): Nat = "nticket_get"
+  
+// [!ref] prevents it from being called in a thread
+extern fun nthread_init {n:nat} (n: int n):<!ref> (nthread_v n | void)
+  = "nthread_init"
+
+(* ****** ****** *)
+
+staload "libc/SATS/pthread.sats"
+
+(* ****** ****** *)
+
+#define NTHREAD variants_length // does not have be exactly the same
+
+(* ****** ****** *)
+
+fun count_worker {n:nat} {l:addr}
+  (pf1: thread_v, pf2: bytes n @ l | n: int n, p: ptr l): void = let
+  extern praxi bytes_v_elim (pf: bytes n @ l): void
+  val i = nticket_get (pf1 | (*none*))
+in
+  case+ 0 of
+  | _ when i < variants_length => let
+      val () = answers[i] := count_pattern_match (pf2 | n, p, variants[i])
+    in
+      count_worker (pf1, pf2 | n, p)
+    end // end of [_ when ...]
+  | _ => let
+      prval () = bytes_v_elim (pf2) in thread_v_return (pf1 | (*none*))
+    end // end of [_]
+end // end of [count_one]
+
+(* ****** ****** *)
+
+fun count_all {n:nat} {l:addr}
+  (pf: !bytes n @ l | n: int n, p: ptr l): void = let
+  extern praxi bytes_v_make (): bytes n @ l
+  fun workerlst_gen {t:nat}
+    (pf_nthread: nthread_v t | t: int t):<cloref1> void =
+    if t > 0 then let
+      prval pf2 = bytes_v_make ()
+      prval pf1 = nthread_v_take (pf_nthread)
+      val () = pthread_create_detached_cloptr (
+        lam () =<lin,cloptr1> count_worker (pf1, pf2 | n, p)
+      ) // end of [pthread_create_detached_cloptr]
+    in
+      workerlst_gen (pf_nthread | t-1)
+    end else begin
+      let prval () = nthread_v_elim (pf_nthread) in () end
+    end // end of [if]
+  val (pf_nthread | ()) = nthread_init (NTHREAD)
+  val () = workerlst_gen (pf_nthread | NTHREAD)  
+in
+  // empty
+end // end of [count_all]
+  
+(* ****** ****** *)
+
+fn count_print () = loop (0) where {
+  fun loop {i:nat | i <= variants_length} (i: int i):<cloref1> void =
+    if i < variants_length then let
+      val pat = variants[i] and cnt = answers[i]
+      val () = (print pat ; print ' '; print cnt ; print_newline ())
+    in
+      loop (i + 1)
+    end // end of [if]
+} // end of [count_print]
+
+(* ****** ****** *)
+
+datatype seglst (int) =
+  | {n:nat} seglst_cons (n+1) of (int(*beg*), int(*len*), seglst n)
+  | seglst_nil (0)
+typedef seglst0 = seglst 0
+typedef seglst = [n:nat] seglst (n)
+
+extern typedef "seglst_cons_pstruct" =
+  seglst_cons_pstruct (int, int, seglst)
+
+extern fun seglst_cons_make
+  (beg: int, len: int): seglst_cons_pstruct (int, int, seglst0?)
+  = "seglst_cons_make"
+
+implement seglst_cons_make (beg, len) = seglst_cons {0} (beg, len, ?)
+
+extern typedef "int_ptr_type" = @(void | int, ptr)
+
+%{$
+
+ats_void_type subst_copy (
+  char *dst, char *src, int nsrc
+, seglst_cons_pstruct sgs, char *sub, int nsub
+) {
+  int ofs, beg, len ; seglst_cons_pstruct sgs_nxt ;
+  for (ofs = 0 ; ; ) {
+    if (!sgs) break ;
+    beg = sgs->atslab_0 ; len = beg - ofs ;
+    memcpy (dst, src, len) ; dst += len ; src += len ; ofs = beg ;
+    len = sgs->atslab_1 ;
+    memcpy (dst, sub, nsub) ; dst += nsub ; src += len ; ofs += len ;
+    sgs_nxt = sgs->atslab_2 ; ATS_FREE (sgs); sgs = sgs_nxt ;
+  }
+  len = nsrc - ofs ;  memcpy (dst, src, len) ; return ;
+}
+
+int_ptr_type subst_pattern_string
+  (ats_int_type nsrc, ats_ptr_type src, ats_ptr_type pat, ats_ptr_type sub) {
+  char *dst ; int ndst, nsub ; int beg, len, nxt ;
+  pcre *re; pcre_extra *re_ex ; const char *re_e ;
+  int err, re_eo, m[3], pos ;
+  seglst_cons_pstruct sgs0, sgs, *sgs_ptr ;
+  int_ptr_type ans ;
+
+  ndst = nsrc ; nsub = strlen ((char*)sub) ;
+  re = pcre_compile
+    ((char*)pat, PCRE_CASELESS, &re_e, &re_eo, NULL) ;
+  if (!re) exit (1) ;
+  re_ex = pcre_study (re, 0, &re_e);  
+  for (pos = 0, sgs_ptr = &sgs0 ; ; ) {
+    err = pcre_exec (re, re_ex, (char*)src, nsrc, pos, 0, m, 3) ;
+    if (err >= 0) {
+      beg = m[0] ; pos = m[1] ;
+      len = pos - beg ; ndst -= len ; ndst += nsub ;
+      sgs = (seglst_cons_pstruct)seglst_cons_make (beg, len) ;
+      *sgs_ptr = sgs ; sgs_ptr = (seglst_cons_pstruct*)&(sgs->atslab_2) ;
+    } else {
+     *sgs_ptr = (seglst_cons_pstruct)0 ; break ;
+    }
+  } // end of [for]
+  dst = malloc_atm (ndst) ;
+  ans.atslab_1 = ndst ; ans.atslab_2 = dst ;
+  subst_copy (dst, src, nsrc, sgs0, sub, nsub) ;
+  return ans ;
+}
+
+%} // end of [%{$]
+
+(* ****** ****** *)
+
+extern fun subst_pattern_string {n:nat} {l:addr}
+  (pf: !bytes n @ l | n: int n, p: ptr l, pat: string, sub: string)
+  : [n:nat] [l:addr] @(bytes n @ l | int n, ptr l)
+  = "subst_pattern_string"
+
+(* ****** ****** *)
+
+#define subst_length 22
+val subst: array (string, subst_length) = array_make_arrsz $arrsz{string}(
+  "B", "(c|g|t)"
+, "D", "(a|g|t)"
+, "H", "(a|c|t)"
+, "K", "(g|t)"
+, "M", "(a|c)"
+, "N", "(a|c|g|t)"
+, "R", "(a|g)"
+, "S", "(c|g)"
+, "V", "(a|c|g)"
+, "W", "(a|t)"
+, "Y", "(c|t)"
+)
+
+(* ****** ****** *)
+
+fun subst_loop {i:nat} {n:nat} {l:addr}
+  (pf: bytes n @ l | n: int n, p: ptr l, i: int i): int =
+  if i < subst_length - 1 then let
+    val pat = subst[i]; val sub = subst[i+1]
+    val (pf1 | n1, p1) = subst_pattern_string (pf | n, p, pat, sub)
+    val () = free_atm (pf | p)
+  in
+    subst_loop (pf1 | n1, p1, i + 2)
+  end else begin
+    let val () = free_atm (pf | p) in n end
+  end // end of [if]
+  
+fn subst_top {n:nat} {l:addr}
+  (pf: !bytes n @ l | n: int n, p: ptr l): int = let
+  val pat = subst[0]; val sub = subst[1]
+  val (pf1 | n1, p1) = subst_pattern_string (pf | n, p, pat, sub)
+in
+  subst_loop (pf1 | n1, p1, 2)
+end // end of [subst_top]
+  
+(* ****** ****** *)
+
+#define BLOCKSIZE 0x10000
+
+implement main () = let
+  var n0: int = 0
+  val blks = fread_stdin_blocklst (BLOCKSIZE, n0)
+  val n0 = int1_of_int (n0); val () = assert (n0 >= 0)
+  val (pf_bytes | p0) = blocklst_concat_and_free (n0, blks)
+  val (pf1_bytes | n1, p1) =
+    subst_pattern_string (pf_bytes | n0, p0, ">.*|\n", "")
+  val () = free_atm (pf_bytes | p0)
+  val () = main_init () where {
+    extern fun main_init (): void = "main_init"
+  }
+  val () = count_all (pf1_bytes | n1, p1)
+  val n_last = subst_top (pf1_bytes | n1, p1)
+  val () = finlock_lock () where {
+    extern fun finlock_lock (): void = "finlock_lock"
+  }
+  val () = free_atm (pf1_bytes | p1)
+  val () = count_print ()
+in
+  printf ("\n%i\n%i\n%i\n", @(n0, n1, n_last))
+end // end of [main]
+
+(* ****** ****** *)
+
+(* end of [regex-dna_smp.dats] *)
+(*
+** The Computer Language Benchmarks Game
+** http://shootout.alioth.debian.org/
+**
+** contributed by Hongwei Xi
+**
+** compilation command:
+**   atscc -O3 -fomit-frame-pointer reverse-complement2.dats -o reverse-complement2
+*)
+
+(* ****** ****** *)
+
+staload "libc/SATS/stdio.sats"
+
+(* ****** ****** *)
+
+sta l_iubcmpltarr: addr
+extern prval
+  pfbox_iubcmpltarr: vbox (bytes(BYTE_MAX+1) @ l_iubcmpltarr)
+val p_iubcmpltarr = $extval (ptr l_iubcmpltarr, "&iubcmpltarr[0]")
+
+fn iubcmplt_get (b: byte): byte = let
+  val i = int1_of_byte (b); prval vbox pf = pfbox_iubcmpltarr in
+  p_iubcmpltarr->[i]
+end // end of [iubcmplt_get]
+
+(* ****** ****** *)
+
+(* [reverse buf] reverse-complement the string [buf] in place. *)
+fn reverse_buf {pos,bsz:nat | 0 < pos; pos <= bsz}
+  (buf: &bytes(bsz), pos: size_t pos): void = loop (buf, 0, pos-1) where {
+  fun loop {i:nat | i < pos} .<pos-i>.
+    (buf: &bytes(bsz), i: size_t i, j: size_t (pos-i-1)): void =
+    if i < j then let
+      val bufi = buf.[i] and bufj = buf.[j]
+      val () = buf.[i] := iubcmplt_get bufj and () = buf.[j] := iubcmplt_get bufi
+    in
+      loop (buf, i+1, j-1)
+    end (* end of [if] *)
+  // end of [loop]
+} // end of [reverse_buf]
+
+(* ****** ****** *)
+
+#define LINE 128
+#define BUFSZ 1024
+
+#define WIDTH 60
+macdef WIDTH_sz = size1_of_int1 (WIDTH)
+
+(* ****** ****** *)
+
+// *_unlocked I/O functions are used to implement these two:
+extern fun fputc (c: char, out: FILEref): void = "fasta_fputc"
+extern fun fwrite_byte {bsz,n:nat | n <= bsz} {l:addr}
+  (pf: !bytes (bsz) @ l | p: ptr l, n: size_t n, out: FILEref):<> sizeLte n
+  = "fasta_fwrite_byte"
+
+// no proofs are provided for the following two theorems:
+extern praxi bytes_v_split {n,i:nat | i <= n}
+  {l:addr} (pf: bytes (n) @ l): @(bytes (i) @ l, bytes (n-i) @ l+i)
+extern praxi bytes_v_unsplit {n1,n2:nat}
+  {l:addr} (pf1: bytes(n1) @ l, pf2: bytes(n2) @ l+n1): bytes (n1+n2) @ l
+
+(* ****** ****** *)
+
+fun fasta_print {n,sz:nat | n <= sz} {l:addr}
+  (pf: !bytes (sz) @ l | p: ptr l, n: size_t n): void =
+  if n > WIDTH_sz then let
+    val _ = fwrite_byte (pf | p, WIDTH_sz, stdout_ref)
+    val () = fputc ('\n', stdout_ref)
+    prval (pf1, pf2) = bytes_v_split {sz,WIDTH} (pf)
+    val () = fasta_print (pf2 | p + WIDTH_sz, n - WIDTH)
+    val () = pf := bytes_v_unsplit (pf1, pf2)
+  in
+    // empty
+  end else let
+    val _ = fwrite_byte (pf | p, n, stdout_ref)
+    val () = fputc ('\n', stdout_ref)
+  in
+    // empty
+  end // end of [if]    
+// end of [fasta_print]
+
+(* ****** ****** *)
+
+fn fwrite_buf
+  {pos,len,bsz:nat | pos + len <= bsz} {l_buf:addr} (
+    pf: !bytes (bsz) @ l_buf
+  | p_buf: ptr l_buf, pos: size_t pos, len: size_t len, file: FILEref
+  ) : void = () where {
+  prval (pf1, pf2) = bytes_v_split {bsz,pos} (pf)
+  val _ = fwrite_byte (pf2 | p_buf + pos, len, file)
+  prval () = pf := bytes_v_unsplit (pf1, pf2)
+} /* end of [fwrite_buf] */
+
+typedef sizeBtw (lb:int, ub:int) = [i:int | lb <= i; i < ub] size_t i
+
+fn fread_buf_line
+  {pos,len,bsz:nat | 0 < len; pos + len <= bsz} {l_buf:addr} (
+    pf: !bytes (bsz) @ l_buf
+  | p_buf: ptr l_buf, pos: size_t pos, len: int len, inp: &FILE r
+  ) : sizeBtw (pos, pos+len) = let
+  prval (pf1, pf2) = bytes_v_split {bsz,pos} (pf)
+  val p_beg = p_buf+pos
+  val () = fgets_exn (file_mode_lte_r_r, pf2 | p_beg, len, inp)
+  val n = strbuf_length (!p_beg)
+  val pos1 = pos + n
+in
+  case+ 0 of
+  | _ when n > 0 => let
+      val c = strbuf_get_char_at (!p_beg, n-1)
+      prval pf2 = bytes_v_of_strbuf_v (pf2)
+      prval () = pf := bytes_v_unsplit (pf1, pf2)
+    in
+      if c = '\n' then pos1 - 1 else pos1
+    end // end of [_ when ...]
+  | _ => pos1 where {
+      prval pf2 = bytes_v_of_strbuf_v (pf2)
+      prval () = pf := bytes_v_unsplit (pf1, pf2)
+    } // end of [_]
+end (* end of [fread_buf_line] *)
+
+(* ****** ****** *)
+
+implement
+main (argc, argv) = let
+//
+macdef GT = byte_of_char '>' 
+//
+fun loop {pos:nat}
+  {bsz:int | bsz > 0} {l_buf:addr} (
+  pf_gc: freebyte_gc_v (bsz, l_buf), pf_buf: bytes (bsz) @ l_buf
+| inp: &FILE r, p_buf: ptr l_buf, bsz: size_t bsz, pos: size_t pos
+) : void = begin
+  if pos + LINE <= bsz then let
+    val pos_new = fread_buf_line (pf_buf | p_buf, pos, LINE, inp)
+  in
+    if pos_new > pos then begin
+      if p_buf->[pos] = GT then let
+        val () = if pos > 0 then let
+          val () = reverse_buf (!p_buf, pos) in fasta_print (pf_buf | p_buf, pos)
+        end // end of [val]
+        val () = fwrite_buf (pf_buf | p_buf, pos, pos_new-pos, stdout_ref)
+        val () = fputc ('\n', stdout_ref)
+      in
+        loop (pf_gc, pf_buf | inp, p_buf, bsz, 0)
+      end else begin
+        loop (pf_gc, pf_buf | inp, p_buf, bsz, pos_new)
+      end (* end of [if] *)
+    end else let
+      val () = if pos > 0 then let
+        val () = reverse_buf (!p_buf, pos)
+        val () = fasta_print (pf_buf | p_buf, pos);
+      in
+        // empty
+      end // end of [val]
+      val () = free_gc (pf_gc, pf_buf | p_buf)
+    in
+      // empty
+    end (* end of [if] *)
+  end else let
+    val bsz = bsz + bsz
+    val (pf_gc, pf_buf | p_buf) = realloc_gc (pf_gc, pf_buf | p_buf, bsz)
+    prval pf_buf = bytes_v_of_b0ytes_v pf_buf
+  in
+    loop (pf_gc, pf_buf | inp, p_buf, bsz, pos)
+  end // end of [if]
+end (* end of [loop] *)
+
+val () = iubcmpltarr_initialize () where {
+  extern fun iubcmpltarr_initialize (): void = "iubcmpltarr_initialize"
+} // end of [val]
+
+val (pf_gc, pf_buf | p_buf) = malloc_gc (BUFSZ)
+prval pf_buf = bytes_v_of_b0ytes_v pf_buf
+val (pf_stdin | p_stdin) = stdin_get ()
+val () = loop (pf_gc, pf_buf | !p_stdin, p_buf, BUFSZ, 0)
+val () = stdin_view_set (pf_stdin | (*none*))
+
+in
+  // empty
+end // end of [main]
+
+(* ****** ****** *)
+
+%{^
+
+// reuse some existing C code for initialization
+
+#include <errno.h>
+
+static unsigned char iubpairs[][2] = {
+    {    'A',    'T'    },
+    {    'C',    'G'    },
+    {    'B',    'V'    },
+    {    'D',    'H'    },
+    {    'K',    'M'    },
+    {    'R',    'Y'    },
+    {    '\000',   '\000'   }
+} ;
+
+#define BYTE_MAX 255
+static unsigned char iubcmpltarr[1+BYTE_MAX];
+
+ATSinline()
+ats_void_type iubcmpltarr_initialize () {
+  int i;
+  for (i=0; i <= BYTE_MAX; i++) {
+    iubcmpltarr[i] = (unsigned char) i;
+  }
+  for (i=0; iubpairs[i][0] != '\0'; i++) {
+    iubcmpltarr[iubpairs[i][0]] = iubpairs[i][1];
+    iubcmpltarr[iubpairs[i][1]] = iubpairs[i][0];
+    iubcmpltarr[tolower(iubpairs[i][0])] = iubpairs[i][1];
+    iubcmpltarr[tolower(iubpairs[i][1])] = iubpairs[i][0];
+  }
+} /* end of [iubcmpltarr_initialize] */
+
+// locked/unlocked: does it really matter?
+
+ats_void_type
+fasta_fputc (
+  ats_char_type c, ats_ptr_type out
+) {
+  fputc_unlocked ((char)c, (FILE*)out) ; return ;
+} // end of [fasta_fputc]
+
+ats_size_type
+fasta_fwrite_byte
+  (ats_ptr_type buf, ats_size_type n, ats_ptr_type fil) {
+  return fwrite_unlocked ((void*)buf, (size_t)1, (size_t)n, (FILE*)fil) ;
+} // end of [fasta_fwrite_byte]
+
+%} // end of [%{^]
+
+(* ****** ****** *)
+
+(* end of [reverse-complement2.dats] *)
+(*
+** The Computer Language Benchmarks Game
+** http://shootout.alioth.debian.org/
+**
+** contributed by Hongwei Xi 
+**
+** compilation command:
+**   atscc -O3 -msse2 spectralnorm.dats -o spectralnorm -lm
+**
+*)
+
+staload M = "libc/SATS/math.sats"
+
+%{^
+
+static inline
+ats_ptr_type
+darray_make (ats_int_type n, ats_double_type f) {
+  int i;
+  ats_double_type *p0, *p ;
+
+  p0 = malloc(n * sizeof(ats_double_type)) ;
+  p = p0 ;
+
+  for (i = 0; i < n; ++i) { *p = f; ++p; }
+  return p0 ;
+}
+
+static inline
+ats_void_type
+darray_free (ats_ptr_type A) { free (A) ; return ; }
+
+static inline
+ats_double_type
+darray_get (ats_ptr_type A, ats_int_type i) {
+  return ((ats_double_type *)A)[i] ;
+}
+
+static inline
+ats_void_type
+darray_set (ats_ptr_type A, ats_int_type i, ats_double_type f) {
+  ((ats_double_type *)A)[i] = f ; return ;
+}
+
+static inline
+ats_double_type eval_A (ats_int_type i, ats_int_type j) { 
+  return 1.0/((i+j)*(i+j+1)/2+i+1);
+}
+
+%}
+
+absviewt@ype darray (n:int) // it is linear, so it cannot be leaked.
+
+extern fun darray_make {n:nat}
+  (n: int n, d: double): [l:addr] (darray n @ l | ptr l)
+  = "darray_make"
+
+extern fun darray_free
+  {n:nat} {l:addr} (pf: darray n @ l | p: ptr l): void
+  = "darray_free"
+
+extern fun darray_get {n:nat}
+  (A: &darray n, i: natLt n): double = "darray_get"
+
+extern fun darray_set {n:nat}
+  (A: &darray n, i: natLt n, d: double): void = "darray_set"
+
+overload [] with darray_get
+overload [] with darray_set
+
+//
+
+extern fun eval_A (i: int, j: int): double = "eval_A"
+
+fn eval_A_times_u {N:nat}
+  (N: int N, u: &darray N, Au: &darray N): void =
+  let
+     fun loop2 {i,j:nat | i < N; j <= N} .<N-j>.
+       (u: &darray N, Au: &darray N, i: int i, j: int j):<cloptr1> void =
+       if j < N then begin
+         Au[i] := Au[i] + eval_A(i, j) * u[j]; loop2 (u, Au, i, j+1)
+       end
+
+     fun loop1 {i:nat | i <= N} .<N-i>.
+       (u: &darray N, Au: &darray N, i: int i):<cloptr1> void =
+       if i < N then begin
+         Au[i] := 0.0; loop2 (u, Au, i, 0); loop1 (u, Au, i+1)
+       end
+  in
+     loop1 (u, Au, 0)
+  end
+
+//
+
+fn eval_At_times_u {N:nat}
+  (N: int N, u: &darray N, Au: &darray N): void =
+  let
+     fun loop2 {i,j:nat | i < N; j <= N} .<N-j>.
+       (u: &darray N, Au: &darray N, i: int i, j: int j):<cloptr1> void =
+       if j < N then begin
+         Au[i] := Au[i] + eval_A(j, i) * u[j]; loop2 (u, Au, i, j+1)
+       end
+
+     fun loop1 {i:nat | i <= N} .<N-i>.
+       (u: &darray N, Au: &darray N, i: int i):<cloptr1> void =
+       if i < N then begin
+         Au[i] := 0.0; loop2 (u, Au, i, 0); loop1 (u, Au, i+1)
+       end
+  in
+     loop1 (u, Au, 0)
+  end
+
+fn eval_AtA_times_u {N:nat}
+  (N: int N, u: &darray N, AtAu: &darray N):<cloptr1> void =
+  let
+     val (pf | p_v) = darray_make (N, 0.0)
+  in
+     eval_A_times_u(N, u, !p_v);
+     eval_At_times_u (N, !p_v, AtAu);
+     darray_free (pf | p_v)
+  end
+
+//
+
+#define TIMES 10
+
+implement main (argc, argv) = let
+  val () = assert_errmsg (argc = 2, "Exit: wrong command format!\n")
+  val [N:int] N = int1_of_string argv.[1]
+  val () = assert_errmsg (
+    N >= 0, "The input integer needs to be a natural number.\n"
+  )
+  val (pf_u | p_u) = darray_make (N, 1.0)
+  val (pf_v | p_v) = darray_make (N, 0.0)
+  fun loop1 {i:nat | i <= TIMES} .<TIMES-i>.
+    (u: &darray N, v: &darray N, i: int i):<cloptr1> void =
+    if (i < TIMES) then begin
+      eval_AtA_times_u(N, u, v); eval_AtA_times_u(N, v, u); loop1 (u, v, i+1)
+    end
+  val () = loop1 (!p_u, !p_v, 0)
+  fun loop2 {i:nat| i <= N} .<N-i>.
+    (u: &darray N, v: &darray N,
+     vBv: double, vv: double, i: int i):<cloptr1> @(double, double) =
+    if i < N then
+      let val ui = u[i] and vi = v[i] in
+        loop2 (u, v, vBv+ui*vi, vv+vi*vi, i+1)
+      end
+    else (vBv, vv)
+  val (vBv, vv) = loop2 (!p_u, !p_v, 0.0, 0.0, 0)
+  val () = (darray_free (pf_u | p_u); darray_free (pf_v | p_v))
+in
+  printf("%0.9f\n", @($M.sqrt (vBv/vv)))
+end // end of [main]
+
+(* ****** ****** *)
+
+(* end of [spectral-norm.dats] *)
+(*
+** The Computer Language Benchmarks Game
+** http://shootout.alioth.debian.org/
+**
+** contributed by Hongwei Xi
+** contributed by Zhiqiang Ren
+**
+** compilation command:
+**   atscc -D_GNU_SOURCE -D_ATS_MULTITHREAD -O3 -msse2 spectral-norm2_smp.dats -o spectral-norm2_smp -lm -lpthread
+**
+*)
+
+(* ****** ****** *)
+
+staload M = "libc/SATS/math.sats"
+
+(* ****** ****** *)
+
+staload "libc/SATS/SIMD_v2df.sats"
+
+(* ****** ****** *)
+
+%{^
+#include <malloc.h>
+static inline ats_ptr_type
+darr_make (ats_int_type n, ats_double_type f) {
+  int i; double *p0, *p ;
+  // proper alignment is needed of v2df-processing
+  p0 = (double*)memalign(64, n * sizeof(double)) ;
+  p = p0; for (i = 0; i < n; ++i) *p++ = f ;
+  return p0 ;
+} // end of [darr_make]
+static inline ats_void_type
+darr_free (ats_ptr_type A) { free (A) ; return ; }
+%} // end of [%{^]
+
+(* ****** ****** *)
+
+typedef dbl = double
+typedef darr (n:int) = @[dbl][n] and v2dfarr (n:int) = @[v2df][n]
+
+extern
+fun darr_make {n:nat} (n: int n, ini: double)
+  : [l:addr] (darr n @ l | ptr l) = "darr_make"
+
+extern fun darr_free {n:nat}
+  {l:addr} (pf: darr n @ l | p: ptr l): void = "darr_free"
+
+(* ****** ****** *)
+
+macdef denom (i, j) =
+  (,(i) + ,(j)) * (,(i) + ,(j) + 1) / 2 + ,(i) + 1
+macdef eval_A (i,j) = 1.0 / denom (,(i), ,(j))
+
+fn eval_A_0 (i: int, j: int): v2df = let // two divisions at a time
+  val k1 = denom(i,j); val k2 = denom (i,j+1) in v2df_1_1 / v2df_make_int_int (k1, k2)
+end // end of [eval_A_0]
+
+fn eval_A_1 (i: int, j: int): v2df = let // two divisions at a time
+  val k1 = denom(i,j); val k2 = denom (i+1,j) in v2df_1_1 / v2df_make_int_int (k1, k2)
+end // end of [eval_A_1]
+
+(* ****** ****** *)
+
+staload "libats/SATS/parworkshop.sats"
+staload _ = "libats/DATS/parworkshop.dats"
+
+(* ****** ****** *)
+
+viewtypedef work = () -<lincloptr1> void
+viewtypedef WSptr (l:addr) = WORKSHOPptr (work, l)
+
+(* ****** ****** *)
+
+fun fwork {lws:agz}
+  (ws: !WSptr lws, wk: &work >> work?): int = let
+  val wk = wk
+  val pfun = __cast (wk) where {
+    extern castfn __cast
+      (wk: !work >> opt (work, i >= 1)): #[i:nat] uintptr i
+  } // end of [val]
+in
+  if pfun >= (uintptr1_of_uint1)1U then let
+    prval () = opt_unsome {work} (wk)
+    val () = wk ()
+    val () = cloptr_free (wk)
+  in
+    1 // the worker is to continue
+  end else let
+    val u = uint1_of_uintptr1 (pfun)
+    val i = int_of_uint (u)
+    prval () = opt_unnone {work} (wk)
+    prval () = cleanup_top {work} (wk)
+  in
+    ~i // the worker is to pause or quit
+  end // end of [if]
+end // end of [fwork]
+
+(* ****** ****** *)
+
+infix 0 +=; macdef += (x, d) = (,(x) := ,(x) + ,(d))
+
+(* ****** ****** *)
+
+fn eval_A_times_u {lws:agz} {N:nat} {l:addr} (
+    ws: !WSptr lws, flag: int, N: int N, u: &darr N, tmp: &darr N
+  ) : void = let
+  val N2 = N / 2; stadef N2 = N / 2
+  fun loop2_0
+    {i,j:nat | j <= N2} {l:addr} .<N2-j>. (
+      pf: !v2dfarr (N2-j) @ l
+    | p_dd: ptr l, sum: &v2df, i: int i, j: int j
+    ) :<cloref1> void =
+    if j < N2 then let
+      prval (pf1, pf2) = array_v_uncons {v2df} (pf)
+      val () = sum += !p_dd * eval_A_0 (i, 2*j)
+      val () = loop2_0 (pf2 | p_dd + sizeof<v2df>, sum, i, j+1)
+    in
+      pf := array_v_cons {v2df} (pf1, pf2)
+    end // end of [if]
+  // end of [loop2_0]
+  fun loop2_1
+    {i,j:nat | j <= N2} {l:addr} .<N2-j>. (
+      pf: !v2dfarr (N2-j) @ l
+    | p_dd: ptr l, sum: &v2df, i: int i, j: int j
+    ) :<cloref1> void =
+    if j < N2 then let
+      prval (pf1, pf2) = array_v_uncons {v2df} (pf)
+      val () = sum += !p_dd * eval_A_1 (2*j, i)
+      val () = loop2_1 (pf2 | p_dd + sizeof<v2df>, sum, i, j+1)
+    in
+      pf := array_v_cons {v2df} (pf1, pf2)
+    end // end of [if]
+  // end of [loop2_1]
+//
+  fun loop1
+    {i,i1:nat| i <= i1; i1 <= N} {l:addr} .<i1-i>. (
+      pf: !darr N @ l | i:int i, i1: int i1, p_u: ptr l, tmp: &darr N
+    ) :<cloref1> void = let
+    viewdef V1 = darr N @ l; viewdef V2 = v2dfarr (N2) @ l
+  in
+    if i < i1 then let
+      prval (pf1, fpf2) = __cast (pf) where {
+        extern prfun __cast (pf: darr N @ l): (V2, V2 -<lin,prf> V1)
+      }
+      var sum: v2df = v2df_0_0
+      val () = if flag = 0 then
+        loop2_0 (pf1 | p_u, sum, i, 0) else loop2_1 (pf1 | p_u, sum, i, 0)
+      // end of [if]
+      prval () = pf := fpf2 (pf1)
+      val () = tmp.[i] := v2df_get_fst(sum) + v2df_get_snd(sum)
+      val () = if N > N2+N2 then tmp.[i] += eval_A(i,N-1) * p_u->[N-1]
+    in
+      loop1 (pf | i+1, i1, p_u, tmp)
+    end // end of [if]
+  end // end of [loop1]
+  fun loop1_ {i,i1:nat| i <= i1; i1 <= N} {l,l_tmp:addr}
+    (i: int i, i1: int i1, p_u: ptr l, p_tmp: ptr l_tmp):<cloref1> void = let
+    extern prfun __vintr {v:view} (): v
+    extern prfun __velim {v:view} (pf: v): void
+    prval pf = __vintr {darr N @ l} ()
+    prval pf_tmp = __vintr {darr N @ l_tmp} ()
+    val () = loop1 (pf | i, i1, p_u, !p_tmp)
+    prval () = __velim (pf) and () = __velim (pf_tmp)
+  in
+    // nothing
+  end // end of [loop1_]
+//
+  val nworker = workshop_get_nworker (ws)
+  val () = assert_errmsg (nworker > 0, #LOCATION)
+  val INC = (N+nworker-1)/nworker/64
+  val INC = max (1, (int1_of_int)INC)
+  val () = assert_errmsg (INC > 0, #LOCATION)
+  fun split {lws:agz} {i:nat | i <= N} {l,l_tmp:addr}
+    (ws: !WSptr lws, i: int i, p_u: ptr l, p_tmp: ptr l_tmp):<cloref1> void =
+    if i < N then let
+      val i1 = min (i + INC, N)
+      val f = lam (): void =<lincloptr1> loop1_ (i, i1, p_u, p_tmp)
+      val () = workshop_insert_work (ws, f)
+    in
+      split (ws, i1, p_u, p_tmp)
+    end // end of [if]
+  // end of [split]
+  val () = split (ws, 0, &u, &tmp)
+  val () = workshop_wait_blocked_all (ws)
+in
+  // nothing
+end // end of [eval_A_times_u]
+
+(* ****** ****** *)
+
+fn eval_AtA_times_u {lws:agz} {N:nat} (
+  ws: !WSptr lws, N: int N, u: &darr N, v: &darr N, tmp: &darr N
+) : void = () where {
+  val () = eval_A_times_u (ws, 0, N, u, tmp); val () = eval_A_times_u (ws, 1, N, tmp, v)
+} // end of [eval_AtA_times_u]
+
+(* ****** ****** *)
+
+staload "libc/SATS/sched.sats"
+staload TYPES = "libc/sys/SATS/types.sats"
+macdef pid_t = $TYPES.pid_of_int
+
+extern fun ncore_get (): int
+implement ncore_get () = let
+  var cs: cpu_set0_t // uninitialized
+  prval () = cpusetinit (cs) // not a real initialization
+  stavar nset: int
+  val nset = cpusetsize_get (cs)
+  val () = assert_errmsg (nset >= 2, #LOCATION)
+  val err = sched_getaffinity ((pid_t)0, nset, cs)
+  var count: Nat = 0
+  var i: natLte 16 // uninitialized
+  val () = for* (cs: cpu_set_t nset) =>
+    (i := 0; i < 16; i := i + 1)
+    if (CPU_ISSET (i, cs) > 0) then count := count + 1
+  // end of [val]
+in
+  count
+end // end of [ncore_get]
+
+(* ****** ****** *)
+
+#define QSZ 1024
+
+(* ****** ****** *)
+
+implement main (argc, argv) = let
+  val () = assert_errmsg
+    (argc >= 2, "Exit: wrong command format!\n")
+  val [N:int] N = int1_of_string argv.[1]
+  val () = assert_errmsg (
+    N >= 0, "The input integer needs to be a natural number.\n"
+  )
+//
+  val NCORE = ncore_get ()
+  // val () = (print "NCORE = "; print NCORE; print_newline ())
+//
+  val nworker =
+    (if (argc >= 3) then int_of argv.[2] else NCORE): int
+  val nworker = int1_of_int (nworker)
+  val () = assert_errmsg (nworker > 0, #LOCATION)  
+//
+  val ws = workshop_make<work> (QSZ, fwork)
+  val _err = workshop_add_nworker (ws, nworker)
+  val () = assert_errmsg (_err = 0, #LOCATION)
+//
+  val (pf_u | p_u) = darr_make (N, 1.0)
+  val (pf_v | p_v) = darr_make (N, 0.0)
+  val (pf_tmp | p_tmp) = darr_make (N, 0.0)
+//  
+  #define TIMES 10
+  var i: Nat // uninitialized
+  val () = for
+    (i := 0; i < TIMES; i := i+1) let
+    val () = eval_AtA_times_u (ws, N, !p_u, !p_v, !p_tmp)
+    val () = eval_AtA_times_u (ws, N, !p_v, !p_u, !p_tmp)
+  in (*nothing*) end
+//
+  var vBv: double = 0.0 and vv: double = 0.0
+  val () = for (i := 0; i < N; i := i+1) let
+    val ui = p_u->[i] and vi = p_v->[i] in vBv += ui*vi; vv += vi*vi
+  end // end of [val]
+//
+  // val () = printf ("vBv = %f and vv = %f\n", @(vBv, vv))
+  val () = darr_free (pf_u | p_u)
+  val () = darr_free (pf_v | p_v)
+  val () = darr_free (pf_tmp | p_tmp)
+//
+  var i: Nat = 0
+  val nworker = workshop_get_nworker (ws)
+  val () = while (i < nworker) let
+    val _quit = $extval (work, "(void*)0")
+    val () = workshop_insert_work (ws, _quit) in i := i + 1
+  end // end of [val]
+  val () = workshop_wait_quit_all (ws)
+  val () = workshop_free_vt_exn (ws)
+//
+in
+  printf("%0.9f\n", @($M.sqrt (vBv/vv)))
+end // end of [main]
+
+(* ****** ****** *)
+
+(* end of [spectral-norm3.dats] *)
+(*
+** The Computer Language Benchmarks Game
+** http://shootout.alioth.debian.org/
+**
+** The [thread-ring] benchmark
+**
+** contributed by Hongwei Xi
+**
+** compilation command:
+**   atscc -O3 -fomit-frame-pointer thread-ring.dats -o thread-ring -lpthread
+*)
+
+%{^
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <string.h>
+#include <limits.h>
+
+#define NTHREAD (503)
+
+static pthread_mutex_t mutex0 ;
+static pthread_mutex_t mutexarr[NTHREAD] ;
+typedef struct { char _[PTHREAD_STACK_MIN] ; } threadstack ;
+static threadstack threadstackarr[NTHREAD] ;
+
+static inline
+ats_void_type lock_acquire (ats_int_type i) {
+  if (i == 0) {
+    pthread_mutex_lock (&mutex0) ;
+  } else {
+    pthread_mutex_lock (&mutexarr[i-1]) ;
+  }
+  return ;
+}
+
+static inline
+ats_void_type lock_release (ats_int_type i) {
+  if (i == 0) {
+    pthread_mutex_unlock (&mutex0) ;
+  } else {
+    pthread_mutex_unlock (&mutexarr[i-1]) ;
+  }
+  return ;
+}
+
+%}
+
+#define NTHREAD (503)
+
+%{^
+
+static ats_int_type the_answer = 0 ;
+
+static inline
+ats_int_type the_answer_get () { return the_answer ; }
+
+static inline
+ats_void_type the_answer_set (ats_int_type n) { the_answer = n ; return ; }
+
+/* ****** ****** */
+
+static ats_int_type the_token = 0 ;
+
+static inline
+ats_int_type the_token_get () { return the_token ; }
+
+static inline
+ats_void_type the_token_set (ats_int_type n) { the_token = n ; return ; }
+
+%}
+
+absview ticket_v
+
+extern fun the_answer_get (pf: !ticket_v | (*nil*)): int = "the_answer_get"
+extern fun the_answer_set (pf: !ticket_v | n: int): void = "the_answer_set"
+
+extern fun the_token_get (pf: !ticket_v | (*nil*)): int = "the_token_get"
+extern fun the_token_set (pf: !ticket_v | n: int): void = "the_token_set"
+
+(* ****** ****** *)
+
+extern fun lock_acquire (i: natLte NTHREAD): (ticket_v | void)
+  = "lock_acquire"
+
+extern fun lock_release (pf: ticket_v | i: natLte NTHREAD): void
+  = "lock_release"
+
+(* ****** ****** *)
+
+extern fun fthread
+  {i:int | 1 <= i; i <= NTHREAD} (i: int i): void = "fthread"
+
+implement fthread (i) = let
+(*
+  val () = (prerr "fthread: i = "; prerr i ; prerr_newline ())
+*)
+  val (pf | ()) = lock_acquire (i)
+  val n = the_token_get (pf | (*nil*))
+(*
+  val () = (prerr "fthread: n = "; prerr n ; prerr_newline ())
+*)
+  val i1 = i + 1
+  val i1 = (if i1 <= NTHREAD then i1 else 1): natLte NTHREAD
+in
+  if n > 0 then let
+    val () = the_token_set (pf | n - 1); val () = lock_release (pf | i1)
+  in
+    fthread (i)
+  end else begin
+    the_answer_set (pf | i); lock_release (pf | 0)
+  end // end of [if]
+end // end of [fthread]
+
+(* ****** ****** *)
+
+extern fun initialization (n: Nat): (ticket_v | void) = "initialization"
+
+(* ****** ****** *)
+
+implement main (argc, argv) = let
+  val () = assert (argc >= 2)
+  val n = int1_of_string (argv.[1])
+  val () = assert (n >= 0)
+  val (pf | ()) = initialization (n)
+  val () = lock_release (pf | 1)
+  val (pf | ()) = lock_acquire (0)
+  val ans = the_answer_get (pf | (*nil*))
+  prval () = __leak (pf) where {
+    extern prfun __leak (pf: ticket_v): void
+  }
+in
+  print ans; print_newline ()
+end // end of [main]
+
+(* ****** ****** *)
+
+%{$
+
+ats_void_type initialization (ats_int_type n) {
+  int i;
+  pthread_t tid ;
+  pthread_mutex_t *p_mutex ;
+  pthread_attr_t thread_attr ;
+  threadstack *p_threadstack ;
+
+  the_token = n ;
+
+  pthread_mutex_init (&mutex0, NULL) ;
+  pthread_mutex_lock (&mutex0) ;
+
+  pthread_attr_init (&thread_attr) ;
+
+  i = 0 ;
+  p_mutex = &mutexarr[0] ;
+  p_threadstack = &threadstackarr[0] ;
+  while (i < NTHREAD) {
+    pthread_mutex_init (p_mutex, NULL); pthread_mutex_lock (p_mutex);
+    pthread_attr_setstack (&thread_attr, p_threadstack, sizeof(threadstack)) ;
+    pthread_create(&tid, &thread_attr, (void* (*)(void*))fthread, (void*)(intptr_t)(i+1)) ;
+    i += 1 ; p_mutex += 1 ; p_threadstack += 1 ;
+  }
+
+  fprintf (stderr, "PTHREAD_STACK_MIN = %i\n", PTHREAD_STACK_MIN) ;
+  return ;
+} // end of [initialization]
+
+%}
+
+(* ****** ****** *)
+
+(* end of [thread-ring] *)

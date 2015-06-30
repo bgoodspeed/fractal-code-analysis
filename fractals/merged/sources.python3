@@ -1,0 +1,2526 @@
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+#
+# contributed by Antoine Pitrou
+# modified by Dominique Wahli and Daniel Nanz 
+# modified by Liam Byrne
+
+import sys
+import multiprocessing as mp
+
+
+def make_tree(i, d):
+
+    if d:
+        d -= 1
+        return (i, make_tree(i, d), make_tree(i + 1, d))
+    return (i, None, None)
+
+
+def check_tree(node):
+
+    i, l, r = node
+    if l is None:
+        return i
+    else:
+        return i + check_tree(l) - check_tree(r)
+
+
+def make_check(itde, make=make_tree, check=check_tree):
+
+    i, d = itde
+    return check(make(i, d))
+
+
+def get_argchunks(i, d, chunksize=5000):
+
+    assert chunksize % 2 == 0
+    chunk = []
+    for k in range(1, i + 1):
+        chunk.extend([(k, d), (-k, d)])
+        if len(chunk) == chunksize:
+            yield chunk
+            chunk = []
+    if len(chunk) > 0:
+        yield chunk
+
+
+def main(n, min_depth=4):
+
+    max_depth = max(min_depth + 2, n)
+    stretch_depth = max_depth + 1
+    if mp.cpu_count() > 1:
+        pool = mp.Pool()
+        chunkmap = pool.map
+    else:
+        chunkmap = map
+
+    print('stretch tree of depth {}\t check: {}'.format(
+          stretch_depth, make_check((0, stretch_depth))))
+
+    mmd = max_depth + min_depth
+    for d in range(min_depth, stretch_depth, 2):
+        i = 2 ** (mmd - d)
+        cs = sum((sum(chunkmap(make_check, argchunk))
+                  for argchunk in get_argchunks(i, d)))
+        print('{}\t trees of depth {}\t check: {}'.format(i * 2, d, cs))
+
+    print('long lived tree of depth {}\t check: {}'.format(
+          max_depth, make_check((0, max_depth))))
+
+
+if __name__ == '__main__':
+    main(int(sys.argv[1]))
+
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+# contributed by Daniel Nanz 2008-04-10
+# 2to3
+
+import sys
+import _thread
+import time
+
+# colors and matching
+creature_colors = ['blue', 'red', 'yellow']
+
+def complement(c1, c2):
+
+    if c1 == c2: return c1
+    if c1 == 'blue':
+        if c2 == 'red': return 'yellow'
+        return 'red'
+    if c1 == 'red':
+        if c2 == 'blue': return 'yellow'
+        return 'blue'
+    if c2 == 'blue': return 'red'
+    return 'blue'
+
+
+compl_dict = dict(((c1, c2), complement(c1, c2))
+                  for c1 in creature_colors
+                  for c2 in creature_colors)
+
+
+def check_complement(colors=creature_colors, compl=compl_dict):
+
+    for c1 in colors:
+        for c2 in colors:
+            print('%s + %s -> %s' % (c1, c2, compl[(c1, c2)]))
+    print('')
+
+
+# reporting
+def spellout(n):
+    
+    numbers = ['zero', 'one', 'two', 'three', 'four',
+               'five', 'six', 'seven', 'eight', 'nine']
+    return ' ' + ' '.join(numbers[int(c)] for c in str(n))
+
+
+def report(input_zoo, met, self_met):
+
+    print(' ' + ' '.join(input_zoo))
+    for m, sm in zip(met, self_met):
+        print(str(m) + spellout(sm))
+    print(spellout(sum(met)) + '\n')
+
+
+# the zoo
+def creature(my_id, venue, my_lock_acquire, in_lock_acquire, out_lock_release):
+
+    while True:
+        my_lock_acquire()   # only proceed if not already at meeting place
+        in_lock_acquire()   # only proceed when holding in_lock
+        venue[0] = my_id    # register at meeting place
+        out_lock_release()  # signal "registration ok"
+
+
+def let_them_meet(meetings_left, input_zoo,
+                  compl=compl_dict, allocate=_thread.allocate_lock):
+    # prepare
+    c_no = len(input_zoo)
+    venue = [-1]
+    met = [0] * c_no
+    self_met = [0] * c_no
+    colors = input_zoo[:]
+    
+    in_lock = allocate()
+    in_lock_acquire = in_lock.acquire     # function aliases
+    in_lock_release = in_lock.release     # (minor performance gain)
+    in_lock_acquire()
+    out_lock = allocate()
+    out_lock_release = out_lock.release
+    out_lock_acquire = out_lock.acquire
+    out_lock_acquire()
+    locks = [allocate() for c in input_zoo]
+    
+    # let creatures wild
+    for ci in range(c_no):
+        args = (ci, venue, locks[ci].acquire, in_lock_acquire, out_lock_release)
+        new = _thread.start_new_thread(creature, args)
+    time.sleep(0.05)     # to reduce work-load imbalance
+    
+    in_lock_release()   # signal "meeting_place open for registration"
+    out_lock_acquire()  # only proceed with a "registration ok" signal
+    id1 = venue[0]
+    while meetings_left > 0:
+        in_lock_release()
+        out_lock_acquire()
+        id2 = venue[0]
+        if id1 != id2:
+            new_color = compl[(colors[id1], colors[id2])]
+            colors[id1] = new_color
+            colors[id2] = new_color
+            met[id1] += 1
+            met[id2] += 1
+        else:
+            self_met[id1] += 1
+            met[id1] += 1
+        meetings_left -= 1
+        if meetings_left > 0:
+            locks[id1].release()  # signal "you were kicked from meeting place"
+            id1 = id2
+        else:
+            report(input_zoo, met, self_met)
+
+           
+def chameneosiate(n):
+
+    check_complement()
+    let_them_meet(n, ['blue', 'red', 'yellow'])
+    let_them_meet(n, ['blue', 'red', 'yellow', 'red', 'yellow',
+                      'blue', 'red', 'yellow', 'red', 'blue'])
+    #print ''
+
+
+chameneosiate(int(sys.argv[1]))       
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+#
+# contributed by Sokolov Yura
+# modified by Tupteq
+# 2to3
+# fixed by Daniele Varrazzo
+# mp by Ahmad Syukri
+
+def print30(n):
+    count = list(range(0, n))
+    perm1 = list(range(n))
+    showmax = 30
+    r = n
+    perm1_ins = perm1.insert
+    perm1_pop = perm1.pop
+
+    while showmax:
+        while r != 1:
+            count[r-1] = r
+            r -= 1
+            
+        print("".join(str(i+1) for i in perm1))
+        showmax -= 1
+
+        while r != n:
+            perm1_ins(r, perm1_pop(0))
+            count[r] -= 1
+            if count[r] > 0:
+                break
+            else:
+                r += 1
+        else:
+            return
+
+def init(arg):
+    global n
+    n = arg
+
+def fannkuch(i):
+    count = list(range(1, n))
+    max_flips = 0
+    m = n-1
+    r = n-1
+    check = 0
+    perm1 = list(range(n))
+    perm1[i] = m
+    perm1[m] = i
+    perm1_ins = perm1.insert
+    perm1_pop = perm1.pop
+    
+    while 1:
+        while r != 1:
+            count[r-1] = r
+            r -= 1
+
+        if perm1[0] != 0 and perm1[m] != m:
+            perm = perm1[:]
+            flips = 0
+            k = perm[0]
+            while k:
+                perm[:k+1] = perm[k::-1]
+                flips += 1
+                k = perm[0]
+            if flips > max_flips:
+                max_flips = flips
+                
+        while r != m:
+            perm1_ins(r, perm1_pop(0))
+            count[r] -= 1
+            if count[r] > 0:
+                break
+            r += 1
+        else:
+            return max_flips
+
+def main():
+    from multiprocessing import Pool
+    from sys import argv
+    try:
+        n = int(argv[1])
+    except:
+        n = 7
+    print30(n)
+    pool = Pool(initializer = init, initargs = (n,))
+    print("Pfannkuchen(%d) = %d\n" % (n, max(pool.map(fannkuch, list(range(n))))), end='')
+
+if __name__=="__main__":
+    main()
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+#
+# contributed by Sokolov Yura
+# modified by Tupteq
+# 2to3
+# fixed by Daniele Varrazzo
+
+def fannkuch(n):
+    count = list(range(1, n+1))
+    max_flips = 0
+    m = n-1
+    r = n
+    check = 0
+    perm1 = list(range(n))
+    perm = list(range(n))
+    perm1_ins = perm1.insert
+    perm1_pop = perm1.pop
+
+    while 1:
+        if check < 30:
+            print("".join(str(i+1) for i in perm1))
+            check += 1
+
+        while r != 1:
+            count[r-1] = r
+            r -= 1
+
+        if perm1[0] != 0 and perm1[m] != m:
+            perm = perm1[:]
+            flips_count = 0
+            k = perm[0]
+            while k:
+                perm[:k+1] = perm[k::-1]
+                flips_count += 1
+                k = perm[0]
+
+            if flips_count > max_flips:
+                max_flips = flips_count
+
+        while r != n:
+            perm1_ins(r, perm1_pop(0))
+            count[r] -= 1
+            if count[r] > 0:
+                break
+            r += 1
+        else:
+            return max_flips
+
+def main():
+    from sys import argv
+    n = int(argv and argv[1] or 1)
+    print("Pfannkuchen(%d) = %d\n" % (n, fannkuch(n)), end='')
+
+if __name__=="__main__":
+    main()
+#    The Computer Language Benchmarks Game
+#    http://shootout.alioth.debian.org/
+
+#    contributed by Isaac Gouy
+#    converted to Java by Oleg Mazurov
+#    converted to Python by Buck Golemon
+#    modified by Justin Peel
+
+def fannkuch(n):
+    maxFlipsCount = 0
+    permSign = True
+    checksum = 0
+
+    perm1 = list(range(n))
+    count = perm1[:]
+    rxrange = range(2, n - 1)
+    nm = n - 1
+    while 1:
+        k = perm1[0]
+        if k:
+            perm = perm1[:]
+            flipsCount = 1
+            kk = perm[k]
+            while kk:
+                perm[:k+1] = perm[k::-1]
+                flipsCount += 1
+                k = kk
+                kk = perm[kk]
+            if maxFlipsCount < flipsCount:
+                maxFlipsCount = flipsCount
+            checksum += flipsCount if permSign else -flipsCount
+
+        # Use incremental change to generate another permutation
+        if permSign:
+            perm1[0],perm1[1] = perm1[1],perm1[0]
+            permSign = False
+        else:
+            perm1[1],perm1[2] = perm1[2],perm1[1]
+            permSign = True
+            for r in rxrange:
+                if count[r]:
+                    break
+                count[r] = r
+                perm0 = perm1[0]
+                perm1[:r+1] = perm1[1:r+2]
+                perm1[r+1] = perm0
+            else:
+                r = nm
+                if not count[r]:
+                    print( checksum )
+                    return maxFlipsCount
+            count[r] -= 1
+from sys import argv
+n = int(argv[1])
+
+print(( "Pfannkuchen(%i) = %i" % (n, fannkuch(n)) ))
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+#
+# modified by Ian Osgood
+# modified again by Heinrich Acker
+# modified by Justin Peel
+# modified by Mariano Chouza
+# 2to3
+
+import sys, bisect, array
+
+alu = (
+   'GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG'
+   'GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA'
+   'CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT'
+   'ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA'
+   'GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG'
+   'AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC'
+   'AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA')
+
+iub = list(zip('acgtBDHKMNRSVWY', [0.27, 0.12, 0.12, 0.27] + [0.02]*11))
+
+homosapiens = [
+    ('a', 0.3029549426680),
+    ('c', 0.1979883004921),
+    ('g', 0.1975473066391),
+    ('t', 0.3015094502008),
+]
+
+IM = 139968
+INITIAL_STATE = 42
+
+def makeCumulative(table):
+    P = []
+    C = []
+    prob = 0.
+    for char, p in table:
+        prob += p
+        P += [prob]
+        C += [char]
+    return (P, C)
+
+randomGenState = INITIAL_STATE
+randomLUT = None
+def makeRandomLUT():
+    global randomLUT
+    ia = 3877; ic = 29573
+    randomLUT = [(s * ia + ic) % IM for s in range(IM)]
+
+def makeLookupTable(table):
+    bb = bisect.bisect
+    probs, chars = makeCumulative(table)
+    imf = float(IM)
+    return [chars[bb(probs, i / imf)] for i in range(IM)]
+
+def repeatFasta(src, n):
+    width = 60
+    r = len(src)
+    s = src + src + src[:n % r]
+    for j in range(n // width):
+        i = j*width % r
+        print(s[i:i+width])
+    if n % width:
+        print(s[-(n % width):])
+
+def randomFasta(table, n):
+    global randomLUT, randomGenState
+    width = 60
+    rgs = randomGenState
+    rlut = randomLUT
+    
+    lut = makeLookupTable(table)
+    line_buffer = []
+    la = line_buffer.append
+    
+    for i in range(n // width):
+        for i in range(width):
+            rgs = rlut[rgs]
+            la(lut[rgs])
+        print(''.join(line_buffer))
+        line_buffer[:] = []
+    if n % width:
+        for i in range(n % width):
+            rgs = rlut[rgs]
+            la(lut[rgs])
+        print(''.join(line_buffer))
+    
+    randomGenState = rgs
+
+def main():
+    n = int(sys.argv[1])
+
+    makeRandomLUT()
+
+    print('>ONE Homo sapiens alu')
+    repeatFasta(alu, n*2)
+
+    print('>TWO IUB ambiguity codes')
+    randomFasta(iub, n*3)
+
+    print('>THREE Homo sapiens frequency')
+    randomFasta(homosapiens, n*5)
+    
+main()
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+#
+# modified by Ian Osgood
+# modified again by Heinrich Acker
+# modified by Justin Peel
+# modified by Mariano Chouza
+# modified by Ashley Hewson
+
+import sys, bisect, array
+
+alu = (
+   'GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG'
+   'GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA'
+   'CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT'
+   'ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA'
+   'GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG'
+   'AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC'
+   'AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA')
+
+iub = list(zip('acgtBDHKMNRSVWY', [0.27, 0.12, 0.12, 0.27] + [0.02]*11))
+
+homosapiens = [
+    ('a', 0.3029549426680),
+    ('c', 0.1979883004921),
+    ('g', 0.1975473066391),
+    ('t', 0.3015094502008),
+]
+
+IM = 139968
+INITIAL_STATE = 42
+
+def makeCumulative(table):
+    P = []
+    C = []
+    prob = 0.
+    for char, p in table:
+        prob += p
+        P += [prob]
+        C += [char]
+    return (P, C)
+
+randomGenState = INITIAL_STATE
+randomLUT = None
+def makeRandomLUT():
+    global randomLUT
+    ia = 3877; ic = 29573
+    randomLUT = array.array("i", [(s * ia + ic) % IM for s in range(IM)])
+
+def makeLookupTable(table):
+    bb = bisect.bisect
+    probs, chars = makeCumulative(table)
+    imf = float(IM)
+    return array.array("u", [chars[bb(probs, i / imf)] for i in range(IM)])
+
+def repeatFasta(src, n):
+    width = 60
+    r = len(src)
+    s = src + src + src[:n % r]
+    for j in range(n // width):
+        i = j*width % r
+        print(s[i:i+width])
+    if n % width:
+        print(s[-(n % width):])
+
+def randomFasta(table, n):
+    global randomLUT, randomGenState
+    width = 60
+    rgs = randomGenState
+    rlut = randomLUT
+    
+    lut = makeLookupTable(table)
+    line_buffer = []
+    la = line_buffer.append
+    
+    for i in range(n // width):
+        for i in range(width):
+            rgs = rlut[rgs]
+            la(lut[rgs])
+        print(''.join(line_buffer))
+        line_buffer[:] = []
+    if n % width:
+        for i in range(n % width):
+            rgs = rlut[rgs]
+            la(lut[rgs])
+        print(''.join(line_buffer))
+    
+    randomGenState = rgs
+
+def main():
+    n = int(sys.argv[1])
+
+    makeRandomLUT()
+
+    print('>ONE Homo sapiens alu')
+    repeatFasta(alu, n*2)
+
+    print('>TWO IUB ambiguity codes')
+    randomFasta(iub, n*3)
+
+    print('>THREE Homo sapiens frequency')
+    randomFasta(homosapiens, n*5)
+    
+main()
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+#
+# modified by Ian Osgood
+# modified again by Heinrich Acker
+# modified by Justin Peel
+# modified by Mariano Chouza
+# modified by Ashley Hewson
+# modified by Valery Khamenya
+
+import sys, bisect, array
+
+alu = (
+   'GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG'
+   'GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA'
+   'CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT'
+   'ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA'
+   'GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG'
+   'AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC'
+   'AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA')
+
+iub = zip('acgtBDHKMNRSVWY', [0.27, 0.12, 0.12, 0.27] + [0.02]*11)
+
+homosapiens = [
+    ('a', 0.3029549426680),
+    ('c', 0.1979883004921),
+    ('g', 0.1975473066391),
+    ('t', 0.3015094502008),
+]
+
+IM = 139968
+INITIAL_STATE = 42
+
+def makeCumulative(table):
+    P = []
+    C = []
+    prob = 0.
+    for char, p in table:
+        prob += p
+        P += [prob]
+        C += [char]
+    return (P, C)
+
+randomGenState = INITIAL_STATE
+randomLUT = None
+def makeRandomLUT():
+    global randomLUT
+    ia = 3877; ic = 29573
+    randomLUT = array.array("i", [(s * ia + ic) % IM for s in range(IM)])
+
+def makeLookupTable(table):
+    bb = bisect.bisect
+    probs, chars = makeCumulative(table)
+    imf = float(IM)
+    return array.array("u", [chars[bb(probs, i / imf)] for i in range(IM)])
+
+def repeatFasta(src, n):
+    width = 60
+    r = len(src)
+    s = src + src + src[:n % r]
+    for j in range(n // width):
+        i = j*width % r
+        print(s[i:i+width])
+    if n % width:
+        print(s[-(n % width):])
+
+def randomFasta(table, n):
+    global randomLUT, randomGenState
+    width = 60
+    rgs = randomGenState
+    rlut = randomLUT
+    
+    lut = makeLookupTable(table)
+    line_buffer = ''
+    
+    for i in range(n // width):
+        for i in range(width):
+            rgs = rlut[rgs]
+            line_buffer += lut[rgs]
+        print(line_buffer)
+        line_buffer = ''
+
+    if n % width:
+        for i in range(n % width):
+            rgs = rlut[rgs]
+            line_buffer += lut[rgs]
+        print(line_buffer)
+    
+    randomGenState = rgs
+
+def main():
+    n = int(sys.argv[1])
+
+    makeRandomLUT()
+
+    print('>ONE Homo sapiens alu')
+    repeatFasta(alu, n*2)
+
+    print('>TWO IUB ambiguity codes')
+    randomFasta(iub, n*3)
+
+    print('>THREE Homo sapiens frequency')
+    randomFasta(homosapiens, n*5)
+    
+main()
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+#
+# modified by Ian Osgood
+# modified again by Heinrich Acker
+# modified by Justin Peel
+# modified by Mariano Chouza
+# modified by Ashley Hewson
+# modified by Valery Khamenya
+# modified again by Mariano Chouza
+
+import sys, bisect, array
+
+alu = (
+   'GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG'
+   'GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA'
+   'CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT'
+   'ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA'
+   'GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG'
+   'AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC'
+   'AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA')
+
+iub = zip('acgtBDHKMNRSVWY', [0.27, 0.12, 0.12, 0.27] + [0.02]*11)
+
+homosapiens = [
+    ('a', 0.3029549426680),
+    ('c', 0.1979883004921),
+    ('g', 0.1975473066391),
+    ('t', 0.3015094502008),
+]
+
+IM = 139968
+INITIAL_STATE = 42
+
+def makeCumulative(table):
+    P = []
+    C = []
+    prob = 0.
+    for char, p in table:
+        prob += p
+        P += [prob]
+        C += [char]
+    return (P, C)
+
+randomSeq = None
+j = 0
+def makeRandomSeq():
+    global randomSeq
+    ia = 3877; ic = 29573
+    randomSeq = []
+    s = INITIAL_STATE
+    while True:
+        s = (s * ia + ic) % IM
+        randomSeq.append(s)
+        if s == INITIAL_STATE:
+            break
+
+def makeLookupTable(table):
+    bb = bisect.bisect
+    probs, chars = makeCumulative(table)
+    imf = float(IM)
+    return array.array("u", [chars[bb(probs, i / imf)] for i in range(IM)])
+
+def repeatFasta(src, n):
+    width = 60
+    r = len(src)
+    s = src + src + src[:n % r]
+    sow = sys.stdout.write
+    for j in range(n // width):
+        i = j*width % r
+        sow(s[i:i+width] + '\n')
+    if n % width:
+        sow(s[-(n % width):] + '\n')
+
+def randomFasta(table, n):
+    global randomSeq, j
+    width = 60
+    
+    lut = makeLookupTable(table)
+    luStr = ''.join(lut[randomSeq[j]] for j in range(IM))
+    luStr += luStr[:width]
+
+    lj = j
+    sow = sys.stdout.write
+    for i in range(n // width):
+        sow(luStr[lj:lj+width] + '\n')
+        lj = (lj + width) % IM
+    j = lj
+    if n % width:
+        k = (j + (n % width)) % IM
+        sow((luStr[j:k] if j < k else luStr[j:] + luStr[:k]) + '\n')
+        j = k
+
+def main():
+    n = int(sys.argv[1])
+
+    makeRandomSeq()
+
+    print('>ONE Homo sapiens alu')
+    repeatFasta(alu, n*2)
+
+    print('>TWO IUB ambiguity codes')
+    randomFasta(iub, n*3)
+
+    print('>THREE Homo sapiens frequency')
+    randomFasta(homosapiens, n*5)
+    
+main()
+# The Computer Language Shootout
+# http://shootout.alioth.debian.org/
+#
+# submitted by Ian Osgood
+# modified by Sokolov Yura
+# modified by bearophile
+# 2to3
+
+from sys import stdin
+
+def gen_freq(seq, frame, frequences):
+    ns = len(seq) + 1 - frame
+    frequences.clear()
+    for ii in range(ns):
+        nucleo = seq[ii:ii + frame]
+        if nucleo in frequences:
+            frequences[nucleo] += 1
+        else:
+            frequences[nucleo] = 1
+    return ns, frequences
+
+
+def sort_seq(seq, length, frequences):
+    n, frequences = gen_freq(seq, length, frequences)
+
+    l = sorted(list(frequences.items()), reverse=True, key=lambda seq_freq: (seq_freq[1],seq_freq[0]))
+
+    print('\n'.join("%s %.3f" % (st, 100.0*fr/n) for st,fr in l))
+    print()
+
+
+def find_seq(seq, s, frequences):
+    n,t = gen_freq(seq, len(s), frequences)
+    print("%d\t%s" % (t.get(s, 0), s))
+
+
+def main():
+    frequences = {}
+    for line in stdin:
+        if line[0:3] == ">TH":
+            break
+
+    seq = []
+    for line in stdin:
+        if line[0] in ">;":
+            break
+        seq.append( line[:-1] )
+    sequence = "".join(seq).upper()
+
+    for nl in 1,2:
+        sort_seq(sequence, nl, frequences)
+
+    for se in "GGT GGTA GGTATT GGTATTTTAATT GGTATTTTAATTTATAGT".split():
+        find_seq(sequence, se, frequences)
+
+main()
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+#
+# submitted by Ian Osgood
+# modified by Sokolov Yura
+# modified by bearophile
+# modified by jacek2v: few changes in algorytm, added multiprocessing, used str.count (nucleo newer overlapping)
+
+from sys import stdin
+from collections import defaultdict
+from multiprocessing import Process, Pool, cpu_count
+
+def gen_freq(seq, frame):
+    frequences = defaultdict(int)
+    ns = len(seq) + 1 - frame
+    for ii in range(ns):
+        frequences[seq[ii:ii + frame]] += 1
+    return ns, frequences
+
+def sort_seq(seq, length):
+    n, frequences = gen_freq(seq, length)
+    #l = sorted(frequences.items(), reverse=True, key=lambda (seq,freq): (freq,seq))
+    l = sorted(list(frequences.items()), reverse=True, key=lambda seq_freq: (seq_freq[1],seq_freq[0]))
+    return [(st, 100.0*fr/n) for st, fr in l]
+
+def find_seq(seq, nucleo):
+    count = seq.count(nucleo)
+    return nucleo, count
+
+def load():
+    for line in stdin:
+        if line[0:3] == ">TH":
+            break
+    seq = []
+    for line in stdin:
+        if line[0] in ">;":
+            break
+        seq.append( line[:-1] )
+    return seq
+
+def main():
+    nucleos = "GGT GGTA GGTATT GGTATTTTAATT GGTATTTTAATTTATAGT"
+    sequence = "".join(load()).upper()
+    plres = []
+    pl = Pool(processes=cpu_count() + 1)
+    
+    for nl in 1,2:
+        plres.append(pl.apply_async(sort_seq, (sequence, nl, )))
+    for se in nucleos.split():
+        plres.append(pl.apply_async(find_seq, (sequence, se, )))
+    pl.close()
+    pl.join()
+
+    for ii in 0,1:
+        print('\n'.join("%s %.3f" % (st, fr) for st,fr in plres[ii].get()))
+        print('')
+    for ii in range(2, len(nucleos.split()) + 2):
+        print("%d\t%s" % (plres[ii].get()[1], plres[ii].get()[0]))
+main()
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+#
+# submitted by Ian Osgood
+# modified by Sokolov Yura
+# modified by bearophile
+# modified by xfm for parallelization
+# modified by Justin Peel 
+
+from sys import stdin
+from collections import defaultdict
+from multiprocessing import Pool
+
+def gen_freq(frame) :
+    global sequence
+    frequences = defaultdict(int)
+    if frame != 1:
+        for ii in range(len(sequence)-frame+1) :
+            frequences[sequence[ii:ii+frame]] += 1
+    else:
+        for nucleo in sequence:
+            frequences[nucleo] += 1
+    return frequences
+
+
+def sort_seq(length):
+    frequences = gen_freq(length)
+    n= sum(frequences.values())
+
+    l = sorted(list(frequences.items()), reverse=True, key=lambda seq_freq: (seq_freq[1],seq_freq[0]))
+
+    return '\n'.join("%s %.3f" % (st, 100.0*fr/n) for st,fr in l)
+
+
+def find_seq(s):
+    t = gen_freq(len(s))
+    return (s,t.get(s,0))
+
+def prepare(f=stdin) :
+    for line in f:
+        if line[0] in ">;":
+            if line[1:3] == "TH":
+                break
+
+    seq = []
+    app = seq.append
+    for line in f:
+        if line[0] in ">;":
+            break
+        app( line )
+    return "".join(seq).upper().replace('\n','')
+
+def init(arg):
+    global sequence
+    sequence = arg
+
+def main():
+    global sequence
+    sequence = prepare()
+    p=Pool()
+
+    
+    res2 = p.map_async(find_seq,reversed("GGT GGTA GGTATT GGTATTTTAATT GGTATTTTAATTTATAGT".split()))
+    res1 = p.map_async(sort_seq,(1,2))
+    
+    for s in res1.get() : print (s+'\n')
+    res2 = reversed([r for r in res2.get()])
+    print ("\n".join("{1:d}\t{0}".format(*s) for s in res2))
+
+if __name__=='__main__' :
+    main()
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+#
+# contributed by Tupteq
+# modified by Simon Descarpentries
+# modified for multi-core by Ahmad Syukri
+
+import multiprocessing as mp
+import sys
+
+def writer(buff_queue,size):  #i/o is slow, so leave it to only one worker
+    from array import array
+    buff_pos = 0
+    buff = []
+    cout = sys.stdout.buffer.write
+    while 1:
+        try:
+            buff.append(buff_queue.get_nowait())
+        except:
+            if len(buff):
+                buff.sort() 
+                pos = len(buff) - 1 
+                while pos>0:
+                    if buff[pos][0] == buff[pos-1][1]:  #connect contiguous segment
+                        buff[pos-1] = (buff[pos-1][0],buff[pos][1],buff[pos-1][2]+buff[pos][2])
+                        del(buff[pos])
+                    pos-=1
+                if buff[0][0]==buff_pos:  # write if segment is the next needed one
+                    cout(array('B', buff[0][2]).tostring())
+                    buff_pos = buff[0][1]
+                    del(buff[0])
+
+            if buff_pos>=size:
+                break
+
+def worker(size, task_queue, buff_queue):
+    cout = sys.stdout.buffer.write
+    fsize = float(size)
+    r_size = range(size)
+    r_iter = range(50)
+    local_abs = abs
+    result = []
+    y=size  #only to ensure task_head is initialized. not so pretty code
+    while 1:
+        task = task_queue.get()
+        if task is None:
+            if len(result):  # push remaining segments
+                buff_queue.put((task_head,y+1,result))
+            break
+        elif task-y-1:
+            if len(result):      # try to resume from previous segment unless broken
+                buff_queue.put((task_head,y+1,result))
+            task_head = task
+            result = []
+        #got new job
+        y = task
+        bit_num = 7
+        byte_acc = 0
+        fy = 2j * y / fsize - 1j
+        for x in r_size:
+            z = 0j
+            c = 2. * x / fsize - 1.5 + fy
+     
+            for i in r_iter:
+                z = z * z + c
+                if local_abs(z) >= 2.: break
+            else:
+                byte_acc += 1 << bit_num
+     
+            if bit_num == 0:
+                result.append(byte_acc)
+                bit_num = 7
+                byte_acc = 0
+            else:
+                bit_num -= 1
+        if bit_num != 7:
+            result.append(byte_acc)
+
+def main():
+    size = int(sys.argv[1])
+    task_queue = mp.Queue()
+    for i in range(size):
+        task_queue.put(i)
+    buff_queue = mp.Queue()
+    num_proc = 64 
+    proc = []
+    for i in range(num_proc):
+        task_queue.put(None)
+
+    worker_args = (size, task_queue, buff_queue)
+
+    for a in range(num_proc):
+        p = mp.Process(target=worker, args=worker_args)
+        p.start()
+        proc.append(p)
+    sys.stdout.write("P4\n%d %d\n" % (size, size))
+    w = mp.Process(target=writer, args=(buff_queue,size))
+    w.start()
+    proc.append(w)
+
+    for p in proc:
+        p.join()
+
+if __name__=='__main__':
+    main()
+
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+#
+# contributed by Tupteq
+# 2to3 - fixed by Daniele Varrazzo
+
+import sys
+
+def main():
+    cout = sys.stdout.buffer.write
+    size = int(sys.argv[1])
+    xr_size = range(size)
+    xr_iter = range(50)
+    bit = 128
+    byte_acc = 0
+
+    cout(("P4\n%d %d\n" % (size, size)).encode('ascii'))
+
+    size = float(size)
+    for y in xr_size:
+        fy = 2j * y / size - 1j
+        for x in xr_size:
+            z = 0j
+            c = 2. * x / size - 1.5 + fy
+
+            for i in xr_iter:
+                z = z * z + c
+                if abs(z) >= 2.0:
+                    break
+            else:
+                byte_acc += bit
+
+            if bit > 1:
+                bit >>= 1
+            else:
+                cout((byte_acc,))
+                bit = 128
+                byte_acc = 0
+
+        if bit != 128:
+            cout((byte_acc,))
+            bit = 128
+            byte_acc = 0
+
+main()
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+#
+# contributed by Tupteq
+# modified by Simon Descarpentries
+# modified by Ivan Baldin
+# 2to3 plus Daniel Nanz fix
+
+import sys
+from array import array
+from multiprocessing import Pool
+
+def do_row(fy):
+    local_abs = abs
+    two_over_size = 2.0 / size
+    xr_offs = range(7, -1, -1)
+    xr_iter = range(50)
+
+    result = array('B')
+    for x in range(7, size, 8):
+        byte_acc = 0
+        for offset in xr_offs:
+            z = 0j
+            c = two_over_size * (x - offset) + fy
+
+            for i in xr_iter:
+                z = z * z + c
+                if local_abs(z) >= 2:
+                    break
+            else:
+                byte_acc += 1 << offset
+
+        result.append(byte_acc)
+
+    if x != size - 1:
+        result.append(byte_acc)
+
+    return result.tostring()
+
+def main(out):
+    out.write(('P4\n%d %d\n' % (size, size)).encode('ASCII'))
+
+    pool = Pool()
+    step = 2.0j / size
+    for row in pool.imap(do_row, (step*y-(1.5+1j) for y in range(size))):
+        out.write(row)
+
+if __name__ == '__main__':
+    size = int(sys.argv[1])
+    main(sys.stdout.buffer)
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+#
+# contributed by: Olof Kraigher
+# 2to3
+
+from sys import argv
+
+width = 5
+height = 10
+
+directions  = { "E" : 0, "NE" : 1, "NW" : 2, "W" : 3, "SW" : 4, "SE" : 5}
+rotate      = { "E" : "NE", "NE" : "NW", "NW" : "W", "W" : "SW", "SW" : "SE", "SE" : "E"}
+flip        = { "E" : "W", "NE" : "NW", "NW" : "NE", "W" : "E", "SW" : "SE", "SE" : "SW"}
+move        = { "E" : lambda x,y: (x+1,y),
+                "W" : lambda x,y: (x-1,y),
+                "NE" : lambda x,y: (x+(y%2),y-1),
+                "NW" : lambda x,y: (x+(y%2)-1,y-1),
+                "SE" : lambda x,y: (x+(y%2),y+1),
+                "SW" : lambda x,y: (x+(y%2)-1,y+1)}
+
+pieces =   [    ["E", "E", "E", "SE"],
+                ["SE", "SW", "W", "SW"],
+                ["W", "W", "SW", "SE"],
+                ["E",  "E", "SW", "SE"],
+                ["NW", "W", "NW", "SE", "SW"],
+                ["E",  "E", "NE", "W"],
+                ["NW", "NE", "NE", "W"],
+                ["NE", "SE", "E", "NE"],
+                ["SE", "SE", "E", "SE"],
+                ["E", "NW", "NW", "NW"]]
+
+solutions = []
+masks = [0 for i in range(10)]
+
+valid = lambda x,y: (0 <= x) and (x < width) and (0 <= y) and (y < height)
+legal = lambda mask,board: (mask & board) == 0
+zerocount = lambda mask: sum([((1<<x) & mask) == 0 for x in range(50)])
+
+def findFreeCell(board):
+    for y in range(height):
+        for x in range(width):
+            if board & (1 << (x + width*y)) == 0:
+                return x,y
+
+
+def floodFill(board, xxx_todo_changeme):
+    (x, y) = xxx_todo_changeme
+    if not valid(x,y):
+        return board
+    if board & (1 << (x + width*y)) != 0:
+        return board
+
+    board = board | (1 << (x + width*y))
+
+    for f in list(move.values()):
+        board = board | floodFill(board, f(x,y))
+
+    return board
+
+def noIslands(mask):
+    zeroes = zerocount(mask)
+
+    if zeroes < 5:
+        return False
+
+    while mask != 0x3FFFFFFFFFFFF:
+        mask = floodFill(mask, findFreeCell(mask))
+        new_zeroes = zerocount(mask)
+
+        if zeroes - new_zeroes < 5:
+            return False
+
+        zeroes = new_zeroes
+
+    return True
+
+def getBitmask(x,y,piece):
+    mask = (1 << (x + width*y))
+
+    for cell in piece:
+        x,y = move[cell](x,y)
+        if valid(x,y):
+            mask = mask | (1 << (x + width*y))
+        else:
+            return False, 0
+
+    return True, mask
+
+def allBitmasks(piece, color):
+    bitmasks = []
+    for orientations in range(2):
+        for rotations in range(6 - 3*(color == 4)):
+            for y in range(height):
+                for x in range(width):
+                    isValid, mask = getBitmask(x,y,piece)
+                    if isValid and noIslands(mask):
+                        bitmasks.append(mask)
+
+            piece = [rotate[cell] for cell in piece]
+        piece = [flip[cell] for cell in piece]
+
+
+    return bitmasks
+
+def generateBitmasks():
+
+    global masksAtCell
+
+    masksAtCell = [[[] for j in range(10)] for i in range(width*height)]
+
+    color = 0
+    for piece in pieces:
+        masks = allBitmasks(piece, color)
+        masks.sort()
+        cellMask = 1 << (width*height-1)
+        cellCounter = width*height-1
+
+        j = len(masks)-1
+
+        while (j >= 0):
+            if (masks[j] & cellMask) == cellMask:
+                masksAtCell[cellCounter][color].append(masks[j])
+                j = j-1
+            else:
+                cellMask = cellMask >> 1
+                cellCounter -= 1
+        color += 1
+
+
+def solveCell(cell, board, n):
+
+    global solutions, masks, masksAtCell
+
+    if len(solutions) >= n:
+        return
+
+    if board == 0x3FFFFFFFFFFFF:
+        # Solved
+        s = stringOfMasks(masks)
+        solutions.append(s);
+        solutions.append(inverse(s));
+        return
+
+    if board & (1 << cell) != 0:
+        # Cell full
+        solveCell(cell-1, board, n)
+        return
+
+    if cell < 0:
+        # Out of board
+        return
+
+    for color in range(10):
+        if masks[color] == 0:
+            for mask in masksAtCell[cell][color]:
+                if legal(mask, board):
+                    masks[color] = mask
+                    solveCell(cell-1, board | mask, n);
+                    masks[color] = 0
+
+def solve(n):
+    generateBitmasks()
+    solveCell(width*height-1, 0, n)
+
+
+def stringOfMasks(masks):
+    s = ""
+    mask = 1;
+    for y in range(height):
+        for x in range(width):
+            for color in range(10):
+                if (masks[color] & mask) != 0:
+                    s += str(color)
+                    break
+                elif color == 9:
+                    s += "."
+            mask = mask << 1
+    return s
+
+def inverse(s):
+    ns = [x for x in s]
+
+    for x in range(width):
+        for y in range(height):
+            ns[x + y*width] = s[width-x-1 + (width - y - 1)*width]
+
+    return s
+
+def printSolution(solution):
+    for y in range(height):
+        for x in range(width):
+            print(solution[x + y*width], end=' ')
+
+        if (y%2) == 0:
+            print("")
+            print("", end=' ')
+        else:
+            print("")
+
+if __name__ == "__main__":
+
+    if not len(argv) > 1:
+        exit()
+
+    solve(int(argv[1]))
+    print(len(solutions), "solutions found")
+    print()
+    printSolution(min(solutions))
+    print()
+    printSolution(max(solutions))
+    print()
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+#
+# contributed by Olof Kraigher
+# modified by Tupteq
+# 2to3
+
+import sys
+
+width = 5
+height = 10
+
+rotate = dict(E='NE', NE='NW', NW='W', W='SW', SW='SE', SE='E')
+flip = dict(E='W', NE='NW', NW='NE', W='E', SW='SE', SE='SW')
+move = dict(E=lambda x, y: (x+1, y),
+            W=lambda x, y: (x-1, y),
+            NE=lambda x, y: (x + (y%2), y-1),
+            NW=lambda x, y: (x + (y%2) - 1, y-1),
+            SE=lambda x, y: (x + (y%2), y+1),
+            SW=lambda x, y: (x + (y%2) - 1, y+1))
+
+solutions = []
+masks = 10 * [0]
+
+valid = lambda x, y: 0 <= x < width and 0 <= y < height
+zerocount = lambda mask: sum([(1<<x) & mask == 0 for x in range(50)])
+
+
+def findFreeCell(board):
+    for y in range(height):
+        for x in range(width):
+            if board & (1 << (x + width*y)) == 0:
+                return x, y
+
+
+def floodFill(board, xxx_todo_changeme):
+    (x, y) = xxx_todo_changeme
+    if valid(x, y) and board & (1 << (x + width*y)) == 0:
+        board |= 1 << (x + width*y)
+
+        for f in list(move.values()):
+            board |= floodFill(board, f(x, y))
+
+    return board
+
+
+def noIslands(mask):
+    zeroes = zerocount(mask)
+
+    if zeroes < 5:
+        return False
+
+    while mask != 0x3FFFFFFFFFFFF:
+        mask = floodFill(mask, findFreeCell(mask))
+        new_zeroes = zerocount(mask)
+
+        if zeroes - new_zeroes < 5:
+            return False
+
+        zeroes = new_zeroes
+
+    return True
+
+
+def getBitmask(x, y, piece):
+    mask = 1 << (x + width*y)
+
+    for cell in piece:
+        x, y = move[cell](x, y)
+        if valid(x, y):
+            mask = mask | (1 << (x + width*y))
+        else:
+            return False, 0
+
+    return True, mask
+
+def allBitmasks(piece, color):
+    bitmasks = []
+    for orientations in range(2):
+        for rotations in range(6 - 3*(color == 4)):
+            for y in range(height):
+                for x in range(width):
+                    isValid, mask = getBitmask(x, y, piece)
+                    if isValid and noIslands(mask):
+                        bitmasks.append(mask)
+
+            piece = [rotate[cell] for cell in piece]
+        piece = [flip[cell] for cell in piece]
+
+    return bitmasks
+
+
+def generateBitmasks():
+    global masksAtCell
+
+    pieces = [["E", "E", "E", "SE"], ["SE", "SW", "W", "SW"],
+        ["W", "W", "SW", "SE"], ["E",  "E", "SW", "SE"],
+        ["NW", "W", "NW", "SE", "SW"], ["E",  "E", "NE", "W"],
+        ["NW", "NE", "NE", "W"], ["NE", "SE", "E", "NE"],
+        ["SE", "SE", "E", "SE"], ["E", "NW", "NW", "NW"]]
+
+    masksAtCell = [[[] for j in range(10)] for i in range(width*height)]
+
+    color = 0
+    for piece in pieces:
+        masks = allBitmasks(piece, color)
+        masks.sort()
+        cellMask = 1 << (width*height - 1)
+        cellCounter = width*height - 1
+        j = len(masks) - 1
+
+        while (j >= 0):
+            if (masks[j] & cellMask) == cellMask:
+                masksAtCell[cellCounter][color].append(masks[j])
+                j = j-1
+            else:
+                cellMask = cellMask >> 1
+                cellCounter -= 1
+        color += 1
+
+
+def solveCell(cell, board):
+    if to_go <= 0:
+        # Got enough solutions
+        pass
+    elif board == 0x3FFFFFFFFFFFF:
+        # Solved
+        addSolutions()
+    elif board & (1 << cell) != 0:
+        # Cell full
+        solveCell(cell-1, board)
+    elif cell < 0:
+        # Out of board
+        pass
+    else:
+        for color in range(10):
+            if masks[color] == 0:
+                for mask in masksAtCell[cell][color]:
+                    if mask & board == 0:
+                        masks[color] = mask
+                        solveCell(cell-1, board | mask)
+                        masks[color] = 0
+
+
+def addSolutions():
+    global to_go
+    s = ''
+    mask = 1
+    for y in range(height):
+        for x in range(width):
+            for color in range(10):
+                if masks[color] & mask != 0:
+                    s += str(color)
+                    break
+                elif color == 9:
+                    s += '.'
+            mask <<= 1
+
+    # Inverse
+    ns = ''
+    for y in range(height):
+        for x in range(width):
+            ns += s[width - x - 1 + (width - y - 1) * width]
+
+    # Finally append
+    solutions.append(s)
+    solutions.append(ns)
+    to_go -= 2
+
+
+def printSolution(solution):
+    for y in range(height):
+        for x in range(width):
+            print(solution[x + y*width], end=' ')
+
+        print("")
+        if y % 2 == 0:
+            print("", end=' ')
+    print()
+
+
+def solve(n):
+    global to_go
+    to_go = n
+    generateBitmasks()
+    solveCell(width*height - 1, 0)
+
+
+if __name__ == "__main__":
+    solve(int(sys.argv[1]))
+
+    print("%d solutions found\n" % len(solutions))
+    printSolution(min(solutions))
+    printSolution(max(solutions))
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+#
+# contributed by Daniel Nanz, 2008-08-21
+# 2to3
+
+import sys
+from bisect import bisect
+
+w, h = 5, 10
+dir_no = 6
+S, E = w * h, 2
+SE = S + (E / 2)
+SW = SE - E
+W, NW, NE = -E, -SE, -SW
+
+
+def rotate(ido, rd={E: NE, NE: NW, NW: W, W: SW, SW: SE, SE: E}):
+    return [rd[o] for o in ido]
+
+def flip(ido, fd={E: E, NE: SE, NW: SW, W: W, SW: NW, SE: NE}):
+    return [fd[o] for o in ido]
+
+
+def permute(ido, r_ido, rotate=rotate, flip=flip):
+
+    ps = [ido]
+    for r in range(dir_no - 1):
+        ps.append(rotate(ps[-1]))
+        if ido == r_ido:                 # C2-symmetry
+            ps = ps[0:dir_no//2]
+    for pp in ps[:]:
+        ps.append(flip(pp))
+    return ps
+
+
+def convert(ido):
+    '''incremental direction offsets -> "coordinate offsets" '''
+    out = [0]
+    for o in ido:
+        out.append(out[-1] + o)
+    return list(set(out))
+
+
+def get_footprints(board, cti, pieces):
+
+    fps = [[[] for p in range(len(pieces))] for ci in range(len(board))]
+    for c in board:
+        for pi, p in enumerate(pieces):
+            for pp in p:
+                fp = frozenset(cti[c + o] for o in pp if (c + o) in cti)
+                if len(fp) == 5:
+                    fps[min(fp)][pi].append(fp)
+    return fps
+
+
+def get_senh(board, cti):
+    '''-> south-east neighborhood'''
+    se_nh = []
+    nh = [E, SW, SE]
+    for c in board:
+        se_nh.append(frozenset(cti[c + o] for o in nh if (c + o) in cti))
+    return se_nh
+
+
+def get_puzzle(w=w, h=h):
+
+    board = [E*x + S*y + (y%2) for y in range(h) for x in range(w)]
+    cti = dict((board[i], i) for i in range(len(board)))
+
+    idos = [[E, E, E, SE],         # incremental direction offsets
+            [SE, SW, W, SW],
+            [W, W, SW, SE],
+            [E, E, SW, SE],
+            [NW, W, NW, SE, SW],
+            [E, E, NE, W],
+            [NW, NE, NE, W],
+            [NE, SE, E, NE],
+            [SE, SE, E, SE],
+            [E, NW, NW, NW]]
+
+    perms = (permute(p, idos[3]) for p in idos)    # restrict piece 4
+    pieces = [[convert(pp) for pp in p] for p in perms]
+    return (board, cti, pieces)
+
+
+def print_board(board, w=w, h=h):
+
+    for y in range(h):
+        for x in range(w):
+            print(board[x + y * w], end=' ')
+        print('')
+        if y % 2 == 0:
+            print('', end=' ')
+    print()
+
+
+board, cti, pieces = get_puzzle()
+fps = get_footprints(board, cti, pieces)
+se_nh = get_senh(board, cti)
+
+
+def solve(n, i_min, free, curr_board, pieces_left, solutions,
+          fps=fps, se_nh=se_nh, bisect=bisect):
+
+    fp_i_cands = fps[i_min]
+    for p in pieces_left:
+        fp_cands = fp_i_cands[p]
+        for fp in fp_cands:
+            if fp <= free:
+                n_curr_board = curr_board[:]
+                for ci in fp:
+                    n_curr_board[ci] = p
+                if len(pieces_left) > 1:
+                    n_free = free - fp
+                    n_i_min = min(n_free)
+                    if len(n_free & se_nh[n_i_min]) > 0:
+                        n_pieces_left = pieces_left[:]
+                        n_pieces_left.remove(p)
+                        solve(n, n_i_min, n_free, n_curr_board,
+                              n_pieces_left, solutions)
+                else:
+                    s = ''.join(map(str, n_curr_board))
+                    solutions.insert(bisect(solutions, s), s)
+                    rs = s[::-1]
+                    solutions.insert(bisect(solutions, rs), rs)
+                    if len(solutions) >= n:
+                        return
+        if len(solutions) >= n:
+            return
+    return
+
+def main(n):
+
+    free = frozenset(range(len(board)))
+    curr_board = [-1] * len(board)
+    pieces_left = list(range(len(pieces)))
+    solutions = []
+    solve(n, 0, free, curr_board, pieces_left, solutions)
+    print(len(solutions),  'solutions found\n')
+    for i in (0, -1): print_board(solutions[i])
+
+main(int(sys.argv[1]))
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+#
+# originally by Kevin Carson
+# modified by Tupteq, Fredrik Johansson, and Daniel Nanz
+# modified by Maciej Fijalkowski
+# 2to3
+
+import sys 
+
+def combinations(l):
+    result = []
+    for x in range(len(l) - 1):
+        ls = l[x+1:]
+        for y in ls:
+            result.append((l[x],y))
+    return result
+
+PI = 3.14159265358979323
+SOLAR_MASS = 4 * PI * PI
+DAYS_PER_YEAR = 365.24
+
+BODIES = {
+    'sun': ([0.0, 0.0, 0.0], [0.0, 0.0, 0.0], SOLAR_MASS),
+
+    'jupiter': ([4.84143144246472090e+00,
+                 -1.16032004402742839e+00,
+                 -1.03622044471123109e-01],
+                [1.66007664274403694e-03 * DAYS_PER_YEAR,
+                 7.69901118419740425e-03 * DAYS_PER_YEAR,
+                 -6.90460016972063023e-05 * DAYS_PER_YEAR],
+                9.54791938424326609e-04 * SOLAR_MASS),
+
+    'saturn': ([8.34336671824457987e+00,
+                4.12479856412430479e+00,
+                -4.03523417114321381e-01],
+               [-2.76742510726862411e-03 * DAYS_PER_YEAR,
+                4.99852801234917238e-03 * DAYS_PER_YEAR,
+                2.30417297573763929e-05 * DAYS_PER_YEAR],
+               2.85885980666130812e-04 * SOLAR_MASS),
+
+    'uranus': ([1.28943695621391310e+01,
+                -1.51111514016986312e+01,
+                -2.23307578892655734e-01],
+               [2.96460137564761618e-03 * DAYS_PER_YEAR,
+                2.37847173959480950e-03 * DAYS_PER_YEAR,
+                -2.96589568540237556e-05 * DAYS_PER_YEAR],
+               4.36624404335156298e-05 * SOLAR_MASS),
+
+    'neptune': ([1.53796971148509165e+01,
+                 -2.59193146099879641e+01,
+                 1.79258772950371181e-01],
+                [2.68067772490389322e-03 * DAYS_PER_YEAR,
+                 1.62824170038242295e-03 * DAYS_PER_YEAR,
+                 -9.51592254519715870e-05 * DAYS_PER_YEAR],
+                5.15138902046611451e-05 * SOLAR_MASS) }
+
+
+SYSTEM = list(BODIES.values())
+PAIRS = combinations(SYSTEM)
+
+
+def advance(dt, n, bodies=SYSTEM, pairs=PAIRS):
+
+    for i in range(n):
+        for (([x1, y1, z1], v1, m1),
+             ([x2, y2, z2], v2, m2)) in pairs:
+            dx = x1 - x2
+            dy = y1 - y2
+            dz = z1 - z2
+            mag = dt * ((dx * dx + dy * dy + dz * dz) ** (-1.5))
+            b1m = m1 * mag
+            b2m = m2 * mag
+            v1[0] -= dx * b2m
+            v1[1] -= dy * b2m
+            v1[2] -= dz * b2m
+            v2[0] += dx * b1m
+            v2[1] += dy * b1m
+            v2[2] += dz * b1m
+        for (r, [vx, vy, vz], m) in bodies:
+            r[0] += dt * vx
+            r[1] += dt * vy
+            r[2] += dt * vz
+
+
+def report_energy(bodies=SYSTEM, pairs=PAIRS, e=0.0):
+
+    for (((x1, y1, z1), v1, m1),
+         ((x2, y2, z2), v2, m2)) in pairs:
+        dx = x1 - x2
+        dy = y1 - y2
+        dz = z1 - z2
+        e -= (m1 * m2) / ((dx * dx + dy * dy + dz * dz) ** 0.5)
+    for (r, [vx, vy, vz], m) in bodies:
+        e += m * (vx * vx + vy * vy + vz * vz) / 2.
+    print("%.9f" % e)
+
+def offset_momentum(ref, bodies=SYSTEM, px=0.0, py=0.0, pz=0.0):
+
+    for (r, [vx, vy, vz], m) in bodies:
+        px -= vx * m
+        py -= vy * m
+        pz -= vz * m
+    (r, v, m) = ref
+    v[0] = px / m
+    v[1] = py / m
+    v[2] = pz / m
+
+def main(n, ref='sun'):
+    offset_momentum(BODIES[ref])
+    report_energy()
+    advance(0.01, n)
+    report_energy()
+
+if __name__ == '__main__':
+    main(int(sys.argv[1]))
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+
+# transliterated from Mike Pall's Lua program
+# contributed by Mario Pernici
+
+from gmpy import mpz
+from sys import argv
+
+try:
+  N = int(argv[1])
+except:
+  N = 100
+
+i = k = ns = 0
+k1 = 1
+n,a,d,t,u = map(mpz,(1,0,1,0,0))
+while(1):
+  k += 1
+  t = n<<1
+  n *= k
+  a += t
+  k1 += 2
+  a *= k1
+  d *= k1
+  if a >= n:
+    t,u = divmod(n*3 +a,d)
+    u += n
+    if d > u:
+      ns = ns*10 + t
+      i += 1
+      if i % 10 == 0:
+        print ('%010d\t:%d' % (ns, i))
+        ns = 0
+      if i >= N:
+        break
+      a -= d*t
+      a *= 10
+      n *= 10
+
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+#
+# contributed by anon
+# modified by Pilho Kim (first GMP version)
+# modified by 2to3 and Daniel Nanz
+
+import sys
+from itertools import islice
+from gmpy import mpz
+
+ 
+(MPZ0, MPZ1, MPZ2, MPZ3, MPZ4, MPZ10) = (mpz(i) for i in (0, 1, 2, 3, 4, 10))
+
+
+def gen_x(zero=MPZ0, one=MPZ1, two=MPZ2, four=MPZ4):
+
+    a, b, d = zero, two, one
+    while True:
+        a += one
+        b += four
+        d += two
+        yield (a, b, zero, d)
+
+
+def compose(q1, q2):
+
+    a, b, c, d = q1
+    e, f, g, h = q2
+    return (a * e,  a * f + b * h,  c * e + d * g,  c * f + d * h)
+
+
+def extract(q, j):
+    
+    a, b, c, d = q
+    return (a * j + b) // (c * j + d)
+
+
+def pi_digits(x=gen_x(), extr=extract, comp=compose, zero=MPZ0, 
+              one=MPZ1, three=MPZ3, four=MPZ4, ten=MPZ10, mten=-MPZ10):
+
+    z = (one, zero, zero, one)
+    while True:
+        y = extr(z, three)
+        while y != extr(z, four):
+            z = comp(z, next(x))
+            y = extr(z, three)
+        z = comp((ten, mten * y, zero, one), z)
+        yield str(y)
+
+
+def main(n, digits=pi_digits(), width=10, line='{}\t:{}'):
+
+    for i in range(width, n+1, width):
+        print(line.format(''.join(islice(digits, width)), i))
+    if n % width > 0:
+        print(line.format(''.join(islice(digits, n % width)).ljust(width), n))
+
+
+main(int(sys.argv[1]))
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+#
+# contributed Daniel Nanz
+
+import sys
+import gmpy
+
+
+def get_pistring(n, pi=gmpy.pi):
+
+    return str(pi(int(3.35 * n))).replace('.', '')[0 : n]
+
+
+def main(n, width=10, line='{}\t:{}'):
+
+    pistring = get_pistring(n)
+    for i in range(0, n - width + 1, width):
+        print(line.format(pistring[i : i + width], i + width))
+    if n % width > 0:
+        print(line.format(pistring[-(n % width) : ].ljust(width), n))
+
+
+main(int(sys.argv[1]))
+
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+# transliterated from Mike Pall's Lua program
+# contributed by Mario Pernici
+# modified to run on Pypy by Joseph LaFata
+# rewritten to use gmp by Joseph LaFata
+
+import ctypes
+from ctypes.util import find_library
+from sys import argv
+
+try:
+    N = int(argv[1])
+except:
+    N = 100
+
+_libgmp = ctypes.CDLL(find_library("gmp"))
+
+_mpz_init_set_si = _libgmp.__gmpz_init_set_si
+_mpz_add = _libgmp.__gmpz_add
+_mpz_add_ui = _libgmp.__gmpz_add_ui
+_mpz_sub = _libgmp.__gmpz_sub
+_mpz_mul = _libgmp.__gmpz_mul
+_mpz_mul_si = _libgmp.__gmpz_mul_si
+_mpz_mul_ui = _libgmp.__gmpz_mul_ui
+_mpz_div_mod = _libgmp.__gmpz_fdiv_qr
+_mpz_cmp = _libgmp.__gmpz_cmp
+_mpz_get_si = _libgmp.__gmpz_get_si
+
+class mpz_t_struct(ctypes.Structure):
+    _fields_ = [("mp_alloc", ctypes.c_int),
+                ("mp_size", ctypes.c_int),
+                ("mp_d", ctypes.c_void_p)]
+
+class mpz(object):
+    def __init__(self, init_value=0):
+        self._mpz = mpz_t_struct()
+        self._as_parameter_ = ctypes.byref(self._mpz)
+        _mpz_init_set_si(self, init_value)
+
+def main():
+    i = k = ns = 0
+    k1 = 1
+    n,a,d,t,u = map(mpz, (1,0,1,0,0))
+    while(1):
+        k += 1
+        _mpz_mul_ui(t, n, 2)
+        _mpz_mul_si(n, n, k)
+        _mpz_add(a, a, t)
+        k1 += 2
+        _mpz_mul_si(a, a, k1)
+        _mpz_mul_si(d, d, k1)
+        if _mpz_cmp(a, n) >= 0:
+            _mpz_mul_ui(t, n, 3)
+            _mpz_add(t, t, a)
+            _mpz_div_mod(t, u, t, d)
+            _mpz_add(u, u, n)
+            if _mpz_cmp(d, u) > 0:
+                ns = ns*10 + _mpz_get_si(t)
+                i += 1
+                if i % 10 == 0:
+                    print ('%010d\t:%d' % (ns, i))
+                    ns = 0
+                if i == N:
+                    break
+                _mpz_mul(t, t, d)
+                _mpz_sub(a, a, t)
+                _mpz_mul_ui(a, a, 10)
+                _mpz_mul_ui(n, n, 10)
+
+main()
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+# contributed by Dominique Wahli
+# 2to3
+# mp by Ahmad Syukri
+# modified by Justin Peel
+
+from sys import stdin
+from re import sub, findall
+from multiprocessing import Pool
+
+def init(arg):
+    global seq
+    seq = arg
+
+def var_find(f):
+    return len(findall(f, seq))
+
+def main():
+    seq = stdin.read()
+    ilen = len(seq)
+
+    seq = sub('>.*\n|\n', '', seq)
+    clen = len(seq)
+
+    pool = Pool(initializer = init, initargs = (seq,))
+
+    variants = (
+          'agggtaaa|tttaccct',
+          '[cgt]gggtaaa|tttaccc[acg]',
+          'a[act]ggtaaa|tttacc[agt]t',
+          'ag[act]gtaaa|tttac[agt]ct',
+          'agg[act]taaa|ttta[agt]cct',
+          'aggg[acg]aaa|ttt[cgt]ccct',
+          'agggt[cgt]aa|tt[acg]accct',
+          'agggta[cgt]a|t[acg]taccct',
+          'agggtaa[cgt]|[acg]ttaccct')
+    for f in zip(variants, pool.imap(var_find, variants)):
+        print(f[0], f[1])
+
+    subst = {
+          'B' : '(c|g|t)', 'D' : '(a|g|t)',   'H' : '(a|c|t)', 'K' : '(g|t)',
+          'M' : '(a|c)',   'N' : '(a|c|g|t)', 'R' : '(a|g)',   'S' : '(c|g)',
+          'V' : '(a|c|g)', 'W' : '(a|t)',     'Y' : '(c|t)'}
+    for f, r in list(subst.items()):
+        seq = sub(f, r, seq)
+
+    print()
+    print(ilen)
+    print(clen)
+    print(len(seq))
+
+if __name__=="__main__":
+    main()
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+# contributed by Dominique Wahli
+# 2to3
+# modified by Justin Peel
+
+from sys import stdin,stdout
+from re import sub, findall
+
+def main():
+    seq = stdin.buffer.read()
+    write = stdout.buffer.write
+    ilen = len(seq)
+
+    seq = sub(b'>.*\n|\n', b'', seq)
+    clen = len(seq)
+
+    variants = (
+          b'agggtaaa|tttaccct',
+          b'[cgt]gggtaaa|tttaccc[acg]',
+          b'a[act]ggtaaa|tttacc[agt]t',
+          b'ag[act]gtaaa|tttac[agt]ct',
+          b'agg[act]taaa|ttta[agt]cct',
+          b'aggg[acg]aaa|ttt[cgt]ccct',
+          b'agggt[cgt]aa|tt[acg]accct',
+          b'agggta[cgt]a|t[acg]taccct',
+          b'agggtaa[cgt]|[acg]ttaccct')
+    for f in variants:
+        write(f + b' ' +bytes(str(len(findall(f, seq))),encoding='latin1') + b'\n')
+
+    subst = {
+          b'B' : b'(c|g|t)', b'D' : b'(a|g|t)',   b'H' : b'(a|c|t)', b'K' : b'(g|t)',
+          b'M' : b'(a|c)',   b'N' : b'(a|c|g|t)', b'R' : b'(a|g)',   b'S' : b'(c|g)',
+          b'V' : b'(a|c|g)', b'W' : b'(a|t)',     b'Y' : b'(c|t)'}
+    for f, r in subst.items():
+        seq = sub(f, r, seq)
+    write(b'\n')
+    write(bytes(str(ilen),encoding='latin1') + b'\n')
+    write(bytes(str(clen),encoding='latin1') + b'\n')
+    write(bytes(str(len(seq)),encoding='latin1') + b'\n')
+
+main()
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+# 
+# contributed by Jacob Lee, Steven Bethard, et al
+# 2to3
+# fixed by Daniele Varrazzo
+
+import sys, string
+
+def show(seq, 
+         table=bytes.maketrans(b'ACBDGHK\nMNSRUTWVYacbdghkmnsrutwvy',
+                                b'TGVHCDM\nKNSYAAWBRTGVHCDMKNSYAAWBR')):
+                                
+   seq = (''.join(seq)).translate(table)[::-1]
+   for i in range(0, len(seq), 60):
+      print(seq[i:i+60])
+      
+
+def main():
+   seq = []
+   add_line = seq.append
+   for line in sys.stdin:
+      if line[0] in '>;':
+         show(seq)
+         print(line, end='')
+         del seq[:]
+      else:
+         add_line(line[:-1])
+   show(seq)
+
+main()
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+#
+# contributed by Jacob Lee, Steven Bethard, et al
+# 2to3, fixed by Daniele Varrazzo
+# modified by Daniel Nanz
+
+import sys
+
+
+def show(seq, table=bytes.maketrans(b'ACBDGHKMNSRUTWVYacbdghkmnsrutwvy',
+                                    b'TGVHCDMKNSYAAWBRTGVHCDMKNSYAAWBR'),
+         write=sys.stdout.buffer.write, nl=b'\n'):
+    
+    [header, s] = seq.split(nl, 1)
+    s = s.translate(table, nl)[: : -1]
+    
+    write(b'>' + header + nl)
+    for i in range(0, len(s), 60):
+        write(s[i : i + 60] + nl)
+
+
+
+def main():
+    
+    sys.stdin = sys.stdin.detach()
+    seqs = b''.join([line for line in sys.stdin]).split(b'>')[1 : ]
+    
+    for seq in seqs:
+        show(seq)        
+
+
+main()
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+#
+# Contributed by Sebastien Loisel
+# Fixed by Isaac Gouy
+# Sped up by Josh Goldfoot
+# Dirtily sped up by Simon Descarpentries
+# Sped up with numpy by Kittipong Piyawanno
+# 2to3
+
+from sys import argv
+from numpy import *
+
+def spectralnorm(n):
+	u = matrix(ones(n))
+	j = arange(n)
+	eval_func = lambda i : 1.0 / ((i + j) * (i + j + 1) / 2 + i + 1)
+	M = matrix([eval_func(i) for i in arange(n)])
+	MT = M.T
+	for i in range (10):
+		v = (u*MT)*M
+		u = (v*MT)*M
+	print("%0.9f" % (sum(u*v.T)/sum(v*v.T))**0.5)
+
+spectralnorm(int(argv[1]))
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+# Contributed by Sebastien Loisel
+# Fixed by Isaac Gouy
+# Sped up by Josh Goldfoot
+# Dirtily sped up by Simon Descarpentries
+# Concurrency by Jason Stitt
+# 2to3
+
+from multiprocessing import Pool
+from math            import sqrt
+
+from sys             import argv
+
+def eval_A (i, j):
+    return 1.0 / ((i + j) * (i + j + 1) / 2 + i + 1)
+
+def eval_A_times_u (u):
+    args = ((i,u) for i in range(len(u)))
+    return pool.map(part_A_times_u, args)
+
+def eval_At_times_u (u):
+    args = ((i,u) for i in range(len(u)))
+    return pool.map(part_At_times_u, args)
+
+def eval_AtA_times_u (u):
+    return eval_At_times_u (eval_A_times_u (u))
+
+def part_A_times_u(xxx_todo_changeme):
+    (i,u) = xxx_todo_changeme
+    partial_sum = 0
+    for j, u_j in enumerate(u):
+        partial_sum += eval_A (i, j) * u_j
+    return partial_sum
+
+def part_At_times_u(xxx_todo_changeme1):
+    (i,u) = xxx_todo_changeme1
+    partial_sum = 0
+    for j, u_j in enumerate(u):
+        partial_sum += eval_A (j, i) * u_j
+    return partial_sum
+
+def main():
+    n = int(argv[1])
+    u = [1] * n
+
+    for dummy in range (10):
+        v = eval_AtA_times_u (u)
+        u = eval_AtA_times_u (v)
+
+    vBv = vv = 0
+
+    for ue, ve in zip (u, v):
+        vBv += ue * ve
+        vv  += ve * ve
+
+    print("%0.9f" % (sqrt(vBv/vv)))
+
+if __name__ == '__main__':
+    pool = Pool(processes=4)
+    main()
+    
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+#
+# Contributed by Sebastien Loisel
+# Fixed by Isaac Gouy
+# Sped up by Josh Goldfoot
+# Dirtily sped up by Simon Descarpentries
+# Used list comprehension by Vadim Zelenin
+# 2to3
+
+from math      import sqrt
+from sys       import argv
+
+
+def eval_A(i, j):
+    ij = i+j
+    return 1.0 / (ij * (ij + 1) / 2 + i + 1)
+
+
+def eval_A_times_u(u):
+    local_eval_A = eval_A
+
+    return [ sum([ local_eval_A(i, j) * u_j
+                   for j, u_j in enumerate(u)
+                 ]
+                )
+             for i in range(len(u))
+           ]
+
+
+def eval_At_times_u(u):
+    local_eval_A = eval_A
+
+    return [ sum([ local_eval_A(j, i) * u_j
+                   for j, u_j in enumerate(u)
+                 ]
+                )
+             for i in range(len(u))
+           ]
+
+
+def eval_AtA_times_u(u):
+    return eval_At_times_u(eval_A_times_u(u))
+
+
+def main():
+    n = int(argv[1])
+    u = [1] * n
+    local_eval_AtA_times_u = eval_AtA_times_u
+
+    for dummy in range(10):
+        v = local_eval_AtA_times_u(u)
+        u = local_eval_AtA_times_u(v)
+
+    vBv = vv = 0
+
+    for ue, ve in zip(u, v):
+        vBv += ue * ve
+        vv  += ve * ve
+
+    print("%0.9f" % (sqrt(vBv/vv)))
+
+main()
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+#
+# Contributed by Sebastien Loisel
+# Fixed by Isaac Gouy
+# Sped up by Josh Goldfoot
+# Dirtily sped up by Simon Descarpentries
+# Sped up by Joseph LaFata
+
+from array     import array
+from math      import sqrt
+from sys       import argv
+import sys
+
+if sys.version_info < (3, 0):
+    from itertools import izip as zip
+else:
+    xrange = range
+
+def eval_A (i, j):
+    return 1.0 / (((i + j) * (i + j + 1) >> 1) + i + 1)
+
+def eval_A_times_u (u, resulted_list):
+    u_len = len (u)
+    local_eval_A = eval_A
+    
+    for i in xrange (u_len):
+        partial_sum = 0
+        
+        j = 0
+        while j < u_len:
+            partial_sum += local_eval_A (i, j) * u[j]
+            j += 1
+        
+        resulted_list[i] = partial_sum
+
+def eval_At_times_u (u, resulted_list):
+    u_len = len (u)
+    local_eval_A = eval_A
+    
+    for i in xrange (u_len):
+        partial_sum = 0
+        
+        j = 0
+        while j < u_len:
+            partial_sum += local_eval_A (j, i) * u[j]
+            j += 1
+        
+        resulted_list[i] = partial_sum
+
+def eval_AtA_times_u (u, out, tmp):
+    eval_A_times_u (u, tmp)
+    eval_At_times_u (tmp, out)
+
+def main():
+    n = int (argv [1])
+    u = array("d", [1]) * n
+    v = array("d", [1]) * n
+    tmp = array("d", [1]) * n
+    local_eval_AtA_times_u = eval_AtA_times_u
+    
+    for dummy in xrange (10):
+        local_eval_AtA_times_u (u, v, tmp)
+        local_eval_AtA_times_u (v, u, tmp)
+    
+    vBv = vv = 0
+    
+    for ue, ve in zip (u, v):
+        vBv += ue * ve
+        vv  += ve * ve
+    
+    print("%0.9f" % (sqrt(vBv/vv)))
+
+main() 
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+# Contributed by Antti Kervinen
+# Modified by Tupteq
+# 2to3
+
+import sys
+import _thread
+
+# Set minimum stack size for threads, otherwise the program may fail
+# to create such a many threads
+_thread.stack_size(32*1024)
+
+def threadfun(number, lock_acquire, next_release):
+    global n
+    while 1:
+        lock_acquire()
+        if n > 0:
+            n -= 1
+            next_release()
+        else:
+            print(number)
+            main_lock.release()
+
+# main
+n = int(sys.argv[1])
+main_lock = _thread.allocate_lock()
+main_lock.acquire()
+
+first_lock = _thread.allocate_lock()
+next_lock = first_lock
+
+for number in range(503):
+    lock = next_lock
+    lock.acquire()
+    next_lock = _thread.allocate_lock() if number < 502 else first_lock
+    _thread.start_new_thread(threadfun,
+        (number+1, lock.acquire, next_lock.release))
+
+first_lock.release()
+main_lock.acquire()
+# The Computer Language Benchmarks Game
+# http://shootout.alioth.debian.org/
+#
+# contributed by Daniel Nanz 2008-03-11
+
+# Coroutines via enhanced generators
+# 2to3
+
+import sys
+import itertools
+      
+def main(n = int(sys.argv[1]), n_threads=503, cycle=itertools.cycle):
+
+    def worker(worker_id):
+        
+        n = 1
+        while True:
+            if n > 0:
+                n = (yield (n - 1))
+            else:
+                print(worker_id)
+                raise StopIteration
+
+
+    threadRing = [worker(w) for w in range(1, n_threads + 1)]
+    for t in threadRing: foo = next(t)           # start exec. gen. funcs
+    sendFuncRing = [t.send for t in threadRing]   # speed...
+    for send in cycle(sendFuncRing):
+        try:
+            n = send(n)
+        except StopIteration:
+            break
+
+main()

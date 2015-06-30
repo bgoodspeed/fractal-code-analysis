@@ -1,0 +1,3303 @@
+%% $Id: ackermann.mercury,v 1.1 2004-07-11 07:52:29 bfulgham Exp $
+%% http://www.bagley.org/~doug/shootout/
+
+:- module mytest.
+
+:- interface.
+
+:- import_module io.
+
+:- pred main(io__state, io__state).
+:- mode main(di, uo) is det.
+
+:- implementation.
+
+:- func ack(int, int) = int.
+:- mode ack(in, in) = out is det.
+
+:- import_module string, list, int.
+
+:- pred mytest(int, io__state, io__state).
+:- mode mytest(in, di, uo) is det.
+
+ack(M, N) = R :- 
+    ( if M = 0 then
+	R = N + 1
+      else if N = 0 then
+	R = ack(M - 1, 1)
+      else
+	R = ack(M - 1, ack(M, N - 1))
+    ).
+
+mytest(Num) -->
+    io__write_string("Ack(3,"),
+    io__write_int(Num),
+    io__write_string("): "),
+    io__write_int(ack(3,Num)),
+    io__write_string("\n").
+
+main -->
+    io__command_line_arguments(Args),
+    ( if { Args = [] } then
+         mytest(1)
+      else if { Args = [Arg|_] } then
+         ( if { string__to_int(Arg, N), N > 0 } then
+             mytest(N)
+	   else
+             mytest(1)
+         )
+    ).
+
+%% $Id: ary.mercury,v 1.1 2004-07-11 07:52:30 bfulgham Exp $
+%% http://www.bagley.org/~doug/shootout/
+%% based on some code from Ralph Becket
+
+:- module mytest.
+
+:- interface.
+
+:- import_module io.
+
+
+
+:- pred main(io__state, io__state).
+:- mode main(di, uo) is det.
+
+
+
+:- implementation.
+
+
+
+:- import_module array, int, list, string, require.
+
+
+
+main -->
+    io__command_line_arguments(ArgV),
+    (   { ArgV = [],        N = 1 }
+    ;   { ArgV = [Arg],     N = string__det_to_int(Arg) }
+    ;   { ArgV = [_,_|_],   error("usage: arrayaccess [N]") }
+    ),
+    { X = some_naturals(0, array__init(N, 0)) },
+    { Y = add_arrays_n(1000, N-1, X, array__init(N, 0)) },
+    io__write_int(array__lookup(Y, 0)),
+    io__write_string(" "),
+    io__write_int(array__lookup(Y, N - 1)),
+    io__nl.
+
+
+
+:- func some_naturals(int, array(int)) = array(int).
+:- mode some_naturals(in, array_di) = array_uo is det.
+
+some_naturals(I, A) =
+    ( if I =< array__max(A) then some_naturals(I + 1, array__set(A, I, I + 1))
+                            else A ).
+
+
+
+:- func add_array(int, array(int), array(int)) = array(int).
+:- mode add_array(in, array_ui, array_di) = array_uo is det.
+
+add_array(I, A, B) =
+    ( if I < 0
+      then B
+      else add_array(I - 1, A, array__set(B, I, array__lookup(A, I) + array__lookup(B, I)))
+    ).
+
+
+
+:- func add_arrays_n(int, int, array(int), array(int)) = array(int).
+:- mode add_arrays_n(in, in, array_ui, array_di) = array_uo is det.
+
+add_arrays_n(N, Len, A, B) =
+    ( if N > 0
+      then add_arrays_n(N - 1, Len, A, add_array(Len, A, B))
+      else B
+    ).
+
+% The Computer Language Shootout Benchmarks Game
+% http://shootout.alioth.debian.org/
+%
+% Based on work by Anthony Borla
+% contributed by Glendon Holst
+% ----------------------------------------------------------------------
+
+:- module binarytrees.
+:- interface.
+:- import_module io.
+
+:- pred main(io::di, io::uo) is det.
+
+% ----------------------------------------------------------------------
+
+:- implementation.
+
+:- import_module list.
+:- import_module int.
+:- import_module bool.
+:- import_module string.
+:- import_module char.
+:- import_module exception.
+
+% ----------------------------------------------------------------------
+
+:- type tree(T) ---> nil ; node(T, tree(T), tree(T)).
+
+% ----------------------------------------------------------------------
+
+main(!IO) :-
+	io.command_line_arguments(Args, !IO),
+	(
+		if
+			Args = [AString|_],
+			string.to_int(string.strip(AString), Aint)
+		then
+			N = Aint
+		else
+			N is 16
+	),
+
+
+  MIN_DEPTH is 4, 
+  
+  MinDepth is MIN_DEPTH + 2,
+  (MinDepth > N -> MAX_DEPTH = MinDepth ; MAX_DEPTH = N),
+  STRETCH_DEPTH is MAX_DEPTH + 1,
+
+  bottom_up_tree(0, STRETCH_DEPTH, ST),
+
+  check_tree(ST, ITS),
+  io.format("stretch tree of depth %d\t check: %d\n", 
+	[i(STRETCH_DEPTH), i(ITS)], !IO),
+
+  bottom_up_tree(0, MAX_DEPTH, LLT),
+
+  descend_trees(MIN_DEPTH, MIN_DEPTH, MAX_DEPTH, !IO),
+
+  check_tree(LLT, ITL),
+  io.format("long lived tree of depth %d\t check: %d\n", 
+	[i(MAX_DEPTH), i(ITL)], !IO).
+
+% ------------------------------- %
+
+:- pred descend_trees(int::in, int::in, int::in, io::di, io::uo) is det.
+
+descend_trees(CurrentDepth, MinDepth, MaxDepth, !IO) :-
+(
+	CurrentDepth =< MaxDepth ->
+    N is int.pow(2, (MaxDepth - CurrentDepth + MinDepth)), Iterations is 2 * N,
+    sum_trees(N, CurrentDepth, 0, Sum),
+    format("%d\t trees of depth %d\t check: %d\n", 
+		[i(Iterations), i(CurrentDepth), i(Sum)], !IO),
+	descend_trees(CurrentDepth + 2, MinDepth, MaxDepth, !IO)
+;
+    true
+).
+
+% ------------- %
+
+:- pred sum_trees(int::in, int::in, int::in, int::out) is det.
+
+sum_trees(N, CurrentDepth, AccSum, Sum) :-
+(
+	N =< 0 -> Sum = AccSum
+;
+	bottom_up_tree(N, CurrentDepth, TreeLeft),
+	bottom_up_tree(-1 * N, CurrentDepth, TreeRight),
+	check_tree(TreeLeft, ItemLeft), check_tree(TreeRight, ItemRight),
+	sum_trees(N - 1, CurrentDepth, AccSum + ItemLeft + ItemRight, Sum)
+).
+
+% ------------------------------- %
+
+:- pred make_tree(int::in, tree(int)::in, tree(int)::in, tree(int)::out) is det.
+
+make_tree(Item, Left, Right, node(Item, Left, Right)).
+
+% ------------- %
+
+:- pred bottom_up_tree(int::in, int::in, tree(int)::out) is det.
+
+bottom_up_tree(Item, Depth, Tree) :-
+(
+	Depth =< 0 -> Tree = node(Item, nil, nil)
+;
+  bottom_up_tree(2 * Item - 1, Depth - 1, TreeLeft),
+  bottom_up_tree(2 * Item, Depth - 1, TreeRight),
+  make_tree(Item, TreeLeft, TreeRight, Tree)	
+).
+
+% ------------- %
+
+:- type binarytrees__error ---> error.
+
+:- pred check_tree(tree(int)::in, int::out) is det.
+
+check_tree(Tree, Item) :-
+(
+	Tree = node(Item0,nil, _) -> Item = Item0
+;
+	Tree = node(Item0,_, nil) -> Item = Item0
+;
+	Tree = node(Item0, Left, Right) ->
+	check_tree(Left, ItemLeft),
+	check_tree(Right, ItemRight),
+	Item is Item0 + ItemLeft - ItemRight
+;
+	throw(binarytrees__error)	
+).
+
+% ------------------------------- %
+% The Computer Language Shootout Benchmarks Game
+% http://shootout.alioth.debian.org/
+%
+% Based on work by Heiner Marxen (C) and Amir K aka Razii (Java)
+% contributed by Glendon Holst
+% ----------------------------------------------------------------------
+
+:- module fannkuch.
+:- interface.
+:- import_module io.
+
+:- pred main(io::di, io::uo) is cc_multi.
+
+% ----------------------------------------------------------------------
+
+:- implementation.
+:- import_module solutions.
+:- import_module array.
+:- import_module list.
+:- import_module int.
+:- import_module bool.
+:- import_module string.
+:- import_module exception.
+
+% ----------------------------------------------------------------------
+
+main(!IO) :- 
+(
+	io.command_line_arguments(Args, !IO),
+	(
+		if
+			Args = [AString|_],
+			string.to_int(string.strip(AString), Aint)
+		then
+			N = Aint
+		else
+			N is 11
+	),
+
+	Seq = (pred(L1::out) is multi :- seq_interval(1, N, L1)),
+	solutions(Seq,L),
+	
+	P = array(L),
+
+	Permutations = (pred(P1::array_uo) is multi :- permute(P, P1)),
+	Calculate = (pred(P2::array_ui, 
+			{IO0, FlipCount0, SeqCount0}::di, 
+			{IO1, FlipCount, SeqCount}::uo) is det :- 
+	(
+		P3 = array.copy(P2),
+		flip_array(P3,FlipCount1),
+		(
+			FlipCount1 > FlipCount0 -> 
+			FlipCount = unsafe_promise_unique(FlipCount1)
+		; 
+			FlipCount = FlipCount0
+		),
+		(
+			SeqCount0 < 30 -> 
+			print_permutation(P2, IO0, IO1),
+			SeqCount = SeqCount0 + 1 
+		;
+			IO1 = IO0,
+			SeqCount = SeqCount0
+		)
+	)),
+	unsorted_aggregate( Permutations, Calculate, {!.IO, 0, 0}, {!:IO, MaxCount, _}),
+	
+	io.format("Pfannkuchen(%d) = %d\n", [i(N), i(MaxCount)], !.IO, !:IO)
+).
+
+% ------------------------------- %
+%
+% seq_interval(A,B, X) => X is in interval [A..B].
+%
+
+:- pred seq_interval(int::in, int::in, int::out) is multi.
+
+seq_interval(N, M, Result) :-
+(
+	N >= M ->
+	Result = N
+;
+	(
+		Result = N
+	;
+		seq_interval(N + 1, M, Result)
+	)
+).
+
+% ------------- %
+
+:- pred print_permutation(array(int)::in, io::di, io::uo) is det.
+
+print_permutation(Permute, !IO) :- print_permutation_(0, Permute, !IO).
+
+:- pred print_permutation_(int::in, array(int)::in, io::di, io::uo) is det.
+
+print_permutation_(Idx, Permute, !IO) :- 
+(
+	Idx < array.size(Permute) ->
+	io.write_int(array.lookup(Permute, Idx), !IO),
+	print_permutation_(Idx + 1, Permute, !IO)
+;
+	io.nl(!IO),
+	io.flush_output(!IO)
+).
+
+% ------------------------------- %
+
+:- pred permute(array(int)::array_di, array(int)::array_uo) is multi.
+
+permute(Arr0, Arr) :- 
+(
+	permute_(array.size(Arr0), array.size(Arr0) - 1, Arr0, Arr1) -> 
+	Arr = Arr1 
+; 
+	Arr = Arr0
+).
+
+:- pred permute_(int, int, array(int), array(int)) is nondet.
+:- mode permute_(in, in, array_di, array_uo) is nondet.
+
+permute_(N, Idx, Arr0, Arr) :-
+(
+	N > 0 ->
+	(
+		permute_(Idx, Idx - 1, Arr0, Arr)
+	;
+		(
+			rotate_n(Idx, Arr0, Arr2),
+			permute_(N - 1, Idx, Arr2, Arr)
+		)
+	)
+;
+	Idx = 0 ->
+	Arr = Arr0
+;
+	fail
+).
+
+% ------------- %
+
+:- pred rotate_n(int::in, array(int)::array_di, array(int)::array_uo) is det.
+
+rotate_n(N, Arr0, Arr) :-
+(
+	N =< 0 ->
+	Arr = Arr0
+;
+	V = array.lookup(Arr0, N),
+	array.set(Arr0, N, array.lookup(Arr0, 0), Arr1),
+	shift_down(N - 1, V, Arr1, Arr)
+).
+
+:- pred shift_down(int, int, array(int), array(int)) is det.
+:- mode shift_down(in, in, array_di, array_uo) is det.
+
+shift_down(Idx, Val, Arr0, Arr) :-
+(
+	Idx > 0 ->
+	V = array.lookup(Arr0, Idx),
+	array.set(Arr0, Idx, Val, Arr1), 
+	shift_down(Idx - 1, V, Arr1, Arr)
+;
+	array.set(Arr0, 0, Val, Arr) 	
+).
+
+% ------------------------------- %
+
+:- pred reverse_n_to_m(
+	int::in, 
+	int::in, 
+	array(int)::array_di, 
+	array(int)::array_uo) is det.
+
+reverse_n_to_m(N, M, Arr0, Arr) :-
+(
+	N < M ->
+	T = array.lookup(Arr0, N),
+	array.set(Arr0, N, array.lookup(Arr0, M), Arr1),
+	array.set(Arr1, M, T, Arr2),
+	reverse_n_to_m(N + 1, M - 1, Arr2, Arr)
+;
+	Arr = Arr0
+).
+
+% ------------- %
+
+:- pred flip_array(array(int)::array_di, int::uo) is det.
+
+flip_array(Arr, Count) :-
+(
+	N = array.lookup(Arr, 0),
+	(
+		N = 1 ->
+		Count = 0
+	;
+		reverse_n_to_m(0, N - 1, Arr, Arr1),
+		flip_array(Arr1, C2),
+		Count = C2 + 1
+	)
+).
+
+% ------------------------------- %
+% The Computer Language Shootout Benchmarks Game
+% http://shootout.alioth.debian.org/
+%
+% Based on work by Anthony Borla
+% Modified for Mercury by Glendon Holst
+
+:- module fasta.
+:- interface.
+:- import_module io.
+
+:- pred main(io::di, io::uo) is det.
+
+% ----------------------------------------------------------------------
+
+:- implementation.
+
+:- import_module list.
+:- import_module int.
+:- import_module bool.
+:- import_module string.
+:- import_module char.
+:- import_module float.
+:- import_module exception.
+
+% ----------------------------------------------------------------------
+
+main(!IO) :-
+	io.command_line_arguments(Args, !IO),
+	(
+		if
+			Args = [AString|_],
+			string.to_int(string.strip(AString), Aint)
+		then
+			N = Aint
+		else
+			N is 2500000
+	),
+
+	LineLength = 60,
+	ALU = "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGGGAGGCCGAGGCGGGCGGATCACCT" ++
+		"GAGGTCAGGAGTTCGAGACCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAATACAAAAA" ++
+		"TTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCAGCTACTCGGGAGGCTGAGGCAGGAGAATCGCT" ++
+		"TGAACCCGGGAGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCCAGCCTGGGCGACAGA" ++
+		"GCGAGACTCCGTCTCAAAAA",
+	IUB = [	{'a', 0.27}, {'c', 0.12}, {'g', 0.12}, {'t', 0.27}, 
+			{'B', 0.02}, {'D', 0.02}, {'H', 0.02}, {'K', 0.02}, 
+			{'M', 0.02}, {'N', 0.02}, {'R', 0.02}, {'S', 0.02}, 
+			{'V', 0.02}, {'W', 0.02}, {'Y', 0.02}],
+	HOMOSAPIENS = [	{'a', 0.3029549426680}, {'c', 0.1979883004921}, 
+					{'g', 0.1975473066391}, {'t', 0.3015094502008}],
+	RS0 = init_random(42),
+
+	N1 is N * 2,
+	N2 is N * 3,
+	N3 is N * 5,
+	
+	repeat_fasta("ONE", "Homo sapiens alu", ALU, LineLength, N1, !IO),
+
+	make_cumulative(IUB, CVIUB),
+	random_fasta("TWO", "IUB ambiguity codes", 
+		CVIUB, LineLength, N2, RS0, RS1, !IO),
+
+	make_cumulative(HOMOSAPIENS, CVHOMOSAPIENS),
+	random_fasta("THREE", "Homo sapiens frequency", 
+		CVHOMOSAPIENS, LineLength, N3, RS1, _, !IO).
+
+% ------------------------------- %
+
+:- pred repeat_fasta(string, string, string, int, int, io, io) is det.
+:- mode repeat_fasta(in, in, in, in, in, di, uo) is det.
+:- pred repeat_fasta_(int, int, string, int, int, io, io) is det.
+:- mode repeat_fasta_(in, in, in, in, in, di, uo) is det.
+
+repeat_fasta(Id, Desc, ALU, LineLength, N, !IO) :-
+	ALULength = string.length(ALU),
+	io.format(">%s %s\n",[s(Id), s(Desc)], !IO),
+	repeat_fasta_(N, 0, ALU, ALULength, LineLength, !IO).
+
+% ------------- %
+
+repeat_fasta_(N, Q, ALU, ALULength, LineLength, !IO) :-
+(
+	N =< 0 -> true
+;
+	(	
+		N < LineLength -> L1 = N 
+	; 
+		L1 = LineLength
+	),
+	(
+		L1 + Q < ALULength ->
+		Lineout = string.substring(ALU, Q, L1), 
+		Q1 is L1 + Q, 
+		io.format("%s\n",[s(Lineout)], !IO)	
+	;
+		Prefix = string.substring(ALU, Q, ALULength - Q),
+		Q1 is L1 - string.length(Prefix),
+		Segment = string.substring(ALU, 0, Q1),
+		io.format("%s%s\n",[s(Prefix), s(Segment)], !IO)
+	),
+	repeat_fasta_(N - L1, Q1, ALU, ALULength, L1, !IO)
+).
+
+% ------------------------------- %
+
+:- pred random_fasta(
+	string::in, string::in, 
+	list({char, float})::in, 
+	int::in, int::in, 
+	random_state::in, random_state::out, 
+	io::di, io::uo) is det.
+:- pred random_fasta_(
+	int::in, list({char, float})::in, int::in, 
+	random_state::in, random_state::out, 
+	io::di, io::uo) is det.
+
+random_fasta(Id, Desc, CumTbl, LineLength, N, !RS, !IO) :-
+	io.format(">%s %s\n",[s(Id), s(Desc)], !IO),
+	random_fasta_(N, CumTbl, LineLength, !RS, !IO).
+
+% ------------- %
+
+random_fasta_(N, CumTbl, LineLength, !RS, !IO) :-
+(
+	N =< 0 -> true
+;
+	(
+		N < LineLength -> L1 = N 
+	; 
+		L1 = LineLength
+	),
+	gen_line(L1, CumTbl, "", Lineout, !RS),
+	io.format("%s\n",[s(Lineout)], !IO),	
+	random_fasta_(N - L1, CumTbl, L1, !RS, !IO)
+).
+
+% ------------- %
+
+:- pred gen_line(
+	int, 
+	list({char, float}), 
+	string, 
+	string, 
+	random_state, 
+	random_state) is det.
+:- mode gen_line(in, in, in, out, in, out) is det.
+
+gen_line(N, CumTbl, Acc, Result, !RS) :-
+(
+	N = 0 -> Result = Acc
+;
+	select_random(CumTbl, C, !RS), 
+	gen_line(N-1, CumTbl, Acc ++ string.char_to_string(C), Result, !RS)
+).
+
+% ------------------------------- %
+
+:- pred make_cumulative(list({char, float}), list({char, float})) is det.
+:- mode make_cumulative(in, out) is det.
+:- pred make_cumulative_(
+	list({char, float}), list({char, float}), 
+	float) is det.
+:- mode make_cumulative_(in, out, in) is det.
+
+make_cumulative(L, RL) :- make_cumulative_(L, RL, 0.0).
+
+make_cumulative_(L, R, CV) :-
+(
+	L = [{K, V}|Ts] -> 
+	(
+		CV1 is CV + V, 
+		R = [{K, CV1}|Ts1], 
+		make_cumulative_(Ts, Ts1, CV1)
+	)
+;
+	R = L
+).
+
+% ------------- %
+
+:- pred select_random(
+	list({char, float}), 
+	char, 
+	random_state, 
+	random_state) is det.
+:- mode select_random(in, out, in, out) is det. 
+:- pred select_random_(list({char, float}), float, char) is det. 
+:- mode select_random_(in, in, out) is det. 
+
+:- type fasta__error ---> error.
+
+select_random(L, RK, !RS) :- 
+	R = gen_random(1.0, !.RS, !:RS), 
+	select_random_(L, R, RK).
+
+select_random_(T, R, RK) :- 
+(
+	T = [{K, V}|Ts] -> (R < V -> RK = K ; select_random_(Ts, R, RK))
+;
+	throw(fasta__error)
+).
+
+% ------------------------------- %
+:- type random_state == int.
+
+:- func init_random(int) = random_state.
+
+init_random(Seed) = Seed.
+
+:- func gen_random(float, random_state, random_state) = float.
+:- mode gen_random(in, in, out) = out.
+
+gen_random(UB, RS0, RS) = RV :- 
+	IA = 3877, IC = 29573, IM = 139968, 
+	RS is (RS0 * IA + IC) mod IM, 
+	RV = UB * float(RS) / float(IM).
+
+% ------------------------------- %
+%% $Id: fibo.mercury,v 1.3 2005-04-25 19:01:38 igouy-guest Exp $
+%% http://www.bagley.org/~doug/shootout/
+
+:- module mytest.
+
+:- interface.
+
+:- import_module io.
+
+:- pred main(io__state, io__state).
+:- mode main(di, uo) is det.
+
+:- implementation.
+
+:- func fib(int) = int.
+:- mode fib(in) = out is det.
+
+:- import_module string, list, int.
+
+:- pred mytest(int, io__state, io__state).
+:- mode mytest(in, di, uo) is det.
+
+fib(N) = R :- 
+    ( if N < 2 then
+	R = 1
+      else
+	R = fib(N-2) + fib(N-1)
+    ).
+
+mytest(Num) -->
+    io__write_int(fib(Num)), io__write_string("\n").
+
+main -->
+    io__command_line_arguments(Args),
+    ( if { Args = [] } then
+         mytest(1)
+      else if { Args = [Arg|_] } then
+         ( if { string__to_int(Arg, N), N > 0 } then
+             mytest(N)
+	   else
+             mytest(1)
+         )
+    ).
+
+%% $Id: hash.mercury,v 1.1 2004-07-11 07:52:30 bfulgham Exp $
+%% http://www.bagley.org/~doug/shootout/
+%% from Fergus Henderson
+
+:- module mytest.
+:- interface.
+:- import_module io.
+
+:- pred main(state::di, state::uo) is det.
+
+:- implementation.
+:- import_module string, hash_table, list, int.
+
+main -->
+	io__command_line_arguments(Args),
+	{ N = (if Args = [Arg], to_int(Arg, N0) then N0 else 1) },
+	{ X = insert_values(1, N, hash_table__new(string_double_hash, 18, 0.33)) },
+	print(count(N, X, 0)), nl.
+
+:- func insert_values(int, int, hash_table(string, int)) = hash_table(string, int).
+:- mode insert_values(in, in, hash_table_di) = hash_table_uo.
+insert_values(I, N, X0) =
+	(if I > N then X0
+	else insert_values(I + 1, N, X0^elem(int_to_base_string(I, 16)) := I)).
+
+:- func count(int, hash_table(string, int), int) = int.
+:- mode count(in, hash_table_ui, in) = out.
+count(I, X, C0) =
+	(if I = 0 then C0
+	else count(I - 1, X,
+		(if search(X, int_to_string(I), _) then C0 + 1 else C0))).
+% ---------------------------------------------------------------------------- %
+% heapsort.m
+% Ralph Becket <rbeck@microsoft.com>
+% Tue Jan  9 14:18:19 GMT 2001
+% vim: ts=4 sw=4 et tw=0 wm=0 ff=unix
+%
+% ---------------------------------------------------------------------------- %
+
+:- module mytest.
+
+:- interface.
+
+:- import_module io.
+
+
+:- pred main(io__state, io__state).
+:- mode main(di, uo) is det.
+
+
+:- implementation.
+
+
+:- import_module float, int, array, random, list, string, require.
+
+
+:- type heap == array(float).
+
+
+main -->
+    io__command_line_arguments(ArgV),
+    (   { ArgV = [],        N = 1 }
+    ;   { ArgV = [Arg],     N = string__det_to_int(Arg) }
+    ;   { ArgV = [_,_|_],   error("usage: heapsort [N]") }
+    ),
+    { A = heapsort(N - 1, random_heap(0, seed, array__init(N, 0.0))) },
+    io__format("%.10f", [f(array__lookup(A, N - 1))]),
+    io__nl.
+
+
+:- func random_heap(int, int, heap) = heap.
+:- mode random_heap(in, in, array_di) = array_uo is det.
+
+random_heap(I, S0, H0) = H :-
+    ( if I =< array__max(H0) then
+        gen_random(R, S0, S),
+        H = random_heap(I + 1, S, up_heap(I, R, H0))
+      else
+        H = H0
+    ).
+
+
+:- func up_heap(int, float, heap) = heap.
+:- mode up_heap(in, in, array_di) = array_uo is det.
+
+up_heap(N, Y, H) =
+    ( if 0 < N, X < Y then
+        up_heap(HalfN, Y, array__set(H, N, X))
+      else
+        array__set(H, N, Y)
+    )
+ :-
+    HalfN = N // 2,
+    X = array__lookup(H, HalfN).
+
+
+:- func heapsort(int, heap) = heap.
+:- mode heapsort(in, array_di) = array_uo is det.
+
+heapsort(N, H) =
+    ( if N = 0 then H else heapsort(N - 1, remove_greatest(N, H)) ).
+
+
+:- func remove_greatest(int, heap) = heap.
+:- mode remove_greatest(in, array_di) = array_uo is det.
+
+remove_greatest(N, H) = down_heap(0, N - 1, Y, array__set(H, N, X)) :-
+    X = array__lookup(H, 0),
+    Y = array__lookup(H, N).
+
+
+:- func down_heap(int, int, float, heap) = heap.
+:- mode down_heap(in, in, in, array_di) = array_uo is det.
+
+down_heap(I, N, X, H0) = H :-
+    L = I + I + 1,
+    R = L + 1,
+    ( if N < L then
+        H = array__set(H0, I, X)
+      else 
+        J = ( if R < N, array__lookup(H0, R) > array__lookup(H0, L) then R
+                                                                    else L ),
+        Y = array__lookup(H0, J),
+        ( if X > Y then
+            H = array__set(H0, I, X)
+          else
+            H = down_heap(J, N, X, array__set(H0, I, Y))
+        )
+    ).
+
+
+:- pred gen_random(float, int, int).
+:- mode gen_random(out, in, out) is det.
+
+gen_random(R, S0, S) :-
+    S = (S0 * ia + ic) `mod` im,
+    R = float(S) / float(im).
+
+:- func im = int.   im = 139968.
+:- func ia = int.   ia =   3877.
+:- func ic = int.   ic =  29573.
+:- func seed = int. seed =   42.
+% The Computer Language Benchmarks Game
+% http://shootout.alioth.debian.org/
+% contributed by Glendon Holst
+
+:- module hello.
+:- interface.
+:- import_module io.
+
+:- pred main(io::di, io::uo) is det.
+
+
+:- implementation.
+
+
+main(!IO) :- io.write_string("hello world", !IO), io.nl(!IO).
+
+
+% ------------------------------------------------------------------------------
+% The Computer Language Benchmarks Game
+% http://shootout.alioth.debian.org/
+%
+% Contributed by Anthony Borla
+% Modified for Mercury by Glendon Holst
+% ----------------------------------------------------------------------
+
+:- module knucleotide.
+:- interface.
+:- import_module io.
+
+:- pred main(io::di, io::uo) is cc_multi.
+
+% ----------------------------------------------------------------------
+
+:- implementation.
+
+:- import_module solutions.
+:- import_module map.
+:- import_module pair.
+:- import_module assoc_list.
+:- import_module list.
+:- import_module int.
+:- import_module bool.
+:- import_module string.
+:- import_module float.
+:- import_module exception.
+
+
+% ----------------------------------------------------------------------
+
+:- type count_table == map(string, int).
+:- type freq_table == map(string, float).
+
+% ------------- %
+
+main(!IO) :-
+   load_sequence(Seq, !IO),
+
+   MemberLength = (pred(E::out) is nondet :- list.member(E, [1, 2])),
+   PrintFreq = (pred(E::in, !.IO::di, !:IO::uo) is det :- 
+   (
+      print_frequencies(Seq, E, !IO), 
+      io.nl(!IO)
+   )),
+   unsorted_aggregate(MemberLength, PrintFreq, !IO),
+
+   Fragments = ["GGT", "GGTA", "GGTATT", "GGTATTTTAATT", "GGTATTTTAATTTATAGT"],
+
+   MemberFragments = (pred(E::out) is nondet :- list.member(E, Fragments)),
+   PrintCounts = (pred(E::in, !.IO::di, !:IO::uo) is det :- (print_count(Seq, E, !IO))),
+   unsorted_aggregate(MemberFragments, PrintCounts, !IO).
+
+% ------------------------------- %
+
+:- pred compare_freqs(pair(string, float)::in, pair(string, float)::in, 
+      comparison_result::uo) is det.
+
+compare_freqs(KV1, KV2, R) :- 
+   KV1 = K1-V1, KV2 = K2-V2,
+(
+   V2 < V1 ->
+   R = (<)
+;
+   V1 = V2 ->
+   compare(R, K2, K1)
+;
+   R = (>)
+).  
+
+% ------------- %
+
+:- pred print_frequencies(string::in, int::in, io::di, io::uo) is det.
+
+print_frequencies(Seq, KeyLen, !IO) :-
+   generate_counts(Seq, KeyLen, CountTable0),
+   Sum = (pred(V::in, Acc0::in, Acc::out) is det :- (Acc = Acc0 + V)),
+   list.foldl(Sum, map.values(CountTable0), 0, SumCounts),
+   Percentage = (pred(_::in, V::in, W::out) is det :- 
+      (W = 100.0 * (float(V) / float(SumCounts)))),
+   map.map_values(Percentage, CountTable0, CountTable1),
+   map.to_assoc_list(CountTable1, FreqTable0),
+
+   list.sort(compare_freqs, FreqTable0, FreqTable),
+
+   print_freq_table_(FreqTable, !IO).
+
+% ------------- %
+
+:- pred print_freq_table_(assoc_list(string, float)::in, io::di, io::uo) is det.
+
+print_freq_table_(FreqTable, !IO) :-
+(
+   FreqTable = [K-V | FTs] ->
+   io.format("%s %.3f\n", [s(K), f(V)], !IO), io.flush_output(!IO),
+   print_freq_table_(FTs, !IO)
+;
+   true
+).
+
+% ------------------------------- %
+
+:- pred print_count(string::in, string::in, io::di, io::uo) is det.
+
+print_count(Seq, Fragment, !IO) :-
+   generate_counts(Seq, string.length(Fragment), CountTable),
+   (
+      map.search(CountTable, Fragment, Count0) ->
+      Count = Count0
+   ;
+      Count = 0
+   ),
+   io.format("%d\t%s\n", [i(Count), s(Fragment)], !IO), io.flush_output(!IO).
+
+% ------------- %
+
+:- pred generate_counts(string::in, int::in, count_table::out) is det.
+
+generate_counts(Seq, Length, CountTable) :-
+   mct_i_loop_(0, string.length(Seq), Length, Seq, map.init, CountTable).
+
+% ------------------------------- %
+
+:- pred mct_i_loop_(int, int, int, string, count_table, count_table) is det.
+:- mode mct_i_loop_(in, in, in, in, in, out) is det.
+
+mct_i_loop_(Start, Last, Length, Seq, CountTable0, CountTable) :-
+(
+   Start < Length ->
+   mct_j_loop_(Start, Last, Length, Seq, CountTable0, CountTable1),
+   mct_i_loop_(Start + 1, Last, Length, Seq, CountTable1, CountTable)
+;
+   CountTable = CountTable0
+).
+
+% ------------- %
+
+:- pred mct_j_loop_(int, int, int, string, count_table, count_table) is det.
+:- mode mct_j_loop_(in, in, in, in, in, out) is det.
+
+mct_j_loop_(Start, Last, Length, Seq, CountTable0, CountTable) :-
+   End = Start + Length,
+(
+   End =< Last ->
+   Key = string.unsafe_substring(Seq, Start, Length),
+   (
+      map.search(CountTable0, Key, Value) ->
+      map.det_update(CountTable0, Key, Value + 1,  CountTable1)
+   ;
+      map.det_insert(CountTable0, Key, 1, CountTable1)
+   ),
+   mct_j_loop_(End, Last, Length, Seq, CountTable1, CountTable)
+;
+   CountTable = CountTable0
+).
+
+% ------------------------------- %
+
+:- pred load_sequence(string::out, io::di, io::uo) is det.
+
+load_sequence(Seq, !IO) :- load_sequence_(no, "", Seq, !IO).
+
+% ------------- %
+
+:- pred load_sequence_(bool::in, string::in, string::out, io::di, io::uo) is det.
+
+load_sequence_(Loading, Seq, RetSeq, !IO) :-
+   io.read_line_as_string(IOResult, !IO),
+( 
+   IOResult = ok(LineIn) ->
+   (
+      Loading = yes ->
+      process_sequence(string.chomp(LineIn), Seq, RetSeq, !IO)
+   ;
+      ignore_sequence(string.chomp(LineIn), Seq, RetSeq, !IO)
+   )
+;
+   RetSeq = Seq
+).
+
+% ------------- %
+
+:- pred ignore_sequence(string::in, string::in, string::out, io::di, io::uo) is det. 
+
+ignore_sequence(Line, Seq, RetSeq, !IO) :-
+(
+   string.prefix(Line, ">THREE") ->
+   load_sequence_(yes, Seq, RetSeq, !IO)
+;
+   load_sequence_(no, Seq, RetSeq, !IO)
+). 
+
+% ------------- %
+
+:- pred process_sequence(string::in, string::in, string::out, io::di, io::uo) is det.
+
+process_sequence(Line, Seq, RetSeq, !IO) :-
+(
+   string.prefix(Line, ">") ->
+   RetSeq = Seq
+;
+   string.prefix(Line, ";") ->
+   load_sequence_(yes, Seq, RetSeq, !IO)
+;
+   load_sequence_(yes, Seq ++ string.to_upper(Line), RetSeq, !IO)
+).
+
+% ------------------------------- %
+% ---------------------------------------------------------------------------- %
+% lists.m
+% Ralph Becket <rbeck@microsoft.com>
+% Tue Jan  9 13:50:50 GMT 2001
+% vim: ts=4 sw=4 et tw=0 wm=0 ff=unix
+%
+% NOTE: this is not really a fair test since the Mercury list
+% library does not implement doubly-linked lists as the C and
+% (presumably) Python versions do.
+% ---------------------------------------------------------------------------- %
+
+:- module mytest.
+:- interface.
+
+:- import_module io.
+
+
+
+:- pred main(io__state, io__state).
+:- mode main(di, uo) is cc_multi.
+
+
+
+:- implementation.
+
+
+
+:- import_module string, list, int, require, benchmarking.
+
+
+
+main -->
+    io__command_line_arguments(ArgV),
+    (   { ArgV = [],        Repeats = 1 }
+    ;   { ArgV = [Arg],     Repeats = string__det_to_int(Arg) }
+    ;   { ArgV = [_,_|_],   error("usage: nestedloops [Repeats]") }
+    ),
+    { benchmarking__benchmark_det(test_list_ops, 0, N, Repeats, Time) },
+    io__format("%d\n", [i(N)]).
+
+
+
+:- func size = int.
+size = 10000.
+
+
+
+:- pred test_list_ops(int, int).
+:- mode test_list_ops(in, out) is det.
+
+test_list_ops(_, N) :-
+    L1 = 1 `..` size,                   % Build [1, 2, ..., size].
+    copy(L1, L2),                       % Make a copy.
+                                        % Do a naive reverse.
+    L3 = list__foldl(func(X, L) = L ++ [X], L2, []),
+                                        % Now do a weird copy.
+    L4 = list__foldr(func(X, L) = L ++ [X], L3, []),
+    L5 = list__reverse(L1),             % Standard reverse.
+    (
+             if list__det_head(L5) \= size  then N = 0
+        else if L1 \= L2                    then N = 0
+        else                                     N = list__length(L4)
+    ).
+% The Computer Language Shootout Benchmarks Game
+% http://shootout.alioth.debian.org/
+%
+% Based on work by Anthony Borla
+% Modified for Mercury by Glendon Holst
+
+:- module mandelbrot.
+:- interface.
+:- import_module io.
+
+:- pred main(io::di, io::uo) is det.
+
+% ----------------------------------------------------------------------
+
+:- implementation.
+
+:- import_module list.
+:- import_module bool.
+:- import_module int.
+:- import_module char.
+:- import_module float.
+:- import_module string.
+
+% ----------------------------------------------------------------------
+
+:- type byte == int.
+
+% ----------------------------------------------------------------------
+
+main(!IO) :-
+	io.command_line_arguments(Args, !IO),
+	(
+		if
+			Args = [AString|_],
+			string.to_int(string.strip(AString), Aint)
+		then
+			N = Aint
+		else
+			N is 3000
+	),
+
+  Width = N, Height = N,
+  
+  io.format("P4\n%i %i\n",[i(Height), i(Width)], !IO),
+  io.flush_output(!IO),
+  pointsY(Height, Width, 0, 0, 0, _, 0, _, !IO ).
+
+% ------------------------------- %
+
+:- pred pointsY(int::in, int::in, int::in, int::in, 
+	int::in, int::out,
+	byte::in, byte::out, 
+	io::di, io::uo) is det.
+
+pointsY(Height, Width, Y, X, BitN0, BitN, ByteOut0, ByteOut, !IO) :-
+(
+	Y1 is Y + 1, 
+	Height >= Y1 -> 
+	pointsX(Height, Width, Y, 0, BitN0, BitN1, ByteOut0, ByteOut1, !IO),
+	pointsY(Height, Width, Y1, X, BitN1, BitN, ByteOut1, ByteOut, !IO)
+;
+	BitN = BitN0,
+	ByteOut = ByteOut0
+).
+
+
+% ------------- %
+
+:- pred pointsX(int::in, int::in, int::in, int::in, 
+	int::in, int::out, 
+	byte::in, byte::out, 
+	io::di, io::uo) is det.
+
+pointsX(Height, Width, Y, X, BitN0, BitN, ByteOut0, ByteOut, !IO) :-
+(
+	X1 is X + 1, 
+	Width >= X1 ->
+	
+	(
+		mandel(Height, Width, Y, X, 50) -> 
+		ByteOut1 is (ByteOut0 << 1)
+	; 
+		ByteOut1 is (ByteOut0 << 1) \/ 0x1
+	),
+	
+	BitN1 is BitN0 + 1,
+
+	(
+		Width = X1, 
+		BitN1 \= 8 -> 
+		ByteOut2 is ByteOut1 << (8 - Width mod 8), 
+		BitN2 = 8
+	; 
+		ByteOut2 = ByteOut1,
+		BitN2 = BitN1
+	),
+
+	(
+		BitN2 = 8 -> 
+		io.write_byte(ByteOut2, !IO), 
+		BitN3 = 0, 
+		ByteOut3 = 0
+	; 
+		BitN3 = BitN2, 
+		ByteOut3 = ByteOut2
+	),
+	
+	pointsX(Height, Width, Y, X1, BitN3, BitN, ByteOut3, ByteOut, !IO)
+	
+;
+	BitN = BitN0,
+	ByteOut = ByteOut0
+).
+
+% ------------- %
+
+:- pred mandel(int::in, int::in, int::in, int::in, int::in) is semidet.
+:- pred mandel_(float::in, float::in, float::in, float::in, int::in) is semidet.
+
+mandel(Height, Width, Y, X, Repetitions) :-
+	mandel_((2.0 * float(X) / float(Width) - 1.5), 
+		(2.0 * float(Y) / float(Height) - 1.0), 0.0, 0.0, Repetitions).
+
+mandel_(Cr, Ci, Zr, Zi, N) :-
+(
+	N =< 0 ->
+	(Zr * Zr + Zi * Zi) > 4.0
+;
+	Zr1 is Zr * Zr - Zi * Zi + Cr, Zi1 is 2.0 * Zr * Zi + Ci, 
+	(Zr1 * Zr1 + Zi1 * Zi1) =< 4.0 -> 
+	mandel_(Cr, Ci, Zr1, Zi1, N - 1)
+;
+	true
+).
+
+% ------------------------------- %
+%% $Id: methcall.mercury,v 1.2 2005-05-13 16:24:18 igouy-guest Exp $
+%% http://www.bagley.org/~doug/shootout/ 
+%% from Fergus Henderson
+
+% "This test uses a base class Toggle, which implements a simple boolean
+% flip-flop device and a derived class NthToggle, which only flips every
+% Nth time it is activated."
+
+:- module mytest.
+:- interface.
+:- import_module io.
+
+:- pred main(io__state::di, io__state::uo) is det.
+
+:- implementation.
+:- import_module bool, int, string, list.
+
+% "The base Toggle class should define a boolean
+% (or integer) field to hold a true/false value. It should define methods
+% to access the value, and to activate the toggle (flip it's value)."
+
+:- type toggle ---> toggle(toggle_value::bool).
+
+:- typeclass toggle(T) where [
+	func value(T) = bool,
+	func 'value :='(T, bool) = T,
+	func activate(T) = T
+].
+
+:- instance toggle(toggle) where [
+	func(value/1) is toggle_value,
+	func('value :='/2) is 'toggle_value :=',
+	activate(toggle(yes)) = toggle(no),
+	activate(toggle(no)) = toggle(yes)
+].
+
+% "The derived NthToggle class should inherit the boolean field, and add a
+% counter and limit field. It should override the activate method so that
+% the boolean state is flipped after the activate method is called count
+% times. The constructor for NthToggle should use the constructor for
+% Toggle to inherit the boolean field and value() method."
+
+% Mercury doesn't have any direct support for inheritence of fields,
+% so we need to use composition instead.
+
+:- type nth_toggle ---> nth_toggle(base::toggle, counter::int, limit::int).
+
+:- func make_nth_toggle(bool, int) = nth_toggle.
+make_nth_toggle(Val, Max) = nth_toggle(toggle(Val), 0, Max).
+
+% If the nth_toggle class added its own methods, then we'd want to
+% create a derived typeclass like this:
+%
+% :- typeclass nth_toggle(T) <= toggle(T) where [ ... ].
+% :- instance nth_toggle(nth_toggle) where [ ... ].
+%
+% But nth_toggle doesn't add any new methods, so we don't need that.
+% We just need to make it an instance of the base class,
+% delegating the field accessors.
+
+:- instance toggle(nth_toggle) where [
+	value(T) = T^base^value,
+	'value :='(T, V) = T^base^value := V,
+	(activate(T) = NewT :-
+		C = T^counter + 1,
+		(if C >= T^limit then
+			NewT = (T^counter := 0)^base := activate(T^base)
+		else
+			NewT = T^counter := C
+		))
+].
+
+main -->
+	io__command_line_arguments(Args),
+	{ N = (if Args = [Arg], to_int(Arg, N0) then N0 else 1) },
+
+	{ loop(N, yes, toggle(yes),
+		(pred(_V0::in, T0::in, V::out, T::out) is det :-
+			T = T0^activate, V = T^value),
+		Value1, _Toggle1) },
+	write_string(if Value1 = yes then "true" else "false"), nl,
+
+	{ loop(N, yes, make_nth_toggle(yes, 3),
+		(pred(_V0::in, T0::in, V::out, T::out) is det :-
+			T = T0^activate, V = T^value),
+		Value2, _Toggle2) },
+	write_string(if Value2 = yes then "true" else "false"), nl.
+
+:- pred loop(int, T1, T2, pred(T1, T2, T1, T2), T1, T2).
+:- mode loop(in, in, in, pred(in, in, out, out) is det, out, out) is det.
+loop(N, V0, T0, P, V, T) :-
+	(if N = 0 then
+		V = V0, T = T0
+	else
+		P(V0, T0, V1, T1),
+		loop(N - 1, V1, T1, P, V, T)
+	).
+
+% Alternatively, it can be written a little more elegantly as
+%
+% main -->
+% 	io__command_line_arguments(Args),
+% 	{ N = (if Args = [Arg], to_int(Arg, N0) then N0 else 1) },
+% 
+% 	{ {Value1, _Toggle1} = repeat_n(N, {yes, toggle(yes)},
+% 		(func({_V0, T0}) = {V, T} :- T = T0^activate, V = T^value)) },
+% 	write_string(if Value1 = yes then "true" else "false"), nl,
+% 
+% 	{ {Value2, _Toggle2} = repeat_n(N, {yes, make_nth_toggle(yes, 3)},
+% 		(func({_V0, T0}) = {V, T} :- T = T0^activate, V = T^value)) },
+% 	write_string(if Value2 = yes then "true" else "false"), nl.
+% 
+% :- func repeat_n(int, T, func(T) = T) = T.
+% repeat_n(N, X, F) =
+% 	(if N = 0 then X
+% 	else repeat_n(N - 1, F(X), F)).
+%
+% but the earlier code above is a little more efficient.
+%% $Id: moments.mercury,v 1.1 2004-07-11 07:52:31 bfulgham Exp $
+%% http://www.bagley.org/~doug/shootout/
+%% from Fergus Henderson
+
+:- module mytest.
+:- interface.
+:- import_module io.
+
+:- pred main(io__state, io__state).
+:- mode main(di, uo) is det.
+
+:- implementation.
+:- import_module array, string, float, math, int, list, require.
+
+main -->
+	io__read_file_as_string(_Res, Contents),
+	{ Lines = string__words((pred('\n'::in) is semidet), Contents) },
+	{ Count = length(Lines) },
+	{ array__init(Count, 0.0, Array0) },
+	{ count_and_sum(Lines, 0, 0.0, Array0, _Count2, Sum, Array) },
+	{ Mean = Sum / float(Count) },
+	process(0, Count, Mean, 0.0, 0.0, 0.0, 0.0, Array).
+
+:- pred count_and_sum(list(string), int, float, array(float),
+		int, float, array(float)).
+:- mode count_and_sum(in, in, in, array_di, out, out, array_uo) is det.
+count_and_sum([], Count, Sum, Array, Count, Sum, Array).
+count_and_sum([L|Ls], Count0, Sum0, Array0, Count, Sum, Array) :-
+	(if string__to_float(L, V) then Val = V else error("float conversion")),
+	count_and_sum(Ls, Count0 + 1, Sum0 + Val, Array0^elem(Count0) := Val,
+		Count, Sum, Array).
+
+:- pred process(int, int, float, float, float, float, float, array(float),
+		io__state, io__state).
+:- mode process(in, in, in, in, in, in, in, array_di, di, uo) is det.
+process(I, Count, Mean,
+		SumAbsDeviations, SumVariance, SumSkew, SumKurtosis, Array0) -->
+	(if { I < Count } then
+		{ Val = Array0 ^ elem(I) },
+		{ Dev = Val - Mean },
+		{ Dev2 = Dev * Dev },
+		{ Dev3 = Dev2 * Dev },
+		{ Dev4 = Dev2 * Dev2 },
+		process(I + 1, Count, Mean, SumAbsDeviations + abs(Dev),
+			SumVariance + Dev2, SumSkew + Dev3,
+			SumKurtosis + Dev4, Array0)
+	else
+		{
+		AverageDeviation = SumAbsDeviations / float(Count),
+		Variance = SumVariance / float(Count - 1),
+		StandardDeviation = sqrt(Variance),
+		(if Variance \= 0.0 then
+			Skew = SumSkew / (float(Count) * Variance *
+				StandardDeviation),
+			Kurtosis = (SumKurtosis / (float(Count) *
+				Variance * Variance)) - 3.0
+		else
+			Skew = 0.0,
+			Kurtosis = 0.0
+		),
+		Array = sort(Array0),
+		Mid = (Count//2),
+		Median = (if Count rem 2 = 1 then Array^elem(Mid)
+			else (Array^elem(Mid) + Array^elem(Mid - 1)) / 2.0)
+		},
+		format("n:                  %d\n", [i(Count)]),
+		format("median:             %f\n", [f(Median)]),
+		format("mean:               %f\n", [f(Mean)]),
+		format("average_deviation:  %f\n", [f(AverageDeviation)]),
+		format("standard_deviation: %f\n", [f(StandardDeviation)]),
+		format("variance:           %f\n", [f(Variance)]),
+		format("skew:               %f\n", [f(Skew)]),
+		format("kurtosis:           %f\n", [f(Kurtosis)])
+	).
+% The Computer Language Shootout Benchmarks Game
+% http://shootout.alioth.debian.org/
+%
+% Based on work by Anthony Borla (SWI-Prolog) and Troestler Christophe (OCaml)
+% Modified for Mercury by Glendon Holst
+
+:- module nbody.
+:- interface.
+:- import_module io.
+
+:- pred main(io::di, io::uo) is det.
+
+% ----------------------------------------------------------------------
+
+:- implementation.
+
+:- import_module list.
+:- import_module bool.
+:- import_module int.
+:- import_module float.
+:- import_module math.
+:- import_module string.
+
+% ----------------------------------------------------------------------
+
+:- type planet ---> planet( x :: float, y :: float, z :: float, 
+							vx :: float, vy :: float, vz :: float, 
+							mass :: float).
+
+% ----------------------------------------------------------------------
+
+main(!IO) :-
+	io.command_line_arguments(Args, !IO),
+	(
+		if
+			Args = [AString|_],
+			string.to_int(string.strip(AString), Aint)
+		then
+			N = Aint
+		else
+			N is 20000000
+	),
+	
+	make_bodies(Bodies0),
+
+	EnergyStart = energy(Bodies0),
+	io.format("%.9f\n", [f(EnergyStart)], !IO),
+	loop_advance(N, 0.01, Bodies0, Bodies),
+	EnergyAfter = energy(Bodies),
+	io.format("%.9f\n", [f(EnergyAfter)], !IO).
+
+% ------------------------------- %
+
+:- func energy(list(planet)) = float.
+:- func energy_(list(planet), float) = float.
+:- func energy_diff_(planet, list(planet), float) = float.
+
+energy(Bodies) = energy_(Bodies, 0.0).
+
+energy_(Bodies, Energy0) = Result :-
+(
+	Bodies = [B | Bs] ->
+	Energy1 = Energy0 + 0.5 * B^mass * 
+		(B^vx * B^vx + B^vy * B^vy + B^vz * B^vz),
+	Energy2 = energy_diff_(B, Bs, Energy1),
+	Result = energy_(Bs, Energy2)
+;
+	Result = Energy0
+).
+
+energy_diff_(Planet, Bodies, Energy0) = Result :-
+(
+	Bodies = [B | Bs] ->
+	Dx = Planet^x - B^x, 
+	Dy = Planet^y - B^y, 
+	Dz = Planet^z - B^z, 
+	Distance = sqrt(Dx * Dx + Dy * Dy + Dz * Dz),
+	Energy1 = Energy0 - ((Planet^mass * B^mass) / Distance),
+	Result = energy_diff_(Planet, Bs, Energy1)
+;
+	Result = Energy0
+).
+
+% ------------------------------- %
+
+:- pred advance(float::in, list(planet)::in, list(planet)::out) is det.
+:- pred advance_(float, planet, planet, list(planet), list(planet)) is det.
+:- mode advance_(in, in, out, in, out) is det.
+
+advance(Dt, Bodies0, Bodies) :-
+(
+	Bodies0 = [B0 | B0s] ->
+	advance_(Dt, B0, B1, B0s, B1s),
+	advance(Dt, B1s, Bs),
+	B2 = (B1^x := B1^x + Dt * B1^vx),
+	B3 = (B2^y := B2^y + Dt * B2^vy),
+	B = (B3^z := B3^z + Dt * B3^vz),
+	Bodies = [ B | Bs]
+;
+	Bodies = Bodies0
+).
+
+advance_(Dt, Planet0, Planet, Bodies0, Bodies) :-
+(
+	Bodies0 = [B0 | B0s] ->
+
+	Dx = Planet0^x - B0^x, 
+	Dy = Planet0^y - B0^y, 
+	Dz = Planet0^z - B0^z, 
+
+	Dist2 = Dx * Dx + Dy * Dy + Dz * Dz,
+	
+	Mag = Dt / (Dist2 * sqrt(Dist2)),
+
+    Planet1 = (Planet0^vx := Planet0^vx - Dx * B0^mass * Mag),
+    Planet2 = (Planet1^vy := Planet1^vy - Dy * B0^mass * Mag),
+    Planet3 = (Planet2^vz := Planet2^vz - Dz * B0^mass * Mag),
+
+	B1 = (B0^vx := B0^vx + Dx * Planet3^mass * Mag),
+	B2 = (B1^vy := B1^vy + Dy * Planet3^mass * Mag),
+	B = (B2^vz := B2^vz + Dz * Planet3^mass * Mag),
+	
+	advance_(Dt, Planet3, Planet, B0s, Bs),
+	
+	Bodies = [B | Bs]
+;
+	Planet = Planet0,
+	Bodies0 = Bodies
+).
+
+% ------------------------------- %
+
+:- pred loop_advance(int, float, list(planet), list(planet)) is det.
+:- mode loop_advance(in, in, in, out) is det.
+
+loop_advance(N, Dt, Bodies0, Bodies) :-
+(
+	N > 0 ->
+	advance(Dt, Bodies0, Bodies1),
+	loop_advance(N - 1, Dt, Bodies1, Bodies)
+;
+	Bodies = Bodies0
+).
+
+% ------------------------------- %
+
+:- type vector3f == {float, float, float}.
+
+:- pred make_bodies(list(planet)::out) is det.
+
+make_bodies(Bodies) :-
+	SolarMass = 3.9478417604357432000e+01,
+	DaysPerYear = 365.24,
+	Jupiter = planet( 4.84143144246472090e+00, -1.16032004402742839e+00, 
+		-1.03622044471123109e-01,
+		1.66007664274403694e-03 * DaysPerYear, 
+		7.69901118419740425e-03 * DaysPerYear, 
+		-6.90460016972063023e-05 * DaysPerYear,
+		9.54791938424326609e-04 * SolarMass),
+
+	Saturn = planet( 8.34336671824457987e+00, 4.12479856412430479e+00, 
+		-4.03523417114321381e-01,
+		-2.76742510726862411e-03 * DaysPerYear, 
+		4.99852801234917238e-03 * DaysPerYear, 
+		2.30417297573763929e-05 * DaysPerYear,
+		2.85885980666130812e-04 * SolarMass),
+
+	Uranus = planet( 1.28943695621391310e+01, -1.51111514016986312e+01, 
+		-2.23307578892655734e-01,
+		2.96460137564761618e-03 * DaysPerYear, 
+		2.37847173959480950e-03 * DaysPerYear, 
+		-2.96589568540237556e-05 * DaysPerYear,
+		4.36624404335156298e-05 * SolarMass),
+
+	Neptune = planet( 1.53796971148509165e+01, -2.59193146099879641e+01, 
+		1.79258772950371181e-01,
+		2.68067772490389322e-03 * DaysPerYear, 
+		1.62824170038242295e-03 * DaysPerYear, 
+		-9.51592254519715870e-05 * DaysPerYear,
+		5.15138902046611451e-05 * SolarMass),
+
+	Planets = [Jupiter, Saturn, Uranus, Neptune],
+	 
+	{Px, Py, Pz} = offset_momentum(Planets),
+
+	Sun = planet( 0.0, 0.0, 0.0, 
+		Px / SolarMass, Py / SolarMass, Pz / SolarMass, SolarMass),
+  
+	Bodies = [Sun | Planets].
+
+% ------------------------------- %
+
+:- func offset_momentum(list(planet)) = vector3f.
+
+offset_momentum(Bodies) = offset_momentum_(Bodies, {0.0, 0.0, 0.0}).
+
+:- func offset_momentum_(list(planet), vector3f) = vector3f.
+
+offset_momentum_(Bodies, Acc) = Result :-
+(
+	Bodies = [P | Planets] ->
+	Acc = {Px, Py, Pz},
+	Result = offset_momentum_(Planets, 
+		{Px - (P^vx * P^mass), Py - (P^vy * P^mass), Pz - (P^vz * P^mass)})
+;
+	Result = Acc
+).
+
+% ------------------------------- %
+% ---------------------------------------------------------------------------- %
+% nestedloop.m 
+% Ralph Becket <rbeck@microsoft.com>
+% Tue Jan  9 13:36:26 GMT 2001
+% vim: ts=4 sw=4 et tw=0 wm=0 ff=unix
+%
+% ---------------------------------------------------------------------------- %
+
+:- module mytest.
+
+:- interface.
+
+:- import_module io.
+
+
+
+:- pred main(io__state, io__state).
+:- mode main(di, uo) is det.
+
+
+
+:- implementation.
+
+:- import_module list, int, std_util, string, require.
+
+
+
+main -->
+    io__command_line_arguments(ArgV),
+    (   { ArgV = [],        N = 1 }
+    ;   { ArgV = [Arg],     N = string__det_to_int(Arg) }
+    ;   { ArgV = [_,_|_],   error("usage: nestedloop [N]") }
+    ),
+    io__write_int(nested_loop(N)),
+    io__nl.
+
+
+
+:- func nested_loop(int) = int.
+
+nested_loop(N) =
+    loop(N, loop(N, loop(N, loop(N, loop(N, loop(N, plus(1)))))), 0).
+
+
+
+:- func loop(int, func(int) = int, int) = int.
+
+loop(I, Fn, X) = ( if I > 0 then loop(I - 1, Fn, Fn(X)) else X ).
+% The Computer Language Benchmarks Game
+% http://shootout.alioth.debian.org/
+% Based on work by Anthony Borla
+% Modified for Mercury by Glendon Holst
+
+:- module nsieve.
+:- interface.
+:- import_module io.
+
+:- pred main(io::di, io::uo) is det.
+
+% ----------------------------------------------------------------------
+
+:- implementation.
+
+:- import_module array.
+:- import_module list.
+:- import_module int.
+:- import_module bool.
+:- import_module string.
+
+% ----------------------------------------------------------------------
+
+main(!IO) :-
+	io.command_line_arguments(Args, !IO),
+	(
+		if
+			Args = [AString|_],
+			string.to_int(string.strip(AString), Aint)
+		then
+			N = Aint
+		else
+			N is 9
+	),
+	
+	nsieve(10000 << N, !IO),
+	nsieve(10000 << (N - 1), !IO),
+	nsieve(10000 << (N - 2), !IO).
+
+% ------------------------------- %
+
+:- pred nsieve(int::in, io::di, io::uo) is det.
+
+nsieve(N, !IO) :-
+  Arr = array.init(N, yes),
+  nsieve(2, Arr, 0, R),
+  io.format("Primes up to %8u %8u\n", [i(N), i(R)], !IO).
+
+% ------------------------------- %
+
+:- pred nsieve(int::in, array(bool)::array_di, int::in, int::out) is det.
+
+nsieve(Index, Arr, Acc, Result) :-
+(
+	Index = array.size(Arr) -> Result = Acc
+;
+	array.lookup(Arr, Index) = no -> nsieve(Index + 1, Arr, Acc, Result)
+;
+	clear_sieve(2 * Index, Index, Arr, Aout), 
+	nsieve(Index + 1, Aout, Acc + 1, Result)
+).
+
+
+% ------------- %
+
+:- pred clear_sieve(int, int, array(bool), array(bool)) is det.
+:- mode clear_sieve(in, in, array_di, array_uo) is det.
+
+clear_sieve(N, M, Arr, Aout) :-
+(
+	if N < array.size(Arr) then 
+		array.set(Arr, N, no, A1), clear_sieve(N + M, M, A1, Aout)
+	else
+		Aout = Arr
+).
+
+% ------------------------------- %
+
+% The Computer Language Benchmarks Game
+% http://shootout.alioth.debian.org/
+% Based on work by Anthony Borla
+% Modified for Mercury by Glendon Holst
+
+
+:- module nsievebits.
+:- interface.
+:- import_module io.
+
+:- pred main(io::di, io::uo) is det.
+
+% ----------------------------------------------------------------------
+
+:- implementation.
+
+:- import_module bitmap.
+:- import_module list.
+:- import_module int.
+:- import_module bool.
+:- import_module string.
+
+% ----------------------------------------------------------------------
+
+main(!IO) :-
+	io.command_line_arguments(Args, !IO),
+	(
+		if
+			Args = [AString|_],
+			string.to_int(string.strip(AString), Aint)
+		then
+			N = Aint
+		else
+			N is 9
+	),
+	
+	nsieve(10000 << N, !IO),
+	nsieve(10000 << (N-1), !IO),
+	nsieve(10000 << (N-2), !IO).
+
+% ------------------------------- %
+
+:- pred nsieve(int::in, io::di, io::uo) is det.
+
+nsieve(N, !IO) :-
+  Arr = bitmap.new(N, yes),
+  nsieve(2, Arr, 0, R),
+  io.format("Primes up to %8u %8u\n", [i(N), i(R)], !IO).
+
+% ------------------------------- %
+
+:- pred nsieve(int::in, bitmap::in, int::in, int::out) is det.
+
+nsieve(Index, Arr, Acc, Result) :-
+(
+	Index = num_bits(Arr) -> Result = Acc
+;
+	is_clear(Arr,Index) -> nsieve(Index+1, Arr, Acc, Result)
+;
+	clear_sieve(2*Index, Index, Arr, Aout), nsieve(Index+1, Aout, Acc+1, Result)
+).
+
+
+% ------------- %
+
+:- pred clear_sieve(int::in, int::in, bitmap::in, bitmap::out) is det.
+
+clear_sieve(N, M, Arr, Aout) :-
+(
+	if N < num_bits(Arr) then 
+		clear(N, Arr, A1), clear_sieve(N+M, M, A1, Aout)
+	else
+		Aout = Arr
+).
+
+% ------------------------------- %
+
+% The Computer Language Benchmarks Game
+% http://shootout.alioth.debian.org/
+% Contributed by Valentin Kraevskiy
+% Should be compiled with: -H
+
+:- module nsievebits.
+
+:- interface.
+:- import_module io.
+:- pred main(io, io).
+:- mode main(di, uo) is det.
+
+:- implementation.
+:- import_module int, bool, string, bitmap, list.
+
+main(!IO) :-
+   command_line_arguments(Args, !IO),
+   N = (if Args = [I | _], to_int(I, X) then X else 2),   
+   foldl(run, [N, N - 1, N - 2], !IO).
+
+:- pred run(int, io, io).
+:- mode run(in, di, uo) is det.
+
+run(N, !IO) :-
+   M = 10000 * pow(2, N),   
+   Res = loop(new(M + 1, yes), 2, 0),
+   format("Primes up to %8i %8i\n", [i(M), i(Res)], !IO).
+
+:- func loop(bitmap, int, int) = int.
+:- mode loop(bitmap_di, in, in) = out.
+
+loop(Bitmap, N, Accum) = 
+   (if N < num_bits(Bitmap) 
+       then (if unsafe_is_set(Bitmap, N)
+              then loop(loopA(Bitmap, 2 * N, N), N + 1, Accum + 1)
+              else loop(Bitmap, N + 1, Accum))
+       else Accum).
+
+:- func loopA(bitmap, int, int) = bitmap.
+:- mode loopA(bitmap_di, in, in) = bitmap_uo.
+
+loopA(Bitmap, N, M) =
+   (if N < num_bits(Bitmap)
+      then loopA(unsafe_clear(Bitmap, N), N + M, M)
+      else Bitmap).
+%% $Id: objinst.mercury,v 1.2 2005-05-13 16:24:18 igouy-guest Exp $
+%% http://www.bagley.org/~doug/shootout/
+%% from Fergus Henderson 
+
+:- module mytest.
+:- interface.
+:- import_module io.
+
+:- pred main(io__state::di, io__state::uo) is det.
+
+:- implementation.
+:- import_module bool, int, string, list.
+
+:- type toggle ---> toggle(toggle_value::bool).
+
+:- typeclass toggle(T) where [
+	func value(T) = bool,
+	func 'value :='(T, bool) = T,
+	func activate(T) = T
+].
+
+:- instance toggle(toggle) where [
+	func(value/1) is toggle_value,
+	func('value :='/2) is 'toggle_value :=',
+	activate(toggle(yes)) = toggle(no),
+	activate(toggle(no)) = toggle(yes)
+].
+
+:- type nth_toggle ---> nth_toggle(base::toggle, counter::int, limit::int).
+
+:- func make_nth_toggle(bool, int) = nth_toggle.
+make_nth_toggle(Val, Max) = nth_toggle(toggle(Val), 0, Max).
+
+:- instance toggle(nth_toggle) where [
+	value(T) = T^base^value,
+	'value :='(T, V) = T^base^value := V,
+	(activate(T) = NewT :-
+		C = T^counter + 1,
+		(if C >= T^limit then
+			NewT = (T^counter := 0)^base := activate(T^base)
+		else
+			NewT = T^counter := C
+		))
+].
+
+main -->
+	io__command_line_arguments(Args),
+	{ N = (if Args = [Arg], to_int(Arg, N0) then N0 else 1) },
+	{ Toggle1 = toggle(yes) },
+	loop(5, (pred(T0::in, T::out, di, uo) is det -->
+			{ T = T0^activate },
+			write_string(if T^value = yes then "true" else "false"),
+			nl),
+		Toggle1, Toggle2),
+	loop(N, (pred(_T0::in, T::out, di, uo) is det -->
+			{ T = toggle(yes) }),
+		Toggle2, _Toggle3),
+	nl,
+
+	{ Toggle4 = make_nth_toggle(yes, 3) },
+	loop(8, (pred(T0::in, T::out, di, uo) is det -->
+			{ T = T0^activate },
+			write_string(if T^value = yes then "true" else "false"),
+			nl),
+		Toggle4, Toggle5),
+	loop(N, (pred(_T0::in, T::out, di, uo) is det -->
+			{ T = make_nth_toggle(yes, 3) }),
+		Toggle5, _Toggle6).
+
+:- pred loop(int, pred(T1, T1, T2, T2), T1, T1, T2, T2).
+:- mode loop(in, pred(in, out, di, uo) is det, in, out, di, uo) is det.
+loop(N, P, X0, X) -->
+	(if { N = 0 } then
+		{ X = X0 }
+	else
+		P(X0, X1),
+		loop(N - 1, P, X1, X)
+	).
+
+% The Computer Language Benchmarks Game
+% http://shootout.alioth.debian.org/
+%
+% Based on D language implementation by David Fladebo and work by Anthony Borla
+% contributed by Glendon Holst
+
+:- module partialsums.
+:- interface.
+:- import_module io.
+
+:- pred main(io::di, io::uo) is det.
+
+% ----------------------------------------------------------------------
+
+:- implementation.
+
+:- import_module list.
+:- import_module int.
+:- import_module float.
+:- import_module math.
+:- import_module string.
+
+% ----------------------------------------------------------------------
+
+:- type sums == {float, float, float, float, float, float, float, float, float}.
+
+% ----------------------------------------------------------------------
+
+main(!IO) :-
+	io.command_line_arguments(Args, !IO),
+	(
+		if
+			Args = [AString|_],
+			string.to_int(string.strip(AString), Aint)
+		then
+			N = Aint
+		else
+			N is 2500000
+	),
+	
+	Sums0 = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0},
+	compute_sums(N, Sums0, Sums), print_sums(Sums, !IO).
+
+% ------------------------------- %
+
+:- pred compute_sums(int::in, sums::in, sums::out) is det.
+:- pred compute_sums_(int, float, float, sums, sums) is det.
+:- mode compute_sums_(in, in, in, in, out) is det.
+
+compute_sums(N, Sums0, Sums) :- compute_sums_(N, 1.0, 1.0, Sums0, Sums).
+
+% ------------- %
+
+compute_sums_(N, D, Alt, Sums0, Sums) :- 
+(
+	N > 0 ->
+	Sums0 = {A1, A2, A3, A4, A5, A6, A7, A8, A9},
+
+	D2 is D * D, D3 is D2 * D, DS is sin(D), DC is cos(D),
+
+	A1N is A1 + pow((2.0 / 3.0), (D - 1.0)),
+	A2N is A2 + 1.0 / sqrt(D),
+	A3N is A3 + 1.0 / (D * (D + 1.0)),
+	A4N is A4 + 1.0 / (D3 * DS * DS),
+	A5N is A5 + 1.0 / (D3 * DC * DC),
+	A6N is A6 + 1.0 / D,
+	A7N is A7 + 1.0 / (D2),
+	A8N is A8 + Alt / D,
+	A9N is A9 + Alt / (2.0 * D - 1.0),
+	
+	compute_sums_(N - 1, D + 1.0, -Alt, 
+		{A1N, A2N, A3N, A4N, A5N, A6N, A7N, A8N, A9N}, Sums)
+;
+	Sums = Sums0
+).
+
+% ------------------------------- %
+
+:- pred print_sums(sums::in, io::di, io::uo) is det.
+
+print_sums(Sums, !IO) :-
+	Sums = {A1, A2, A3, A4, A5, A6, A7, A8, A9},
+
+	io.format("%.9f\t(2/3)^k\n", [f(A1)], !IO),
+	io.format("%.9f\tk^-0.5\n", [f(A2)], !IO),
+	io.format("%.9f\t1/k(k+1)\n", [f(A3)], !IO),
+	io.format("%.9f\tFlint Hills\n", [f(A4)], !IO),
+	io.format("%.9f\tCookson Hills\n", [f(A5)], !IO),
+	io.format("%.9f\tHarmonic\n", [f(A6)], !IO),
+	io.format("%.9f\tRiemann Zeta\n", [f(A7)], !IO),
+	io.format("%.9f\tAlternating Harmonic\n", [f(A8)], !IO),
+	io.format("%.9f\tGregory\n", [f(A9)], !IO).
+
+% ------------------------------- %
+% The Computer Language Benchmarks Game
+% http://shootout.alioth.debian.org/
+%
+% Based on work by Anthony Borla (SWI-Prolog), 
+%   Christophe Troestler, Matthias Giovannini, and David Teller (OCaml),
+%   Mike Pall and Stefan Krause (Java)
+% contributed by Glendon Holst
+
+:- module pidigits.
+:- interface.
+:- import_module io.
+
+:- pred main(io::di, io::uo) is det.
+
+% ----------------------------------------------------------------------
+
+:- implementation.
+
+:- import_module list.
+:- import_module int.
+:- import_module integer.
+:- import_module bool.
+:- import_module string.
+:- import_module char.
+:- import_module exception.
+
+% ----------------------------------------------------------------------
+
+main(!IO) :-
+	io.command_line_arguments(Args, !IO),
+	(
+		if
+			Args = [AString|_],
+			string.to_int(string.strip(AString), Aint)
+		then
+			N = Aint
+		else
+			N is 2500
+	),
+	pidigits(N, !IO).
+
+
+% ----------------------------------------------------------------------
+:- type integer_digits ---> integer_digits(	q :: integer, 
+											r :: integer, 
+											s :: integer, 
+											t :: integer).
+
+% ------------------------------- %
+
+:- pred pidigits(int::in, io::di, io::uo) is det.
+
+
+pidigits(N, !IO) :- 
+	PIDigits = integer_digits(one, zero, zero, one),
+	pidigits_(1, N, zero, PIDigits, !IO),
+	(
+		N mod 10 \= 0 ->
+		io.format("%s\t:%i\n",
+			[s(string.pad_right("", ' ', (10 - (N mod 10)))), i(N)], 
+			!IO)
+	;
+		true
+	).
+
+% ------------- %
+
+:- pred pidigits_(int, int, integer, integer_digits, io, io) is det.
+:- mode pidigits_(in, in, in, in, di, uo) is det.
+
+pidigits_(I, N, K, IntDigits0, !IO) :-
+(
+	I =< N ->
+    DigitNext = extract(integer(3), IntDigits0), 
+    DigitSafe = extract(integer(4), IntDigits0),
+	
+    (
+		DigitNext \= DigitSafe ->
+		K1 = K + one,
+		consume(K1, IntDigits0, IntDigits1),
+		pidigits_(I, N, K1, IntDigits1, !IO)
+	;
+		io.write_int(integer.int(DigitNext), !IO),
+		(
+			I mod 10 = 0 ->
+			io.format("\t:%i\n",[i(I)], !IO)
+		;
+			true
+		),
+		produce(DigitNext, IntDigits0, IntDigits1),
+		pidigits_(I + 1, N, K, IntDigits1, !IO)
+	)
+;
+	true
+).
+
+% ------------- %
+
+
+:- func extract(integer, integer_digits) = integer.
+
+extract(X, IntDigits) = ((IntDigits^q * X) + IntDigits^r) // 
+	((IntDigits^s * X) + IntDigits^t).
+
+% ------------- %
+
+:- pred produce(integer::in, integer_digits::in, integer_digits::out) is det.
+
+produce(Digit, IntDigits0, IntDigits) :-
+	IntDigits1 = (IntDigits0^r := (IntDigits0^r * integer(10)) + 
+		(IntDigits0^t * integer(-10) * Digit)),
+	IntDigits = (IntDigits1^q := IntDigits1^q * integer(10)).
+	
+% ------------- %
+
+:- pred consume(integer::in, integer_digits::in, integer_digits::out) is det.
+
+consume(K, IntDigits0, IntDigits) :-
+	Den = integer(2) * K + one,
+	Den2 = integer(2) * Den,
+	IntDigits1 = (IntDigits0^r := (IntDigits0^r * Den) + (IntDigits0^q * Den2)),
+	IntDigits2 = (IntDigits1^t := (IntDigits1^t * Den) + (IntDigits1^s * Den2)),
+	IntDigits3 = (IntDigits2^s := IntDigits2^s * K),
+	IntDigits = (IntDigits3^q := IntDigits3^q * K).
+	
+% ------------------------------- %
+% ---------------------------------------------------------------------------- %
+% random.m
+% Ralph Becket <rbeck@microsoft.com>
+% Tue Jan  9 14:18:19 GMT 2001
+% vim: ts=4 sw=4 et tw=0 wm=0 ff=unix 
+% ---------------------------------------------------------------------------- %
+
+:- module mytest.
+
+:- interface.
+
+:- import_module io.
+
+
+
+:- pred main(io__state, io__state).
+:- mode main(di, uo) is det.
+
+
+
+:- implementation.
+
+
+
+:- import_module float, int, list, string, require.
+
+
+main -->
+    io__command_line_arguments(ArgV),
+    (   { ArgV = [],        N = 1 }
+    ;   { ArgV = [Arg],     N = string__det_to_int(Arg) }
+    ;   { ArgV = [_,_|_],   error("usage: random [N]") }
+    ),
+    io__format("%.9f\n", [f(nth_random_no(N, seed))]).
+
+
+:- func nth_random_no(int, int) = float.
+
+nth_random_no(I, S0) = ( if I > 1 then nth_random_no(I - 1, S) else R ) :-
+    gen_random(100.0, R, S0, S).
+
+
+
+:- pred gen_random(float, float, int, int).
+:- mode gen_random(in, out, in, out) is det.
+
+gen_random(Max, R, S0, S) :-
+    S = (S0 * ia + ic) `rem` im,
+    R = Max * float(S) / float(im).
+
+:- func im = int.   im = 139968.
+:- func ia = int.   ia =   3877.
+:- func ic = int.   ic =  29573.
+:- func seed = int. seed =   42.
+% The Computer Language Benchmarks Game
+% http://shootout.alioth.debian.org/
+% Contributed by Valentin Kraevskiy
+% Should be compiled with: -H
+                             
+:- module recursive.
+
+:- interface.
+:- import_module io.
+:- pred main(io::di, io::uo) is det.
+
+:- implementation.
+:- import_module int, float, string, list.
+
+main -->
+    io.command_line_arguments(Args),	
+    {( [NS | _] = Args -> N = det_to_int(NS)
+     ; N = 3), 
+    M = N - 1, X = 27.0 + float(N)},	
+    io.format("Ack(3,%i): %i\n", [i(N), i(ack(3, N))]),
+    io.format("Fib(%.1f): %.1f\n", [f(X), f(real_fib(X))]),
+    io.format("Tak(%i,%i,%i): %i\n", [i(M * 3), i(M * 2), i(M), i(tak(M * 3, M * 2, M))]),
+    io.format("Fib(3): %i\n", [i(fib(3))]),
+    io.format("Tak(3.0,2.0,1.0): %.1f\n", [f(real_tak(3.0, 2.0, 1.0))]).
+
+:- func fib(int) = int.
+fib(N) = 
+    ( N < 2 -> 1
+    ; fib(N - 1) + fib(N - 2)
+    ).
+
+:- func real_fib(float) = float.
+real_fib(N) =
+    ( N < 2.0 -> 1.0
+    ; real_fib(N - 1.0) + real_fib(N - 2.0)
+    ).
+
+:- func ack(int, int) = int.
+ack(X, Y) =
+    ( X = 0 -> Y + 1
+    ; Y = 0 -> ack(X - 1, 1)
+    ; ack(X - 1, ack(X, Y - 1))
+    ).
+
+:- func tak(int, int, int) = int.
+tak(X, Y, Z) =
+    ( Y < X -> tak(tak(X - 1, Y, Z),
+                   tak(Y - 1, Z, X),
+                   tak(Z - 1, X, Y))
+    ; Z
+    ).
+
+:- func real_tak(float, float, float) = float.
+real_tak(X, Y, Z) =
+    ( Y < X -> real_tak(real_tak(X - 1.0, Y, Z),
+                        real_tak(Y - 1.0, Z, X),
+                        real_tak(Z - 1.0, X, Y))
+    ; Z
+    ).
+% The Computer Language Benchmarks Game
+% http://shootout.alioth.debian.org/
+% based on work by Anthony Borla and Christoph Bauer
+% contributed by Glendon Holst
+
+:- module recursive.
+:- interface.
+:- import_module io.
+
+:- pred main(io::di, io::uo) is det.
+
+% ----------------------------------------------------------------------
+
+:- implementation.
+
+:- import_module list.
+:- import_module int.
+:- import_module float.
+:- import_module string.
+
+% ----------------------------------------------------------------------
+
+main(!IO) :-
+	io.command_line_arguments(Args, !IO),
+	(
+		if
+			Args = [AString|_],
+			string.to_int(string.strip(AString), Aint)
+		then
+			A = Aint
+		else
+			A is 11
+	),
+	
+	ack(3, A, Val1), 
+	io.format("Ack(3,%d): %d\n",[i(A),i(Val1)], !IO),
+
+	C is 27.0 + float(A),
+	Val2 = fib_float(C), 
+	io.format("Fib(%.1f): %.1f\n", [f(C), f(Val2)], !IO), 
+
+	B is A-1,
+	X is 3*B,
+	Y is 2*B,
+	Z is B,
+	tak(X,Y,Z,Val3),
+	io.format("Tak(%d,%d,%d): %d\n", [i(X), i(Y), i(Z), i(Val3)], !IO),
+  
+	Val4 = fib(3), 
+	io.format("Fib(3): %d\n", [i(Val4)], !IO), 
+  
+	tak_float(3.0,2.0,1.0,Val5),
+	io.format("Tak(%.1f,%.1f,%.1f): %.1f\n", [f(3.0), f(2.0), f(1.0), f(Val5)], 
+		!IO).
+
+% ------------------------------- %
+
+:- pred ack(int::in, int::in, int::out) is det.
+
+ack(M, N, Val) :-
+(
+	if M = 0 then 
+		Val is N + 1
+	else if N = 0 then 
+		ack(M - 1, 1, Val)
+	else 
+		ack(M, N - 1, Val1), ack(M - 1, Val1, Val)
+).
+
+% ------------------------------- %
+
+:- func fib(int) = int.
+
+fib(N) = (if N < 2 then 1 else fib(N - 1) + fib(N -2)).	   
+
+% ------------------------------- %
+
+:- func fib_float(float) = float.
+
+fib_float(N) = (if N < 2.0 then 1.0 else fib_float(N - 1.0) + fib_float(N - 2.0)).
+
+% ------------------------------- %
+
+:- pred tak(int::in, int::in, int::in, int::out) is det.
+
+tak(X, Y, Z, Result) :-
+(
+	if (Y < X,
+		tak(X-1, Y, Z, A),
+		tak(Y-1, Z, X, B),
+		tak(Z-1, X, Y, C),
+		tak(A, B, C, R)) 
+	then 
+		Result = R 
+	else 
+		Result = Z
+).
+
+:- pred tak_float(float::in, float::in, float::in, float::out) is det.
+
+tak_float(X, Y, Z, Result) :-
+(
+	if (Y < X,
+		tak_float(X-1.0, Y, Z, A),
+		tak_float(Y-1.0, Z, X, B),
+		tak_float(Z-1.0, X, Y, C),
+		tak_float(A, B, C, R)) 
+	then 
+		Result = R
+	else 
+		Result = Z
+).
+
+
+% ------------------------------- %
+% ------------------------------------------------------------------------------
+% The Computer Language Benchmarks Game
+% http://shootout.alioth.debian.org/
+%
+% Contributed by Glendon Holst
+% ----------------------------------------------------------------------
+
+:- module revcomp.
+:- interface.
+:- import_module io.
+
+:- pred main(io::di, io::uo) is det.
+
+% ----------------------------------------------------------------------
+
+:- implementation.
+
+:- import_module solutions.
+:- import_module array.
+:- import_module list.
+:- import_module assoc_list.
+:- import_module pair.
+:- import_module int.
+:- import_module bool.
+:- import_module char.
+:- import_module string.
+:- import_module exception.
+
+
+% ----------------------------------------------------------------------
+
+main(!IO) :-
+   create_translation_table(TranslationTable),
+   process_sequence(TranslationTable, array.make_empty_array, !IO).
+
+% ------------------------------- %
+
+:- pred create_translation_table(array(char)::out) is det.
+
+create_translation_table(TT) :-
+   TT_AL = [ 'A'-'T', 'C'-'G', 'B'-'V', 'D'-'H', 'K'-'M', 'R'-'Y'],
+   init_translation_table(TT_AL, array.init(256, ' '), TT).
+ 
+% ------------- %
+
+:- pred init_translation_table(assoc_list(char, char)::in, 
+   array(char)::array_di, array(char)::array_uo) is det.
+
+init_translation_table(TT_AL, TT0, TT) :-
+   init_translation_table_1(array.size(TT0) - 1, TT0, TT1),
+   init_translation_table_2(TT_AL, TT1, TT).
+
+% ------------- %
+
+
+:- pred init_translation_table_1(int::in, 
+   array(char)::array_di, array(char)::array_uo) is det.
+
+init_translation_table_1(N, TT0, TT) :-
+(
+   N > 0 ->
+   TT1 = TT0 ^ elem(N) := char.to_upper(char.det_from_int(N)),
+   init_translation_table_1(N - 1, TT1, TT)
+;
+   TT = TT0 ^ elem(0) := char.det_from_int(0)
+).
+
+% ------------- %
+
+:- pred init_translation_table_2(assoc_list(char, char)::in, 
+   array(char)::array_di, array(char)::array_uo) is det.
+
+init_translation_table_2(TT_AL, TT0, TT) :-
+(
+   TT_AL = [K-V | TT_ALs] ->
+   TT1 = TT0 ^ elem(char.to_int(K)) := V,
+   TT2 = TT1 ^ elem(char.to_int(char.to_lower(K))) := V,
+   TT3 = TT2 ^ elem(char.to_int(V)) := K,
+   TT4 = TT3 ^ elem(char.to_int(char.to_lower(V))) := K,
+   init_translation_table_2(TT_ALs, TT4, TT)
+;
+   TT = TT0
+).
+
+% ------------------------------- %
+
+:- pred process_sequence(array(char)::in, array(char)::array_di, io::di, io::uo) is det.
+
+process_sequence(TTable, Buff0, !IO) :-
+   io.read_line_as_string(IOResult, !IO),
+( 
+   IOResult = ok(LineIn) ->
+   (
+      Line = string.chomp(LineIn),
+      LineLen = string.length(Line),
+      (
+         LineLen > 0 ->
+            Buff0Len = array.size(Buff0),
+         (
+            Line ^ unsafe_elem(0) = ('>') ->
+            (
+               Buff0Len > 0 -> 
+               print_reversed(Buff0Len - 1, Buff0, 0, !IO),
+               io.flush_output(!IO)
+            ; 
+               true
+            ),
+            io.write_string(Line, !IO), io.nl(!IO),
+            process_sequence(TTable, array.make_empty_array, !IO)
+         ;
+            Buff1 = array.resize(Buff0, Buff0Len + LineLen, ' '),
+            translate(TTable, Line, 0, LineLen, Buff1, Buff0Len, Buff),
+            process_sequence(TTable, Buff, !IO)            
+         )
+      ;
+            process_sequence(TTable, Buff0, !IO)
+      )
+   )
+;
+   Buff0Len = array.size(Buff0),
+   (
+      Buff0Len > 0 -> 
+      print_reversed(Buff0Len - 1, Buff0, 0, !IO),
+      io.flush_output(!IO)
+   ; 
+      true
+   )
+).
+
+% ------------- %
+
+:- pred translate(array(char)::in, string::in, int::in, int::in, 
+   array(char)::array_di, int::in, array(char)::array_uo) is det.
+
+translate(TTable, Line, Idx, Len, Buff0, BIdx, Buff) :-
+(
+   Idx < Len ->
+   TC = (TTable ^ elem(char.to_int(Line ^ unsafe_elem(Idx)))),
+   Buff1 = (Buff0 ^ elem(BIdx) := TC),
+   translate(TTable, Line, Idx + 1, Len, Buff1, BIdx + 1, Buff)
+;
+   Buff = Buff0
+).
+
+% ------------- %
+
+:- pred print_reversed(int::in, array(char)::in, int::in, io::di, io::uo) is det.
+
+print_reversed(Idx, Buff, CPos0, !IO) :-
+(
+   Idx >= 0 ->
+   C = Buff ^ elem(Idx),
+   (CPos0 = 60 -> io.nl(!IO), CPos = 1 ; CPos = CPos0 + 1),
+   io.write_char(C, !IO), 
+   print_reversed(Idx - 1, Buff, CPos, !IO)
+;
+   io.nl(!IO)
+).
+
+% ------------------------------- %
+% The Computer Language Benchmarks Game
+% http://shootout.alioth.debian.org/
+%
+% contributed by Glendon Holst
+
+
+:- module revcomp.
+:- interface.
+:- import_module io.
+
+:- pred main(io::di, io::uo) is det.
+
+
+
+:- implementation.
+
+:- import_module solutions.
+:- import_module array.
+:- import_module list.
+:- import_module assoc_list.
+:- import_module pair.
+:- import_module int.
+:- import_module bool.
+:- import_module char.
+:- import_module string.
+:- import_module exception.
+
+
+
+
+main(!IO) :-
+   create_translation_table(TranslationTable),
+   process_sequence(TranslationTable, 0, array.init(82, ' '), !IO).
+
+
+
+:- pred create_translation_table(array(char)::out) is det.
+
+create_translation_table(TT) :-
+   TT_AL = [ 'A'-'T', 'C'-'G', 'B'-'V', 'D'-'H', 'K'-'M', 'R'-'Y'],
+   init_translation_table(TT_AL, array.init(256, ' '), TT).
+ 
+
+
+:- pred init_translation_table(assoc_list(char, char)::in, 
+   array(char)::array_di, array(char)::array_uo) is det.
+
+init_translation_table(TT_AL, TT0, TT) :-
+   init_translation_table_1(array.size(TT0) - 1, TT0, TT1),
+   init_translation_table_2(TT_AL, TT1, TT).
+
+
+
+
+:- pred init_translation_table_1(int::in, 
+   array(char)::array_di, array(char)::array_uo) is det.
+
+init_translation_table_1(N, TT0, TT) :-
+(
+   N > 0 ->
+   TT1 = TT0 ^ elem(N) := char.to_upper(char.det_from_int(N)),
+   init_translation_table_1(N - 1, TT1, TT)
+;
+   TT = TT0 ^ elem(0) := char.det_from_int(0)
+).
+
+
+
+:- pred init_translation_table_2(assoc_list(char, char)::in, 
+   array(char)::array_di, array(char)::array_uo) is det.
+
+init_translation_table_2(TT_AL, TT0, TT) :-
+(
+   TT_AL = [K-V | TT_ALs] ->
+   TT1 = TT0 ^ elem(char.to_int(K)) := V,
+   TT2 = TT1 ^ elem(char.to_int(char.to_lower(K))) := V,
+   TT3 = TT2 ^ elem(char.to_int(V)) := K,
+   TT4 = TT3 ^ elem(char.to_int(char.to_lower(V))) := K,
+   init_translation_table_2(TT_ALs, TT4, TT)
+;
+   TT = TT0
+).
+
+
+
+:- pred process_sequence(array(char)::in, int::in, array(char)::array_di, io::di, io::uo) is det.
+
+process_sequence(TTable, Buff0Len, Buff0, !IO) :-
+   io.read_line_as_string(IOResult, !IO),
+( 
+   IOResult = ok(LineIn) ->
+   (
+      Line = string.chomp(LineIn),
+      LineLen = string.length(Line),
+      (
+         LineLen > 0 ->
+         (
+            Line ^ unsafe_elem(0) = ('>') ->
+            (
+               Buff0Len > 0 -> 
+               print_reversed(Buff0Len - 1, Buff0, 0, !IO),
+               io.flush_output(!IO)
+            ; 
+               true
+            ),
+            io.write_string(Line, !IO), io.nl(!IO),
+            process_sequence(TTable, 0, Buff0, !IO)
+         ;
+            NewBuffLen = Buff0Len + LineLen,
+            (
+               NewBuffLen > array.size(Buff0) ->
+                  Buff1 = array.resize(Buff0, 2 * NewBuffLen , ' ')         
+               ;
+                  Buff1 = Buff0
+            ),
+            translate(TTable, Line, 0, LineLen, Buff1, Buff0Len, Buff),
+            process_sequence(TTable, NewBuffLen, Buff, !IO)            
+         )
+      ;
+            process_sequence(TTable, Buff0Len, Buff0, !IO)
+      )
+   )
+;
+   (
+      Buff0Len > 0 -> 
+      print_reversed(Buff0Len - 1, Buff0, 0, !IO),
+      io.flush_output(!IO)
+   ; 
+      true
+   )
+).
+
+
+
+:- pred translate(array(char)::in, string::in, int::in, int::in, 
+   array(char)::array_di, int::in, array(char)::array_uo) is det.
+
+translate(TTable, Line, Idx, Len, Buff0, BIdx, Buff) :-
+(
+   Idx < Len ->
+   TC = (TTable ^ elem(char.to_int(Line ^ unsafe_elem(Idx)))),
+   Buff1 = (Buff0 ^ elem(BIdx) := TC),
+   translate(TTable, Line, Idx + 1, Len, Buff1, BIdx + 1, Buff)
+;
+   Buff = Buff0
+).
+
+
+
+:- pred print_reversed(int::in, array(char)::in, int::in, io::di, io::uo) is det.
+
+print_reversed(Idx, Buff, CPos0, !IO) :-
+(
+   Idx >= 0 ->
+   C = Buff ^ elem(Idx),
+   (CPos0 = 60 -> io.nl(!IO), CPos = 1 ; CPos = CPos0 + 1),
+   io.write_char(C, !IO), 
+   print_reversed(Idx - 1, Buff, CPos, !IO)
+;
+   io.nl(!IO)
+).
+
+
+% ---------------------------------------------------------------------------- %
+% reversefile.m 
+% Ralph Becket <rbeck@microsoft.com>
+% Tue Jan  9 11:39:27 GMT 2001
+% vim: ts=4 sw=4 et tw=0 wm=0 ff=unix
+%
+% ---------------------------------------------------------------------------- %
+
+:- module mytest.
+
+:- interface.
+
+:- import_module io.
+
+
+
+:- pred main(io__state, io__state).
+:- mode main(di, uo) is det.
+
+
+
+:- implementation.
+
+
+
+:- import_module string, list, require.
+
+
+
+main -->
+    read_file_reversed([], ReversedLines),
+    io__write_list(ReversedLines, "", io__write_string).
+
+
+
+:- pred read_file_reversed(list(string), list(string), io__state, io__state).
+:- mode read_file_reversed(in, out, di, uo) is det.
+
+read_file_reversed(RLs0, RLs) -->
+    io__read_line_as_string(Result),
+    (   { Result = ok(Line) },      read_file_reversed([Line | RLs0], RLs)
+    ;   { Result = eof },           { RLs = RLs0 }
+    ;   { Result = error(ErrNo) },  { error(io__error_message(ErrNo)) }
+    ).
+% ---------------------------------------------------------------------------- %
+% sieve.m
+% Ralph Becket <rbeck@microsoft.com>
+% Mon Jan  8 14:23:22 GMT 2001
+% vim: ts=4 sw=4 et tw=0 wm=0 ff=unix
+%
+% Eratosthenes' Sieve - counts the number of primes in 2..8192
+%
+% ---------------------------------------------------------------------------- %
+
+:- module mytest.
+
+:- interface.
+
+:- import_module io.
+
+
+
+:- pred main(io__state, io__state).
+:- mode main(di, uo) is cc_multi.
+
+
+
+:- implementation.
+
+:- import_module int, bool, array, string, list, require, benchmarking.
+
+
+
+main -->
+    io__command_line_arguments(ArgV),
+    (   { ArgV = [],        Repeats = 1 }
+    ;   { ArgV = [Arg],     Repeats = string__det_to_int(Arg) }
+    ;   { ArgV = [_,_|_],   error("usage: sieve [NumIterations]") }
+    ),
+    { P = ( pred(Sz::in, N::out) is det :- N = count_primes(Sz) ) },
+    { benchmarking__benchmark_det(P, 8192, Count, Repeats, Time) },
+    io__format("Count: %d\n", [i(Count)]).
+
+
+
+:- func count_primes(int) = int.
+
+count_primes(Size) = sieve_and_count(2, array__init(Size, yes), 0).
+
+
+
+:- func sieve_and_count(int, array(bool), int) = int.
+:- mode sieve_and_count(in, array_di, in) = out is det.
+
+sieve_and_count(I, A, N) =
+    (      if I > array__max(A)         then N
+      else if array__lookup(A, I) = no  then sieve_and_count(I + 1, A, N)
+      else    sieve_and_count(I + 1, filter_multiples(I + I, I, A), N + 1)
+    ).
+
+
+
+:- func filter_multiples(int, int, array(bool)) = array(bool).
+:- mode filter_multiples(in, in, array_di) = array_uo is det.
+
+filter_multiples(I, P, A) =
+    ( if I > array__max(A)
+      then A
+      else filter_multiples(I + P, P, array__set(A, I, no))
+    ).
+% The Computer Language Shootout Benchmarks Game
+% http://shootout.alioth.debian.org/
+%
+% Based on work by Sebastien Loisel and Troestler Christophe
+% contributed by Glendon Holst
+% ----------------------------------------------------------------------
+
+
+:- module spectralnorm.
+:- interface.
+:- import_module io.
+
+:- pred main(io::di, io::uo) is det.
+
+% ----------------------------------------------------------------------
+
+:- implementation.
+
+:- import_module list.
+:- import_module array.
+:- import_module math.
+:- import_module int.
+:- import_module float.
+:- import_module string.
+
+% ----------------------------------------------------------------------
+
+:- type sn_vect == array(float).
+
+% ----------------------------------------------------------------------
+
+main(!IO) :-
+	io.command_line_arguments(Args, !IO),
+	(
+		if
+			Args = [AString|_],
+			string.to_int(string.strip(AString), Aint)
+		then
+			N = Aint
+		else
+			N is 5500
+	),
+
+	U0 = array.init(N, 1.0),
+	V0 = array.init(N, 0.0),
+
+	eval_AtA(10, U0, U, V0, V),
+	
+	Vv = sum_Products(N,0.0,V, V),
+	VBv = sum_Products(N,0.0,U, V),
+	
+	io.format("%0.9f\n", [f(sqrt(VBv / Vv))], !IO).
+
+% ------------------------------- %
+
+:- pred eval_AtA(int, sn_vect, sn_vect, sn_vect, sn_vect) is det.
+:- mode eval_AtA(in, array_di, array_uo, array_di, array_uo) is det.
+
+eval_AtA(N, U0, U, V0, V) :-
+(
+	N > 0 ->
+	eval_AtA_times_u(U0, V0, V1),
+	eval_AtA_times_u(V1, U0, U1),
+	eval_AtA(N - 1, U1, U, V1, V)
+;
+	U = U0,
+	V = V0
+).
+
+% ------------- %
+
+:- func eval_A(int, int) = float.
+
+eval_A(I, J) = 1.0 / float((((I + J) * (I + J + 1)) / 2) + I + 1).
+
+% ------------- %
+
+:- func sum_Products(int, float, sn_vect, sn_vect) = float.
+
+sum_Products(N, V, Arr1, Arr2) = sum_Products_(0, N, V, Arr1, Arr2).
+
+:- func sum_Products_(int, int, float, sn_vect, sn_vect) = float.
+
+sum_Products_(I, N, V, Arr1, Arr2) = Result :-
+(
+	I < N ->
+	Result = sum_Products_(I + 1, N, 
+		(V + (array.lookup(Arr1,I) * array.lookup(Arr2,I))), 
+		Arr1, Arr2)
+;
+	Result = V
+).
+
+% ------------------------------- %
+
+:- pred eval_AtA_times_u(sn_vect, sn_vect, sn_vect) is det.
+:- mode eval_AtA_times_u(in, array_di, array_uo) is det.
+
+eval_AtA_times_u(U, V0, V) :-
+	W0 = array.init(array.size(U), 0.0),
+	eval_A_times_u(U, W0, W1),
+	eval_At_times_u(W1, V0, V).
+
+% ------------- %
+
+:- pred eval_A_times_u(sn_vect, sn_vect, sn_vect) is det.
+:- mode eval_A_times_u(in, array_di, array_uo) is det.
+
+eval_A_times_u(U, V0, V) :- eval_A_times_u_i_(0, array.size(U), U, V0, V).
+
+:- pred eval_A_times_u_i_(int, int, sn_vect, sn_vect, sn_vect) is det.
+:- mode eval_A_times_u_i_(in, in, in, array_di, array_uo) is det.
+
+eval_A_times_u_i_(I, N, U, V0, V) :-
+(
+	I < N ->
+	array.set(V0, I, 0.0, V1),
+	eval_A_times_u_j_(I, 0, N, U, V1, V2),
+	eval_A_times_u_i_(I + 1, N, U, V2, V)
+;
+	V = V0
+).
+
+:- pred eval_A_times_u_j_(int, int, int, sn_vect, sn_vect, sn_vect) is det.
+:- mode eval_A_times_u_j_(in, in, in, in, array_di, array_uo) is det.
+
+eval_A_times_u_j_(I, J, N, U, V0, V) :-
+(
+	J < N ->
+	Vi = array.lookup(V0, I) + eval_A(I,J) * array.lookup(U, J),
+	array.set(V0, I, Vi, V1),
+	eval_A_times_u_j_(I, J + 1, N, U, V1, V)
+;
+	V = V0
+).
+
+% ------------- %
+
+:- pred eval_At_times_u(sn_vect, sn_vect, sn_vect) is det.
+:- mode eval_At_times_u(in, array_di, array_uo) is det.
+
+eval_At_times_u(U, V0, V) :- eval_At_times_u_i_(0, array.size(U), U, V0, V).
+
+:- pred eval_At_times_u_i_(int, int, sn_vect, sn_vect, sn_vect) is det.
+:- mode eval_At_times_u_i_(in, in, in, array_di, array_uo) is det.
+
+eval_At_times_u_i_(I, N, U, V0, V) :-
+(
+	I < N ->
+	array.set(V0, I, 0.0, V1),
+	eval_At_times_u_j_(I, 0, N, U, V1, V2),
+	eval_At_times_u_i_(I + 1, N, U, V2, V)
+;
+	V = V0
+).
+
+:- pred eval_At_times_u_j_(int, int, int, sn_vect, sn_vect, sn_vect) is det.
+:- mode eval_At_times_u_j_(in, in, in, in, array_di, array_uo) is det.
+
+eval_At_times_u_j_(I, J, N, U, V0, V) :-
+(
+	J < N ->
+	Vi = array.lookup(V0, I) + eval_A(J, I) * array.lookup(U, J),
+	array.set(V0, I, Vi, V1),
+	eval_At_times_u_j_(I, J + 1, N, U, V1, V)
+;
+	V = V0
+).
+
+% ------------------------------- %
+% ---------------------------------------------------------------------------- %
+% spellcheck.m 
+% Ralph Becket <rbeck@microsoft.com> 
+% Tue Jan  9 16:43:59 GMT 2001
+% vim: ts=4 sw=4 et tw=0 wm=0 ff=unix
+%
+% ---------------------------------------------------------------------------- %
+
+:- module mytest.
+
+:- interface.
+
+:- import_module io.
+
+
+
+:- pred main(io__state, io__state).
+:- mode main(di, uo) is det.
+
+
+
+:- implementation.
+
+:- import_module map, int, list, string, require, std_util, char.
+
+
+
+:- type dict == map(string, unit).
+
+
+
+main -->
+    io__see("Usr.Dict.Words", Res),
+    (   { Res = ok },           read_dictionary(map__init, Dict)
+    ;   { Res = error(ErrNo) }, { error(io__error_message(ErrNo)) }
+    ),
+    io__seen,
+    find_errors(Dict).
+
+
+
+:- pred read_dictionary(dict, dict, io__state, io__state).
+:- mode read_dictionary(in, out, di, uo) is det.
+
+read_dictionary(D0, D) -->
+    io__read_line_as_string(Result),
+    (
+        { Result = ok(Line) },
+        { Words  = string__words(char__is_whitespace, Line) },
+        { D1     = list__foldl(func(W, M) = M ^ elem(W) := unit, Words, D0) },
+        read_dictionary(D1, D)
+    ;
+        { Result = eof },
+        { D      = D0 }
+    ;
+        { Result = error(ErrNo) },
+        { error(io__error_message(ErrNo)) }
+    ).
+
+
+
+:- pred find_errors(dict, io__state, io__state).
+:- mode find_errors(in, di, uo) is det.
+
+find_errors(D) -->
+    io__read_line_as_string(Result),
+    (
+        { Result = ok(Line) },
+        { Words  = string__words(char__is_whitespace, Line) },
+        list__foldl(
+            ( pred(S::in, di, uo) is det -->
+                ( if { map__contains(D, S) }
+                  then []
+                  else io__write_string(S), io__nl
+                )
+            ),
+            Words
+        ),
+        find_errors(D)
+    ;
+        { Result = eof }
+    ;
+        { Result = error(ErrNo) },
+        { error(io__error_message(ErrNo)) }
+    ).
+% ---------------------------------------------------------------------------- %
+% stringconcat.m
+% Ralph Becket <rbeck@microsoft.com>
+% Tue Jan  9 15:56:12 GMT 2001
+% vim: ts=4 sw=4 et tw=0 wm=0 ff=unix
+%
+% NOTE: The C version simply appends to the end of a preallocated
+% buffer, doubling the buffer size when necessary.  Not what I would strictly
+% call string concatenation.
+%
+% ---------------------------------------------------------------------------- %
+
+:- module mytest.
+
+:- interface.
+
+:- import_module io.
+
+
+
+:- pred main(io__state, io__state).
+:- mode main(di, uo) is det.
+
+
+
+:- implementation.
+
+
+:- import_module string, int, list, require.
+
+
+
+main -->
+    io__command_line_arguments(ArgV),
+    (   { ArgV = [],        N = 1 }
+    ;   { ArgV = [Arg],     N = string__det_to_int(Arg) }
+    ;   { ArgV = [_,_|_],   error("usage: nestedloops [N]") }
+    ),
+    io__write_int(string__length(hellos(N, ""))),
+    io__nl.
+
+
+
+:- func hellos(int, string) = string.
+
+hellos(I, S) = ( if I > 0 then hellos(I - 1, S ++ "hello\n") else S ).
+
+
+
+
+% The Computer Language Shootout Benchmarks Game
+% http://shootout.alioth.debian.org/
+
+
+:- module sumcol.
+
+:- interface.
+
+:- import_module io.
+
+:- pred main(io__state :: di, io__state :: uo) is det.
+
+:- implementation.
+
+:- import_module string, int.
+
+main -->
+    io__read_line_as_string(IOResult),
+    sumcol(IOResult, 0).
+
+:- pred sumcol(io__result(string)::in, int::in, io__state::di, io__state::uo) is det.
+
+sumcol(IOResult, Sum) -->
+    ( { IOResult = ok(LineIn) },
+        { chomp(LineIn, Line) },
+	io__read_line_as_string(NewIOResult),
+	( if { string__to_int(Line, N) } then
+	    sumcol(NewIOResult, Sum + N)
+	  else
+	    sumcol(NewIOResult, Sum)
+	)
+    ; { IOResult = eof },
+        io__write_int(Sum),
+	io__write_string("\n")
+    ; { IOResult = error(_Error) },
+	io__write_string("Error reading file!")
+    ).
+
+:- pred chomp(string::in, string::out) is det.
+
+chomp(InStr, OutStr) :-
+    ( if string__remove_suffix(InStr, "\n", NewStr) then
+	OutStr = NewStr
+      else
+	OutStr = InStr
+    ).
+% ---------------------------------------------------------------------------- %
+% wordfreq.m
+% Ralph Becket <rbeck@microsoft.com> 
+% Tue Jan  9 15:56:12 GMT 2001
+% vim: ts=4 sw=4 et tw=0 wm=0 ff=unix
+%
+% ---------------------------------------------------------------------------- %
+
+:- module mytest.
+:- interface.
+:- import_module io.
+
+:- pred main(io__state, io__state).
+:- mode main(di, uo) is det.
+
+:- implementation.
+
+:- import_module string, int, list, require, std_util, char, map.
+
+main -->
+    count_word_freqs(map__init, FreqMap),
+    { X = list__sort(list__map(func(K-V) = V-K, map__to_assoc_list(FreqMap))) },
+    { Y = list__reverse(X) },
+    io__write_list(Y, "\n", write_freq_word),
+    io__nl.
+
+
+:- pred count_word_freqs(map(string,int),map(string,int),io__state,io__state).
+:- mode count_word_freqs(in, out, di, uo) is det.
+count_word_freqs(FreqMap0, FreqMap) -->
+    io__read_line_as_string(Result),
+    (
+        { Result = ok(Line) },
+        { Words  = string__words(isnt(char__is_alpha),string__to_lower(Line)) },
+        { Update =
+            ( func(S, FM) = 
+                ( if map__search(FM, S, N)
+                  then FM ^ elem(S) := N + 1
+                  else FM ^ elem(S) := 1
+                )
+            )
+        },
+        { FreqMap1 = list__foldl(Update, Words, FreqMap0) },
+        count_word_freqs(FreqMap1, FreqMap)
+    ;
+        { Result = eof },
+        { FreqMap = FreqMap0 }
+    ;
+        { Result = error(ErrNo) },
+        { error(io__error_message(ErrNo)) }
+    ).
+
+
+:- pred write_freq_word(pair(int, string), io__state, io__state).
+:- mode write_freq_word(in, di, uo) is det.
+write_freq_word(Freq - Word) -->
+    io__format("%7d %s", [i(Freq), s(Word)]).

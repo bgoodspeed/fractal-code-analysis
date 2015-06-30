@@ -1,0 +1,5071 @@
+-- http://shootout.alioth.debian.org/
+-- shortened by Bryn Keller, Einar Karttunen and Don Stewart
+
+import System
+
+main = getArgs >>= \[n] -> putStrLn . (("Ack(3,"++n++"): ")++) . show . ack 3 $ read n
+ 
+ack (0::Int) (n::Int) = n+1
+ack  m        n       = ack (m-1) $ if n == 0 then 1 else ack m (n-1)
+
+-- $Id: ary.ghc-2.ghc,v 1.1 2004-11-10 06:22:08 bfulgham Exp $
+-- http://shootout.alioth.debian.org/
+-- from Brian Gregor
+-- compile with: ghc -O2 -o bar array.hs
+
+module Main where
+
+import Array
+import System
+
+getAns :: Int -> IO ()
+getAns len = do
+               putStrLn (show (arr2 ! 1))
+             where
+               arr =  array (1,len) [(i, i-1) | i <- [1..len]]
+               arr2 = array (1,len) [(i,arr ! (len-i+1)) | i <- [1..len]]
+
+main = do
+        ~[n] <- getArgs 
+        getAns (read n::Int)
+-- $Id: ary.ghc-3.ghc,v 1.1 2004-11-10 06:22:08 bfulgham Exp $
+-- http://shootout.alioth.debian.org/
+-- from Julian Assange
+
+module Main where
+import System(getArgs, exitWith, ExitCode(..))
+import Numeric(readDec)
+-- UArray is an unboxed ghc extension to haskell'98
+import IArray(UArray,array,(!))
+
+main = do
+       arg <- getArgs
+       case arg of
+            [number] -> let n = fst (head (readDec number)) in
+		        putStrLn (show (ary n))
+            _        -> exitWith (ExitFailure 1)
+
+
+ary :: Int -> Int
+ary n = x!m where
+	    m = n-1
+	    x,y :: UArray Int Int
+	    x = array (0,m) [(i,y!i) | i <- [m,(m-1)..0]]
+	    y = array (0,m) [(i,i)   | i <- [0..m]]
+-- $Id: ary.ghc2.ghc,v 1.1 2004-05-19 18:09:16 bfulgham Exp $
+-- http://www.bagley.org/~doug/shootout/
+-- from Brian Gregor
+-- compile with: ghc -O2 -o bar array.hs
+
+module Main where
+
+import Array
+import System
+
+getAns :: Int -> IO ()
+getAns len = do
+               putStrLn (show (arr2 ! 1))
+             where
+               arr =  array (1,len) [(i, i-1) | i <- [1..len]]
+               arr2 = array (1,len) [(i,arr ! (len-i+1)) | i <- [1..len]]
+
+main = do
+        ~[n] <- getArgs 
+        getAns (read n::Int)
+-- $Id: ary.ghc3.ghc,v 1.1 2004-05-19 18:09:16 bfulgham Exp $
+-- http://www.bagley.org/~doug/shootout/
+-- from Julian Assange
+
+module Main where
+import System(getArgs, exitWith, ExitCode(..))
+import Numeric(readDec)
+-- UArray is an unboxed ghc extension to haskell'98
+import IArray(UArray,array,(!))
+
+main = do
+       arg <- getArgs
+       case arg of
+            [number] -> let n = fst (head (readDec number)) in
+		        putStrLn (show (ary n))
+            _        -> exitWith (ExitFailure 1)
+
+
+ary :: Int -> Int
+ary n = x!m where
+	    m = n-1
+	    x,y :: UArray Int Int
+	    x = array (0,m) [(i,y!i) | i <- [m,(m-1)..0]]
+	    y = array (0,m) [(i,i)   | i <- [0..m]]
+-- $Id: ary.ghc,v 1.6 2004-12-27 09:38:06 ekarttun-guest Exp $
+-- http://shootout.alioth.debian.org
+-- By Simon Marlow, modified by Einar Karttunen
+
+import System
+import Control.Monad.ST
+import Data.Array.Base
+import Data.Array.ST
+
+add_array :: Int -> STUArray s Int Int -> STUArray s Int Int -> ST s ()
+add_array len a b = sequence_ [ add i | i <- [0..len] ]
+  where add i = do ai <- unsafeRead a i
+		   bi <- unsafeRead b i
+	  	   unsafeWrite b i (ai+bi)
+
+ary :: Int -> ST s (Int,Int)
+ary len = do 
+  a <- newListArray (0,len) [1..len+1]
+  b <- newArray (0,len) 0
+  sequence_ (take 1000 (repeat (add_array len a b)))
+  y1 <- unsafeRead b 0
+  yn <- unsafeRead b len
+  return (y1,yn)
+
+main = do
+  ~[n] <- getArgs 
+  let (y1,yn) = runST (ary ((read n)-1))
+  putStr (show y1); putStr " " ; putStrLn (show yn)
+
+
+--
+-- The Computer Language Benchmarks Game
+-- http://shootout.alioth.debian.org/
+--
+-- Contributed by Don Stewart
+--
+
+import System
+import Data.Bits
+import Text.Printf
+
+--
+-- an artificially strict tree. 
+--
+-- normally you would ensure the branches are lazy, but this benchmark
+-- requires strict allocation.
+--
+data Tree = Nil | Node !Int !Tree !Tree
+
+minN = 4
+
+io s n t = printf "%s of depth %d\t check: %d\n" s n t
+
+main = do
+    n <- getArgs >>= readIO . head
+    let maxN     = max (minN + 2) n
+        stretchN = maxN + 1
+
+    -- stretch memory tree
+    let c = check (make 0 stretchN)
+    io "stretch tree" stretchN c
+
+    -- allocate a long lived tree
+    let !long    = make 0 maxN
+
+    -- allocate, walk, and deallocate many bottom-up binary trees
+    let vs = depth minN maxN
+    mapM_ (\((m,d,i)) -> io (show m ++ "\t trees") d i) vs
+
+    -- confirm the the long-lived binary tree still exists
+    io "long lived tree" maxN (check long)
+
+-- generate many trees
+depth :: Int -> Int -> [(Int,Int,Int)]
+depth d m
+    | d <= m    = (2*n,d,sumT d n 0) : depth (d+2) m
+    | otherwise = []
+  where n = 1 `shiftL` (m - d + minN)
+
+-- allocate and check lots of trees
+sumT :: Int -> Int -> Int -> Int
+sumT d 0 t = t
+sumT  d i t = sumT d (i-1) (t + a + b)
+  where a = check (make i    d)
+        b = check (make (-i) d)
+
+-- traverse the tree, counting up the nodes
+check :: Tree -> Int
+check Nil          = 0
+check (Node i l r) = i + check l - check r
+
+-- build a tree
+make :: Int -> Int -> Tree
+make i 0 = Node i Nil Nil
+make i d = Node i (make (i2-1) d2) (make i2 d2)
+  where i2 = 2*i; d2 = d-1
+--
+-- The Computer Language Benchmarks Game
+-- http://shootout.alioth.debian.org/
+--
+-- Contributed by Don Stewart
+--
+
+import System
+import Data.Bits
+import Text.Printf
+
+--
+-- an artificially strict tree. 
+--
+-- normally you would ensure the branches are lazy, but this benchmark
+-- requires strict allocation.
+--
+data Tree = Nil | Node !Int !Tree !Tree
+
+minN = 4
+
+io s n t = printf "%s of depth %d\t check: %d\n" s n t
+
+main = do
+    n <- getArgs >>= readIO . head
+    let maxN     = max (minN + 2) n
+        stretchN = maxN + 1
+
+    -- stretch memory tree
+    let c = check (make 0 stretchN)
+    io "stretch tree" stretchN c
+
+    -- allocate a long lived tree
+    let !long    = make 0 maxN
+
+    -- allocate, walk, and deallocate many bottom-up binary trees
+    let vs = depth minN maxN
+    mapM_ (\((m,d,i)) -> io (show m ++ "\t trees") d i) vs
+
+    -- confirm the the long-lived binary tree still exists
+    io "long lived tree" maxN (check long)
+
+-- generate many trees
+depth :: Int -> Int -> [(Int,Int,Int)]
+depth d m
+    | d <= m    = (2*n,d,sumT d n 0) : depth (d+2) m
+    | otherwise = []
+  where n = 1 `shiftL` (m - d + minN)
+
+-- allocate and check lots of trees
+sumT :: Int -> Int -> Int -> Int
+sumT d 0 t = t
+sumT  d i t = sumT d (i-1) (t + a + b)
+  where a = check (make i    d)
+        b = check (make (-i) d)
+
+-- traverse the tree, counting up the nodes
+check :: Tree -> Int
+check Nil          = 0
+check (Node i l r) = i + check l - check r
+
+-- build a tree
+make :: Int -> Int -> Tree
+make i 0 = Node i Nil Nil
+make i d = Node i (make (i2-1) d2) (make i2 d2)
+  where i2 = 2*i; d2 = d-1
+--
+-- The Computer Language Benchmarks Game
+-- http://shootout.alioth.debian.org/
+--
+-- Contributed by Don Stewart
+-- Parallelized by Louis Wasserman
+
+import System
+import Control.Monad
+import System.Mem
+import Data.Bits
+import Text.Printf
+import GHC.Conc
+
+--
+-- an artificially strict tree.
+--
+-- normally you would ensure the branches are lazy, but this benchmark
+-- requires strict allocation.
+--
+data Tree = Nil | Node !Int !Tree !Tree
+
+minN = 4
+
+io s n t = printf "%s of depth %d\t check: %d\n" s n t
+
+main = do
+    n <- getArgs >>= readIO . head
+    let maxN     = max (minN + 2) n
+        stretchN = maxN + 1
+    -- stretch memory tree
+    let c = {-# SCC "stretch" #-} check (make 0 stretchN)
+    io "stretch tree" stretchN c
+
+    -- allocate a long lived tree
+    let !long    = make 0 maxN
+
+    -- allocate, walk, and deallocate many bottom-up binary trees
+    let vs = depth minN maxN
+    mapM_ (\((m,d,i)) -> io (show m ++ "\t trees") d i) vs
+
+    -- confirm the the long-lived binary tree still exists
+    io "long lived tree" maxN (check long)
+
+-- generate many trees
+depth :: Int -> Int -> [(Int,Int,Int)]
+depth d m
+    | d <= m    = let 
+    	s = sumT d n 0
+    	rest = depth (d+2) m
+    	in s `par` ((2*n,d,s) : rest)
+    | otherwise = []
+  where n = bit (m - d + minN)
+
+-- allocate and check lots of trees
+sumT :: Int -> Int -> Int -> Int	
+sumT d 0 t = t
+sumT  d i t = a `par` b `par` sumT d (i-1) ans
+  where a = check (make i    d)
+        b = check (make (-i) d)
+        ans = a + b + t
+
+check = check' True 0
+
+-- traverse the tree, counting up the nodes
+check' :: Bool -> Int -> Tree -> Int
+check' !b !z Nil          = z
+check' b z (Node i l r)	  = check' (not b) (check' b (if b then z+i else z-i) l) r
+
+-- build a tree
+make :: Int -> Int -> Tree
+make i 0 = Node i Nil Nil
+make i d = Node i (make (i2-1) d2) (make i2 d2)
+  where i2 = 2*i; d2 = d-1
+{- The Computer Language Shootout
+   http://shootout.alioth.debian.org/
+   Written by Tom Pledger, 13 Nov 2006. modified by Don Stewart -}
+
+import Control.Concurrent
+import Control.Monad
+import System
+
+data Colour = Blue | Red | Yellow
+
+complement a b = case (a,b) of
+    (Red,Yellow)    -> Blue
+    (Red,Blue)      -> Yellow
+    (Red,Red)       -> Red
+    (Yellow,Blue)   -> Red
+    (Yellow,Red)    -> Blue
+    (Yellow,Yellow) -> Yellow
+    (Blue,Red)      -> Yellow
+    (Blue,Yellow)   -> Red
+    (Blue,Blue)     -> Blue
+
+colors = [Blue, Red, Yellow]
+
+data MP = MP !Int !(Maybe Colour) ![Int]
+
+main = do n     <- getArgs >>= readIO . head
+          waker <- newEmptyMVar
+          mpv   <- newMVar $ MP n Nothing []
+
+          let arrive c t = do
+                MP q w d <- takeMVar mpv
+                case w of
+                    _ | q == 0 -> if length d /= 3 then putMVar mpv $ MP 0 w (t:d)
+                                                   else print $ t + sum d
+
+                    Nothing    -> do putMVar mpv $ MP q (Just c) d
+                                     c' <- takeMVar waker
+                                     arrive c' $! t+1
+
+                    Just k     -> do let c' = complement k c
+                                     putMVar waker $! c'
+                                     putMVar mpv $ MP (q-1) Nothing d
+                                     arrive c' $! t+1
+
+          mapM_ (forkIO . flip arrive 0) colors
+          arrive Blue 0
+          replicateM_ 3 yield
+{-# LANGUAGE CPP #-}
+{- The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+   Written by Tom Pledger, 13 Nov 2006. modified by Don Stewart
+   Updated for chameneos-redux by Spencer Janssen, 27 Nov 2007
+   Modified by Péter Diviánszky, 19 May 2010
+   Modified by Louis Wasserman, 14 June 2010
+
+   Should be compiled with -O2 -threaded -fvia-c -optc-O3 and run with +RTS -N<number of cores>.
+   -}
+
+import Control.Concurrent
+import Control.Monad
+import Data.Char
+import Data.IORef
+import System.Environment
+import System.IO
+import GHC.Conc
+import Foreign hiding (complement)
+
+newtype Color = C Int deriving (Storable,Enum)
+
+#define Y (C 2)
+#define R (C 1)
+#define B (C 0)
+
+instance Show Color where
+	show Y = "yellow"
+	show R = "red"
+	show B = "blue"
+
+complement :: Color -> Color -> Color
+complement !a !b = case a of
+    B -> case b of R -> Y; B -> B; _ -> R
+    R -> case b of B -> Y; R -> R; _ -> B
+    Y -> case b of B -> R; Y -> Y; _ -> B
+
+type Chameneous = Ptr Color
+data MP = Nobody !Int | Somebody !Int !Chameneous !(MVar Chameneous)
+
+arrive :: MVar MP -> MVar (Int, Int) -> Chameneous -> IO ()
+arrive !mpv !finish !ch = do
+    waker <- newEmptyMVar
+    let inc x = (fromEnum (ch == x) +)
+        go !t !b = do
+            w <- takeMVar mpv
+            case w of
+                Nobody 0
+                 -> do
+                    putMVar mpv w
+                    putMVar finish (t, b)
+  		Nobody q -> do
+                    putMVar mpv $ Somebody q ch waker
+                    ch' <- takeMVar waker
+                    go (t+1) $ inc ch' b
+
+                Somebody q ch' waker' -> do
+                    c  <- peek ch
+                    c' <- peek ch'
+                    let !c'' = complement c c'
+                    poke ch  c''
+                    poke ch' c''
+                    putMVar waker' ch
+                    let !q' = q-1
+                    putMVar mpv $ Nobody q'
+                    go (t+1) $ inc ch' b
+    go 0 0
+
+showN = unwords . map ((digits !!) . digitToInt) . show
+
+digits = words "zero one two three four five six seven eight nine"
+
+run :: Int -> Int -> [Color] -> IO (IO ())
+run n cpu cs = do
+    fs    <- replicateM (length cs) newEmptyMVar
+    mpv   <- newMVar (Nobody n)
+    withArrayLen cs $ \ n cols -> do
+    	zipWithM_ ((forkOnIO cpu .) . arrive mpv) fs (take n (iterate (`advancePtr` 1) cols))
+
+    	return $ do
+	  putStrLn . map toLower . unwords . ([]:) . map show $ cs
+	  ns    <- mapM takeMVar fs
+	  putStr . map toLower . unlines $ [unwords [show n, showN b] | (n, b) <- ns]
+	  putStrLn . (" "++) . showN . sum . map fst $ ns
+	  putStrLn ""
+
+main = do
+    putStrLn . map toLower . unlines $
+        [unwords [show a, "+", show b, "->", show $ complement a b]
+            | a <- [B..Y], b <- [B..Y]]
+
+    n <- readIO . head =<< getArgs
+    actions <- zipWithM (run n) [0..] [[B..Y],[B,R,Y,R,Y,B,R,Y,R,B]]
+    sequence_ actions
+-- $Id: echo.ghc,v 1.3 2004-06-30 07:28:57 bfulgham Exp $
+-- http://www.bagley.org/~doug/shootout/
+-- Haskell echo/client server
+-- written by Brian Gregor
+-- simplified / updated by JP Bernardy
+-- compile with:
+--      ghc -O2 -o echo echo.hs
+
+import Control.Concurrent
+import Control.Monad(when)
+import Network 
+import System (getArgs,exitFailure)
+import System.IO
+
+message	    = "Hello there sailor"
+portnum     = 7001
+
+echo_server = do sock <- listenOn (PortNumber portnum)
+		 (s, _, _) <- accept sock
+		 hSetBuffering s LineBuffering
+		 proc <- read_data s 0
+		 putStrLn ("server processed " ++ show proc ++ " bytes")
+		 hClose s
+
+read_data sock totalbytes = 
+    do eof <- hIsEOF sock
+       if eof then return totalbytes 
+	      else do str <- hGetLine sock
+	              hPutStrLn sock str
+	              read_data sock (totalbytes + length str + 1)
+
+echo_client n = do s <- connectTo "127.0.0.1" (PortNumber portnum)
+		   hSetBuffering s LineBuffering
+		   mapM_ (server_echo s) [1..n]
+		   hClose s
+
+server_echo sock n = do hPutStrLn sock message
+	                str <- hGetLine sock 
+		        when (str /= message) exitFailure
+
+main = withSocketsDo $ do [n] <- getArgs
+			  forkIO (echo_client (read n::Int))
+			  echo_server
+
+
+
+
+
+-- $Id: except.ghc,v 1.3 2004-06-16 04:38:24 bfulgham Exp $
+-- http://shootout.alioth.debian.org
+--
+-- from Simon Marlow
+
+import System
+import Control.Exception as Exception
+import Data.IORef
+
+blowup n | even n    = throw (ErrorCall "H")
+	 | otherwise = throw (ErrorCall "L")
+
+lo_function lo n = 
+  Exception.catch (blowup n) $
+    \ex -> case ex of
+		ErrorCall "L" -> do nlo <- readIORef lo
+				    writeIORef lo $! (nlo + 1)
+		_ -> throw ex
+
+hi_function hi lo n = 
+  Exception.catch (lo_function lo n) $
+    \ex -> case ex of
+		ErrorCall "H" -> do nhi <- readIORef hi
+				    writeIORef hi $! (nhi + 1)
+		_ -> throw ex
+
+some_function hi lo n = hi_function hi lo n
+
+main = do
+  [arg] <- getArgs
+  let n = read arg :: Int
+  hi <- newIORef (0 :: Int)
+  lo <- newIORef (0 :: Int)
+  mapM_ (some_function hi lo) [n,n-1..1]
+  nhi <- readIORef hi
+  nlo <- readIORef lo
+  putStrLn ("Exceptions: HI=" ++ show nhi ++ " / LO=" ++ show nlo)
+
+{-# OPTIONS -fglasgow-exts -O2 -optc-O3 #-}
+
+-- The Computer Language Benchmarks Game
+-- http://shootout.alioth.debian.org/
+-- contributed by Don Stewart, translation from the C version
+-- Parallelized by Reid Barton
+
+import Control.Concurrent
+import Control.Monad
+import Data.List
+import Foreign
+import System
+import GHC.Base
+import GHC.Ptr
+import GHC.IOBase
+
+main = do
+    n <- getArgs >>= return . read . head
+    when (n <= 1) $ putStrLn "Pfannkuchen(1) = 0" >> exitWith ExitSuccess
+    fannkuchSmall n
+    chan <- newChan :: IO (Chan Int)
+    -- The C version ignores permutations ending in n-1,
+    -- so let's do so even more efficiently.
+    forM_ [ (l1, l2)
+          | l2 <- [0..n-2]
+          , l1 <- [0..n-1]
+          , l1 /= l2 ]
+          $ \(l1, l2) -> forkIO (fannkuch n l1 l2 >>= writeChan chan)
+    k <- (maximum . take ((n-1)^2)) `fmap` getChanContents chan
+    putStrLn $ "Pfannkuchen(" ++ show n ++ ") = " ++ show (k - 1)
+
+-- Separate loop to print the small values
+fannkuchSmall n@(I# n#) = do
+    perm            <- mallocArray n       :: IO (Ptr Int)
+    (Ptr c#)        <- mallocArray n       :: IO (Ptr Int)
+    perm1@(Ptr p1#) <- newArray [0 .. n-1] :: IO (Ptr Int)
+    (Ptr rP)        <- newArray [n]        :: IO (Ptr Int)
+
+    let go didpr = when (didpr < (30 :: Int)) $ do
+            ppr 0 n perm1 >> putStr "\n"
+
+            IO $ \s ->
+                case readIntOffAddr# rP 0# s of
+                    (# s, r# #) -> case setcount c# r# s of
+                        (# s, _ #) -> case writeIntOffAddr# rP 0# 1# s of
+                            s -> (# s, () #)
+
+            done <- IO $ \s -> rot rP n# p1# c# s
+            if done then return () else go (didpr+1)
+    go 0
+
+fannkuch n@(I# n#) l1 l2 = do       -- Only consider permutations ending with l1 l2.
+    let startArray = ([0..n-1] \\ [l1, l2]) ++ [l1, l2]
+    perm            <- mallocArray n       :: IO (Ptr Int)
+    (Ptr c#)        <- mallocArray n       :: IO (Ptr Int)
+    perm1@(Ptr p1#) <- newArray startArray :: IO (Ptr Int)
+    (Ptr rP)        <- newArray [n]        :: IO (Ptr Int)
+    (Ptr flipsMaxP) <- newArray [0]        :: IO (Ptr Int)
+
+    let go = do
+            IO $ \s ->
+                case readIntOffAddr# rP 0# s of
+                    (# s, r# #) -> case setcount c# r# s of
+                        (# s, _ #) -> case writeIntOffAddr# rP 0# 1# s of
+                            s -> (# s, () #)
+
+            t <- IO $ \s ->
+                case readIntOffAddr# p1# 0# s of
+                    (# s, p1 #) -> (# s, not (p1 ==# 0#) #)
+
+            when t $ exchange n perm perm1 flipsMaxP
+
+            fm   <- IO $ \s -> case readIntOffAddr# flipsMaxP 0# s of
+                                (# s, x #) -> (# s, I# x #)
+            done <- IO $ \s -> rot rP (n# -# 2#) p1# c# s
+            if done then return fm else go
+    go
+
+------------------------------------------------------------------------
+
+exchange n p@(Ptr a) p1@(Ptr b) fm = do
+    copyArray (p `advancePtr` 1) (p1 `advancePtr` 1) (n-1)
+    IO $ \s ->
+        case readIntOffAddr# b 0# s  of { (# s, k #) ->
+        case doswap k a 0# s         of { (# s, f #) ->
+        case readIntOffAddr# fm 0# s of { (# s, m #) ->
+        if m <# f then case writeIntOffAddr# fm 0# f s of s -> (# s, () #)
+                  else (# s, () #)
+        } } }
+{-# INLINE exchange #-}
+
+doswap k a f s =
+    case swap 1# (k -# 1#) a s    of { (# s, _ #) ->
+    case readIntOffAddr# a k s    of { (# s, j #) ->
+    case writeIntOffAddr# a k k s of { s          ->
+    if k /=# 0# then doswap j a (f +# 1#) s else (# s, (f +# 1#) #)
+    } } }
+{-# INLINE doswap #-}
+
+swap i j a s =
+    if i <# j then case readIntOffAddr#  a i s   of { (# s, x #) ->
+                   case readIntOffAddr#  a j s   of { (# s, y #) ->
+                   case writeIntOffAddr# a j x s of { s          ->
+                   case writeIntOffAddr# a i y s of { s          ->
+                   swap (i +# 1#) (j -# 1#) a s
+                   } } } }
+              else (# s, () #)
+{-# INLINE swap #-}
+
+loop r i a s =
+    if i <# r then case readIntOffAddr# a (i +# 1#) s of
+                    (# s, x #) -> case writeIntOffAddr# a i x s of
+                        s -> loop r (i +# 1#) a s
+              else (# s, () #)
+{-# INLINE loop #-}
+
+setcount p r s =
+    if r ==# 1# then (# s, () #)
+                else case writeIntOffAddr# p (r -# 1#) r s of
+                        s -> setcount p (r -# 1#) s
+{-# INLINE setcount #-}
+
+rot rP n a cp s =
+  case readIntOffAddr# rP 0# s of { (# s, r #) ->
+  if r ==# n then (# s, True #)
+             else case readIntOffAddr# a 0# s             of { (# s, p0 #) ->
+                  case loop r 0# a s                      of { (# s, _ #)  ->
+                  case writeIntOffAddr# a r p0 s          of { s           ->
+                  case readIntOffAddr# cp r s             of { (# s, cr #) ->
+                  case writeIntOffAddr# cp r (cr -# 1#) s of { s           ->
+                  if cr -# 1# ># 0# then (# s, False #)
+                                    else case inc s of s -> rot rP n a cp s
+  } } } } } }
+  where inc s = case readIntOffAddr# rP 0# s of
+                  (# s, x #) -> writeIntOffAddr# rP 0# (x +# 1#) s
+{-# INLINE rot #-}
+
+ppr i n p = when (i < n) $ do
+    putStr . show . (+1) =<< peek (p `advancePtr` i)
+    ppr (i+1) n p
+{-  The Computer Language Benchmarks Game
+    http://shootout.alioth.debian.org/
+    contributed by Miha Vučkovič
+-}
+
+import System
+import Control.Applicative
+
+flop (2:x1:t) = x1:2:t
+flop (3:x1:x2:t) = x2:x1:3:t
+flop (4:x1:x2:x3:t) = x3:x2:x1:4:t
+flop (5:x1:x2:x3:x4:t) = x4:x3:x2:x1:5:t
+flop (6:x1:x2:x3:x4:x5:t) = x5:x4:x3:x2:x1:6:t
+flop (7:x1:x2:x3:x4:x5:x6:t) = x6:x5:x4:x3:x2:x1:7:t
+
+flop lst@(h:_) = r where
+	(t, r) = flop' h (lst, t)
+	flop' 0 (t, r) = (t, r)
+	flop' n ((h:t), r) = flop' (n-1) (t, h:r)
+
+flopS (1:_) = 0
+flopS lst = 1 + flopS (flop lst)
+
+rotate n (h:t) = rotate' (n-1) t where
+	rotate' 0 l = h:l
+	rotate' n (f:t) = f:(rotate' (n-1) t)
+
+checksum i f
+   | mod i 2 == 0 = f
+   | True = -f
+
+pfold r [] = r
+pfold (ac, af) ((c, f):t)  = seq sc $ seq sf $ pfold (sc, sf) t where 
+	sc = ac+c
+	sf = max af f
+
+permut n = foldr perm [[1..n]] [2..n] where
+   perm x lst = concat [take x $ iterate (rotate x) l | l <- lst]
+
+main = do
+   n <- read.head <$> getArgs
+   let (chksm, mflops) = pfold (0,0) $ map (\(i, p) -> let flops = flopS p in (checksum i flops, flops)) $ zip [0..] (permut n)
+   putStrLn $ (show chksm) ++ "\nPfannkuchen(" ++ (show n) ++ ") = " ++ (show $ mflops)
+{-  The Computer Language Benchmarks Game
+    http://shootout.alioth.debian.org/
+    contributed by Louis Wasserman
+    
+    This should be compiled with:
+    	-threaded -O2 -fexcess-precision -fasm
+    and run with:
+    	+RTS -N<number of cores> -RTS <input>
+-}
+
+import Control.Concurrent
+import Control.Monad
+import System
+import Foreign hiding (rotate)
+import Data.Monoid
+
+type Perm = Ptr Word8
+
+data F = F {-# UNPACK #-} !Int {-# UNPACK #-} !Int
+
+instance Monoid F where
+	mempty = F 0 0
+	F s1 m1 `mappend` F s2 m2 = F (s1 + s2) (max m1 m2)
+
+incPtr = (`advancePtr` 1)
+decPtr = (`advancePtr` (-1))
+
+flop :: Int -> Perm -> IO ()
+flop k xs = flopp xs (xs `advancePtr` k)
+ where flopp i j = when (i < j) $ swap i j >> flopp (incPtr i) (decPtr j)
+       swap i j = do
+	a <- peek i
+	b <- peek j
+	poke j a
+	poke i b
+
+flopS :: Perm -> (Int -> IO a) -> IO a
+flopS !xs f = do
+	let go !acc = do
+		k <- peekElemOff xs 0
+		if k == 0 then f acc else flop (fromIntegral k) xs >> go (acc+1)
+	go 0
+
+increment :: Ptr Word8 -> Ptr Word8 -> IO ()
+increment !p !ct = do
+	first <- peekElemOff p 1
+	pokeElemOff p 1 =<< peekElemOff p 0
+	pokeElemOff p 0 first
+	
+	let go !i !first = do
+		ci <- peekElemOff ct i
+		if fromIntegral ci < i then pokeElemOff ct i (ci+1) else do
+			pokeElemOff ct i 0
+			let !i' = i + 1
+			moveArray p (incPtr p) i'
+			pokeElemOff p i' first
+			go i' =<< peekElemOff p 0
+	go 1 first  
+
+genPermutations :: Int -> Int -> Int -> Ptr Word8 -> Ptr Word8 -> IO F
+genPermutations !n !l !r !perm !count = allocaArray n $ \ destF -> do
+	let upd j !f run = do
+		p0 <- peekElemOff perm 0
+		if p0 == 0 then increment perm count >> run f else do
+			copyArray destF perm n
+			increment perm count
+			flopS destF $ \ flops -> 
+				run (f `mappend` F (checksum j flops) flops)
+	let go j !f = if j >= r then return f else upd j f (go (j+1))
+	go l mempty
+ where checksum i f = if i .&. 1 == 0 then f else -f
+
+facts :: [Int]
+facts = scanl (*) 1 [1..12]
+
+unrank :: Int -> Int -> (Ptr Word8 -> Ptr Word8 -> IO a) -> IO a
+unrank !idx !n f = allocaArray n $ \ p -> allocaArray n $ \ count ->
+  allocaArray n $ \ pp -> do
+	mapM_ (\ i -> pokeElemOff p i (fromIntegral i)) [0..n-1]
+	let go i !idx = when (i >= 0) $ do
+		let fi = facts !! i
+		let (q, r) = idx `quotRem` fi
+		pokeElemOff count i (fromIntegral q)
+		copyArray pp p (i+1)
+		let go' j = when (j <= i) $ do
+			let jq = j + q
+			pokeElemOff p j =<< peekElemOff pp (if jq <= i then jq else jq - i - 1)
+			go' (j+1)
+		go' 0
+		go (i-1) r
+	go (n-1) idx
+	f p count
+
+main = do
+   n <- fmap (read.head) getArgs
+   let fact = product [1..n]
+   let bk = fact `quot` 4
+   vars <- forM [0,bk..fact-1] $ \ ix -> do
+   	var <- newEmptyMVar
+   	forkIO (unrank ix n $ \ p -> genPermutations n ix (min fact (ix + bk)) p >=> putMVar var)
+   	return var
+   F chksm mflops <- liftM mconcat (mapM takeMVar vars)
+   putStrLn $ (show chksm) ++ "\nPfannkuchen(" ++ (show n) ++ ") = " ++ (show $ mflops)
+--
+-- The Computer Language Benchmarks Game
+-- http://shootout.alioth.debian.org/
+--
+-- Contributed by Don Stewart
+-- A lazy bytestring solution.
+-- Unnecessary strictness annotations removed by Sterling Clover 2/08
+--
+-- Adding cached version of the list, where the first 4 entries are
+-- lifted into the data constructor by Scott West 03/10
+--
+-- Add:
+-- -optc-mfpmath=sse -optc-msse2
+--
+module Main where
+
+import System
+import Data.Word
+import Control.Arrow
+
+import Data.List
+
+import qualified Data.ByteString.Lazy as L
+import qualified Data.ByteString.Lazy.Char8 as C (pack)
+import qualified Data.ByteString as S
+import Data.ByteString.Internal
+
+main = do
+    n <- getArgs >>= readIO . head
+    writeFasta  "ONE"   "Homo sapiens alu"       (n*2) (L.cycle alu)
+    g <- unfold "TWO"   "IUB ambiguity codes"    (n*3) (mkCacher $ cdfize iubs) 42
+    unfold      "THREE" "Homo sapiens frequency" (n*5) (mkCacher $ cdfize homs) g
+
+------------------------------------------------------------------------
+--
+-- lazily unfold the randomised dna sequences
+--
+
+unfold lab ttl n probs gen =
+    putStrLn (">" ++ lab ++ " " ++ ttl) >> unroll probs gen n
+
+unroll :: Cacher -> Int -> Int -> IO Int
+unroll probs = loop
+    where
+        loop r 0   = return r
+        loop !r i = case S.unfoldrN m (Just . look probs) r of
+                        (!s, Just r') -> do
+                            S.putStrLn s
+                            loop r' (i-m)
+          where m = min i 60
+
+look cr k = (choose cr d, j)
+  where R d j = rand k
+
+-- Chunk the list into parts, still can represent any list of the
+-- symbol/probability pairs.
+data PPair = PPair !Word8 !Float
+data Cacher = Cacher !PPair !PPair !PPair !PPair [PPair]
+            | CacheList ![PPair]
+
+mkCacher (p1:p2:p3:p4:ds) = Cacher p1 p2 p3 p4 ds
+mkCacher ds = CacheList ds
+
+cdfize :: [(Word8,Float)] -> [PPair]
+cdfize ds = init cdf' ++ [PPair s 1.0]
+    where
+      PPair s _ = last cdf'
+      cdf' = (map (uncurry PPair) . snd . mapAccumL go 0) ds
+      go c (sym, prob) = (c + prob, (sym, c+prob))
+
+-- We still query the list in order, but we don't have to continually
+-- ``uncons'' everything, we can do the first 4 at a time.
+choose :: Cacher -> Float -> Word8
+choose (Cacher (PPair s1 c1) (PPair s2 c2) (PPair s3 c3) (PPair s4 c4) ds) p
+    | p <= c1 = s1
+    | p <= c2 = s2
+    | p <= c3 = s3
+    | p <= c4 = s4
+    | otherwise = chooseCdf ds p
+                  {- case ds of
+                    CacheList [] -> s4
+                    _ -> choose ds p -}
+choose (CacheList ds) p = chooseCdf ds p
+
+chooseCdf :: [PPair] -> Float -> Word8
+chooseCdf ((PPair b f):xs) p = if p < f then b else chooseCdf xs p
+
+------------------------------------------------------------------------
+--
+-- only demand as much of the infinite sequence as we require
+
+writeFasta label title n s = do
+     putStrLn $ ">" ++ label ++ " " ++ title
+     let (t:ts) = L.toChunks s
+     go ts t n
+  where
+     go ss s n
+        | l60 && n60 = S.putStrLn l               >> go ss        r (n-60)
+        |        n60 = S.putStr s >> S.putStrLn a >> go (tail ss) b (n-60)
+        | n <= ln    = S.putStrLn (S.take n s)
+        | otherwise  = S.putStr s >> S.putStrLn (S.take (n-ln) (head ss))
+        where
+            ln   = S.length s
+            l60  = ln >= 60
+            n60  = n  >= 60
+            (l,r) = S.splitAt 60 s
+            (a,b) = S.splitAt (60-ln) (head ss)
+
+------------------------------------------------------------------------
+im, ia, ic :: Int
+im  = 139968
+ia  = 3877
+ic  = 29573
+
+data R = R !Float !Int deriving Show
+
+rand :: Int -> R
+rand seed = R newran newseed
+    where
+        newseed = (seed * ia + ic) `rem` im
+        newran  =  1.0 * fromIntegral newseed / imd
+        imd      = fromIntegral im
+
+------------------------------------------------------------------------
+
+alu = C.pack
+        "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG\
+        \GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA\
+        \CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT\
+        \ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA\
+        \GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG\
+        \AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC\
+        \AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA"
+
+iubs, homs :: [(Word8, Float)]
+iubs = map (c2w *** id)
+        [('a',0.27),('c',0.12),('g',0.12),('t',0.27),('B',0.02)
+        ,('D',0.02),('H',0.02),('K',0.02),('M',0.02),('N',0.02)
+        ,('R',0.02),('S',0.02),('V',0.02),('W',0.02),('Y',0.02)]
+
+homs = map (c2w *** id)
+        [('a',0.3029549426680),('c',0.1979883004921)
+        ,('g',0.1975473066391),('t',0.3015094502008)]
+--
+-- The Computer Language Benchmarks Game
+-- http://shootout.alioth.debian.org/
+-- 
+-- contributed by Jeff Newbern
+-- Modified to fastest.hs by Chris Kuklewicz, 6 Jan 2006
+-- Modified to fixed-fasta.hs by Chris Kuklewicz, 17 Jan 2006
+-- 
+-- Uses random generation code derived from Simon Marlow and Einar
+-- Karttunen's "random" test entry.  No longer uses Double during run,
+-- everything has been pre-converted to Int.  And pre-converted to a
+-- binary tree for lookup.  Ideally this tree could be constructed
+-- with the probabilities in mind, but it isn't in this version.
+-- 
+-- Compile with ghc --make resub-fasta.hs -o resub-fasta.ghc_run
+-- Run with "./rsub-fasta.ghc_run %A" where %A is the parameter
+
+import Control.Monad
+import Data.Char(chr,ord)
+import Data.List(mapAccumL)
+import Data.Word(Word8)
+import Data.IORef
+import Foreign
+import System(getArgs)
+import System.IO
+
+type Base = Word8
+data BaseFrequencyTree = Node !Base
+                       | TreeNodes !Int !Base !Base
+                       | Tree !Int !BaseFrequencyTree !BaseFrequencyTree
+data Seed = Seed !Int
+
+b2c :: Word8 -> Char
+b2c = chr . fromEnum
+c2b = toEnum . ord
+
+alu = "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG" ++
+      "GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA" ++
+      "CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT" ++
+      "ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA" ++
+      "GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG" ++
+      "AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC" ++
+      "AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA"
+
+im = 139968 :: Double
+
+iub = mkTree $ snd . mapAccumL (\rt (c,f) -> (f+rt,(c2b c,ceiling $ im*(f+rt)))) 0.0 $
+  [ ('a', 0.27), ('c', 0.12), ('g', 0.12), ('t', 0.27), ('B', 0.02),
+    ('D', 0.02), ('H', 0.02), ('K', 0.02), ('M', 0.02), ('N', 0.02),
+    ('R', 0.02), ('S', 0.02), ('V', 0.02), ('W', 0.02), ('Y', 0.02) ]
+
+homosapiens =  mkTree $ snd . mapAccumL (\rt (c,f) -> (f+rt,(c2b c,ceiling $ im*(f+rt)))) 0.0 $
+  [ ('a', 0.3029549426680), ('c', 0.1979883004921), ('g', 0.1975473066391), ('t', 0.3015094502008) ]
+
+mkTree [(b,_)] = Node b
+mkTree [(b,f),(b',_)] = TreeNodes f b b'
+mkTree xs = let (h,t) = splitAt (length xs `div` 2) xs
+                (_,f) = last h
+            in Tree f (mkTree h) (mkTree t)
+
+chooseBase (Node b) _ = b
+chooseBase (TreeNodes f b b') p = if (p<f) then b else b'
+chooseBase (Tree f l r) p | p < f     = chooseBase l p
+                          | otherwise = chooseBase r p
+
+writeFastaHeader label title =  (putStrLn (('>':label) ++ (' ':title)))
+perLine = 60
+
+writeAluBuffer total = do
+  let l = length alu
+      bufSize = l + perLine - 1
+  aluBuf <- mallocArray bufSize
+  foldM_ (\ptr c -> poke ptr (c2b c) >> return (advancePtr ptr 1)) aluBuf (take bufSize (cycle alu))
+  let (full,end) = total `divMod` perLine
+      fullLine n = let ptr = advancePtr aluBuf ((n * perLine) `mod` l)
+                   in hPutBuf stdout ptr perLine >> hPutChar stdout '\n'
+      lastLine = let ptr = advancePtr aluBuf ((full*perLine) `mod` l)
+                 in hPutBuf stdout ptr end >> hPutChar stdout '\n'
+  mapM_ fullLine [0..pred full]
+  when (end>0) lastLine
+
+writeWrapped total trans initSeed = do
+  seedRef <- newIORef initSeed
+  let l = succ perLine
+      (im,ia,ic)=(139968,3877,29573)
+      nextSeed (Seed s) = Seed ( (s * ia + ic) `mod` im )
+      prng = do newSeed <- return.nextSeed =<< readIORef seedRef
+                writeIORef seedRef newSeed
+                return newSeed
+  buf <- mallocArray l
+  poke (advancePtr buf perLine) (c2b '\n')
+  let (full,end) = total `divMod` perLine
+      fill 0 _   = return ()
+      fill i ptr = do (Seed b) <- prng
+                      poke ptr (trans b)
+                      fill (pred i) (advancePtr ptr 1)
+      fullLine = do fill perLine buf
+                    hPutBuf stdout buf l
+      lastLine = do fill end buf
+                    poke (advancePtr buf end) (c2b '\n')
+                    hPutBuf stdout buf (succ end)
+  replicateM_ full fullLine
+  when (end>0) lastLine
+  readIORef seedRef
+
+main = do args <- getArgs
+          let n = if null args then 2500000 else read (head args)
+          writeFastaHeader "ONE" "Homo sapiens alu"
+          writeAluBuffer (2*n)
+          writeFastaHeader "TWO" "IUB ambiguity codes"
+          seed' <- writeWrapped (3*n) (chooseBase iub) (Seed 42)
+          writeFastaHeader "THREE" "Homo sapiens frequency"
+          writeWrapped (5*n) (chooseBase homosapiens) seed'
+-- $Id: fibo.ghc,v 1.5 2005-04-25 19:01:38 igouy-guest Exp $
+-- http://www.bagley.org/~doug/shootout/
+--
+import System(getArgs)
+
+main = do [number] <- getArgs
+          print $ fib (read number)
+
+fib :: Int -> Int
+fib n | n < 2     = 1
+      | otherwise = fib (n-2) + fib (n-1)
+
+----------------------------------------------------------------
+-- The "Canonical" version a real Haskeller would use:
+----------------------------------------------------------------
+--main = do [number] <- getArgs
+--          print (fibs !! read number)
+--
+--fibs = (1::Int):1:zipWith (+) fibs (tail fibs)
+--
+----------------------------------------------------------------
+-- "Real World" Command Line Argument Processing
+----------------------------------------------------------------
+--import System(getArgs, getProgName, exitWith, ExitCode(..))
+--
+--main = do
+--       arg <- getArgs
+--       case arg of
+--         [number] -> putStrLn (show (fib (read number)))
+--         _        -> do
+--                     progname <- getProgName
+--                     putStrLn ("Usage: " ++ progname ++ " number")
+--                     exitWith (ExitFailure 1)
+
+
+{-# OPTIONS -fglasgow-exts #-}
+-- The Great Computer Language Shootout
+-- http://shootout.alioth.debian.org/
+-- Contributed by Greg Buchholz
+-- Enhanced by Einar Karttunen, Mirko Rahn and Don Stewart
+
+import System; import Numeric; import GHC.Base; import GHC.Float
+
+main = putStrLn . (\(I# n) -> showFFloat (Just 9) (D# (loop n 0.0##)) []) . read . head =<< getArgs
+
+loop d s = if d ==# 0# then s else loop (d-#1#) (s +## (1.0## /## int2Double# d))
+
+-- $Id: hash.ghc,v 1.4 2005-05-13 16:24:17 igouy-guest Exp $
+-- http://shootout.alioth.debian.org/ 
+-- from Bryn Keller
+-- modified by JP Bernardy
+-- build with ghc -O2 -fglasgow-exts sourcefile.hs
+
+import System (getArgs)
+import Data.FiniteMap
+import Numeric (showHex)
+
+countKeys tbl n = length [() | i <- [1..n], lookupWithDefaultFM tbl False (show i)]
+
+main = do [number] <- getArgs
+          let num = read number
+              tbl = listToFM [(showHex i "", True) | i <- [(1::Int)..num]]
+          print (countKeys tbl num)
+-- $Id: hash2.ghc,v 1.2 2004-10-07 07:17:52 bfulgham Exp $
+-- http://shootout.alioth.debian.org
+--
+-- By Bryn Keller
+-- Updated by Greg Buchholz to comply with test intent
+import System (getArgs)
+import Data.FiniteMap
+
+get fm k = lookupWithDefaultFM fm 0 k
+keys = map (\x -> "foo_" ++ show x) [0..9999]
+hash1 = listToFM $ zip keys [0..9999]
+hash2 = listToFM $ zip keys (repeat 0)
+update k fm = let x = (get hash1 k + get fm k)
+                in x `seq` addToFM fm k x
+--update k fm = addToFM_C (+) fm k (get hash1 k)
+
+main = do
+ [n] <- getArgs
+ let res = foldr update hash2 (concat $ replicate (read n) keys)
+ putStrLn $ unwords $ map show [get hash1 "foo_1",
+                                get hash1 "foo_9999",
+                                get res "foo_1",
+                                get res "foo_9999"] 
+-- $Id: heapsort.ghc,v 1.1 2004-05-19 18:10:08 bfulgham Exp $
+-- http://www.bagley.org/~doug/shootout/
+-- from Julian Assange, improved by Karl-Filip Faxen
+
+module Main(main) where
+import System(getArgs, exitWith, ExitCode(..))
+import Numeric(showFFloat)
+
+main = do
+         arg <- getArgs
+	 case arg of
+              [num] -> putStrLn (showFFloat (Just 10) answer "")
+	               where
+		             answer = last . heapsort .
+                                      take (read num) . random $ 1.0
+	      _     -> exitWith (ExitFailure 1)
+
+-- construct an infinite list of random numbers
+random :: Double -> [Double]
+random max = map norm . rand $ 42
+           where norm x = (fromIntegral x) * (max / (fromIntegral im))
+                 rand x = (x' : (rand x'))
+	            where x' = (x * ia + ic) `mod` im
+	         im     = 139968
+                 ia     = 3877
+                 ic     = 29573 :: Int
+
+-- fold up a list like a tree
+treefold f z []      = z
+treefold f z [x]     = x
+treefold f z (a:b:l) = w `seq` treefold f z (w : pairfold l)
+                 where pairfold (x:y:rest) = v `seq` v : pairfold rest
+                           where v = f x y
+	               pairfold l          = l
+                       w = f a b
+
+-- heapfold using linked lists
+data Heap a = Nil | Node !a !(Heap a) !(Heap a)
+heapsort :: Ord a => [a] -> [a]
+heapsort = flatten_heap . merge_heaps . map heapify
+
+    where heapify x   = Node x Nil Nil
+
+	  merge_heaps :: Ord a => [Heap a] -> Heap a
+          merge_heaps = treefold merge_heap Nil
+
+          flatten_heap Nil            = []
+          flatten_heap (Node x h1 h2) = x:flatten_heap (merge_heap h1 h2)
+
+          merge_heap Nil                     heap = heap
+          merge_heap heap@(Node _ _ _)        Nil = heap
+          merge_heap node_a@(Node l l1 l2) node_b@(Node r r1 r2)
+                     | l < r     = Node l (merge_heap l1 l2) node_b
+                     | otherwise = Node r node_a (merge_heap r1 r2)
+-- $Id: heapsort.ghc-2.ghc,v 1.2 2005-03-07 06:18:52 ekarttun-guest Exp $
+-- http://shootout.alioth.debian.org/
+-- Contributed by Einar Karttunen
+
+import Numeric
+import System
+import Data.Array.Base
+import Control.Monad
+import Control.Monad.ST
+
+main = do ~[n] <- getArgs
+          putStrLn (showFFloat (Just 10) (runST (work $ read n)) "")
+
+work :: Int -> ST s Double
+work n = do
+  arr <- newArray_ (0,n)
+  foldM (randl arr 1) 42 [1..n]
+  heapsort n arr
+  readArray arr n
+
+heapsort :: Int -> STUArray s Int Double -> ST s ()
+heapsort n arr = do
+  let loop l ir =  
+        if l > 1 
+           then let l' = l-1 in unsafeRead arr l' >>= cont l' ir 
+           else do rra <- unsafeRead arr ir
+                   unsafeRead arr 1 >>= unsafeWrite arr ir 
+                   if ir == 2 then unsafeWrite arr 1 rra else cont l (ir-1) rra
+      cont l ir rra = inner l (l*2) ir rra >> loop l ir
+      inner i j ir rra = 
+        if j > ir 
+           then unsafeWrite arr i rra 
+           else do
+             raj <- unsafeRead arr j
+             raj'<- unsafeRead arr (j+1)
+             let j' = if j < ir && raj < raj' then j+1 else j
+             raj <- unsafeRead arr j'
+             if rra < raj
+                then unsafeWrite arr i raj >> inner j' (j'+j') ir rra
+                else inner i (ir+1) ir rra
+  loop ((n `div` 2)+1) n
+
+randl :: STUArray s Int Double -> Double -> Int -> Int -> ST s Int
+randl arr max seed n = unsafeWrite arr n newrand >> return newseed
+    where newseed = (seed * ia + ic) `mod` im
+          newrand = (fromIntegral newseed) * (max / fromIntegral im)
+          im = 139968
+          ia = 3877
+          ic = 29573
+-- $Id: hello.ghc,v 1.3 2005-03-19 10:27:20 ekarttun-guest Exp $
+-- http://shootout.alioth.debian.org/
+main = putStrLn "hello world"
+--
+-- The Computer Language Benchmarks Game
+-- http://shootout.alioth.debian.org/
+--
+-- contributed by Stephen Blackheath (with some bits taken from Don Stewart's
+--     version), v1.2
+
+import Text.Printf
+import Data.ByteString.Internal
+import qualified Data.ByteString.Char8 as S
+import Control.Applicative
+import Control.Monad
+import Control.Concurrent
+import Foreign.Storable
+import Foreign.Marshal.Alloc
+import Foreign.Marshal.Array
+import Foreign.Ptr
+import Foreign.ForeignPtr
+import Data.Word
+import Data.Bits
+import Data.Char
+import Data.List
+import Data.Maybe
+import Data.IORef
+import GHC.Exts
+
+
+main = do
+    genome <- extract (S.pack ">TH")
+    let actions = [
+                do
+                    a <- printFreqsBySize genome 1
+                    b <- printFreqsBySize genome 2
+                    return $ a ++ b
+            ] ++ map (printFreqsSpecific genome) specificSeqs
+    output <- concat <$> parallel actions
+    forM_ output putStrLn
+
+-- Drop in replacement for sequence
+parallel :: [IO a] -> IO [a]
+parallel actions = do
+    vars <- forM actions $ \action -> do
+        var <- newEmptyMVar
+        forkIO $ do
+            answer <- action
+            putMVar var answer
+        return var
+    forM vars takeMVar
+
+specificSeqs = map S.pack [
+    "GGT","GGTA","GGTATT","GGTATTTTAATT","GGTATTTTAATTTATAGT"]
+
+extract p = do
+    s <- S.getContents
+    let (_, rem)  = S.breakSubstring p s
+    return $! S.map toUpper             -- array fusion!
+            . S.filter    ((/=) '\n')
+            . S.dropWhile ((/=) '\n') $ rem
+
+printFreqsBySize :: S.ByteString -> Int -> IO [String]
+printFreqsBySize genome keySize = do
+        ht0 <- htNew keySize
+        ht <- hashGenome genome keySize ht0
+        l <- htToList ht
+        htFree ht
+        return $ map draw (sortBy sortRule l) ++ [""]
+    where
+        genomeLen = S.length genome
+        draw :: (S.ByteString, Int) -> String
+        draw (key, count) = printf "%s %.3f" (S.unpack key) pct
+            where pct   = (100 * (fromIntegral count) / total) :: Double
+                  total = fromIntegral (genomeLen - keySize + 1)
+
+printFreqsSpecific :: S.ByteString -> S.ByteString -> IO [String]
+printFreqsSpecific genome seq = do
+    let keySize = S.length seq
+        genomeLen = S.length genome
+    ht0 <- htNew keySize
+    ht <- hashGenome genome keySize ht0
+    let (fp, offset, len) = toForeignPtr seq
+    count <- withForeignPtr fp $ \p_ -> do
+        htGet ht (p_ `plusPtr` offset)
+    htFree ht
+    return [show count ++ ('\t' : S.unpack seq)]
+
+hashGenome :: S.ByteString
+           -> Int
+           -> Hashtable
+           -> IO Hashtable
+{-# INLINE hashGenome #-}
+hashGenome genome keySize ht = do
+    let (fp, offset, len) = toForeignPtr genome
+    withForeignPtr fp $ \p_ -> do
+        let p = p_ `plusPtr` offset
+            loop ht idx = do
+                let key = p `plusPtr` idx
+                htInc ht key
+            endIdx = len - keySize + 1
+            foldMe i ht | i == endIdx = return ht
+            foldMe i ht = loop ht i >>= foldMe (i+1)
+        foldMe 0 ht
+
+sortRule :: (S.ByteString, Int) -> (S.ByteString, Int) -> Ordering
+sortRule (a1, b1) (a2, b2) =
+    case compare b2 b1 of
+        EQ -> compare a1 a2
+        x  -> x
+                  
+------ Hash table implementation ----------------------------------------------
+
+-- Note: Hash tables are not generally used in functional languages, so there
+-- are no available library implementations for Haskell.  This benchmark
+-- requires a hash table.  This is why I have implemented the hash table here.
+
+htNew :: Int -> IO Hashtable
+htNew = htNew' (head primes)
+
+htNew' :: Int -> Int -> IO Hashtable
+htNew' slots ksz = do
+    let ssz = spineSize ksz slots
+    sp <- mallocBytes ssz
+    memset sp 0 (fromIntegral ssz)
+    return $ Hashtable {
+            keySize   = ksz,
+            noOfSlots = slots,
+            spine     = sp
+        }
+
+primes = [ 1543,     3079,      6151,      12289,     24593,
+           49157,    98317,     196613,    93241,     786433,
+           1572869,  3145739,   6291469,   12582917,  25165843,
+           50331653, 100663319, 201326611, 402653189, 805306457 ]
+
+htFree :: Hashtable -> IO ()
+htFree ht = do
+    htTraverse ht $ \isSpine (Entry ePtr) -> when (not isSpine) $ free ePtr
+    free (spine ht)
+
+htGet :: Hashtable -> Ptr Word8 -> IO Int
+htGet ht key = do
+    hash <- calcHash ht key
+    htPayload ht hash key >>= peek
+
+htInc :: Hashtable -> Ptr Word8 -> IO Hashtable
+{-# INLINE htInc #-}
+htInc !ht !key = do
+    hash <- calcHash ht key
+    pPayload <- htPayload ht hash key
+    value <- peek pPayload
+    poke pPayload (value+1)
+    if value == 0 && (hash .&. 0x7f) == 0
+        then checkGrow ht
+        else return ht
+
+htPut_ :: Hashtable -> Ptr Word8 -> Int -> IO ()
+{-# INLINE htPut_ #-}
+htPut_ !ht !key !value = do
+    hash <- calcHash ht key
+    pPayload <- htPayload ht hash key
+    poke pPayload value
+
+checkGrow :: Hashtable -> IO Hashtable
+checkGrow ht = do
+        let pTotal = totalEntriesOf ht
+            slots = noOfSlots ht
+        total <- (0x200+) <$> peek pTotal
+        poke pTotal total
+        if total >= slots
+            then do
+                let newSlots = head $ dropWhile (<= slots*2) primes
+                ht' <- htNew' newSlots (keySize ht)
+                htTraverse ht $ \_ -> reinsert ht' -- re-insert all the elts
+                htFree ht
+                poke (totalEntriesOf ht') total -- copy the total entry count
+                return ht'
+            else return ht
+    where
+        reinsert :: Hashtable -> Entry -> IO ()
+        reinsert ht entry = do
+            value <- peek (payloadOf entry)
+            htPut_ ht (keyOf entry) value
+
+htToList :: Hashtable -> IO [(S.ByteString, Int)]
+htToList ht =
+    htMap (\entry -> do
+        keyStr <- keyString ht (keyOf entry)
+        payload <- peek (payloadOf entry)
+        return (keyStr, payload)) ht
+
+htMap :: (Entry -> IO a) -> Hashtable -> IO [a]
+htMap f ht = mapM f =<< htEntries ht
+
+keyString :: Hashtable -> Ptr Word8 -> IO S.ByteString
+keyString ht key = S.pack . map w2c <$> peekArray (keySize ht) key
+
+isEmptySlot :: Entry -> IO Bool
+{-# INLINE isEmptySlot #-}
+isEmptySlot entry = do
+    ch <- peek $ keyOf entry
+    return $ ch == 0
+
+htEntries :: Hashtable -> IO [Entry]
+htEntries ht = do
+    es <- newIORef []
+    htTraverse ht $ \_ entry -> modifyIORef es $ \l -> entry:l
+    readIORef es
+
+htTraverse :: Hashtable -> (Bool -> Entry -> IO ()) -> IO ()
+htTraverse ht f = he 0
+    where
+        slots = noOfSlots ht
+        he i | i == slots = return ()
+        he i = do
+            let entry = indexEntry ht i
+            empty <- isEmptySlot entry
+            if empty
+                then he (i+1)
+                else links True i entry
+        links isSpine i entry = do
+            next <- peek $ nextPtrOf entry
+            f isSpine entry
+            if next == nullPtr
+                then he (i+1)
+                else links False i (Entry next)
+
+data Hashtable = Hashtable {
+        keySize   :: Int,
+        noOfSlots :: Int,
+        spine     :: Ptr Word8
+    }
+
+wordSize :: Int
+wordSize = max (sizeOf (nullPtr :: Ptr Word8)) (sizeOf (0 :: Int))
+
+-- Round up to word size
+roundUp :: Int -> Int
+{-# INLINE roundUp #-}
+roundUp !i = (i + wordSize - 1) .&. complement (wordSize - 1)
+
+slotSize :: Int -> Int
+{-# INLINE slotSize #-}
+slotSize !ksz = roundUp ksz + wordSize * 2
+
+spineSize :: Int -> Int -> Int
+spineSize ksz slots = slots * slotSize ksz + wordSize
+
+calcHash :: Hashtable -> Ptr Word8 -> IO Int
+{-# INLINE calcHash #-}
+calcHash !ht !key = (`mod` noOfSlots ht) <$> ch 0 0
+    where
+        ksz = keySize ht
+        ch :: Int -> Int -> IO Int
+        ch !i !acc | i == ksz = return acc
+        ch !i !acc = do
+            c <- peek (key `plusPtr` i)
+            ch (i+1) (acc * 131 + fromIntegral (c::Word8))
+
+newtype Entry = Entry (Ptr Word8)
+
+-- Count of the total number of hash table entries
+totalEntriesOf :: Hashtable -> Ptr Int
+{-# INLINE totalEntriesOf #-}
+totalEntriesOf ht = castPtr $ spine ht
+
+indexEntry :: Hashtable -> Int -> Entry
+{-# INLINE indexEntry #-}
+indexEntry !ht !hash =
+    let hOffset = wordSize + hash * slotSize (keySize ht)
+    in  Entry $ spine ht `plusPtr` hOffset
+
+entryMatches :: Hashtable -> Entry -> Ptr Word8 -> IO Bool
+{-# INLINE entryMatches #-}
+entryMatches !ht !entry !key = do
+    let eKey = keyOf entry
+    c <- memcmp key eKey (fromIntegral $ keySize ht)
+    if c == 0
+        then return True
+        else do
+            empty <- isEmptySlot entry
+            if empty
+                then do
+                    memcpy eKey key (fromIntegral $ keySize ht)  -- ick
+                    return True
+                else
+                    return False
+
+nextPtrOf :: Entry -> Ptr (Ptr Word8)
+{-# INLINE nextPtrOf #-}
+nextPtrOf !(Entry ePtr) = castPtr $ ePtr
+
+payloadOf :: Entry -> Ptr Int
+{-# INLINE payloadOf #-}
+payloadOf !(Entry ePtr) = castPtr $ ePtr `plusPtr` wordSize
+
+keyOf :: Entry -> Ptr Word8
+{-# INLINE keyOf #-}
+keyOf !(Entry ePtr) = ePtr `plusPtr` (wordSize*2)
+
+allocEntry :: Hashtable -> Ptr Word8 -> IO Entry
+allocEntry !ht !key = do
+    let esz = slotSize $ keySize ht
+    ePtr <- mallocBytes esz
+    memset ePtr 0 (fromIntegral esz)
+    let entry = Entry ePtr
+    memcpy (keyOf entry) key (fromIntegral $ keySize ht)
+    return entry
+
+htPayload :: Hashtable -> Int -> Ptr Word8 -> IO (Ptr Int)
+{-# INLINE htPayload #-}
+htPayload !ht !hash !key = do
+        entry <- findEntry (indexEntry ht hash)
+        return $ payloadOf entry
+    where
+        findEntry :: Entry -> IO Entry
+        findEntry !entry = do
+            match <- entryMatches ht entry key
+            if match
+                then
+                    return entry
+                else do
+                    let pNext = nextPtrOf entry
+                    next <- peek pNext
+                    if next == nullPtr
+                        then do
+                            newEntry@(Entry ePtr) <- allocEntry ht key
+                            poke pNext ePtr
+                            return newEntry
+                        else
+                            findEntry (Entry next)
+
+-- $Id: lists.ghc-2.ghc,v 1.1 2004-11-10 06:43:53 bfulgham Exp $
+-- http://shootout.alioth.debian.org/
+-- from Julian Assange
+
+module Main where
+import System(getArgs, exitWith, ExitCode(..))
+import Numeric(readDec)
+main = do
+       arg <- getArgs
+       case arg of
+            [number] -> let n = fst (head (readDec number)) in
+		        putStrLn (show (list n))
+            _        -> exitWith (ExitFailure 1)
+
+-- in a pure declarative language like haskell, this test is
+-- almost meaningless as described, hence we give the slow,
+-- but beautiful implementation bellow. An optimised version
+-- would use STUArrays.
+
+list n = if head l1' == n && l1' == l2' then length l1' else 0
+	 where
+	 l1  = [1..n]
+	 l2  = l1
+	 l3  = l2
+	 l2' = reverse l3
+	 l1' = reverse l1
+-- $Id: lists.ghc,v 1.4 2005-06-15 18:35:59 igouy-guest Exp $
+-- http://shootout.alioth.debian.org/
+-- from Aaron Denney 
+-- modified by Einar Karttunen
+-- Uses edison library - compile with "-package data"
+
+import System(getArgs)
+import qualified SimpleQueue as L
+
+copy = fmap id
+
+test :: Int -> Int
+test size | isok1 && isok2 = L.size l1'
+          | otherwise = error "not OK"
+                  where l1 = L.fromList [1..size]
+                        l2 = copy l1
+                        l3 = L.foldl (L.snoc) L.empty l2
+                        l2' = L.foldr (flip L.snoc) L.empty l3
+                        l1' = L.reverse l1
+                        isok1 = L.lhead l1' == size
+                        isok2 = l1' == l2'
+
+for n = foldl (\p _ -> if test p == p then p else 0) 10000 [1..n]
+main  = getArgs >>= print . for . read . head
+-- $Id: lists.ghc2.ghc,v 1.1 2004-05-19 18:10:30 bfulgham Exp $
+-- http://www.bagley.org/~doug/shootout/
+-- from Julian Assange
+
+module Main where
+
+import System(getArgs)
+
+main = getArgs >>= putStrLn . show . list . read . head
+
+-- in a pure declarative language like haskell, this test is
+-- almost meaningless as described, hence we give the slow,
+-- but beautiful implementation bellow. An optimised version
+-- would use STUArrays.
+
+list n = if head l1' == n && l1' == l2' then length l1' else 0
+         where
+         l1  = [1..n]
+         l2  = init l1 ++ [last l1]
+         l3  = foldl (\x y -> x ++ [y]) [] l2
+         l2' = foldr (\x y -> y ++ [x]) [] l3
+         l1' = reverse l1
+import Data.Array.Unboxed
+import Data.List
+import System.Environment (getArgs)
+
+main :: IO ()
+main = getArgs >>= return . read . head >>= msquare
+
+msquare :: Int -> IO ()
+msquare n = let mn = (n*(n*n+1)) `quot` 2
+                grd = listArray ((1,1),(n,n)) (repeat 0)
+                unus = [1 .. n*n]
+                ff  = findFewestMoves n mn grd unus
+                ini = Square grd unus ff (2*n*n)
+                allSquares = bestFirst (successorNodes n mn) [ini]
+            in  putStrLn $ showGrid n . grid $ head allSquares
+
+data Square = Square { grid :: UArray (Int,Int) Int
+                     , unused :: [Int]
+                     , ffm :: ([Int], Int, Int, Int)
+                     , priority :: !Int
+                     } deriving Eq
+
+instance Ord Square where
+    compare (Square g1 _ _ p1) (Square g2 _ _ p2)
+        = case compare p1 p2 of
+            EQ -> compare g1 g2
+            ot -> ot
+
+showMat :: [[Int]] -> ShowS
+showMat lns = foldr1 ((.) . (. showChar '\n')) $ showLns
+              where
+                showLns = 
+			map (foldr1 ((.) . (. showChar ' ')) . map shows) lns
+
+showGrid :: Int -> UArray (Int,Int) Int -> String
+showGrid n g = showMat [[g ! (r,c) | c <- [1 .. n]] | r <- [1 .. n]] ""
+
+bestFirst :: (Square -> [Square]) -> [Square] -> [Square]
+bestFirst _ [] = []
+bestFirst successors (front:queue)
+    | priority front == 0 = front : bestFirst successors queue
+    | otherwise = bestFirst successors $ foldr insert queue (successors front)
+
+successorNodes n mn sq
+    = map (place sq n mn (r,c)) possibilities
+      where
+        (possibilities,_,r,c) = ffm sq
+
+place :: Square -> Int -> Int -> (Int,Int) -> Int -> Square
+place (Square grd unus _ _) n mn (r,c) k
+    = Square grd' uns moveChoices p
+      where
+        grd' = grd//[((r,c),k)]
+        moveChoices@(_,len,_,_) = findFewestMoves n mn grd' uns
+        uns = delete k unus
+        p = length uns + len
+
+findFewestMoves :: Int -> Int -> UArray (Int,Int) Int -> [Int] -> ([Int],Int,Int,Int)
+findFewestMoves n mn grid unus
+    | null unus = ([],0,0,0)
+    | otherwise = (movelist, length movelist, mr, mc)
+      where
+        openSquares = [(r,c) | r <- [1 .. n], c <- [1 .. n], grid ! (r,c) == 0]
+        pm = possibleMoves n mn grid unus
+        openMap = map (\(x,y) -> (pm x y,x,y)) openSquares
+        mycompare (a,_,_) (b,_,_) = compare (length a) (length b)
+        (movelist,mr,mc) = minimumBy mycompare openMap
+
+possibleMoves :: Int -> Int -> UArray (Int,Int) Int -> [Int] -> Int -> Int -> [Int]
+possibleMoves n mn grid unus r c
+    | grid ! (r,c) /= 0 = []
+    | otherwise = takeWhile (<= ma) $ dropWhile (< mi) unus
+      where
+        cellGroups
+            | r == c && r + c == n + 1 = [d1, d2, theRow, theCol]
+            | r == c = [d1, theRow, theCol]
+            | r + c == n + 1 = [d2, theRow, theCol]
+            | otherwise = [theRow, theCol]
+        d1 = diag1 grid n
+        d2 = diag2 grid n
+        theRow = gridRow grid n r
+        theCol = gridCol grid n c
+        lows = scanl (+) 0 unus
+        higs = scanl (+) 0 $ reverse unus
+        rge :: [Int] -> (Int,Int)
+        rge cg = let k = count0s cg - 1
+                     lft = mn - sum cg
+                 in (lft - (higs!!k),lft - (lows!!k))
+        (mi,ma) = foldr1 mima $ map rge cellGroups
+        mima (a,b) (c,d) = (max a c, min b d)
+
+gridRow, gridCol :: UArray (Int,Int) Int -> Int -> Int -> [Int]
+diag1, diag2 :: UArray (Int,Int) Int -> Int -> [Int]
+gridRow grid n r = [grid ! (r,i) | i <- [1 .. n]]
+gridCol grid n c = [grid ! (i,c) | i <- [1 .. n]]
+diag1 grid n     = [grid ! (i,i) | i <- [1 .. n]]
+diag2 grid n     = [grid ! (i,n+1-i) | i <- [1 .. n]]
+count0s :: [Int] -> Int
+count0s = length . filter (== 0)
+
+--
+-- The Computer Language Benchmarks Game
+-- http://shootout.alioth.debian.org/
+--
+-- Contributed by Spencer Janssen, Trevor McCort, Christophe Poucet and Don Stewart
+-- Parallelised by Tim Newsham
+--
+-- Must be compiled with the -fexcess-precision flag as a pragma. GHC
+-- currently doesn't recognise the -fexcess-precision flag on the command
+-- line (!).
+--
+-- The following flags are suggested when compiling:
+--
+--      ghc -optc-march=pentium4 -optc-mfpmath=sse -optc-msse2 -threaded --make
+--
+-- Run with -N6 on a quad core (more capabilities to hide latency)
+--
+--      $ time ./A 6400 +RTS -N6
+--
+
+import System
+import System.IO
+import Foreign
+import Foreign.Marshal.Array
+import Control.Concurrent
+import Control.Concurrent.MVar
+import Control.Concurrent.Chan
+import Control.Monad
+
+main = do
+    -- width in pixels
+    w <- getArgs >>= readIO . head
+        -- width in bytes
+    let n      = w `div` 8
+        -- width of a pixel in the complex plane
+        m  = 2 / fromIntegral w
+        coords = [T 1 0 y (fromIntegral y * m - 1) | y <- [0..w-1]]
+    q <- newChan
+    replies <- replicateM w newEmptyMVar
+    mapM_ (writeChan q) $ zip coords replies
+    replicateM_ 4 . forkIO $ worker q w m n
+
+    putStrLn ("P4\n"++show w++" "++show w)
+    mapM_ (takeMVar >=> \b -> hPutBuf stdout b n) replies
+
+-- Worker computes one line of the image and sends it to the master
+-- q - work queue
+-- w - width in pixels
+-- m - width of a pixel in the complex plane
+-- n - width in bytes
+worker q w m n = forever (do
+    (coord, reply) <- readChan q
+    p <- mallocArray0 n
+    unfold (next_x w m n) p coord
+    putMVar reply p)
+
+-- f - takes coordinates and returns Nothing if done
+--     or the next byte of the bitmap otherwise.
+-- ptr - buffer to write to
+-- x0 - initial coordinates 
+unfold :: (T -> Maybe (Word8,T)) -> Ptr Word8 -> T -> IO (Ptr Word8)
+unfold !f !ptr !x0 = go ptr x0
+  where
+    -- p - pointer into the buffer
+    -- x - coordinates
+    go !p !x = case f x of
+        Just (w,y)          -> poke p w >> go (p `plusPtr` 1) y
+        Nothing             -> return ptr
+
+-- T bs x y ci
+--    bx - x position in bytes
+--    x  - x position in pixels
+--    y  - y position in pixels
+--    ci - y position in complex plane
+data T = T !Int !Int !Int !Double
+
+-- w - image width in pixels
+-- iw - pixel width in the complex plane
+-- bw - image width in bytes
+next_x !w !iw !bw (T bx x y ci)
+    | bx == bw  = Nothing
+    | otherwise = Just (loop_x w x 8 iw ci 0, T (bx+1) (x+8) y ci)
+
+-- w - image width in pixels
+-- x - current x coordinate in pixels
+-- n - bit positition from 8 to 0
+-- iw - pixel width in the complex plane
+-- ci - current y coordinate in complex plane
+-- b - accumulated bit value.
+loop_x !w !x !n !iw !ci !b
+    | x < w = if n == 0
+                    then b
+                    else loop_x w (x+1) (n-1) iw ci (b+b+v)
+    | otherwise = b `shiftL` n
+  where
+    v = fractal 0 0 (fromIntegral x * iw - 1.5) ci 50
+
+-- julia function (r :+ i) (cr :+ ci) with max iterations k.
+fractal :: Double -> Double -> Double -> Double -> Int -> Word8
+fractal !r !i !cr !ci !k
+    | r2 + i2 > 4 = 0
+    | k == 0      = 1
+    | otherwise   = fractal (r2-i2+cr) ((r+r)*i+ci) cr ci (k-1)
+  where
+    (!r2,!i2) = (r*r,i*i)
+-- $Id: matrix.ghc-2.ghc,v 1.1 2004-11-10 06:47:57 bfulgham Exp $
+-- http://www.bagley.org/~doug/shootout/
+-- from Brian Gregor
+
+module Main where
+
+import System
+
+type Vector = [Integer]
+type Matrix = [Vector]
+
+main = do 
+         ~[n] <- getArgs
+         putStrLn (calcMat (read n::Int) [[]])
+
+-- dotProd, columns, and matMult taken from
+-- "Haskell: The Craft of Functional Programming"
+-- by Simon Thompson
+dotProd :: Vector -> Vector -> Integer
+dotProd xs ys = sum [x*y | (x,y) <- zip xs ys]
+
+columns :: Matrix -> Matrix
+columns y = [[ z!!j | z <-y] | j <- [0..s]]
+          where s = length (head y) - 1
+
+matMult :: Matrix -> Matrix -> Matrix
+matMult m p = [[dotProd r c | c <-columns p] | r <- m]
+
+calcMat :: Int -> Matrix -> String
+calcMat n mat 
+     | n > 0 = calcMat (n-1) (matMult m1 m2) 
+     | otherwise = (show (m3 !! 0 !! 0)) ++ " " ++ (show (m3 !! 2 !! 3))
+                   ++ " " ++ (show (m3 !! 3 !! 2)) ++ " " ++
+                   (show (m3 !! 4 !! 4))
+     where m3 = matMult m1 m2
+           m1 = [[ i*30+j+1 | j <- [0..29]] | i <- [0..29]]
+           m2 = [[ i*30+j+1 | j <- [0..29]] | i <- [0..29]]
+-- $Id: matrix.ghc,v 1.2 2004-10-07 07:17:58 bfulgham Exp $
+-- http://shootout.alioth.debian.org/
+-- originally from Julian Assange, but
+-- rewritten by Malcolm Wallace
+
+module Main(main) where
+import System(getArgs, exitWith, ExitCode(..))
+import Numeric(readDec)
+import List(transpose)
+
+main = do
+       arg <- getArgs
+       let n = case arg of [n] -> (fst.head.readDec) n; _ -> 1
+           m1 = mkmat size
+           m2 = m1
+           mm = strictlast (zipWith mmult (replicate n m1) (replicate n m2))
+       putStrLn (disp mm 0 0 ++ " " ++
+		  disp mm 3 2 ++ " " ++
+		  disp mm 2 3 ++ " " ++
+		  disp mm 4 4)
+    where
+	  disp m row col  = show (m!!row!!col)
+
+strictlast [x] = x
+strictlast (x:xs) | force x = strictlast xs
+force [] = True
+force (x:xs) | inner x = force xs
+inner [] = True
+inner (x:xs) = x `seq` inner xs
+
+size = 30
+mkmat x    = [[(y-1)*x+1..y*x]| y <- [1..x]]
+mmult a b  = [[dot row col 0 | col <- a]| row <- transpose b]
+       where
+	       dot :: [Int] -> [Int] -> Int -> Int
+	       dot (x:xs) (y:ys) z = dot xs ys (z + x*y)
+	       dot  _      _     z = z
+
+-- slightly slower transposing mmult in one line:
+--  mmult a b  = [[sum$zipWith (*) row col 0 | col <- transpose a]| row <-b]
+
+-- $Id: message.ghc,v 1.4 2006-01-14 04:03:59 ekarttun-guest Exp $
+-- The Great Computer Language Shootout
+-- http://shootout.alioth.debian.org/
+-- Contributed by Einar Karttunen
+-- Modified by Simon Marlow and Don Stewart
+
+import Control.Concurrent; import Control.Monad; import System
+
+thread im om = do (x::Int) <- takeMVar im; putMVar om $! x+1; thread im om
+
+spawn  c  _  = do n <- newEmptyMVar; forkIO (thread c n); return n
+
+main = do n <- getArgs >>= readIO . head
+          s <- newEmptyMVar
+          f <- newEmptyMVar
+          e <- foldM spawn s [1..500]
+          forkIO $ replicateM n (takeMVar e) >>= putMVar f . sum
+          replicateM n (putMVar s 0)
+          takeMVar f >>= print
+
+{-
+   The Computer Language Benchmarks Game
+      http://shootout.alioth.debian.org/
+      contributed by Olof Kraigher
+-}
+
+module Main where
+
+import System(getArgs);      import Data.List;   import Data.Bits;         import Data.Array.IArray;
+import Char(intToDigit);   import Data.Maybe;   import Data.Word(Word64);   import Numeric(showIntAtBase);
+
+data Direction = E | SE | SW | W | NW | NE deriving (Enum, Eq, Ord, Show)
+type Piece = [Direction]
+type Cell = (Int, Int)
+type Mask = Word64
+type Color = Int
+
+class Rotatable a where
+   rot :: a -> a 
+
+class Floppable a where
+   flop :: a -> a   
+   
+class Maskable a where
+   mask :: a -> Mask
+
+instance Rotatable Direction where
+   rot NE = E
+   rot d = succ d
+
+instance Rotatable Piece where
+   rot a = map rot a
+
+instance Floppable Direction where
+   flop E = W
+   flop W = E
+   flop SE = SW
+   flop SW = SE
+   flop NE = NW
+   flop NW = NE
+
+instance Floppable Piece where
+   flop a = map flop a
+   
+instance Maskable Cell where
+   mask (x,y) = bit (x + y*width)
+
+instance Maskable [Cell] where
+   mask p = foldl' (\a b -> a .|. mask b) 0 p
+
+width :: Int
+width = 5
+
+height :: Int
+height = 10
+
+allCells :: [Cell]
+allCells = [(x,y) | y <- [0..height-1], x <- [0..width-1]]
+
+left :: Mask
+left = shift right (width-1)
+
+right :: Mask
+right = foldl' (\a b -> a .|. (shift 1 b)) 0 [0,width..width*(height-1)]
+
+bottom :: Mask
+bottom = 0x1f
+
+top :: Mask
+top = shift bottom (width*(height-1))
+
+fullMask :: Mask
+fullMask = 0x3FFFFFFFFFFFF
+      
+pieces :: Array Color Piece
+pieces = array (0,9) $ zip [0..9] $ 
+      [   [E,    E,  E,  SE],
+         [SE, SW, W,  SW],
+         [W,  W,  SW, SE],
+         [E,  E,  SW, SE],
+         [NW, W,  NW, SE, SW],
+         [E,  E,  NE, W],
+         [NW, NE, NE, W],
+         [NE, SE, E,  NE],
+         [SE, SE, E,  SE],
+         [E,  NW, NW, NW]]
+
+valid :: Cell -> Maybe Cell
+valid p@(x,y)
+   | 0 <= x, x < width, 0 <= y, y < height = Just p
+   |otherwise = Nothing
+
+move :: Cell -> Direction -> Maybe Cell
+move (x,y) E = valid (x+1,y)
+move (x,y) W = valid (x-1,y)
+move (x,y) NE = valid (x+(mod y 2),y-1)
+move (x,y) NW = valid (x+(mod y 2)-1,y-1)
+move (x,y) SE = valid (x+(mod y 2),y+1)
+move (x,y) SW = valid (x+(mod y 2)-1,y+1)
+
+cells :: Piece -> Cell -> Maybe [Cell]
+cells [] cell = Just [cell]
+cells (d:ds) cell@(x,y) =
+   case move (x,y) d of
+      Nothing -> Nothing
+      Just (x',y') ->
+         case cells ds (x',y') of
+            Nothing -> Nothing
+            Just ps -> Just $ (x,y) : ps
+            
+bitCount :: Mask -> Int
+bitCount 0 = 0
+bitCount mask = (fromIntegral $ (mask .&. 1)) + (bitCount (shiftR mask 1))
+
+floodFill :: Mask -> Mask -> Mask
+floodFill mask fromBit
+   | overlaps fromBit mask = mask
+   | otherwise =   
+      let mask' = mask .|. fromBit
+      in foldl' (floodFill) mask' $ 
+            map snd $ filter (\(a, b) -> not $ overlaps a fromBit) $ 
+               zip [left, right, top, bottom] $ 
+                  map (shift fromBit) [1,-1,width,-width]
+
+findFreeBit :: Mask -> Mask
+findFreeBit mask = fromJust $ find (not.(overlaps mask)) $ map (shift 1) [0..width*height-1]
+
+noIslands :: Mask -> Bool
+noIslands mask = not $ any (<5) $ diffs $ noIslands' mask where
+   noIslands' mask
+      | mask == fullMask = [bitCount mask]
+      | otherwise = (bitCount mask): (noIslands' $ floodFill mask $ findFreeBit mask)
+   diffs (x:y:[]) = [y-x]
+   diffs (x:y:xs) = (y-x): (diffs $ y:xs)
+
+bitmasksWithColor :: Array Color [Mask]
+bitmasksWithColor = amap bitmasksWithColor' pieces where
+   
+   bitmasksWithColor' :: Piece -> [Mask]
+   bitmasksWithColor' piece 
+      | piece == [NW, W,  NW, SE, SW] = do 
+         piece' <- (take 3 $ iterate rot piece) ++ (take 3 $ iterate rot $ flop piece)
+         filter noIslands $ map mask $ mapMaybe (cells piece') allCells
+         
+      | otherwise = do 
+         piece' <- (take 6 $ iterate rot piece) ++ (take 6 $ iterate rot $ flop piece)
+         filter noIslands $ map mask $ mapMaybe (cells piece') allCells
+   
+
+bitmasksAtCell :: [Mask] -> Array Cell [Mask]
+bitmasksAtCell masks = 
+   let masks' = (bitmasksAtCell' (shift 1 $ width*height - 1) [] (reverse $ sort masks))
+   in  array ((0,0),(4,9)) $ zip [(x,y) | y <- [9,8..0], x <- [4,3..0]] masks' where
+      
+      bitmasksAtCell' :: Mask -> [Mask] -> [Mask] -> [[Mask]]
+      bitmasksAtCell' 1 cellMasks [] = [cellMasks] 
+      bitmasksAtCell' cellMask cellMasks [] = cellMasks:(bitmasksAtCell' (shiftR cellMask 1) [] [])
+      bitmasksAtCell' cellMask cellMasks masks@(m:ms)
+         | overlaps cellMask m = bitmasksAtCell' cellMask (m:cellMasks) ms
+         | otherwise = cellMasks : (bitmasksAtCell' (shiftR cellMask 1) [] masks)
+         
+
+bitmasksWithColorAtCell :: Array Color (Array Cell [Mask])
+bitmasksWithColorAtCell = amap bitmasksAtCell bitmasksWithColor
+
+nextCell :: Cell -> Cell
+nextCell (0,y) = (width-1,y-1)
+nextCell (x,y) =  (x-1,y)
+
+
+overlaps :: Mask -> Mask -> Bool
+overlaps a b = (a .&. b) /= 0
+
+legal :: Mask -> [Mask] -> [Mask]
+legal boardMask masks = filter (not.(overlaps boardMask)) masks      
+
+
+solutions :: [String]
+solutions = solutions' 0 (width-1, height-1) [0..9] [] where
+   
+   solutions' :: Mask -> Cell -> [Color] -> [(Color, Mask)]-> [String]
+   solutions' _ _ [] usedMasks =    let s = stringOfColorMasks usedMasks in   [s, invertString s]
+   solutions' board cell colorsLeft usedMasks 
+      | overlaps board (mask cell) = solutions' board (nextCell cell) colorsLeft usedMasks
+      | otherwise = do
+         color <- colorsLeft
+         mask <- legal board $ bitmasksWithColorAtCell!color!cell
+         solutions' (board .|. mask) (nextCell cell) (colorsLeft \\ [color]) ((color, mask):usedMasks)
+
+stringOfColorMasks :: [(Color, Mask)] -> String
+stringOfColorMasks colorMasks = 
+   tail $ show $ (+) (10^(width*height)) $ 
+      sum $ map (\(c,m) -> ((fromIntegral c) * (read $ showIntAtBase 2 intToDigit m "")) :: Integer) colorMasks
+
+invertString :: String -> String
+invertString s = [s!!(width-x-1 + (height-y-1)*width) | y <- [0..height-1], x <- [0 .. width-1]]
+
+printSolution :: String -> IO ()
+printSolution solution = printSolution' 0 solution where
+   printSolution' cell [] = return ()
+   printSolution' cell (s:ss) = do
+      putStr $ s:" "
+      case mod (cell+1) width of
+         0 -> case mod (cell+1) (2*width) of
+            0 -> putStr "\n"
+            _ -> putStr "\n "
+         _ -> return ()
+      
+      printSolution' (cell+1) ss
+
+main = do 
+   (n :: Int) <- return.read.head =<< getArgs
+   let nsolutions = take n solutions
+   putStrLn $ (show $ length nsolutions) ++ " solutions found\n"
+   printSolution $ minimum nsolutions
+   putStr "\n"
+   printSolution $ maximum nsolutions
+   putStr "\n"
+{-
+   The Computer Language Benchmarks Game
+      http://shootout.alioth.debian.org/
+      contributed by Olof Kraigher
+-}
+
+module Main where
+
+import System(getArgs);      import Data.List;   import Data.Bits;      import Data.Array.IArray;
+import Data.Word(Word64);   import Data.Maybe;   import Control.Monad;
+
+data Direction = E | SE | SW | W | NW | NE deriving (Enum, Eq, Ord, Show)
+type Piece = [Direction]
+type Cell = (Int, Int)
+type Mask = Word64
+type Color = Int
+
+class Rotatable a where
+   rot :: a -> a 
+
+class Floppable a where
+   flop :: a -> a   
+   
+class Maskable a where
+   mask :: a -> Mask
+
+instance Rotatable Direction where
+   rot NE = E
+   rot d = succ d
+
+instance Rotatable Piece where
+   rot a = map rot a
+
+instance Floppable Direction where
+   flop E = W
+   flop W = E
+   flop SE = SW
+   flop SW = SE
+   flop NE = NW
+   flop NW = NE
+
+instance Floppable Piece where
+   flop a = map flop a
+   
+instance Maskable Cell where
+   mask (x,y) = bit (x + y*width)
+
+instance Maskable [Cell] where
+   mask p = foldl' (\a b -> a .|. mask b) 0 p
+
+width :: Int
+width = 5
+
+height :: Int
+height = 10
+
+cells :: [Cell]
+cells = [(x,y) | y <- [0..height-1], x <- [0..width-1]]
+
+fullMask :: Mask
+fullMask = 0x3FFFFFFFFFFFF 
+      
+pieces :: Array Color Piece
+pieces = array (0,9) $ zip [0..9] $ 
+      [   [E,    E,  E,  SE],
+         [SE, SW, W,  SW],
+         [W,  W,  SW, SE],
+         [E,  E,  SW, SE],
+         [NW, W,  NW, SE, SW],
+         [E,  E,  NE, W],
+         [NW, NE, NE, W],
+         [NE, SE, E,  NE],
+         [SE, SE, E,  SE],
+         [E,  NW, NW, NW]]
+
+valid :: Cell -> Maybe Cell
+valid p@(x,y)
+   | 0 <= x, x < width, 0 <= y, y < height = Just p
+   |otherwise = Nothing
+
+move :: Cell -> Direction -> Maybe Cell
+move (x,y) E = valid (x+1,y)
+move (x,y) W = valid (x-1,y)
+move (x,y) NE = valid (x+(mod y 2),y-1)
+move (x,y) NW = valid (x+(mod y 2)-1,y-1)
+move (x,y) SE = valid (x+(mod y 2),y+1)
+move (x,y) SW = valid (x+(mod y 2)-1,y+1)
+
+overlap :: Mask -> Mask -> Bool
+overlap a b = (a .&. b) /= 0
+
+bitCount :: Mask -> Int
+bitCount 0 = 0
+bitCount mask = (fromIntegral $ (mask .&. 1)) + (bitCount (shiftR mask 1))
+
+floodFill :: Mask -> Cell -> Mask
+floodFill mask cell@(x,y)
+   | overlap mask (bit $ x + y*width) = mask
+   | otherwise = 
+      let mask' = mask .|. (bit $ x + y*width)
+      in   foldl' floodFill mask' $ mapMaybe (move cell) [E .. NE]
+
+findFreeCell :: Mask -> Cell
+findFreeCell mask = 
+   fromJust $ find (\(x,y) -> not $ overlap mask (bit $ x + y*width)) cells
+
+noIslands :: Mask -> Bool
+noIslands mask = not $ any (<5) $ diffs $ noIslands' mask where
+   noIslands' mask
+      | mask == fullMask = [bitCount mask]
+      | otherwise = (bitCount mask) : (noIslands' $ floodFill mask $ findFreeCell mask)
+   diffs l = zipWith (-) (tail l) l
+   
+
+placePiece :: Piece -> Cell -> Maybe [Cell]
+placePiece [] cell = Just [cell]
+placePiece (p:ps) cell = move cell p >>= (placePiece ps) >>= return . (cell:)
+
+pieceMasks :: Array Color [Mask]
+pieceMasks = amap pieceMasks' pieces where      
+   pieceMasks' piece
+      | piece == (pieces!5) = do
+         piece' <- (take 3 $ iterate rot piece) ++ (take 3 $ iterate rot $ flop $ piece)
+         filter noIslands $ map mask $ mapMaybe (placePiece piece') cells
+      
+      | otherwise = do
+         piece' <- (take 6 $ iterate rot piece) ++ (take 6 $ iterate rot $ flop $ piece)
+         filter noIslands $ map mask $ mapMaybe (placePiece piece') cells
+
+pieceMasksAtCell :: Array Color (Array Cell [Mask])
+pieceMasksAtCell = amap pieceMasksAtCell' pieceMasks where
+   pieceMasksAtCell' masks = array ((0,0),(width-1,height-1)) $ pieceMasksAtCell'' masks cells where
+      pieceMasksAtCell'' masks [] = []
+      pieceMasksAtCell'' masks (c:cs) = 
+         let (a,b) = partition (overlap (mask c)) masks
+         in (c,a) : (pieceMasksAtCell'' b cs)
+
+nextCell :: Cell -> Cell
+nextCell (4,y) = (0,y+1)
+nextCell (x,y) =  (x+1,y)
+
+solutions :: [String]
+solutions = solutions' 0 (0,0) [0..9] [] where
+
+   solutions' :: Mask -> Cell -> [Color] -> [(Color, Mask)]-> [String]
+   solutions' _ _ [] usedMasks =    let s = stringOfColorMasks usedMasks in   [s, invertString s]
+   solutions' board cell colorsLeft usedMasks 
+      | overlap board (mask cell) = solutions' board (nextCell cell) colorsLeft usedMasks
+      | otherwise = do
+         color <- colorsLeft
+         mask <- filter (not.(overlap board)) $ pieceMasksAtCell!color!cell
+         solutions' (board .|. mask) (nextCell cell) (colorsLeft \\ [color]) ((color, mask):usedMasks)
+
+stringOfColorMasks :: [(Color, Mask)] -> String
+stringOfColorMasks colorMasks = 
+   tail.show.(+10^(width*height)).sum $ map (\(c,m) -> (fromIntegral c) * (binToDec m)) colorMasks where
+   binToDec :: Mask -> Integer
+   binToDec 0 = 0
+   binToDec n = (fromIntegral (mod n 2)) + 10*(binToDec $ div n 2)
+
+invertString :: String -> String
+invertString s = map (\(x,y) -> s!!(width-x-1 + (height-y-1)*width)) cells
+
+printSolution :: String -> IO ()
+printSolution solution = printSolution' 0 solution where
+   printSolution' cell [] = return ()
+   printSolution' cell (s:ss) = do
+      putStr $ s:" "
+      case mod (cell+1) width of
+         0 -> case mod (cell+1) (2*width) of
+            0 -> putStr "\n"
+            _ -> putStr "\n "
+         _ -> return ()
+
+      printSolution' (cell+1) ss
+
+main = do 
+   (n :: Int) <- return.read.head =<< getArgs
+   let nsolutions = take n solutions
+   putStrLn $ (show $ length nsolutions) ++ " solutions found\n"
+   printSolution $ minimum nsolutions
+   putStr "\n"
+   printSolution $ maximum nsolutions
+   putStr "\n"
+{-
+   The Computer Language Benchmarks Game
+   	http://shootout.alioth.debian.org/
+   	contributed by Olof Kraigher
+-}
+
+module Main where
+
+import System(getArgs);		import Data.List;	import Data.Bits;		import Data.Array.IArray;
+import Data.Word(Word64);	import Data.Maybe;	import Control.Monad;
+
+data Direction = E | SE | SW | W | NW | NE deriving (Enum, Eq, Ord)
+type Piece = [Direction]
+type CellCoord = (Int, Int)
+type CellIndex = Int
+type Mask = Word64
+type Color = Int
+type Solution = String
+
+class Rotatable a where rot :: a -> a 
+class Floppable a where flop :: a -> a	
+class Maskable a where mask :: a -> Mask
+
+instance Rotatable Direction	where rot d = toEnum $ mod ((fromEnum d) + 1) 6
+instance Rotatable Piece 		where rot a = map rot a
+
+instance Floppable Direction 	where flop d = toEnum $ mod (9 - (fromEnum d)) 6
+instance Floppable Piece 		where flop a = map flop a
+
+instance Maskable CellCoord 	where mask (x,y) = bit (x + y*width)
+instance Maskable [CellCoord]	where mask p = foldl' (\a b -> a .|. mask b) 0 p
+instance Maskable CellIndex 	where mask i = bit i
+
+
+width :: Int
+width = 5
+
+height :: Int
+height = 10
+
+cellcs :: [CellCoord]
+cellcs = [(x,y) | y <- [0..height-1], x <- [0..width-1]]
+
+cellis :: [CellIndex]
+cellis = [0..width*height-1]
+
+fullMask :: Mask
+fullMask = 0x3FFFFFFFFFFFF 
+		
+pieces :: Array Color Piece
+pieces = array (0,9) $ zip [0..9] $ 
+		[	[E,	 E,  E,  SE],
+			[SE, SW, W,  SW],
+			[W,  W,  SW, SE],
+			[E,  E,  SW, SE],
+			[NW, W,  NW, SE, SW],
+			[E,  E,  NE, W],
+			[NW, NE, NE, W],
+			[NE, SE, E,  NE],
+			[SE, SE, E,  SE],
+			[E,  NW, NW, NW]]
+
+valid :: CellCoord -> Maybe CellCoord
+valid p@(x,y)
+	| 0 <= x, x < width, 0 <= y, y < height = Just p
+	|otherwise = Nothing
+
+move :: CellCoord -> Direction -> Maybe CellCoord
+move (x,y) E = valid (x+1,y)
+move (x,y) W = valid (x-1,y)
+move (x,y) NE = valid (x+(mod y 2),y-1)
+move (x,y) NW = valid (x+(mod y 2)-1,y-1)
+move (x,y) SE = valid (x+(mod y 2),y+1)
+move (x,y) SW = valid (x+(mod y 2)-1,y+1)
+
+
+overlap :: Mask -> Mask -> Bool
+overlap a b = (a .&. b) /= 0
+
+legal :: Mask -> Mask -> Bool
+legal a b = not $ overlap a b
+
+bc :: Mask -> Int
+bc 0 = 0
+bc mask = (fromIntegral $ (mask .&. 1)) + (bc (shiftR mask 1))
+
+fill :: Mask -> CellCoord -> Mask
+fill mask cell@(x,y)
+	| overlap mask (bit $ x + y*width) = mask
+	| otherwise = 
+		let mask' = mask .|. (bit $ x + y*width)
+		in	foldl' fill mask' $ mapMaybe (move cell) [E .. NE]
+
+freeCell :: Mask -> CellCoord
+freeCell mask = 
+	fromJust $ find (\(x,y) -> legal mask (bit $ x + y*width)) cellcs
+
+noIslands :: Mask -> Bool
+noIslands mask = not $ any (<5) $ diffs $ noIslands' mask where
+	noIslands' mask
+		| mask == fullMask = [bc mask]
+		| otherwise = (bc mask) : (noIslands' $ fill mask $ freeCell mask)
+	diffs l = zipWith (-) (tail l) l
+	
+
+placePiece :: Piece -> CellCoord -> Maybe [CellCoord]
+placePiece [] cell = Just [cell]
+placePiece (p:ps) cell = move cell p >>= (placePiece ps) >>= return . (cell:)
+
+pieceMasks :: Array Color [Mask]
+pieceMasks = amap pieceMasks' pieces where		
+	pieceMasks' piece
+		| piece == (pieces!5) = do
+			piece' <- (take 3 $ iterate rot piece) ++ (take 3 $ iterate rot $ flop $ piece)
+			filter noIslands $ map mask $ mapMaybe (placePiece piece') cellcs
+		
+		| otherwise = do
+			piece' <- (take 6 $ iterate rot piece) ++ (take 6 $ iterate rot $ flop $ piece)
+			filter noIslands $ map mask $ mapMaybe (placePiece piece') cellcs
+
+pieceMasksAtCell :: Array Color (Array CellIndex [Mask])
+pieceMasksAtCell = amap pieceMasksAtCell' pieceMasks where
+	pieceMasksAtCell' masks = array (0,width*height-1) $ pieceMasksAtCell'' masks cellis where
+		pieceMasksAtCell'' masks [] = []
+		pieceMasksAtCell'' masks (c:cs) = 
+			let (a,b) = partition (overlap (mask c)) masks
+			in (c,a) : (pieceMasksAtCell'' b cs)
+
+format :: Color -> Mask -> Integer
+format c m =  (fromIntegral c) * (binToDec m) where
+	binToDec :: Mask -> Integer
+	binToDec 0 = 0
+	binToDec n = (fromIntegral (mod n 2)) + 10*(binToDec $ div n 2)
+	
+ps :: Solution -> IO ()		
+ps solution = pe $ map (concatMap (\a -> [a,' '])) $ 
+					take height $ map (take 5) $ iterate (drop width) solution where
+	po [] = return ()
+	po (s:ss) = do
+		putStrLn $ ' ':s
+		pe ss
+
+	pe [] = return ()
+	pe (s:ss) = do
+		putStrLn s
+		po ss
+
+solutions :: [Solution]
+solutions = solutions' 0 0 [0..9] (10^(width*height)) where
+
+	solutions' :: Mask -> CellIndex -> [Color] -> Integer-> [Solution]
+	solutions' _ _ [] i = 	let s = tail.show $ i in [s, reverse s]
+	solutions' board cell colorsLeft i
+		| overlap board (mask cell) = solutions' board (cell+1) colorsLeft i
+		| otherwise = do
+			color <- colorsLeft
+			mask <- filter (legal board) $ pieceMasksAtCell!color!cell
+			solutions' (board .|. mask) (cell+1) (delete color colorsLeft) (i + (format color mask))
+
+
+main = do 
+	(n :: Int) <- return.read.head =<< getArgs
+	let nsolutions = take n solutions
+	putStrLn $ (show $ length nsolutions) ++ " solutions found\n"
+	ps $ minimum nsolutions
+	putStr "\n"
+	ps $ maximum nsolutions
+	putStr "\n"
+{-
+   	The Computer Language Benchmarks Game
+   	http://shootout.alioth.debian.org/
+   	contributed by Bertram Felgenhauer
+-}
+
+import Data.Word
+import Data.Array
+import Data.Bits
+import System
+
+pieces = [
+    [(0,0),(0,1),(0,2),(0,3),(1,3)],
+    [(0,0),(0,2),(0,3),(1,0),(1,1)],
+    [(0,0),(0,1),(0,2),(1,2),(2,1)],
+    [(0,0),(0,1),(0,2),(1,1),(2,1)],
+    [(0,0),(0,2),(1,0),(1,1),(2,1)],
+    [(0,0),(0,1),(0,2),(1,1),(1,2)],
+    [(0,0),(0,1),(1,1),(1,2),(2,1)],
+    [(0,0),(0,1),(0,2),(1,0),(1,2)],
+    [(0,0),(0,1),(0,2),(1,2),(1,3)],
+    [(0,0),(0,1),(0,2),(0,3),(1,2)]]
+
+transform p =
+    [ map (\(y,x) -> (y-dy,x-dx)) p''
+    | p' <- take 6 (iterate (map (\(y,x) -> (x+y,-y))) p),
+      p'' <- take 2 (iterate (map (\(y,x) -> (x,y))) p'),
+      let (dy,dx) = minimum p'']
+
+pieceMasks = listArray (0,9) (map (pieceMasks' . transform) pieces) where
+    pieceMasks' ps = listArray (0,9) [pieceMasks'' ps (y,x) | y <- [0,1], x <- [0..4]]
+    pieceMasks'' ps pos = [m | p <- ps, m <- mask 0 pos p]
+    mask m (dy,dx) [] = [m]
+    mask m (dy,dx) ((y,x):ps)
+        | x' < 0 || x' > 4 = []
+        | True = mask (m .|. shiftL 1 ((dy+y)*5+x')) (dy,dx) ps
+        where x' = x + dx + div (y+dy) 2
+
+search m 50 p ps = [ps]
+search m i p ps | (m .&. shiftL 1 i) > 0 = search m (i+1) p ps
+search m i p ps = let (q,r) = divMod i 10 in
+    [ ps'
+    | p' <- [0..9], p .&. shiftL 1 p' == 0,
+      mask <- pieceMasks ! p' ! r,
+      let mask' = shiftL mask (10*q),
+      m .&. mask' == 0,
+      ps' <- search (m .|. mask') (i+1) (p .|. shiftL 1 p') ((p',mask'):ps)]
+
+rows ps = [[i | x <- [0..4], (i,m) <- ps, shiftL 1 (y*5+x) .&. m /= 0] | y <- [0..9]]
+
+main = do
+    n <- readIO . head =<< getArgs
+    let sols = map rows (take n (search (-shiftL 1 50 :: Word64) 0 (0 :: Word) []))
+    putStrLn (show (length sols) ++ " solutions found\n")
+    mapM (putStrLn . unlines . (zipWith (++) (cycle [""," "]))
+         . map ((++ " ") . unwords . map show)) [minimum sols,maximum sols]
+--
+-- The Computer Language Benchmarks Game
+--   http://shootout.alioth.debian.org/
+--
+--   Sterling Clover's translation of Tim Hochberg's Clean implementation
+
+module Main where
+import System.Environment
+import Data.Bits
+import Data.List
+import Data.Array.IArray
+import Data.Array.Unboxed
+import Control.Arrow
+
+--- The Board ---
+n_elem = 5
+n_col = 5
+n_row = 10
+
+m_top :: Mask
+m_top = 0x1F
+
+cells :: [Cell]
+cells = [0..49]
+
+colors :: [Color]
+colors = [0..9]
+
+cellAt x y = x + n_col * y
+coordOf i = snd &&& fst $ i `quotRem` n_col
+isValid x y = 0 <= x && x < n_col && 0 <= y && y < n_row
+
+--- Piece Operations ---
+data Direction = E | SE | SW | W | NW | NE deriving (Enum, Eq, Ord)
+type Piece = [Direction]
+type CellCoord = (Int, Int)
+type Mask = Int; type Color = Int; type Row = Int;
+type Col = Int; type Tag = Int; type Cell = Int
+type Solution = [Mask]
+
+pieces :: Array Int Piece
+pieces = array (0,9) $ zip [0..9] $
+         [[E,  E,  E,  SE],
+	  [SE, SW, W,  SW],
+	  [W,  W,  SW, SE],
+	  [E,  E,  SW, SE],
+	  [NW, W,  NW, SE, SW],
+	  [E,  E,  NE, W],
+	  [NW, NE, NE, W],
+	  [NE, SE, E,  NE],
+	  [SE, SE, E,  SE],
+	  [E,  NW, NW, NW]]
+
+permutations :: Piece -> [Piece]
+permutations p = take 12 (perms p)
+    where
+      perms p = p:(flip p) : perms (rotate p)
+      rotate piece = map r piece
+          where r E  = NE
+                r NE = NW
+                r NW = W
+                r W  = SW
+                r SW = SE
+                r SE = E
+      flip piece = map f piece
+          where f E  = W
+                f NE = NW
+                f NW = NE
+                f W  = E
+                f SW = SE
+                f SE = SW
+
+--- Mask Operations ----
+untag :: Mask -> Mask
+untag mask   = mask .&. 0x1ffffff
+
+retag :: Mask -> Tag -> Mask
+retag mask n = untag mask .|. n `shiftL` 25
+
+tagof :: Mask -> Tag
+tagof mask   = mask `shiftR` 25
+
+tag :: Mask -> Tag -> Mask
+tag   mask n = mask .|. n `shiftL` 25
+
+count1s :: Mask -> Int
+count1s i 
+    | i == 0 = 0
+    | i .&. 1 == 1 = 1 + count1s (i `shiftR` 1)
+    | otherwise = count1s (i `shiftR` 1)
+
+first0 :: Mask -> Int
+first0 i 
+    | i .&. 1 == 0 = 0
+    | otherwise = 1 + first0 (i `shiftR` 1)
+
+--- Making the Bitmasks ---
+mod2 x = x .&. 1
+packSize a b = a*5+b
+unpackSize n = quotRem n 5
+
+move :: Direction -> CellCoord -> CellCoord
+move E  (x, y) = (x+1, y)
+move W  (x, y) = (x-1, y)
+move NE (x, y) = (x+(mod2 y),   y-1)
+move NW (x, y) = (x+(mod2 y)-1, y-1)
+move SE (x, y) = (x+(mod2 y),   y+1)
+move SW (x, y) = (x+(mod2 y)-1, y+1)
+
+pieceBounds :: Piece -> Bool -> (Int, Int, Int, Int)
+pieceBounds piece isodd = bnds piece 0 y0 0 y0 0 y0
+  where
+    y0 | isodd = 1 | otherwise = 0
+    bnds [] _ _ xmin ymin xmax ymax = (xmin, ymin, xmax, ymax)
+    bnds (d:rest) x y xmin ymin xmax ymax =
+        bnds rest x' y' (min x' xmin) (min y' ymin) (max x' xmax) (max y' ymax)
+            where (x', y') = move d (x, y)
+
+pieceMask :: Piece -> (Mask, Mask)
+pieceMask piece 
+    | odd y1    = (tag (msk piece x2 y2 0) (packSize w2 h2),
+                   tag (msk piece x1 (y1+1) 0 `shiftR` n_col) (packSize w1 h1))
+    | otherwise = (tag (msk piece x1 y1 0) (packSize w1 h1),
+                   tag (msk piece x2 (y2+1) 0 `shiftR` n_col) (packSize w2 h2))
+    where
+      (xmin, ymin, xmax, ymax) = pieceBounds piece False
+      (x1, y1) = (-xmin, -ymin)
+      w1 = xmax - xmin
+      h1 = ymax - ymin
+      (xmin', ymin', xmax', ymax') = pieceBounds piece True
+      (x2, y2) = (-xmin', (-ymin')+1)
+      w2 = xmax' - xmin'
+      h2 = ymax' - ymin'
+      msk :: Piece -> Col -> Row -> Mask -> Mask
+      msk [] x y m = m `setBit` cellAt x y
+      msk (d:rest) x y m = msk rest x' y' (m `setBit` cellAt x y)
+          where (x', y') = move d (x, y)
+
+templatesForColor :: Color -> ([Mask], [Mask])
+templatesForColor c = (unzip . map pieceMask) perms
+    where perms | c == 5 = take 6 ps | otherwise = ps
+          ps = permutations $ pieces ! c
+
+--- Looking for Islands ---
+noLineIslands :: Mask -> Cell -> Cell -> Int -> Bool
+noLineIslands mask start stop step
+    | (fnd testBit . fnd ((not .) . testBit) . fnd testBit)  start > stop  = True
+    | otherwise = False
+  where
+    fnd test !x
+        | x >= 25     = 25
+        | test mask x = x
+        | otherwise   = fnd test (x+step)
+
+noLeftIslands :: Mask -> Bool
+noLeftIslands  mask  = noLineIslands mask 0 20 5
+noRightIslands mask  = noLineIslands mask 4 24 5
+
+noIslands :: Mask -> Bool
+noIslands board = noisles board (count1s board)
+
+noisles :: Mask -> Int -> Bool
+noisles _ 30 = True
+noisles board ones
+    | (ones' - ones) `rem` n_elem /= 0 = False
+    | otherwise = noisles board' ones'
+    where board' = fill board (coordOf (first0 board))
+          ones' = count1s board'
+
+fill :: Mask -> CellCoord -> Mask
+fill m cc@(x, y)
+    | x < 0 || x >= n_col = m
+    | y < 0 || y >= 6     = m
+    | testBit m i = m
+    | otherwise = foldl (\m d -> fill m (move d cc)) (setBit m i)
+                  [E, NE, NW, W, SW, SE]
+    where i = cellAt x y
+
+--- More Mask Generation ---
+masksForColor :: Color -> [(Row, Mask)]
+masksForColor c = concatMap atCell cells
+  where
+    (evens, odds) = templatesForColor c
+    atCell n
+        | even y = [(y, retag (m `shiftL` x) c) | m <- evens , isok m x y]
+        | odd  y = [(y, retag (m `shiftL` x) c) | m <- odds  , isok m x y]
+        where (x, y) = coordOf n
+
+isok :: Mask -> Row -> Col -> Bool
+isok mask x y =
+    isValid (x+width) (y+height) &&
+            case (y == 0, y+height==9) of
+              (False, False) -> noLeftIslands mask' && noRightIslands mask'
+              (False, True)  -> noIslands (mask' `shiftL` (n_col * (y - 4)))
+              (True, _ ) -> noIslands mask'
+    where (width, height) = unpackSize (tagof mask)
+          mask' = untag mask `shiftL` x
+
+masksAtCell :: Array (Row,Col) (Array Color [Mask])
+masksAtCell = trps $ map (masksAt cells . masksForColor) colors
+
+masksAt :: [Int] -> [(Row,Mask)]-> [[Mask]]
+masksAt [] _ = []
+masksAt (n:ns) !masks = map snd t : masksAt ns f
+    where
+      (t, f) = partition test masks
+      test (r, m) = n' >= 0 && n' < 25 &&  m `testBit` n'
+          where n' = n - (n_col * r)
+
+trps :: [[[Mask]]] -> Array (Row, Col) (Array Color [Mask])
+trps !a = array ((0,0),(9,4)) $ concatMap (uncurry (map . first . (,))) $
+          zip [0..9] [copy !! y | y <- [1,0,1,0,1,2,3,4,5,6]]
+    where
+      copy = [ [(x,copy' (cellAt x y)) | x <- [0..n_col-1]] |
+               y <- [1,2,5,6,7,8,9]]
+      copy' cell = array (0,9) $ map (\clr -> (clr,a !! clr !! cell)) colors
+
+--- Formatting ---
+format :: Bool -> String -> String
+format _ [] = ""
+format isodd chars | isodd = " " ++ str | otherwise = str
+        where
+          (cur, rest) = splitAt 5 chars
+          str =  intersperse ' ' cur ++ " \n" ++ format (not isodd) rest
+
+toString :: Solution -> String
+toString !masks = map color cells
+    where
+      masksWithRows = withRows 0 0 (reverse masks)
+      withRows _ _ [] = []
+      withRows board r (m:rest) = (r', m) : withRows board' r' rest
+          where delta = first0 board `quot` n_col
+                board' = board `shiftR`  (delta * n_col) .|. untag m
+                r' = r+delta
+      color n = maybe '.' (("0123456789" !!) . tagof . snd)
+                (find matches masksWithRows)
+          where
+            matches (r, m)
+              | n' < 0 || n' > 30  = False
+              | otherwise  = (untag m) `testBit` n'
+              where n' = n - (n_col * r)
+
+--- Generate the solutions ---
+firstZero :: UArray Int Int
+firstZero = array (0,31) $ zip [0..31]
+            [0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,5]
+
+solutions :: [String]
+solutions = solveCell 0 colors 0 [] []
+
+solveCell :: Row -> [Color] -> Mask -> Solution -> [String] -> [String]
+solveCell _ [] board soln results = let s = toString soln
+                                    in  s:(reverse s):results 
+solveCell !row !todo !board !soln results
+    | top/=m_top = foldr solveMask results
+                   [(m, c) | c <- todo, m  <- masks ! c,  board .&. m == 0]
+    | otherwise  = solveCell (row+1) todo (board `shiftR` n_col) soln results
+    where top = board .&. m_top
+          masks = masksAtCell ! (row, (firstZero ! top) )
+          solveMask (!m,!c) results =
+              solveCell row (delete c todo) (untag m .|. board) (m:soln) results
+
+main = do
+    n <- return.read.head =<< getArgs
+    let nsolutions = take n solutions
+    putStrLn $ (show $ length nsolutions) ++ " solutions found\n"
+    putStrLn . format False . minimum $ nsolutions
+    putStrLn . format False . maximum $ nsolutions
+-- $Id: methcall.ghc,v 1.4 2004-12-27 11:46:16 ekarttun-guest Exp $
+-- http://shootout.alioth.debian.org/
+-- Author: Einar Karttunen
+
+import Control.Monad
+import Data.IORef
+import System
+
+class Toggle a where
+    activate :: a -> IO ()
+    value :: a -> IO Bool
+
+newtype ToggleC    = ToggleC (IORef Bool)
+newtype NthToggleC = NthToggleC (IORef (Bool, Int, Int))
+
+modr r x = do { v <- readIORef r; writeIORef r $! x v }
+
+newToggle s = newIORef s >>= return . ToggleC
+newNthToggle s m = newIORef (s,0,m) >>= return . NthToggleC
+
+instance Toggle ToggleC where 
+    activate (ToggleC t) = modr t not
+    value (ToggleC t)    = readIORef t
+
+instance Toggle NthToggleC where
+    activate (NthToggleC t) = modr t (\x@(s,v,m) -> x `seq` if v+1 == m then (not s,0,m) else (s,v+1,m))
+    value    (NthToggleC t) = do { ~(s,_,_) <- readIORef t; s `seq` return s }
+
+out b = putStrLn (if b then "true" else "false")
+
+main = do [num] <- getArgs
+	  toggle<- newToggle True
+	  replicateM_ (read num) (activate toggle >> value toggle)
+	  value toggle>>= out
+	  ntoggle<- newNthToggle True 3
+	  replicateM_ (read num) (activate ntoggle >> value ntoggle)
+	  value ntoggle>>= out
+-- $Id: moments.ghc,v 1.3 2004-10-05 05:54:14 bfulgham Exp $
+-- http://shootout.alioth.debian.org/
+-- from Brian Gregor
+-- with modifications by Max
+-- with further modifications by JP Bernardy
+-- replace stock "read" with faster version by Greg Buchholz
+-- compile with: ghc -O2 -o moments moments.hs
+-- for better performance run with increased stack and heap
+-- i.e. ./moments +RTS -K2M -H45M < Input
+
+import Numeric
+import List(sort)
+import Char( ord )
+
+main = interact $ unlines . answers . map fast_read . lines
+
+-- compute out the answers
+answers :: [Double] -> [String]
+answers nums = ["n:                  " ++ show (length nums),
+                "median:             " ++ (showFFloat (Just 6) (median nums n) ""),
+                "mean:               " ++ (showFFloat (Just 6) mean ""),
+                "average_deviation:  " ++ (showFFloat (Just 6) avg_dev ""),
+                "standard_deviation: " ++ (showFFloat (Just 6) std_dev ""),
+                "variance:           " ++ (showFFloat (Just 6) var ""),
+                "skew:               " ++ (showFFloat (Just 6) skew ""),
+                "kurtosis:           " ++ (showFFloat (Just 6) kurt "")]
+    where n =  fromIntegral (length nums)
+          mean = sum nums / n
+          deviation = [x-mean | x <- nums]
+          avg_dev = sum (map abs deviation) / n
+          var = sum [x**2 | x <- deviation] / (n-1)
+          std_dev =  sqrt var
+          skew = sum [x**3 | x <- deviation] / (n*var*std_dev)
+          kurt = sum [x**4 | x <- deviation] / (n*var*var) - 3.0
+
+-- calculate the median
+median nums n = mid (sort nums)
+    where mid x
+              | odd (length x) = x!! midpt
+              | otherwise       = ((x!!(midpt-1)) + (x!!midpt)) / 2.0
+          midpt = floor (n/2)
+
+--Faster "read" for doubles
+fast_read ('-':xs) = -1 * fast_read(xs)
+fast_read      xs  = ip + frac
+                where
+                    (i,f) = break (== '.') xs
+                    ip    = foldl (mult_acc  10) 0 i
+                    frac  = foldl (mult_acc 0.1) 0 f
+                    mult_acc val x y = x*val + fromIntegral(ord(y)-ord('0')) 
+-- $Id: moments.ghc,v 1.1 2004-05-19 18:10:54 bfulgham Exp $
+-- http://www.bagley.org/~doug/shootout/
+-- from Brian Gregor
+
+module Main where
+
+import IO 
+import System
+import Numeric
+
+-- read the file
+main = do input <- getContents
+	  putAns (lines input)         
+        
+
+-- print out the answers
+putAns :: [String] -> IO ()
+putAns st_nums = do
+	           putStrLn ("n:                  " ++ (showInt (truncate n) ""))
+                   putStrLn ("median:             " ++ (showFFloat (Just 6) (median nums n) ""))
+		   putStrLn ("mean:               " ++ (showFFloat (Just 6) mean ""))
+		   putStrLn ("average_deviation:  " ++ (showFFloat (Just 6) avg_dev ""))
+		   putStrLn ("standard_deviation: " ++ (showFFloat (Just 6) std_dev ""))
+		   putStrLn ("variance:           " ++ (showFFloat (Just 6) var ""))
+		   putStrLn ("skew:               " ++ (showFFloat (Just 6) skew ""))
+		   putStrLn ("kurtosis:           " ++ (showFFloat (Just 6) kurt ""))
+                 where
+	  	   n = fromIntegral (length nums)
+		   nums = strToDoub st_nums
+		   mean = (sum nums) / n
+		   deviation = [x-mean | x <- nums] 
+		   avg_dev = (sum [abs x | x <- deviation])/ n
+		   var = (sum [x**2 | x <- deviation]) / (n-1)
+		   std_dev = sqrt var
+		   skew = (sum [x**3 | x <- deviation]) / (n*var*std_dev)
+		   kurt = (sum [x**4 | x <- deviation]) / (n*var*var)-3.0
+
+
+-- convert the strings to doubles
+strToDoub :: [String] -> [Double]
+strToDoub nums = map conv nums
+    where  conv x = fst (head (readFloat x))
+
+-- calculate the median
+median :: [Double] -> Double -> Double
+median nums n = mid (mSort nums)
+       where 
+         mid x 
+           | odd (length x) = x!! midpt
+           | otherwise       = ((x!!(midpt-1)) + (x!!midpt)) / 2.0
+         midpt :: Int
+         midpt = floor (n/2) 
+
+-- Sorting: the various languages use various algorithms
+-- here's  an optimized mergesort from 
+-- "Algorithms - a Functional Approach" by
+-- Fethi Rabhe & Guy Lapalme
+split :: (Ord a) => [a] -> [[a]]
+split [] = []
+split (x:xs) = [x]:split xs
+
+merge :: (Ord a) => [a] -> [a] -> [a]
+merge [] b  = b
+merge a [] = a
+merge a@(x:xs) b@(y:ys)
+    | (x<=y) = x : (merge xs b)
+    | otherwise = y : (merge a ys)
+
+mergepairs :: (Ord a) => [[a]] -> [[a]]
+mergepairs [] = []
+mergepairs x@[l] = x
+mergepairs (l1:l2:rest) = (merge l1 l2) : (mergepairs $! rest)
+
+-- The actual sort
+mSort :: (Ord a) => [a] -> [a]
+mSort l = ms (split l)
+    where  ms [r] = r
+           ms l   = ms (mergepairs l)
+--
+-- The Computer Language Benchmarks Game
+-- http://shootout.alioth.debian.org/
+--
+-- Contributed by Olof Kraigher and Don Stewart.
+--
+-- To be compiled with:
+--
+--  -O2 -fglasgow-exts -funbox-strict-fields -fbang-patterns -optc-O 
+--
+-- Don't enable -optc-mfpmath=sse -optc-msse2, this triggers a gcc bug on x86
+--
+
+import Foreign
+import Foreign.Storable
+import Foreign.Marshal.Alloc
+import Data.IORef
+import Control.Monad
+import System
+import Text.Printf
+
+main = do
+    n <- getArgs >>= readIO.head
+    initialize
+    offset_momentum
+    energy 0 planets >>= printf "%.9f\n"
+    replicateM_ n (advance planets)
+    energy 0 planets >>= printf "%.9f\n"
+
+offset_momentum = do
+    m <- foldr (.+.) (Vec 0 0 0)
+             `fmap` (mapM momentum
+                   . take (nbodies - 1)
+                   . iterate next $ next planets)
+
+    setVec (vel planets) $ (-1/solar_mass) *. m
+  where
+    momentum !p = liftM2 (*.) (mass p) (getVec (vel p))
+
+energy :: Double -> Ptr Double -> IO Double
+energy !e !p
+    | p == end = return e
+    | otherwise      = do
+        p1 <- getVec (pos p)
+        v1 <- getVec (vel p)
+        m1 <- mass p
+        e  <- energy2 p1 m1 e p2
+        energy (e + 0.5 * m1 * magnitude2 v1) p2
+    where p2 = next p
+
+energy2 !p1 !m1 !e !p
+    | p  == end = return e
+    | otherwise = do
+        p2 <- getVec (pos p)
+        v2 <- getVec (vel p)
+        m2 <- mass p
+        let distance = sqrt . magnitude2 $ p1 .-. p2
+        energy2 p1 m1 (e - m1 * m2 / distance) (next p)
+
+advance :: Ptr Double -> IO ()
+advance !p1 = when (p1 /= end) $ do
+    pos1 <- getVec $ pos p1
+    m1   <- mass p1
+    let go !p2
+            | p2 /= end = do
+                pos2 <- getVec (pos p2)
+                m2   <- mass p2
+                let vel2       = vel p2
+                    difference = pos1 .-. pos2
+                    distance2  = magnitude2 difference
+                    distance   = sqrt distance2
+                    magnitude  = delta_t / (distance2 * distance)
+                    mass_magn  = magnitude *. difference
+                vel1 -= m2 *. mass_magn
+                vel2 += m1 *. mass_magn
+                go (next p2)
+
+            | otherwise = do
+                v1 <- getVec vel1
+                p1 += delta_t *. v1
+    go p2
+    advance  p2
+  where
+    vel1 = vel p1
+    p2   = next p1
+
+------------------------------------------------------------------------
+
+planets :: Ptr Double
+planets = unsafePerformIO $ mallocBytes (7 * nbodies * 8) -- sizeOf double = 8
+
+nbodies :: Int
+nbodies = 5
+
+solar_mass, delta_t, days_per_year :: Double
+days_per_year = 365.24
+solar_mass    = 4 * pi ** 2;
+delta_t       = 0.01
+
+initialize = mapM_ newPlanet planets
+  where
+   dp = days_per_year
+   planets =
+    [0, 0, 0,
+     0, 0, 0,
+     1 * solar_mass,
+     4.84143144246472090e+00,        (-1.16032004402742839e+00), (-1.03622044471123109e-01),
+     1.66007664274403694e-03*dp,     7.69901118419740425e-03*dp, (-6.90460016972063023e-05)*dp,
+     9.54791938424326609e-04 * solar_mass,
+
+     8.34336671824457987e+00,        4.12479856412430479e+00,    (-4.03523417114321381e-01),
+     (-2.76742510726862411e-03)*dp,  4.99852801234917238e-03*dp, 2.30417297573763929e-05*dp,
+     2.85885980666130812e-04 * solar_mass,
+
+     1.28943695621391310e+01,        (-1.51111514016986312e+01), (-2.23307578892655734e-01),
+     2.96460137564761618e-03*dp,     2.37847173959480950e-03*dp, (-2.96589568540237556e-05)*dp,
+     4.36624404335156298e-05 * solar_mass,
+
+     1.53796971148509165e+01,        (-2.59193146099879641e+01), 1.79258772950371181e-01,
+     2.68067772490389322e-03*dp,     1.62824170038242295e-03*dp, (-9.51592254519715870e-05)*dp,
+     5.15138902046611451e-05 * solar_mass
+    ]
+
+------------------------------------------------------------------------
+-- Support for 3 dimensional mutable vectors
+
+data Vector3 = Vec !Double !Double !Double
+
+end :: Ptr Double
+end = inc planets $ nbodies * 7
+
+next  :: Ptr Double -> Ptr Double
+next p = inc p 7
+
+cursor :: IORef (Ptr Double)
+cursor = unsafePerformIO $ newIORef planets
+
+inc :: Ptr Double -> Int -> Ptr Double
+inc ptr n = plusPtr ptr (n * 8)
+
+newPlanet :: Double -> IO ()
+newPlanet !d = do
+    ptr <- readIORef cursor
+    pokeElemOff ptr 0 d
+    writeIORef cursor (inc ptr 1)
+
+pos :: Ptr Double -> Ptr Double
+pos ptr = ptr
+
+vel :: Ptr Double -> Ptr Double
+vel ptr = inc ptr 3
+
+mass :: Ptr Double -> IO Double
+mass ptr = peekElemOff ptr 6
+
+------------------------------------------------------------------------
+
+(Vec x y z) .+. (Vec u v w) = Vec (x+u) (y+v) (z+w)
+
+(Vec x y z) .-. (Vec u v w) = Vec (x-u) (y-v) (z-w)
+
+k *. (Vec x y z) = Vec (k*x) (k*y) (k*z) -- allocates
+
+magnitude2 (Vec x y z) = x*x + y*y + z*z
+
+------------------------------------------------------------------------
+
+getVec !p = liftM3 Vec (peek p) (f 1) (f 2)
+    where f = peekElemOff p
+
+setVec p (Vec x y z)= do
+    poke        p   x
+    pokeElemOff p 1 y
+    pokeElemOff p 2 z
+
+infix 4 +=
+infix 4 -=
+
+v1 += (Vec u v w) = do
+    x <- peek v1;          poke        v1   (x+u)
+    y <- peekElemOff v1 1; pokeElemOff v1 1 (y+v)
+    z <- peekElemOff v1 2; pokeElemOff v1 2 (z+w)
+
+v1 -= (Vec u v w)  = do
+    x <- peek v1;          poke        v1   (x-u)
+    y <- peekElemOff v1 1; pokeElemOff v1 1 (y-v)
+    z <- peekElemOff v1 2; pokeElemOff v1 2 (z-w)
+-- $Id: nestedloop.ghc,v 1.4 2004-09-30 07:39:37 bfulgham Exp $
+-- http://shootout.alioth.debian.org/
+-- from Brian Gregor
+-- shortened by JP Bernardy
+
+import System(getArgs)
+
+main = do [number] <- getArgs
+	  let n = read number
+          print (loopA n n 0)
+    where loopA :: Int -> Int -> Int -> Int
+	  loopA 0 m x = x
+	  loopA n m x = loopA (n-1) m (loopB m m x)
+
+	  loopB 0 m x = x
+	  loopB n m x = loopB (n-1) m (loopC m m x)
+
+	  loopC 0 m x = x
+	  loopC n m x = loopC (n-1) m (loopD m m x)
+
+	  loopD 0 m x = x
+	  loopD n m x = loopD (n-1) m (loopE m m x)
+
+	  loopE 0 m x = x
+	  loopE n m x = loopE (n-1) m (loopF m x)
+
+	  loopF 0 x = x
+	  loopF n x = loopF (n-1) (x+1)
+
+-- $Id: nestedloop.ghc2.ghc,v 1.1 2004-05-19 18:11:01 bfulgham Exp $
+-- http://www.bagley.org/~doug/shootout/
+-- from Bryn Keller
+
+import IOExts (unsafePerformIO, newIORef, readIORef, writeIORef)
+import System (getArgs)
+
+times 0 f = return ()
+times n f = f >> times (n-1) f
+
+incr ref = readIORef ref >>= (writeIORef ref) . succ
+
+main = do
+   x <- newIORef 0
+   args <- getArgs
+   case args of
+    [number]->  let n = read number in do
+        n `times` (n `times` (n `times` (n `times` (n `times` ( n `times` (incr x))))))
+        readIORef x >>= putStrLn . show
+    _ -> fail "You must enter a number"
+
+
+{-# OPTIONS -O2 -fasm -fbang-patterns #-}
+--
+-- The Computer Language Benchmarks Game
+-- http://shootout.alioth.debian.org/
+--
+-- Contributed by Don Stewart.
+-- Uses Word8 values to represent Bools, avoiding a bit-packing Array Bool
+--
+
+import System
+import Foreign
+import Data.ByteString.Unsafe
+import Data.ByteString.Internal
+import Text.Printf
+
+main = do
+    n <- getArgs >>= readIO . head
+    mapM_ (\i -> sieve (10000 `shiftL` (n-i))) [0, 1, 2]
+
+sieve n = do
+    a <- create n $ \p -> memset p 0 (fromIntegral n) >> return ()
+    r <- go n a 0 2
+    printf "Primes up to %8d %8d\n" (n::Int) (r::Int)
+
+go m !a !c !n
+    | n == m    = return c
+    | true a n  = go m a c (n+1)
+    | otherwise = set (n+n)
+  where
+    set !j | j <= m    = false a j >> set (j+n)
+           | otherwise = go m a (c+1) (n+1)
+
+true  !a !n          = unsafeIndex a n == 1
+false (PS fp _ _) !n = withForeignPtr fp $ \p -> pokeByteOff p n (1 :: Word8)
+{-# OPTIONS -O2 -optc-O -fbang-patterns #-}
+--
+-- The Computer Language Benchmarks Game
+-- http://shootout.alioth.debian.org/
+--
+-- Contributed by Don Stewart
+-- nsieve over an ST monad Word8 array
+--
+
+import Control.Monad.ST
+import Data.Array.ST
+import Data.Array.Base
+import System
+import Control.Monad
+import Data.Bits
+import Data.Word
+import Text.Printf
+
+main = do
+    n <- getArgs >>= readIO . head :: IO Int
+    mapM_ (\i -> sieve (10000 `shiftL` (n-i))) [0, 1, 2]
+
+sieve n = do
+   let r = runST (do a <- newArray (2,n) 0 :: ST s (STUArray s Int Word8)
+                     go a n 2 0)
+   printf "Primes up to %8d %8d\n" (n::Int) (r::Int) :: IO ()
+
+go !a !m !n !c
+    | n == m    = return c
+    | otherwise = do
+          e <- unsafeRead a n
+          if e == 0 then set (n `shiftL` 1)
+                       else go a m (n+1) c
+  where
+    set !j
+        | j < m     = unsafeWrite a j 1 >> set (j+n)
+        | otherwise = go a m (n+1) (c+1)
+
+{-# OPTIONS -fbang-patterns #-}
+--
+-- The Computer Language Shootout
+-- http://shootout.alioth.debian.org/
+--
+-- Contributed by Don Stewart
+-- Nsieve over a Bool array
+--
+
+import Data.Array.IO
+import Data.Array.Base
+import System
+import Text.Printf
+
+main = do
+    n <- getArgs >>= readIO . head :: IO Int
+    mapM_ (sieve . (10000 *) . (2 ^)) [n, n-1, n-2]
+
+sieve n = do
+    a <- newArray (2,n) True :: IO (IOUArray Int Bool) -- an array of Bool
+    r <- go a n 2 0
+    printf "Primes up to %8d %8d\n" (n::Int) (r::Int) :: IO ()
+
+go !a !m !n !c
+    | n == m    = return c
+    | otherwise = do
+            e <- unsafeRead a n
+            if e
+                then let loop !j
+                            | j <= m    = unsafeWrite a j False >> loop (j+n)
+                            | otherwise = go a m (n+1) (c+1)
+                     in loop (n+n)
+                else go a m (n+1) c
+{-# OPTIONS -O2 -optc-O -fbang-patterns #-}
+--
+-- The Computer Language Shootout
+-- http://shootout.alioth.debian.org/
+--
+-- Contributed by Don Stewart
+-- nsieve over an ST monad Bool array
+--
+
+import Control.Monad.ST
+import Data.Array.ST
+import Data.Array.Base
+import System
+import Control.Monad
+import Data.Bits
+import Text.Printf
+
+main = do
+    n <- getArgs >>= readIO . head :: IO Int
+    mapM_ (sieve . (10000 *) . (2 ^)) [n, n-1, n-2]
+
+sieve n = do
+   let r = runST (do a <- newArray (2,n) True :: ST s (STUArray s Int Bool)
+                     go a n 2 0)
+   printf "Primes up to %8d %8d\n" (n::Int) (r::Int) :: IO ()
+
+go !a !m !n !c
+    | n == m    = return c
+    | otherwise = do
+          e <- unsafeRead a n
+          if e then let loop !j
+                          | j < m     = do
+                              x <- unsafeRead a j
+                              when x $ unsafeWrite a j False
+                              loop (j+n)
+
+                          | otherwise = go a m (n+1) (c+1)
+                    in loop (n `shiftL` 1)
+               else go a m (n+1) c
+
+{-# OPTIONS -fbang-patterns #-}
+--
+-- The Computer Language Shootout
+-- http://shootout.alioth.debian.org/
+--
+-- Contributed by Don Stewart
+-- Nsieve over a Bool array
+--
+
+import Data.Array.IO
+import Data.Array.Base
+import System
+import Text.Printf
+
+main = do
+    n <- getArgs >>= readIO . head :: IO Int
+    mapM_ (sieve . (10000 *) . (2 ^)) [n, n-1, n-2]
+
+sieve n = do
+    a <- newArray (2,n) True :: IO (IOUArray Int Bool) -- an array of Bool
+    r <- go a n 2 0
+    printf "Primes up to %8d %8d\n" (n::Int) (r::Int) :: IO ()
+
+go !a !m !n !c
+    | n == m    = return c
+    | otherwise = do
+            e <- unsafeRead a n
+            if e
+                then let loop !j
+                            | j <= m    = unsafeWrite a j False >> loop (j+n)
+                            | otherwise = go a m (n+1) (c+1)
+                     in loop (n+n)
+                else go a m (n+1) c
+-- $Id: objinst.ghc,v 1.4 2005-05-13 16:24:18 igouy-guest Exp $
+-- http://shootout.alioth.debian.org/
+-- Author: Einar Karttunen 
+-- compile with: ghc -O2 -o objinst objinst.hs
+
+import Control.Monad
+import Data.IORef
+import System
+
+class Toggle a where
+    activate :: a -> IO ()
+    value :: a -> IO Bool
+
+newtype ToggleC    = ToggleC (IORef Bool)
+newtype NthToggleC = NthToggleC (IORef (Bool, Int, Int))
+
+newToggle s = newIORef s >>= return . ToggleC
+newNthToggle s m = newIORef (s,0,m) >>= return . NthToggleC
+
+instance Toggle ToggleC where 
+    activate (ToggleC t) = modifyIORef t not
+    value (ToggleC t)    = readIORef t
+
+instance Toggle NthToggleC where
+    activate (NthToggleC t) = modifyIORef t (\(s,v,m) -> if v+1 == m then (not s,0,m) else (s,v+1,m))
+    value    (NthToggleC t) = readIORef t >>= \(s,_,_) -> return s
+
+out b = putStrLn $ if b then "true" else "false"
+
+main = do [num] <- getArgs
+	  toggle<- newToggle True
+	  replicateM_ 5 (activate toggle >> value toggle >>= out)
+	  replicateM_ (read num) (newToggle True)
+	  putStrLn ""
+	  ntoggle <- newNthToggle True 3
+	  replicateM_ 8 (activate ntoggle>> value ntoggle>>= out)
+	  replicateM_ (read num) (newNthToggle True 3)
+{-# OPTIONS -O2 -fexcess-precision #-}
+--
+-- The Computer Language Benchmarks Game
+-- http://shootout.alioth.debian.org/
+--
+-- Translation of the Clean by Don Stewart
+--
+
+import System
+import Numeric
+import Monad
+
+main = do n <- getArgs >>= readIO . head
+          mapM_ draw $ sigma (n::Int) (1::Int) 1 (2/3) 0 0 0 0 0 0 0 0 0
+
+draw (s,t) = putStrLn $ (showFFloat (Just 9) (s::Double) []) ++ "\t" ++ t
+
+sigma !n !i !alt !tt !a1 !a2 !a3 !a4 !a5 !a6 !a7 !a8 !a9
+    | i <= n    = sigma n (i+1) (-alt) tt
+                     (a1 + tt ** (k-1))
+                     (a2 + 1 / (sqrt k))
+                     (a3 + 1 / (k * (k + 1)))
+                     (a4 + 1 / (k3 * sk * sk))
+                     (a5 + 1 / (k3 * ck * ck))
+                     (a6 + 1 / k)
+                     (a7 + 1 / k2)
+                     (a8 + alt / k)
+                     (a9 + alt / (2 * k - 1))
+
+    | otherwise = [(a1, "(2/3)^k"),     (a2, "k^-0.5"),        (a3, "1/k(k+1)")
+                  ,(a4, "Flint Hills"), (a5, "Cookson Hills"), (a6, "Harmonic")
+                  ,(a7, "Riemann Zeta"),(a8, "Alternating Harmonic"), (a9, "Gregory")]
+
+    where k  = fromIntegral i
+          k3 = k2*k; k2 = k*k; sk = sin k; ck = cos k
+{-# OPTIONS -O2 -fvia-C -optc-O2 -fexcess-precision #-}
+--
+-- The Computer Language Benchmarks Game
+-- http://shootout.alioth.debian.org/
+--
+-- Translation of the Clean by Don Stewart
+--
+
+import System
+import Numeric
+import Monad
+
+main = do n <- getArgs >>= readIO . head
+          mapM_ draw $ sigma (n::Int) (1::Int) 1 (2/3) 0 0 0 0 0 0 0 0 0
+
+draw (s,t) = putStrLn $ (showFFloat (Just 9) (s::Double) []) ++ "\t" ++ t
+
+sigma !n !i !alt !tt !a1 !a2 !a3 !a4 !a5 !a6 !a7 !a8 !a9
+    | i <= n    = sigma n (i+1) (-alt) tt
+                     (a1 + tt ** (k-1))
+                     (a2 + 1 / (sqrt k))
+                     (a3 + 1 / (k * (k + 1)))
+                     (a4 + 1 / (k3 * sk * sk))
+                     (a5 + 1 / (k3 * ck * ck))
+                     (a6 + 1 / k)
+                     (a7 + 1 / k2)
+                     (a8 + alt / k)
+                     (a9 + alt / (2 * k - 1))
+
+    | otherwise = [(a1, "(2/3)^k"),     (a2, "k^-0.5"),        (a3, "1/k(k+1)")
+                  ,(a4, "Flint Hills"), (a5, "Cookson Hills"), (a6, "Harmonic")
+                  ,(a7, "Riemann Zeta"),(a8, "Alternating Harmonic"), (a9, "Gregory")]
+
+    where k  = fromIntegral i
+          k3 = k2*k; k2 = k*k; sk = sin k; ck = cos k
+-- The Computer Language Benchmarks Game
+-- http://shootout.alioth.debian.org/
+-- contributed by Bryan O'Sullivan
+-- modified by Eugene Kirpichov: pidgits only generates
+-- the result string instead of printing it. For some
+-- reason, this gives a speedup.
+
+import System
+
+pidgits n = 0 % (0 # (1,0,1)) where
+ i%ds
+  | i >= n = []
+  | True = (concat h ++ "\t:" ++ show j ++ "\n") ++ j%t
+  where k = i+10; j = min n k
+        (h,t) | k > n = (take (n`mod`10) ds ++ replicate (k-n) " ",[])
+              | True = splitAt 10 ds
+ j # s | n>a || r+n>=d = k # t
+     | True = show q : k # (n*10,(a-(q*d))*10,d)
+  where k = j+1; t@(n,a,d)=k&s; (q,r)=(n*3+a)`divMod`d
+ j&(n,a,d) = (n*j,(a+n*2)*y,d*y) where y=(j*2+1)
+
+main = putStr.pidgits.read.head =<< getArgs
+-- $Id: process.ghc,v 1.1 2004-12-20 09:43:19 ekarttun-guest Exp $
+-- http://shootout.alioth.debian.org/
+-- Contributed by Einar Karttunen
+
+import Control.Concurrent
+import Control.Monad
+import System
+
+thread :: MVar Int -> MVar Int -> IO ()
+thread inp out = takeMVar inp >>= putMVar out . (+1)
+
+spawn cur _ = do next <- newEmptyMVar
+		 forkIO $ thread cur next
+		 return next
+
+main = do n <- getArgs >>= readIO.head :: IO Int
+	  s <- newEmptyMVar
+	  e <- foldM spawn s [1..n]
+	  f <- newEmptyMVar 
+	  forkIO $ takeMVar e >>= putMVar f
+	  putMVar s 0
+	  takeMVar f >>= print
+-- $Id: prodcons.ghc,v 1.1 2004-05-19 18:11:14 bfulgham Exp $
+-- http://www.bagley.org/~doug/shootout/
+-- from Josef Svenningsson
+ 
+module Main where
+
+import CVar
+import MVar
+import Concurrent
+import Exception
+import IOExts
+import System
+
+producer :: Int -> IORef Int -> CVar Int -> IO ()
+producer n p ch = sequence_ (map send [1..n])
+  where send i = do writeCVar ch i
+                    prod <- readIORef p
+                    writeIORef p (prod+1)
+
+consumer :: Int -> IORef Int -> CVar Int -> IO ()
+consumer n c ch = cons 1
+  where cons i | n <= i = return ()
+        cons i
+            = do i <- readCVar ch
+                 con <- readIORef c
+                 writeIORef c (con+1)
+                 cons i
+
+myForkIO :: IO () -> IO (MVar ())
+myForkIO io = do
+   mvar <- newEmptyMVar
+   forkIO (io `finally` putMVar mvar ())
+   return mvar
+
+join :: MVar () -> IO ()
+join mvar = readMVar mvar
+
+main = do (a:_) <- getArgs
+          let n = read a
+          produced <- newIORef 0
+          consumed <- newIORef 0
+          channel <- newCVar
+          p <- myForkIO (producer n produced channel)
+          c <- myForkIO (consumer n consumed channel)
+          join p; join c
+          prod <- readIORef produced
+          cons <- readIORef consumed
+          putStrLn (show prod ++ " " ++ show cons)
+-- $Id: prodcons.ghc,v 1.5 2004-10-05 02:29:33 bfulgham Exp $
+-- http://shootout.alioth.debian.org/
+-- by JP Bernardy, optimized by Einar Karttunen
+
+import Control.Concurrent
+import System
+
+producer n m mv | n == m = return m
+		| True   = putMVar mv n >> producer (n+1) m mv
+
+consumer 0 m mv = return m
+consumer n m mv = takeMVar mv >> consumer (n-1) m mv
+
+main = do [a] <- getArgs
+          let n = read a :: Int
+          mvar <- newEmptyMVar 
+	  ret  <- newEmptyMVar
+          forkIO (producer 0 n mvar >>= putMVar ret)
+	  m <- consumer n n mvar 
+	  r <- takeMVar ret
+	  putStrLn (show r ++ " " ++ show m)
+-- $Id: random.ghc-2.ghc,v 1.1 2004-11-10 06:58:22 bfulgham Exp $
+-- http://www.bagley.org/~doug/shootout/
+-- based on code from Julian Assange
+
+module Main(main) where
+import System(getArgs, exitWith, ExitCode(..))
+import Numeric(showFFloat)
+
+main = do
+         arg <- getArgs
+         case arg of
+              [num] -> putStrLn (showFFloat (Just 9) answer "")
+                       where
+                             answer = last . take (read num) . random $ 100.0
+              _     -> exitWith (ExitFailure 1)
+
+-- construct an infinite list of random numbers
+random :: Double -> [Double]
+random max = map norm . rand $ 42
+           where norm x = (fromIntegral x) * (max / (fromIntegral im))
+                 rand x = x' : (rand x')
+                    where x' = (x * ia + ic) `mod` im
+                 im     = 139968
+                 ia     = 3877
+                 ic     = 29573
+
+-- $Id: random.ghc-2.ghc,v 1.4 2006-01-25 11:09:14 ekarttun-guest Exp $
+-- http://shootout.alioth.debian.org
+--
+-- Original by Simon Marlow
+-- Heavily modified by Einar Karttunen, further by Don Stewart
+--
+--  ghc -o c C.hs -O3 -optc-O3 -fexcess-precision -fglasgow-exts 
+--
+
+import System; import Numeric
+
+main = putStrLn . (\n -> showFFloat (Just 9) (randl (n-1) 42) []) . read . head =<< getArgs
+
+randl (n::Int) (seed::Int) = if n == 0 then nr else randl (n-1) ns :: Double
+  where (ns,nr)    = ((seed * ia + ic) `rem` im, 100 * (fromIntegral ns) / fromIntegral im)
+        (im,ia,ic) = (139968,3877,29573)
+
+{-# OPTIONS -O2 -fvia-C -fexcess-precision #-}
+--
+-- The Computer Language Benchmarks Game
+-- http://shootout.alioth.debian.org/
+--
+-- Translated from the Clean by Don Stewart
+--
+-- Should be compiled with:
+--  -O -fglasgow-exts -optc-march=pentium4
+--  -optc-O2 -optc-mfpmath=sse -optc-msse2
+--
+
+import System
+import Numeric
+
+main = do
+    n <- getArgs >>= readIO . head
+    let m  = n-1
+        a  = 27 + fromIntegral n
+    putStr $
+       line "Ack" [3,n]       (ack 3 n)                     show ++
+       line "Fib" [a]         (fib a             :: Double) (\n -> showFFloat (Just 1) n []) ++
+       line "Tak" [3*m,2*m,m] (tak (3*m) (2*m) m :: Int)    show ++
+       line "Fib" [3]         (fib 3             :: Int)    show ++
+       line "Tak" [3,2,1]     (tak 3 2 1         :: Double) show
+    where
+       line pre a r f = pre ++ "(" ++ csv f a "" ++ "): " ++ f r ++ "\n"
+       csv f [a]   s  = s ++ f a
+       csv f (a:b) s  = s ++ f a ++ "," ++ csv f b s
+
+ack :: Int -> Int -> Int
+ack 0 n = n+1
+ack m 0 = ack (m-1) 1
+ack m n = ack (m-1) (ack m (n-1))
+
+fib :: (Num a, Ord a) => a -> a
+fib     n = if n >= 2 then fib  (n-1) + fib  (n-2) else 1
+
+tak :: (Num a, Ord a) => a -> a -> a -> a
+tak x y z = if y < x then tak (tak (x-1) y z) (tak (y-1) z x) (tak (z-1) x y) else z
+--
+-- The Computer Language Benchmarks Game
+-- http://shootout.alioth.debian.org/
+--
+-- contributed by Sergei Matusevich 2007
+-- modified by Tim Newsham
+-- modified by Stephen Blackheath 2009, v1.0
+-- mostly redone by Louis Wasserman, 2010
+
+-- Compile command: ghc --make -O2 -threaded regex.hs -o regex
+-- Run command:     ./regex +RTS -N4 -qm -qw -H250M       (quad core)
+--                  ./regex +RTS -H250M               (single core)
+-- 
+-- Note for future reference: with GHC HEAD as of 6/13/10,
+-- works something like 3x as fast as GHC 6.12.1.  Reevaluate 
+-- in future! -LW
+
+
+import Control.Concurrent
+import Control.Parallel.Strategies
+import Control.Monad
+import GHC.Conc
+import Foreign
+import Text.Regex.PCRE
+import Text.Regex.PCRE.ByteString          -- requires haskell-regex-pcre-builtin
+import qualified Data.ByteString as B
+import qualified Data.ByteString.Internal as BI
+import Data.Array.Base
+import Data.List
+import Data.Word
+import Data.ByteString.Unsafe
+
+subs = [
+    ("B", "(c|g|t)"),
+    ("D", "(a|g|t)"),
+    ("H", "(a|c|t)"),
+    ("K", "(g|t)"),
+    ("M", "(a|c)"),
+    ("N", "(a|c|g|t)"),
+    ("R", "(a|g)"),
+    ("S", "(c|g)"),
+    ("V", "(a|c|g)"),
+    ("W", "(a|t)"),
+    ("Y", "(c|t)")]
+
+main = do
+  file <- B.getContents
+  let variants = map (\ x -> (x, makeRegex x)) [
+	"agggtaaa|tttaccct",
+	"[cgt]gggtaaa|tttaccc[acg]",
+	"a[act]ggtaaa|tttacc[agt]t",
+	"ag[act]gtaaa|tttac[agt]ct",
+	"agg[act]taaa|ttta[agt]cct",
+	"aggg[acg]aaa|ttt[cgt]ccct",
+	"agggt[cgt]aa|tt[acg]accct",
+	"agggta[cgt]a|t[acg]taccct",
+	"agggtaa[cgt]|[acg]ttaccct" ]  :: [(String, Regex)]
+  let [s1,s2,s3] = map (B.concat . tail) $
+                groupBy notHeader $ B.split (BI.c2w '\n') file
+      showVars :: (String, Regex) -> String
+      showVars (rx,r) = let m2 = match r s2; m3 = match r s3 :: Int in
+      	m2 `par` m3 `seq` (rx ++ ' ' : show (m2 + m3))
+      results = map showVars variants ++ [
+                  "",
+                  show $ B.length file,
+                  show $ B.length s1 + B.length s2 + B.length s3]
+  store <- newEmptyMVar
+  let chunks = fragment 20000 s2  -- break into chunks to parallelize, which
+                                 -- is possible as our regexes are 1 char long
+  s1 `seq` s2 `seq` s3 `seq` (variants `using` parList (seqPair r0 rwhnf)) `par` 
+  	forkIO (parallel (map substituteAll chunks) >>= putMVar store)
+  	-- do regex substitutions
+  mapM_ putStrLn $ results `using` parList rdeepseq
+  chunks' <- takeMVar store
+  print $ B.length s1 + B.length s3 + chunks'
+  where notHeader _ s = B.null s || B.head s /= (BI.c2w '>')
+
+-- Drop in replacement for sequence
+parallel :: [IO Int] -> IO Int
+parallel actions = do
+    vars <- mapM (\ action -> do
+        var <- newEmptyMVar
+        forkIO $ do
+            answer <- action
+            putMVar var $! answer
+        return var) actions
+    foldM (\ !x v -> liftM (+x) (takeMVar v)) 0 vars
+
+fragment :: Int -> B.ByteString -> [B.ByteString]
+fragment chunkSize bs = if B.null bs then [] else 
+    case B.splitAt chunkSize bs of
+    	(start, rem) -> start : fragment chunkSize rem
+
+-- Precompile regexes
+subRegexes :: [(Regex, B.ByteString)]
+subRegexes = flip map subs $ \(pattern, sub) ->	
+    (makeRegex pattern :: Regex, B.pack (map BI.c2w sub))
+
+extend :: B.ByteString -> IO B.ByteString
+extend src = do
+	destFP <- BI.mallocByteString (B.length src * 3)
+	copyBS src destFP
+
+copyBS :: B.ByteString -> ForeignPtr Word8 -> IO B.ByteString
+copyBS (BI.PS srcFP srcOff srcLen) destFP = withForeignPtr srcFP $ \ src0 ->
+	withForeignPtr destFP $ \ dest0 -> do
+	  copyArray dest0 (src0 +! srcOff) srcLen
+	  return (BI.PS destFP 0 srcLen)
+
+substituteAll :: B.ByteString -> IO Int
+substituteAll !txt@(BI.PS srcFP srcOff srcLen) = allocaArray (B.length txt * 3) $ \ destP -> do
+    destFP <- newForeignPtr_ destP
+    withForeignPtr srcFP $ \ srcP -> copyArray destP (srcP `advancePtr` srcOff) srcLen
+    let dest = BI.PS destFP 0 srcLen
+    allocaArray (B.length txt * 3) $ \ tmp -> do
+    	tmpF <- newForeignPtr_ tmp
+    	foldM (\ !n sub -> do
+       		n' <- substitute_ tmp (BI.PS destFP 0 n) sub 
+       		copyArray destP tmp n'
+       		return n') srcLen subRegexes
+
+(+!) = advancePtr
+
+substitute_ :: Ptr Word8 -> B.ByteString -> (Regex, B.ByteString) -> IO Int
+substitute_ !p xs@(BI.PS fp0 i0 l0) (regex, BI.PS fpSub iSub lSub) = 
+  withForeignPtr fp0 $ \ p00 -> let p0 = p00 +! i0 in withForeignPtr fpSub $ \ pSub -> do
+	len <- do
+		let go !i !j = do
+		      match <- execute regex (unsafeDrop i xs)
+		      case match of
+			Right (Just arr) -> do
+			    let !(!off, !len) = arr `unsafeAt` 0
+			    copyArray (p +! j) (p0 +! i) off
+			    copyArray (p +! (j + off)) (pSub +! iSub) lSub
+			    go (i + off + len) (j + off + lSub)
+			_ -> copyArray (p +! j) (p0 +! i) (l0 - i) >> return (j + l0 - i)
+		go 0 0
+	return len -- destFP now points to the substituted string
+-- $Id: regexmatch.ghc,v 1.7 2005-05-16 15:28:25 ekarttun-guest Exp $
+-- http://shootout.alioth.debian.org/ 
+-- By Ray Racine (Haskell newbie)
+-- Usage for 10 iterations:: regexp 10 < Input.txt
+--
+-- This seems very hard to get right with Haskell
+-- as GHC is too good with optimizing. It takes 
+-- the regexmatch out of the loop making things 
+-- too fast. Fixing this is dependant on GHC version
+-- and the amount of kludge one is willing to 
+-- commit oneself. The current code seems to 
+-- quite linear with GHC6.2.2 but GHC6.4 optimizer
+-- will kill this too... 
+-- Added options into the Makefile to make this *slower*.
+-- ugliness by Einar Karttunen
+
+import Control.Monad
+import Data.Maybe
+import System (getArgs)
+import Text.Regex (matchRegex, mkRegex)
+
+phoneMatch = matchRegex $ mkRegex regex
+	     where regex = 
+		       "(^|[^0-9\\(]+)" ++
+		       "(" ++ 
+	               "\\(([0-9][0-9][0-9])\\)" ++
+	               "|" ++
+	               "([0-9][0-9][0-9])" ++
+	               ")" ++
+	               " " ++
+	               "([0-9][0-9][0-9])" ++
+	               "[ -]"  ++
+	               "([0-9][0-9][0-9][0-9])" ++
+		       "($|[^0-9])"
+
+canonicalPhone matchGrps = "(" ++ areacode ++ ") " ++ phnum
+                           where areacode = let (_,b) = splitAt 2 matchGrps in
+					    (head b) ++ (head . tail $ b)
+				 phnum = let (_,b) = splitAt 4 matchGrps in
+					 (head b) ++ "-" ++ (head . tail) b	
+
+matches l = return $ concatMap (fun . phoneMatch) l
+    where fun Nothing = []
+	  fun (Just v)= [canonicalPhone v]
+
+main = do [num] <- getArgs
+	  lined <- getContents >>= return . lines
+	  foldM (\n _ -> matches lined >>= \v -> n `seq` return $ n + length v) 0 [2..(read num)] 
+	  matches lined >>= foldM_ (\n v -> putStrLn (show n ++ ": " ++ v) >> return (n+1)) 1
+--
+-- The Computer Language Benchmarks Game
+-- http://shootout.alioth.debian.org/
+--
+-- Contributed by Sterling Clover
+-- Heavily inspired by contribution from Don Stewart
+-- Inlining improvements by Don Stewart.
+--
+
+import qualified Data.ByteString.Char8 as S
+import Data.ByteString.Internal
+import Data.ByteString.Unsafe
+import Foreign
+import Control.Arrow
+import GHC.Base
+import GHC.Ptr
+import GHC.IOBase
+
+main = uncurry proc =<< clines `fmap` S.getContents
+
+proc [] _ = return ()
+proc (h:hs) (b:bs) = S.putStrLn h >> revcomp b >> writeFasta b >> proc hs bs
+
+writeFasta t
+    | S.null t  = return ()
+    | otherwise = S.putStrLn l >> writeFasta r
+    where (l,r) = S.splitAt 60 t
+
+clines :: ByteString -> ([ByteString],[ByteString])
+clines ps = clines' ps ([],[])
+    where
+      {-# INLINE clines' #-}
+      clines' ps accum@(f,s)
+          | otherwise = case S.elemIndex '\n' ps of
+                          Just n  -> clines'' (S.drop (n+1) ps) (f++[S.take n ps],s)
+      clines'' ps accum@(f,s)
+          | otherwise = case S.elemIndex '>' ps of
+                      Nothing -> (f,s++[S.filter (/='\n') ps])
+                      Just n  -> clines' (S.drop n ps) (f,s++[S.filter (/='\n') . S.take n $ ps])
+
+{-# INLINE comps #-}
+comps = map (ord *** c2w) [
+    ('A' , 'T'), ( 'a' , 'T'), ( 'C' , 'G'), ( 'c' , 'G'), ( 'G' , 'C'),
+    ('g' , 'C'), ( 'T' , 'A'), ( 't' , 'A'), ( 'U' , 'A'), ( 'u' , 'A'),
+    ('M' , 'K'), ( 'm' , 'K'), ( 'R' , 'Y'), ( 'r' , 'Y'), ( 'Y' , 'R'),
+    ('y' , 'R'), ( 'K' , 'M'), ( 'k' , 'M'), ( 'V' , 'B'), ( 'v' , 'B'),
+    ('H' , 'D'), ( 'h' , 'D'), ( 'D' , 'H'), ( 'd' , 'H'), ( 'B' , 'V'), ( 'b' , 'V')]
+
+ca :: Ptr Word8
+ca = inlinePerformIO $ do
+       a <- mallocArray 200
+       mapM_ (uncurry (pokeByteOff a)) $ zip [0..199::Int] [0..199::Word8]
+       mapM_ (uncurry (pokeByteOff a)) comps
+       return a
+
+comp :: Word# -> Word#
+comp c = rw8 ca (word2Int# c)
+
+revcomp (PS fp s (I# l)) = withForeignPtr fp $ \p -> rc (p `plusPtr` s) 0# (l -# 1#)
+  where
+    rc :: Ptr Word8 -> Int# -> Int# -> IO ()
+    rc p i j  = rc' i j
+        where
+          rc' i j
+              | i <# j = do
+                          let x = rw8 p i
+                          ww8 p i (comp (rw8 p j))
+                          ww8 p j (comp x)
+                          rc' (i +# 1#) (j -# 1#)
+              | i ==# j = ww8 p i (comp (rw8 p i))
+              | otherwise =  return ()
+
+rw8 :: Ptr Word8 -> Int# -> Word#
+rw8 (Ptr a) i = case readWord8OffAddr# a i realWorld#  of (# _, x #) ->  x
+{-# INLINE rw8 #-}
+
+ww8 :: Ptr Word8 -> Int# -> Word# -> IO ()
+ww8 (Ptr a) i x  = IO $ \s -> case writeWord8OffAddr# a i x s of s2 -> (# s2, () #)
+{-
+The Computer Language Benchmarks Game
+ http://shootout.alioth.debian.org/
+
+contributed by Louis Wasserman
+-}
+
+import Monad
+import Foreign
+import Data.ByteString.Internal
+import System.IO
+
+data Buf = Buf !Int !Int !(Ptr Word8) 
+
+withBuf run = run . Buf 0 ini =<< mallocBytes ini
+  where ini = 1024
+
+newSize len sz
+  | len <= sz  = sz
+  | otherwise  = newSize len (2 * sz)
+
+{-# INLINE putBuf #-}
+putBuf pS lS (Buf lD szD pD) run
+  | lD' > szD  = do
+    let szD' = newSize lD' szD
+    pD' <- reallocBytes pD szD'
+    copyArray (pD' +* lD) pS lS
+    run (Buf lD' szD' pD')
+  | otherwise  = do
+    copyArray (pD +* lD) pS lS
+    run (Buf lD' szD pD)
+  where lD' = lD + lS
+
+findChar p n c zero one = do
+    q <- memchr p c (fromIntegral (n :: Int))
+    if q == nullPtr then zero else one $! q `minusPtr` p
+
+clearBuf (Buf _ lB pB) = Buf 0 lB pB
+
+main = allocaArray 82 $ \ line ->
+  let go !buf = do
+      !m <- hGetBuf stdin line 82
+      if m == 0 then revcomp buf else do
+        findChar line m (c2w '>') 
+          (putBuf line m buf go)
+          (\ end -> do
+            putBuf line end buf revcomp
+            putBuf (line +* end) (m - end) (clearBuf buf)
+              go)
+    in withBuf go
+
+(+*) = advancePtr
+
+{-# INLINE comps #-}
+comps = Prelude.zipWith (\ a b -> (fromEnum a, c2w b)) "AaCcGgTtUuMmRrYyKkVvHhDdBb" 
+  "TTGGCCAAAAKKYYRRMMBBDDHHVV"
+
+ca :: Ptr Word8
+ca = inlinePerformIO $ do
+       !a <- mallocArray 200
+       mapM_ (\ i -> pokeByteOff a (fromIntegral i) i ) [0..199::Word8]
+       mapM_ (uncurry (pokeByteOff a)) comps
+       return a
+
+revcomp (Buf lBuf _ pBuf) = when (lBuf > 0) $ ca `seq`
+  findChar pBuf lBuf (c2w '\n') undefined $ \ begin -> let
+    begin' = begin + 1
+    rc :: Ptr Word8 -> Ptr Word8 -> IO ()
+    rc !i !j | i < j = do
+      x <- peek i
+      if x == c2w '\n' then let !i' = i +* 1 in rc1 j i' =<< peek i'
+        else rc1 j i x
+    rc i j = when (i == j) (poke i =<< comp =<< peek i)
+    
+    rc1 !j !i !xi = do
+      y <- peek j
+      if y == c2w '\n' then let !j' = j +* (-1) in rc2 i xi j' =<< peek j'
+        else rc2 i xi j y
+    
+    comp = peekElemOff ca . fromIntegral
+    
+    rc2 !i !xi !j !xj = do
+      poke j =<< comp xi
+      poke i =<< comp xj
+      rc (i +* 1) (j +* (-1))
+    in do
+      hPutBuf stdout pBuf begin'
+      rc (pBuf +* begin') (pBuf +* (lBuf - 1))
+      hPutBuf stdout (pBuf +* begin') (lBuf - begin - 1)
+-- $Id: reversefile.ghc,v 1.1 2004-05-19 18:12:18 bfulgham Exp $
+-- http://www.bagley.org/~doug/shootout/
+-- from Julian Assange
+
+main = interact $ unlines . reverse . lines
+-- $Id: sieve.ghc,v 1.2 2004-11-23 08:08:45 bfulgham Exp $
+-- http://www.bagley.org/~doug/shootout/
+-- from Roland Dowdeswell
+-- adjusted by Aaron Denney, borrowing strictness attempt 
+-- from Malcom Wallace's matrix multiplication
+module Main where
+
+import System(getArgs)
+
+main = getArgs >>= putStrLn . ("Count: "++) . show . mytest . read . headOr1
+  where headOr1 x = if length x /= 1 then "1" else head x
+
+-- Here we try to force it to recompute at each step.
+mytest n = length $ strictlast $ map sieve $ replicate n ([2..8192])
+
+strictlast [x] = x
+strictlast (x:xs) | force x = strictlast xs
+force [] = True
+force (x:xs) = x `seq` force xs
+
+-- we use Int rather than let Haskell default to Integer,
+-- because we are trying to remain competetive with other
+-- languages that do not do arbitrary precision math by
+-- default...
+sieve :: [Int] -> [Int]
+sieve [] = []
+sieve (h:t) = h : sieve [x| x<-t, x`mod`h /= 0]
+-- $Id: sieve.ghc-2.ghc,v 1.1 2004-11-23 08:08:45 bfulgham Exp $
+-- http://www.bagley.org/~doug/shootout/
+-- from Roland Dowdeswell
+
+module Main where
+
+import System(getArgs)
+
+main = getArgs >>= putStrLn . ("Count: "++) . show . mytest . read . headOr1
+  where headOr1 x = if length x /= 1 then "1" else head x
+
+-- here we try to force it to recompute at each step.  Note
+-- that we are not naming `sieve [2..8192]' and we are forcing
+-- a comparison with -1.  Of course there is still no guarantee
+-- that any particular Haskell implementation will actually
+-- recompute the value.
+mytest :: Int -> Int
+mytest 1 = length (sieve [2..8192])
+mytest n | length (sieve [2..8192]) == -1 = error "doh"
+         | otherwise                      = mytest (n-1)
+
+-- we use Int rather than let Haskell default to Integer,
+-- because we are trying to remain competetive with other
+-- languages that do not do arbitrary precision math by
+-- default...
+sieve :: [Int] -> [Int]
+sieve [] = []
+sieve (h:t) = h : sieve [x| x<-t, x`mod`h /= 0]
+--
+-- The Computer Language Benchmarks Game
+-- http://shootout.alioth.debian.org/
+-- Contributed by Greg Buchholz 
+
+import Data.Array.Base
+import System(getArgs)
+import Numeric
+
+main = do 
+        [arg] <- getArgs
+        let n = (read arg) - 1 
+        let init = listArray (0,n) (repeat 1.0)
+        let (v:u:rest) = drop 19 $ iterate (eval_AtA_times_u n) init
+        let vBv = sum [(u!i)*(v!i) |i<-[0..n]]
+        let vv  = sum [(v!i)*(v!i) |i<-[0..n]]
+        putStrLn $ showFFloat (Just 9) (sqrt (vBv/vv)) ""
+
+eval_AtA_times_u n u = eval_At_times_u n v
+    where v = eval_A_times_u n u
+
+eval_A x y = 1.0/((i+j)*(i+j+1)/2+i+1)
+    where i = fromIntegral x
+          j = fromIntegral y
+
+eval_A_times_u :: Int -> UArray Int Double -> UArray Int Double
+eval_A_times_u n u = unsafeAccumArray (+) 0 (0,n) 
+                     [(i,(eval_A i j) * u!j)|i<-[0..n], j<-[0..n]]
+   
+eval_At_times_u :: Int -> UArray Int Double -> UArray Int Double
+eval_At_times_u n u = unsafeAccumArray (+) 0 (0,n) 
+                      [(i,(eval_A j i) * u!j)|i<-[0..n], j<-[0..n]]
+--
+-- The Computer Language Benchmarks Game
+-- http://shootout.alioth.debian.org/
+--
+-- Modified by Ryan Trinkle: 1) change from divInt# to uncheckedIShiftRA#
+--                           2) changed -optc-O to -optc-O3
+--                           3) added -optc-ffast-math
+-- Translation from Clean by Don Stewart
+-- Parallelized by Louis Wasserman
+--
+-- Should be compiled with:
+-- 	-threaded -funbox-strict-fields -O2 -fvia-c -optc-O3 
+-- 	-fexcess-precision -optc-ffast-math 
+-- Should be run with:
+-- 	+RTS -N<number of cores>
+
+import System
+import Foreign.Marshal.Array
+import Foreign
+import Text.Printf
+import Control.Concurrent
+import Control.Monad
+import GHC.Base
+import GHC.Conc
+
+type Reals = Ptr Double
+
+main = do
+    n <- getArgs >>= readIO . head
+    allocaArray n $ \ u -> allocaArray n $ \ v -> do
+      forM_ [0..n-1] $ \i -> pokeElemOff u i 1 >> pokeElemOff v i 0
+
+      powerMethod 10 n u v
+      printf "%.9f\n" =<< eigenvalue n u v 0 0 0
+
+------------------------------------------------------------------------
+
+eigenvalue :: Int -> Reals -> Reals -> Int -> Double -> Double -> IO Double
+eigenvalue !n !u !v !i !vBv !vv
+    | i < n     = do	ui <- peekElemOff u i
+			vi <- peekElemOff v i
+			eigenvalue n u v (i+1) (vBv + ui * vi) (vv + vi * vi)
+    | otherwise = return $! sqrt $! vBv / vv
+
+------------------------------------------------------------------------
+
+-- Essentially borrowed from the Java implementation.
+data CyclicBarrier = Cyclic !Int !(MVar (Int, [MVar ()]))
+
+await :: CyclicBarrier -> IO ()
+await (Cyclic k waitsVar) = do
+	(x, waits) <- takeMVar waitsVar
+	if x <= 1 then do
+		mapM_ (`putMVar` ()) waits
+		putMVar waitsVar (k, [])
+	  else do
+	  	var <- newEmptyMVar
+	  	putMVar waitsVar (x-1,var:waits)
+	  	takeMVar var
+
+newCyclicBarrier :: Int -> IO CyclicBarrier
+newCyclicBarrier k = liftM (Cyclic k) (newMVar (k, []))
+
+powerMethod :: Int -> Int -> Reals -> Reals -> IO ()
+powerMethod z n u v = allocaArray n $ \ !t -> do
+	let chunk = (n + numCapabilities - 1) `quotInt` numCapabilities
+	!barrier <- newCyclicBarrier $! (n + chunk - 1) `quotInt` chunk
+	let timesAtAv !s !d l r = do
+		timesAv n s t l r
+		await barrier
+		timesAtv n t d l r
+		await barrier
+	let thread !l !r = foldr (>>) (return ()) $ replicate z $ do
+		timesAtAv u v l r
+		timesAtAv v u l r
+	let go l = case l + chunk of
+		r | r < n	-> forkIO (thread l r) >> go r
+		  | otherwise	-> thread l n
+	go 0
+
+timesAv :: Int -> Reals -> Reals -> Int -> Int -> IO ()
+timesAv !n !u !au !l !r = go l where
+    go :: Int -> IO ()
+    go !i = when (i < r) $ do
+	let avsum !j !acc
+		| j < n = do
+			!uj <- peekElemOff u j
+			avsum (j+1) (acc + ((aij i j) * uj))
+		| otherwise = pokeElemOff au i acc >> go (i+1)
+	avsum 0 0
+
+timesAtv :: Int -> Reals -> Reals -> Int -> Int -> IO ()
+timesAtv !n !u !a !l !r = go l
+  where
+    go :: Int -> IO ()
+    go !i = when (i < r) $ do
+	let atvsum !j !acc 
+		| j < n	= do	!uj <- peekElemOff u j
+				atvsum (j+1) (acc + ((aij j i) * uj))
+		| otherwise = pokeElemOff a i acc >> go (i+1)
+	atvsum 0 0
+
+--
+-- manually unbox the inner loop:
+-- aij i j = 1 / fromIntegral ((i+j) * (i+j+1) `div` 2 + i + 1)
+--
+aij (I# i) (I# j) = D# (
+    case i +# j of
+        n -> 1.0## /## int2Double# 
+        	(((n *# (n+#1#)) `uncheckedIShiftRA#` 1#) +# (i +# 1#)))
+-- $Id: spellcheck.ghc,v 1.4 2005-03-13 20:16:56 ekarttun-guest Exp $
+-- http://shootout.alioth.debian.org
+-- from Bryn Keller
+-- with modifications by Aho
+
+-- compile with: ghc -O -package data
+
+import Data.Set (elementOf, mkSet)
+
+main = do
+	d <- readFile "Usr.Dict.Words"
+	let misspelled x = not $ x `elementOf` (mkSet (lines d))
+	interact $ unlines . filter misspelled . lines
+-- $Id: strcat.ghc-3.ghc,v 1.1 2004-11-10 06:44:59 bfulgham Exp $
+-- http://www.bagley.org/~doug/shootout/
+-- from Josef Svenningsson
+-- shortened by Bryn Keller
+
+import System(getArgs, getProgName)
+
+lengthNHellos n = length (concat (replicate n "hello\n"))
+
+main = do
+       arg <- getArgs
+       case arg of
+         [number] -> putStrLn $ show $ lengthNHellos (read number)
+         _        -> do name <- getProgName; fail ("Usage: " ++ name ++ "number")
+
+-- $Id: strcat.ghc,v 1.4 2005-06-21 05:36:55 igouy-guest Exp $
+-- http://www.bagley.org/~doug/shootout/ 
+-- from Josef Svenningsson
+-- shortened by Bryn Keller 
+-- shortened by JP Bernardy 
+
+import System(getArgs)
+
+main = do [number] <- getArgs
+          print $ length (concat (replicate (read number) "hello\n")) 
+-- $Id: sumcol.ghc-2.ghc,v 1.1 2004-11-10 06:43:14 bfulgham Exp $
+-- http://www.bagley.org/~doug/shootout/
+-- from Julian Assange
+-- shortened by JP Bernardy
+-- Sped up and corrected by John Goerzen
+
+main = interact ((++ "\n") . show . foldl (\c -> (+ c) . read) 0 . lines)
+
+{-# OPTIONS -O2 -fvia-C -optc-O2 -fbang-patterns #-}
+--
+-- The Computer Language Benchmarks Game
+-- http://shootout.alioth.debian.org/
+--
+-- Contributed by Don Stewart
+--
+import Data.Char
+
+import Data.ByteString.Internal
+import Data.ByteString.Lazy.Internal
+import Data.ByteString.Unsafe
+import qualified Data.ByteString.Char8      as S
+import qualified Data.ByteString.Lazy.Char8 as L
+
+main = print . new 0 =<< L.getContents
+
+new  i Empty   = i
+new !i (Chunk s (Chunk t ts)) | S.last s /= '\n' = new (add i s') ts'
+  where
+    (s',r)  = S.breakEnd ((==) '\n') s
+    (r',rs) = S.break    ((==) '\n') t
+    ts'     = Chunk (S.concat [r,r',S.singleton '\n']) (Chunk (unsafeTail rs) ts)
+new  i (Chunk s ss) = new (add i s) ss
+
+--
+-- now jump into the fast path
+--
+add !i !s    | S.null s  = i
+             | x == '-'  = sub i 0 xs
+             | otherwise = pos i (parse x) xs
+  where (x,xs) = uncons s
+
+sub !i !n !t | y == '\n'  = add (i-n) ys
+             | otherwise  = sub i n' ys
+  where (y,ys) = uncons t
+        n'     = parse y + 10 * n
+
+pos !i !n !t | y == '\n' = add (i+n) ys
+             | otherwise = pos i n' ys
+  where (y,ys) = uncons t
+        n'     = parse y + 10 * n
+
+parse c  = ord c - ord '0'
+
+uncons s = (w2c (unsafeHead s), unsafeTail s)
+{-# OPTIONS -fbang-patterns #-}
+--
+-- The Computer Language Shootout
+-- http://shootout.alioth.debian.org/
+--
+-- Contributed by Don Stewart
+--
+-- An elegant fold . unfold.
+--
+
+import Data.List
+import qualified Data.ByteString.Lazy.Char8 as L
+
+main = print . foldl' (+) 0 . unfoldr parse =<< L.getContents
+
+parse !s | Just (n,t) <- L.readInt s = Just (n, L.tail t)
+         | otherwise                 = Nothing
+--
+-- The Computer Language Shootout
+--
+-- http://shootout.alioth.debian.org/
+-- Contributed by Don Stewart
+--
+
+main = print . sum . map read . lines =<< getContents
+{-# OPTIONS -fbang-patterns #-}
+--
+-- The Computer Language Shootout
+-- http://shootout.alioth.debian.org/
+--
+-- Contributed by Vasile Gaburici, refactored heavily by Don Stewart
+-- Real line-oriented I/O
+--
+
+import qualified Data.ByteString.Char8 as S
+import Control.Exception as E
+import Control.Monad
+import Data.Maybe
+import System.Exit
+
+main = go 0
+  where
+    go !n = do
+        s <- E.handle (const (return Nothing)) (liftM return S.getLine)
+        case s of
+            Nothing -> print n
+            Just t  -> go (n+k) where Just (k,_) = S.readInt t
+{-# OPTIONS -fbang-patterns #-}
+--
+-- The Computer Language Shootout
+-- http://shootout.alioth.debian.org/
+--
+-- A lazy bytestring solution
+--
+
+import qualified Data.ByteString.Lazy.Char8 as S
+
+main = print . go 0 =<< S.getContents
+  where
+    go !n !s = case S.readInt s of -- lazily reads current line
+                    Nothing     -> n
+                    Just (k,t)  -> go (n+k) (S.tail t)
+-- The Computer Language Shootout
+-- http://shootout.alioth.debian.org/
+-- contributed by Greg Buchholz, optimized by Einar Karttunen and Don Stewart
+
+import System
+
+main = print . (\n -> tak (3*n) (2*n) n) . read . head =<< getArgs
+
+tak x y z = if y>=x then z::Float else tak (tak (x-1) y z) (tak (y-1) z x) (tak (z-1) x y)
+-- The Great Computer Language Shootout
+-- http://shootout.alioth.debian.org
+-- tcp-echo benchmark
+-- contributed by: Kurt Hutchinson
+
+import Foreign
+import Foreign.C
+import Network
+import System.Environment
+import System.IO
+import System.Posix.Process
+
+m = 6400
+replySize = 64
+
+hostname = "localhost"
+port = PortNumber 12345
+
+main :: IO ()
+main = withSocketsDo $ do
+    args <- getArgs
+    let n = if null args
+                then 10
+                else read $ head args
+
+    sock <- listenOn port
+    forkProcess $ client n
+    server sock
+
+
+-- Server
+server :: Socket -> IO ()
+server sock = do
+    (hdl,_,_) <- accept sock
+    hSetBuffering hdl NoBuffering
+    withCStringLen (replicate replySize 'x') $ \reply -> do
+        replyLoop hdl reply
+
+replyLoop :: Handle -> CStringLen -> IO ()
+replyLoop hdl reply@(str,len) = do
+    eof <- hIsEOF hdl
+    if eof
+        then return ()
+        else do
+            hGetChar hdl
+            hPutBuf hdl str len
+            replyLoop hdl reply
+
+
+-- Client
+client :: Int -> IO ()
+client n = do
+
+    hdl <- connectTo hostname port
+    hSetBuffering hdl NoBuffering
+    
+    let iterations = m * n
+    (Accum remaining bytes) <- requestLoop hdl (Accum iterations 0)
+
+    let replies = iterations - remaining
+    putStrLn ("replies: " ++ show replies ++ "\tbytes: " ++ show bytes)
+
+
+-- Strict data type to keep memory use low
+data Accum = Accum !Int !Int
+
+requestLoop :: Handle -> Accum -> IO Accum
+requestLoop _   (Accum 0 bytes) = return $ Accum 0 bytes
+requestLoop hdl (Accum n bytes) = do
+    hPutChar hdl 'x'
+    newbytes <- allocaBytes replySize $ \buf -> hGetBuf hdl buf replySize
+    requestLoop hdl $ Accum (n - 1) (bytes + newbytes)
+-- The Great Computer Language Shootout
+-- http://shootout.alioth.debian.org
+-- tcp-request-reply benchmark
+-- contributed by: Kurt Hutchinson
+
+import Foreign
+import Foreign.C
+import Network
+import System.Environment
+import System.IO
+import System.Posix.Process
+
+m = 100
+replySize = 4096
+
+hostname = "localhost"
+port = PortNumber 12345
+
+main :: IO ()
+main = withSocketsDo $ do
+    args <- getArgs
+    let n = if null args
+                then 10
+                else read $ head args
+
+    sock <- listenOn port
+    forkProcess $ client n
+    server sock
+
+
+-- Server
+server :: Socket -> IO ()
+server sock = do
+    (hdl,_,_) <- accept sock
+    hSetBuffering hdl NoBuffering
+    withCStringLen (replicate replySize 'x') $ \reply -> do
+        replyLoop hdl reply
+
+replyLoop :: Handle -> CStringLen -> IO ()
+replyLoop hdl reply@(str,len) = do
+    eof <- hIsEOF hdl
+    if eof
+        then return ()
+        else do
+            hGetChar hdl
+            hPutBuf hdl str len
+            replyLoop hdl reply
+
+
+-- Client
+client :: Int -> IO ()
+client n = do
+
+    hdl <- connectTo hostname port
+    hSetBuffering hdl NoBuffering
+
+    let iterations = m * n
+    (Accum remaining bytes) <- requestLoop hdl (Accum iterations 0)
+
+    let replies = iterations - remaining
+    putStrLn ("replies: " ++ show replies ++ "\tbytes: " ++ show bytes)
+    hFlush stdout
+
+
+-- Strict data type to keep memory use low
+data Accum = Accum !Int !Int
+
+requestLoop :: Handle -> Accum -> IO Accum
+requestLoop _   (Accum 0 bytes) = return $ Accum 0 bytes
+requestLoop hdl (Accum n bytes) = do
+    hPutChar hdl 'x'
+    newbytes <- allocaBytes replySize $ \buf -> hGetBuf hdl buf replySize
+    requestLoop hdl $ Accum (n - 1) (bytes + newbytes)
+-- The Great Computer Language Shootout
+-- http://shootout.alioth.debian.org
+-- tcp-stream benchmark
+-- contributed by: Kurt Hutchinson
+
+import Foreign
+import Foreign.C
+import Network
+import System.Environment
+import System.IO
+import System.Posix.Process
+
+m = 1
+replySize = 409600
+
+hostname = "localhost"
+port = PortNumber 12345
+
+main :: IO ()
+main = withSocketsDo $ do
+    args <- getArgs
+    let n = if null args
+                then 10
+                else read $ head args
+
+    sock <- listenOn port
+    forkProcess $ client n
+    server sock
+
+
+-- Server
+server :: Socket -> IO ()
+server sock = do
+    (hdl,_,_) <- accept sock
+    hSetBuffering hdl NoBuffering
+    withCStringLen (replicate replySize 'x') $ \reply -> do
+        replyLoop hdl reply
+
+replyLoop :: Handle -> CStringLen -> IO ()
+replyLoop hdl reply@(str,len) = do
+    eof <- hIsEOF hdl
+    if eof
+        then return ()
+        else do
+            hGetChar hdl
+            hPutBuf hdl str len
+            replyLoop hdl reply
+
+
+-- Client
+client :: Int -> IO ()
+client n = do
+
+    hdl <- connectTo hostname port
+    hSetBuffering hdl NoBuffering
+    
+    let iterations = m * n
+    (Accum remaining bytes) <- requestLoop hdl (Accum iterations 0)
+
+    let replies = iterations - remaining
+    putStrLn ("replies: " ++ show replies ++ "\tbytes: " ++ show bytes)
+
+
+-- Strict data type to keep memory use low
+data Accum = Accum !Int !Int
+
+requestLoop :: Handle -> Accum -> IO Accum
+requestLoop _   (Accum 0 bytes) = return $ Accum 0 bytes
+requestLoop hdl (Accum n bytes) = do
+    hPutChar hdl 'x'
+    newbytes <- allocaBytes replySize $ \buf -> hGetBuf hdl buf replySize
+    requestLoop hdl $ Accum (n - 1) (bytes + newbytes)
+-- The Computer Language Benchmarks Game
+-- http://shootout.alioth.debian.org/
+-- Contributed by Jed Brown with improvements by Spencer Janssen, Don Stewart and Alex Mason
+--
+-- Compile with: <ghc> --make -O2 -fglasgow-exts -threaded threadring.ghc-4.hs -o threadring.ghc-4.ghc_run
+
+import Control.Monad
+import Control.Concurrent
+import System.Environment
+import GHC.Conc
+
+ring = 503
+
+new ret l i = do
+  r <- newEmptyMVar
+  forkOnIO numCapabilities (thread ret i l r)
+  return r
+
+
+thread :: MVar () -> Int -> MVar Int -> MVar Int -> IO ()
+thread ret i l r = go
+  where go = do
+          m <- takeMVar l
+          if m > 1
+              then (putMVar r $! m - 1) >> go
+              else print i >> putMVar ret ()
+
+main = do
+  a <- newMVar . read . head =<< getArgs
+  ret <- newEmptyMVar
+  z <- foldM (new ret) a [2..ring]
+  forkOnIO numCapabilities (thread ret 1 z a)
+  takeMVar ret
+-- Implementation for 'wc' benchmark optimised for time and memory
+-- Author: Tomasz Zielonka <t.zielonka@students.mimuw.edu.pl>
+-- http://shootout.alioth.debian.org/
+-- compile with: ghc -O2 -o wc wc.hs
+
+import System.IO
+import Data.Array.IO
+import Data.Array.Base (unsafeRead)
+import Data.Word
+import List
+
+isspace :: Char -> Bool
+isspace ' '  = True
+isspace '\n' = True
+isspace '\t' = True
+isspace  _   = False
+
+wc :: Handle -> IO (Int, Int, Int)
+wc h = do
+    buf <- newArray_ (0, bufSize - 1) :: IO (IOUArray Int Word8)
+    let
+        wcLoop :: Int -> Int -> Int -> Int -> Int -> Int -> IO (Int, Int, Int)
+        wcLoop prevIsSpace nl nw nc i n 
+            | prevIsSpace `seq` nl `seq` nw `seq` nc `seq` i `seq` n `seq` False =
+                undefined
+            | i == n =
+                do  n' <- hGetArray h buf bufSize
+                    if n' == 0
+                        then return (nl, nw, nc)
+                        else wcLoop prevIsSpace nl nw nc 0 n'
+            | otherwise =
+                do  c <- fmap (toEnum . fromEnum) (unsafeRead buf i)
+                    -- Watch out, unsafeRead used here. This gives about
+                    -- 1.6x times speedup.
+
+                    let cIsSpace = oneIf (isspace c)
+                    wcLoop
+                        cIsSpace
+                        (incIf nl (c == '\n'))
+                        (incIf nw (prevIsSpace > cIsSpace))
+                        (nc + 1)
+                        (i + 1)
+                        n
+    wcLoop 1 0 0 0 0 0
+  where
+    bufSize :: Int
+    bufSize = 4096
+
+    oneIf c = if c then 1 else 0
+    incIf n c = if c then n + 1 else n
+
+main :: IO ()
+main = do
+    (nl, nw, nc) <- wc stdin    
+    putStrLn $ concat $ intersperse " " $ map show [nl, nw, nc]
+
+-- $Id: wordfreq.ghc-2.ghc,v 1.1 2004-11-10 06:40:32 bfulgham Exp $
+-- http://www.bagley.org/~doug/shootout/
+-- from Brian Gregor
+
+module Main where
+
+import IO(isEOF)
+import FiniteMap 
+import Char(toLower,isAlpha)
+import List(sort)
+
+-- compile with: ghc -O -o foo -package data wordfreq.hs
+
+main :: IO ()
+main =  do
+          procInput emptyFM
+
+-- process input line-by-line
+procInput :: FiniteMap String Int -> IO ()
+procInput fm = do err <- isEOF 
+                  if (err) 
+                     then outputFM (mSort (fmToList fm))
+                     else (do line <- getLine
+                              procInput (updateFM fm (allWords [toLower x | x <-line])))
+
+-- printout the list in the required format
+outputFM :: [(String,Int)] -> IO ()
+outputFM ((s,y):xs) = do
+                    if (xs /= []) 
+                      then (do  putStrLn (concat [z,"\t",s]) 
+                                outputFM xs)
+                      else (do  putStrLn (concat [z,"\t",s])
+		                return ())
+                  where z = formatInt y
+
+-- update the Finite Map with each new word
+updateFM ::  FiniteMap String Int -> [String] -> FiniteMap String Int
+updateFM fm [] = fm
+updateFM fm (x:xs)         
+       -- see if it's in the map yet
+         | elemFM x fm = (updateFM (addToFM_C update fm x 1) xs)
+       -- if not add it
+         | otherwise   = updateFM (addToFM fm x 1) xs
+         where update old new = old+new
+
+-- take a string and return all the words in it
+allWords :: String -> [String]
+allWords s  = case dropWhile notAlpha s of
+                  "" -> []
+                  s' -> w: allWords s''
+                        where (w,s'') = break notAlpha s'
+
+-- return True if x is not a letter
+notAlpha :: Char -> Bool
+notAlpha x = not (isAlpha x)
+
+-- just a little formatting function
+formatInt :: Int -> String
+formatInt x =  concat [pad,out]
+      where pad = concat $ replicate n " "
+            n   = 7 - (length (out))
+            out = show x
+
+-- here's  an optimized mergesort from 
+-- "Algorithms - a Functional Approach" by
+-- Fethi Rabhe & Guy Lapalme
+--
+-- There's a default sortBy in the List module
+-- but it didn't handle tuples the way that's
+-- convenient for this program, so the sort function
+-- was modified for this.
+
+split :: ((Ord a),(Ord b)) => [(a,b)] -> [[(a,b)]]
+split [] = []
+split (x:xs) = [x]:split xs
+
+merge ::  ((Ord a),(Ord b)) => [(a,b)] -> [(a,b)] -> [(a,b)]
+merge [] b  = b
+merge a [] = a
+merge a@((x1,x2):xs) b@((y1,y2):ys)
+    | ( (x2>y2) && (x1<=y1) ) = (x1,x2) : (merge xs b)
+    | otherwise = (y1,y2) : (merge a ys)
+
+mergepairs :: ((Ord a),(Ord b)) => [[(a,b)]] -> [[(a,b)]]
+mergepairs [] = []
+mergepairs x@[l] = x
+mergepairs (l1:l2:rest) = (merge l1 l2) : (mergepairs $! rest)
+
+-- The actual sort
+mSort :: ((Ord a),(Ord b)) => [(a,b)] -> [(a,b)]
+mSort l = ms (split l)
+    where  ms [r] = r
+           ms l   = ms (mergepairs l)
+-- $Id: wordfreq.ghc2.ghc,v 1.1 2004-05-19 18:14:24 bfulgham Exp $
+-- http://www.bagley.org/~doug/shootout/
+-- from Julian Assange
+--   Trie data structure added by Robin Garner
+
+-- compile with:
+-- ghc -O -package data wordfreq.hs -o wordfreq
+
+module Main where
+import Char(toLower,isLower)
+import Array(Array,array,(!),(//),assocs)
+
+type Pair = (Int,String)
+
+main = interact $ unlines . pretty . mSort . flattenTrie . makemap . cwords . lower
+ where
+       pretty = map pretty'
+       pretty' (n,w)  = pad 7 (show n) ++ "\t" ++ w
+                   where pad n s = replicate (n - length s) ' ' ++ s
+
+       makemap = insertListTrie emptyTrie
+
+       cwords s  = case dropWhile (not . isLower) s of
+		        "" -> []
+                        s' -> w : (cwords s'')
+                              where (w, s'') = span isLower s'
+
+       lower     = map toLower
+
+
+data Trie = Leaf | Node Int (Array Char Trie)
+type TrieArray = Array Char Trie
+
+emptyTrie :: Trie
+emptyTrie = Node 0 (array ('a','z') [(c,Leaf) | c <- ['a'..'z']])
+
+insertListTrie t [] = t
+insertListTrie t (s:ss) = insertListTrie t' ss
+	where t' = insertTrie s t
+
+insertTrie ::  String -> Trie ->Trie
+insertTrie s Leaf = insertTrie s emptyTrie
+insertTrie [] (Node c subs) = Node (c+1) subs
+insertTrie (s:ss) (Node c subs) = Node c (subs//[(s,insertTrie ss t)])
+	where t = subs!s
+
+flattenTrie :: Trie -> [Pair]
+flattenTrie = flattenTrie' ""
+    where
+	flattenTrie' :: String -> Trie -> [Pair]
+	flattenTrie' prefix (Node c subs) =
+		if c > 0 then (c,prefix) : tail else tail
+	    where
+		tail = flattenSubs prefix $ filter nonLeaf $ assocs subs
+
+	flattenSubs p [] = []
+	flattenSubs p (s:ss) = flattenSub p s ++ flattenSubs p ss
+
+	flattenSub :: String -> (Char,Trie) -> [Pair]
+	flattenSub prefix (c,t) = flattenTrie' (prefix ++ [c]) t
+
+	nonLeaf (ch,Leaf) = False
+	nonLeaf _ = True
+
+-- Sorting: the various languages use various algorithms
+-- here's  an optimized mergesort from
+-- "Algorithms - a Functional Approach" by
+-- Fethi Rabhe & Guy Lapalme
+split :: (Ord a) => [a] -> [[a]]
+split [] = []
+split (x:xs) = [x]:split xs
+
+merge :: (Ord a) => [a] -> [a] -> [a]
+merge [] b  = b
+merge a [] = a
+merge a@(x:xs) b@(y:ys)
+    | (x>=y) = x : (merge xs b)
+    | otherwise = y : (merge a ys)
+
+mergepairs :: (Ord a) => [[a]] -> [[a]]
+mergepairs [] = []
+mergepairs x@[l] = x
+mergepairs (l1:l2:rest) = (merge l1 l2) : (mergepairs $! rest)
+
+-- The actual sort
+mSort :: (Ord a) => [a] -> [a]
+mSort l = ms (split l)
+    where  ms [r] = r
+           ms l   = ms (mergepairs l)
+
+-- Implementation of 'wordfreq' benchmark optimised for time and memory
+-- $Id: wordfreq.ghc,v 1.5 2005-05-12 15:08:19 igouy-guest Exp $
+-- http://shootout.alioth.debian.org/
+-- Author: Tomasz Zielonka <t.zielonka@students.mimuw.edu.pl>
+-- compile with: ghc -O2 -o wordfreq wordfreq.hs 
+
+import System.IO
+import Data.Array.IO
+import Data.Array.Base
+import Data.Word
+import Data.Int
+import Data.HashTable as HashTable
+import Data.IORef
+import List
+import Char
+
+myHashString :: String -> Int32
+myHashString = fromIntegral . foldr f 0
+  where f c m = ord c + (m * 67)
+
+main :: IO ()
+main = do
+    ht <- HashTable.new (==) myHashString
+
+    let handleReversedWord rw = do
+            l1 <- HashTable.lookup ht rw
+            case l1 of
+                Just ref -> incr ref
+                Nothing -> do
+                    ref <- newIORef (1 :: Int)
+                    HashTable.insert ht rw ref
+    
+    iterateOnReversedWords stdin handleReversedWord
+
+    l <- HashTable.toList ht
+    l <- mapM (\(rw, ref) -> do n <- readIORef ref; return (n, reverse rw)) l
+
+    mapM_ (putStrLn . pretty) (sortBy (flip compare) l)
+
+  where
+    pretty (n,w) = pad 7 (show n) ++ " " ++ w
+    pad n s = replicate (n - length s) ' ' ++ s
+    incr ref = do
+        x <- readIORef ref
+        writeIORef ref $! (x + 1)
+
+------------------------------------------------------------------
+
+iterateOnReversedWords :: Handle -> (String -> IO ()) -> IO ()
+iterateOnReversedWords h f = do
+    cs <- fileIterate h "" aux
+    aux cs ' '
+    return ()
+  where
+    aux cs c
+        | isAlpha c = do 
+            let c' = toLower c
+            return (c' : cs)
+        | not (null cs) = do
+            f cs
+            return []
+        | otherwise = return []
+
+{-# INLINE fileIterate #-}
+
+fileIterate :: Handle -> a -> (a -> Char -> IO a) -> IO a
+fileIterate h a0 f = do
+    buf <- newArray_ (0, bufSize - 1) :: IO (IOUArray Int Word8)
+    let loop i n a
+            | i == n =
+                do  n' <- hGetArray h buf bufSize
+                    if n' == 0
+                        then return a
+                        else loop 0 n' a
+            | otherwise =
+                do  c <- fmap (toEnum . fromEnum) (readArray buf i)
+
+                    a' <- f a c
+
+                    loop (i + 1) n a'
+    loop 0 0 a0
+  where
+    bufSize :: Int
+    bufSize = 4096
+

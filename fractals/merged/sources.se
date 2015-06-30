@@ -1,0 +1,5270 @@
+-- -*- mode: eiffel -*-
+-- $Id: ackermann.se,v 1.2 2005-11-16 07:54:10 bfulgham Exp $
+-- http://shootout.alioth.debian.org/
+
+class ACKERMANN
+
+insert
+	ARGUMENTS
+
+creation {ANY}
+	make
+
+feature {ANY}
+   make is
+      local
+	 num: INTEGER;
+      do
+	 if argument_count = 1 then
+	    num := argument(1).to_integer
+	 else
+	    num := 1
+	 end
+         std_output.put_string("Ack(3,")
+         std_output.put_integer(num)
+         std_output.put_string("): ")
+         std_output.put_integer(ack(3, num))
+         std_output.put_new_line
+      end
+
+   ack(m, n:INTEGER):INTEGER is
+      do
+	 if m = 0 then
+	    Result := n + 1
+	 elseif n = 0 then
+	    Result := ack(m - 1, 1)
+	 else
+	    Result := ack(m - 1, ack(m, (n - 1)))
+	 end
+      end;
+end
+-- -*- mode: eiffel -*-
+-- $Id: ackermann.se-2.se,v 1.2 2005-11-16 07:54:10 bfulgham Exp $
+-- http://www.bagley.org/~doug/shootout/
+
+class ACKERMANN
+
+insert
+	ARGUMENTS
+
+creation {ANY}
+	make
+
+feature {ANY}
+   make is
+      local
+	 num: INTEGER;
+      do
+	 if argument_count = 1 then
+	    num := argument(1).to_integer
+	 else
+	    num := 1
+	 end
+         std_output.put_string("Ack(3,")
+         std_output.put_integer(num)
+         std_output.put_string("): ")
+         std_output.put_integer(ack(3, num))
+         std_output.put_new_line
+      end;
+
+feature {NONE}
+
+   -- a more iterative solution
+   -- from: Johan Boulé
+   ack(m, n: INTEGER): INTEGER is
+      local  i, j: INTEGER
+      do
+         from i := m  j := n
+         until i = 0
+         loop
+            if j = 0 then
+               j := 1
+            else
+               j := ack(i, j - 1)
+            end
+            i := i - 1
+         end
+         Result := j + 1
+      end
+end
+
+
+
+-- -*- mode: eiffel -*-
+-- $Id: ary.se,v 1.4 2005-11-16 07:54:11 bfulgham Exp $
+-- http://shootout.alioth.debian.org/
+
+-- Friedrich Dominicus points out that it is about twice as fast
+-- when we substitute NATIVE_ARRAY for ARRAY.  I've commented out
+-- my original code below and now use NATIVE_ARRAY.
+
+class ARY
+
+insert
+	ARGUMENTS
+
+creation {ANY}
+	make
+
+feature {ANY}
+   make is
+      local
+         x: NATIVE_ARRAY[INTEGER];
+         y: NATIVE_ARRAY[INTEGER];
+	 i,k,n: INTEGER;
+      do
+	 if argument_count = 1 then
+	    n := argument(1).to_integer
+	 else
+	    n := 1
+	 end
+
+         x := x.calloc(n);
+         y := y.calloc(n);
+
+	 from
+	    i := 0
+	 until
+	    i = n
+	 loop
+	    x.put(i + 1, i)
+	    i := i + 1
+	 end
+	 from
+	    k := 0
+	 until
+	    k = 1000
+	 loop
+	    from
+	       i := n-1
+	    until
+	       i < 0
+	    loop
+	       y.put(x.item(i) + y.item(i),i)
+	       i := i - 1
+	    end
+	    k := k + 1
+	 end
+
+         std_output.put_integer(y.item(0))
+         std_output.put_character(' ')
+         std_output.put_integer(y.item(n-1))
+         std_output.put_character('%N')
+      end
+end
+-- The Computer Language Benchmarks Game
+-- http://shootout.alioth.debian.org/
+-- contributed by Pierre-Nicolas Clauss
+
+
+--SPLITFILE=node.e
+
+class NODE
+
+creation
+   make
+
+feature
+   value: INTEGER
+
+   left, right: NODE
+
+   test: INTEGER is
+      do
+         Result := value
+         if left /= Void then
+            Result := Result + left.test - right.test
+         end
+      end
+
+   make (v: INTEGER; l, r: NODE) is
+      do
+         value := v
+         left := l
+         right := r
+      end
+end
+
+
+--SPLITFILE=binarytrees.e
+
+class BINARYTREES
+
+insert
+   ARGUMENTS
+
+creation
+   make
+
+feature
+   min_depth: INTEGER is 4
+
+   max_depth: INTEGER is
+      once
+         if argument_count >= 1 and then argument(1).is_integer then
+            Result := argument(1).to_integer
+         end
+         Result := Result.max(min_depth + 2)
+      end
+
+   stretch_depth: INTEGER is
+      do
+         Result := max_depth + 1
+      end
+
+   make is
+      local
+         long_lived_tree: NODE
+         depth, iterations, i, c: INTEGER
+      do
+         print("stretch tree of depth " + stretch_depth.out + "%T check: "
+                                        + maketree(stretch_depth, 0).test.out + "%N")
+         long_lived_tree := maketree(max_depth, 0)
+         from
+            depth := min_depth
+         until
+            depth > max_depth
+         loop
+            iterations := {INTEGER 1} |<< (max_depth - depth + min_depth).to_integer_8
+            from
+               i:=0
+               c:=0
+            until
+               i >= iterations
+            loop
+               c := c + maketree(depth, i).test + maketree(depth, -i).test
+               i := i + 1
+            end
+            print((2 * iterations).out + "%T trees of depth "
+                                       + depth.out + "%T check: " + c.out + "%N")
+            depth := depth + 2
+         end
+         print("long lived tree of depth " + max_depth.out + "%T check: "
+                                           + long_lived_tree.test.out + "%N")
+      end
+
+   maketree (depth, item: INTEGER): NODE is
+      local
+         d, i: INTEGER
+      do
+         if depth = 0 then
+            create Result.make(item, Void, Void)
+         else
+            d := depth - 1
+            i := 2 * item
+            create Result.make(item, maketree(d, i - 1), maketree(d, i))
+         end
+      end
+end
+
+--
+-- The Computer Language Shootout
+-- http://shootout.alioth.debian.org/
+--
+-- Contributed by Unknown
+-- Modified by Leland McInnes
+--
+
+-- SPLITFILE=chameneos.e
+class CHAMENEOS
+
+insert
+   ARGUMENTS
+
+create {ANY}
+   make
+
+feature {}
+   colors: FAST_ARRAY[COLOR] is
+      local
+         c: COLOR
+      once
+         create Result.make(0)
+         Result.add_last(c.blue)
+         Result.add_last(c.red)
+         Result.add_last(c.yellow)
+         Result.add_last(c.blue)
+      end
+
+feature {}
+   stack: LOOP_STACK
+
+   make is
+      local
+         i, meetings: INTEGER; m: MEETING_PLACE; c: CREATURE
+         creatures: FAST_ARRAY[CREATURE]
+      do
+         if argument_count = 0 then
+            create m.make(1)
+         else
+            create m.make(argument(1).to_integer)
+         end
+         create stack.make; create creatures.make(0)
+         from i := colors.lower until i > colors.upper loop
+            create c.make(m, colors.item(i))
+            creatures.add_last(c); stack.add_job(c)
+            i := i + 1
+         end
+         stack.run
+         from i := creatures.lower until i > creatures.upper loop
+            meetings := meetings + creatures.item(i).creatures_met
+            i := i + 1
+         end
+         print(meetings.out + "%N")
+      end
+
+end
+-- SPLITFILE=color.e
+expanded class COLOR
+
+feature {ANY}
+   blue:   COLOR is do Result.set(blue_color) end
+   red:    COLOR is do Result.set(red_color) end
+   yellow: COLOR is do Result.set(yellow_color) end
+   faded:  COLOR is do Result.set(faded_color) end
+
+   complement (other: like Current) is
+      do
+            if color /= other.color then
+                inspect
+                    color
+                when blue_color then
+                    if other.color = red_color then
+                        set(yellow_color)
+                    else
+                        set(red_color)
+                    end
+                when red_color then
+                    if other.color = blue_color then
+                        set(yellow_color)
+                    else
+                        set(blue_color)
+                    end
+                when yellow_color then
+                    if other.color = blue_color then
+                        set(red_color)
+                    else
+                        set(blue_color)
+                    end
+                else
+                    -- do nothing
+                end
+            end
+      end
+
+   is_faded: BOOLEAN is
+      do
+         Result := color = faded_color
+      end
+
+feature {COLOR}
+   set (a_color: like color) is
+      do
+         color := a_color
+      end
+
+   color: INTEGER
+
+feature {}
+   faded_color:  INTEGER is 0
+   blue_color:   INTEGER is 1
+   red_color:    INTEGER is 2
+   yellow_color: INTEGER is 3
+
+end
+-- SPLITFILE=creature.e
+class CREATURE
+
+inherit
+   JOB
+
+create {CHAMENEOS}
+   make
+
+feature {ANY}
+   creatures_met: INTEGER
+   color: COLOR
+
+feature {}
+   meeting_place: MEETING_PLACE
+
+   make (a_meating_place: like meeting_place; a_color: like color) is
+      do
+         meeting_place := a_meating_place
+         color := a_color
+      end
+
+feature {LOOP_ITEM}
+   prepare (ready: READY_DESCRIPTION) is
+      do
+         ready.after(0)
+      end
+
+   is_ready (ready: READY_DESCRIPTION): BOOLEAN is
+      do
+         Result := meeting_place.continue(Current)
+      end
+
+   continue is
+      local
+         new_color: like color
+      do
+         new_color := meeting_place.other_creatures_color(Current)
+         if new_color.is_faded then
+            color := new_color
+         else
+            creatures_met := creatures_met + 1
+            color.complement(new_color)
+         end
+      end
+
+   done: BOOLEAN is
+      do
+         Result := color.is_faded
+      end
+
+   restart is
+      do
+      end
+
+end
+-- SPLITFILE=meeting_place.e
+class MEETING_PLACE
+
+create {CHAMENEOS}
+   make
+
+feature {CREATURE}
+   other_creatures_color (creature: CREATURE): COLOR is
+      do
+         if meetings_left <= 0 then
+            Result := Result.faded
+         else
+            if creature = first then
+               Result := second_color
+               first := Void; second := Void; wait := False
+               meetings_left := meetings_left - 1
+            else
+               Result := first_color
+            end
+         end
+      end
+
+   continue (creature: CREATURE): BOOLEAN is
+      do
+         if meetings_left > 0 then
+            if creature = first then
+               Result := second /= Void
+            elseif not wait then
+               if first = Void and then second = Void then
+                  first := creature; first_color := creature.color
+               elseif second = Void then
+                  second := creature; second_color := creature.color
+                  wait := True; Result := True
+               end
+            end
+         else
+            Result := True
+         end
+      end
+
+feature {}
+   first, second: CREATURE
+   first_color, second_color: COLOR
+   wait: BOOLEAN
+   meetings_left: INTEGER
+
+   make (max_meetings: like meetings_left) is
+      do
+         meetings_left := max_meetings
+      end
+
+end
+-- The Great Computer Language Shootout
+-- http://shootout.alioth.debian.org/
+-- for se from jose
+
+--SPLITFILE=dispatch.e
+
+class DISPATCH insert ARGUMENTS creation make feature
+	make is local i,n,ctrl:INTEGER do
+		if argument_count>=1 and then argument(1).is_integer then
+			n:=argument(1).to_integer end
+		from until i>=n loop ctrl:=ctrl+test(b1,b2,b3,b4,b5,i) +
+				test(b6,b7,b8,b9,b0,i)+test(p1,p2,p3,p4,p5,i)-
+				test(p6,p7,p8,p9,p0,i) 
+			i:=i+1 end
+		print(ctrl.out+"%N") end
+	test(a1,a2,a3,a4,a5:BOTTLE;i:INTEGER):INTEGER is local c:INTEGER do
+		a1.cycle a2.cycle a3.cycle a4.cycle a5.cycle c:=i\\2
+		Result:=a1.test(c)+a2.test(c)+a3.test(c)+a4.test(c)+
+			a5.test(c) end
+	b1:BOTTLE is once create Result.make(1) end
+	b2:BOTTLE is once create Result.make(2) end
+	b3:BOTTLE is once create Result.make(3) end
+	b4:BOTTLE is once create Result.make(4) end
+	b5:BOTTLE is once create Result.make(5) end
+	b6:BOTTLE is once create Result.make(6) end
+	b7:BOTTLE is once create Result.make(7) end
+	b8:BOTTLE is once create Result.make(8) end
+	b9:BOTTLE is once create Result.make(9) end
+	b0:BOTTLE is once create Result.make(0) end
+	p1:PRESSURIZED_BOTTLE is once create Result.make(1) end
+	p2:PRESSURIZED_BOTTLE is once create Result.make(2) end
+	p3:PRESSURIZED_BOTTLE is once create Result.make(3) end
+	p4:PRESSURIZED_BOTTLE is once create Result.make(4) end
+	p5:PRESSURIZED_BOTTLE is once create Result.make(5) end
+	p6:PRESSURIZED_BOTTLE is once create Result.make(6) end
+	p7:PRESSURIZED_BOTTLE is once create Result.make(7) end
+	p8:PRESSURIZED_BOTTLE is once create Result.make(8) end
+	p9:PRESSURIZED_BOTTLE is once create Result.make(9) end
+	p0:PRESSURIZED_BOTTLE is once create Result.make(0) end
+end
+
+--SPLITFILE=bottle.e
+
+class BOTTLE insert BOTTLE_STATE_CONSTANTS creation make feature
+	id:INTEGER
+	state:BOTTLE_STATE
+	make(i:INTEGER) is do id:=i state:=initial_state end
+	cycle is do fill seal empty end
+	fill, seal, empty is do state:=state.next end
+	test(c: INTEGER): INTEGER is do Result:=state.tag+id+c end
+end
+
+--SPLITFILE=bottle_state_constants.e
+
+class BOTTLE_STATE_CONSTANTS feature
+	initial_state: BOTTLE_STATE is do Result:=empty_state end
+	empty_state: EMPTY_BOTTLE_STATE is once create Result end
+	full_state: FULL_BOTTLE_STATE is once create Result end
+	sealed_state: SEALED_BOTTLE_STATE is once create Result end
+end
+
+--SPLITFILE=bottle_state.e
+
+deferred class BOTTLE_STATE insert BOTTLE_STATE_CONSTANTS feature
+	tag: INTEGER is deferred end
+	next: BOTTLE_STATE is deferred end
+end
+
+--SPLITFILE=empty_bottle_state.e
+
+class EMPTY_BOTTLE_STATE inherit BOTTLE_STATE feature
+	tag: INTEGER is 1
+	next: BOTTLE_STATE is do Result:=full_state end
+end
+
+--SPLITFILE=full_bottle_state.e
+
+class FULL_BOTTLE_STATE inherit BOTTLE_STATE feature
+	tag: INTEGER is 2
+	next: BOTTLE_STATE is do Result:=sealed_state end
+end
+
+--SPLITFILE=sealed_bottle_state.e
+
+class SEALED_BOTTLE_STATE inherit BOTTLE_STATE feature
+	tag: INTEGER is 3
+	next: BOTTLE_STATE is do Result:=empty_state end
+end
+
+--SPLITFILE=pressurized_bottle_state_constants.e
+
+class PRESSURIZED_BOTTLE_STATE_CONSTANTS insert
+	BOTTLE_STATE_CONSTANTS redefine initial_state end
+feature
+	initial_state: PRESSURIZED_BOTTLE_STATE is do
+		Result:=unpressurized_empty_state end
+	unpressurized_empty_state: UNPRESSURIZED_EMPTY_BOTTLE_STATE is once
+		create Result end
+	unpressurized_full_state: UNPRESSURIZED_FULL_BOTTLE_STATE is once
+		create Result end
+	pressurized_unsealed_state: PRESSURIZED_UNSEALED_BOTTLE_STATE is once
+		create Result end
+	pressurized_sealed_state: PRESSURIZED_SEALED_BOTTLE_STATE is once
+		create Result end
+end
+
+--SPLITFILE=pressurized_bottle_state.e
+
+deferred class PRESSURIZED_BOTTLE_STATE inherit
+	BOTTLE_STATE undefine initial_state end
+insert
+	PRESSURIZED_BOTTLE_STATE_CONSTANTS
+feature
+	next: PRESSURIZED_BOTTLE_STATE is deferred end
+end
+
+--SPLITFILE=unpressurized_empty_bottle_state.e
+
+class UNPRESSURIZED_EMPTY_BOTTLE_STATE inherit PRESSURIZED_BOTTLE_STATE feature
+	tag: INTEGER is 4
+	next: PRESSURIZED_BOTTLE_STATE is do
+		Result:=unpressurized_full_state end
+end
+
+--SPLITFILE=unpressurized_full_bottle_state.e
+
+class UNPRESSURIZED_FULL_BOTTLE_STATE inherit PRESSURIZED_BOTTLE_STATE feature
+	tag: INTEGER is 5
+	next: PRESSURIZED_BOTTLE_STATE is do
+		Result:=pressurized_unsealed_state end
+end
+
+--SPLITFILE=pressurized_unsealed_bottle_state.e
+
+class PRESSURIZED_UNSEALED_BOTTLE_STATE inherit PRESSURIZED_BOTTLE_STATE feature
+	tag: INTEGER is 6
+	next: PRESSURIZED_BOTTLE_STATE is do
+		Result:=pressurized_sealed_state end
+end
+
+--SPLITFILE=pressurized_sealed_bottle_state.e
+
+class PRESSURIZED_SEALED_BOTTLE_STATE inherit PRESSURIZED_BOTTLE_STATE feature
+	tag: INTEGER is 7
+	next: PRESSURIZED_BOTTLE_STATE is do
+		Result:=unpressurized_empty_state end
+end
+
+--SPLITFILE=pressurized_bottle.e
+
+class PRESSURIZED_BOTTLE inherit
+	BOTTLE undefine initial_state redefine cycle end
+insert
+	PRESSURIZED_BOTTLE_STATE_CONSTANTS
+creation make feature
+	cycle is do fill pressurize seal empty end
+	pressurize is do state:=state.next end
+end
+
+-- -*- mode: eiffel -*-
+-- $Id: except.se,v 1.2 2005-11-16 07:54:12 bfulgham Exp $
+-- http://www.bagley.org/~doug/shootout/
+-- from: Friedrich Dominicus
+
+-- <LOC-OFF>
+indexing
+	description: "Eiffel implementation of the Exceptions "
+                 "in the shootout examples";
+	note: "Tested with SmallEiffel and ISE-Eiffel"
+-- <LOC-ON>
+
+class
+	EXCEPT
+
+insert 
+    ARGUMENTS
+
+creation {ANY}
+	make
+
+feature {ANY}  -- Initialization
+
+    high: INTEGER;
+    low: INTEGER;
+
+    high_exception: STRING is "high_exception";
+    low_exception: STRING is "low_exception";
+
+    run_n, outer_i: INTEGER;
+    
+
+    exc: EXCEPTIONS;
+    
+	make is
+        do
+            create exc;
+            if argument_count /= 1 then
+                io.put_string("exception_test <integer>%N");
+                exc.die(1);
+            end;
+            if argument(1).is_integer then
+                run_n := argument(1).to_integer;
+            else
+                io.put_string("Argument wasn't an integer, giving up%N");
+                exc.die(1);
+            end;
+            outer_i := 1;
+            some_fun(run_n);
+        end;
+    
+    some_fun(n: INTEGER) is
+        do
+            from 
+            invariant
+                i_in_bounds: outer_i >= 1 and then outer_i <= n + 1;
+            variant
+                really_decreasing: n - outer_i + 1
+            until outer_i > run_n
+            loop
+                high_fun(outer_i);
+                -- an exception should be raised somwehere below
+                -- `high_fun' in the call chain
+                exc.raise("should not come here%N")
+                -- outer_i := outer_i + 1
+            end;
+            io.put_string("Exceptions: HI=");
+            io.put_integer(high);
+            io.put_string(" / LO=");
+            io.put_integer(low);
+            io.put_character('%N');
+        rescue
+            outer_i := outer_i + 1;
+            retry;
+        end;
+    
+    
+    high_fun (i: INTEGER) is
+        do
+            low_fun(i);
+        rescue
+            if exc.developer_exception_name.is_equal(high_exception)
+then
+                high := high + 1;
+            end
+        end;
+    
+    
+    low_fun (i: INTEGER) is
+        do
+            -- exc.catch(exc.Developer_exception);
+            blow_up(i);
+        rescue
+            if exc.developer_exception_name.is_equal(low_exception) then
+                low := low + 1;
+            end
+        end;
+    
+
+    blow_up (i : INTEGER) is
+        do
+            if ((i \\ 2) = 0) then
+                exc.raise(low_exception);
+            else
+                exc.raise(high_exception);
+            end;
+        end;
+
+end -- class EXCEPT
+--   The Computer Language Shootout
+--   http://shootout.alioth.debian.org
+--
+--   contributed by josÃ©
+--   modified by andy
+
+class FANNKUCH
+
+insert
+   ARGUMENTS
+
+creation {ANY}
+   make
+
+feature {ANY}
+   n: INTEGER
+
+   buffer: STRING
+
+   make is
+      do
+         if argument_count > 0 and then argument(1).is_integer then
+            n := argument(1).to_integer
+            if n > 1 then
+               create buffer.make(0)
+               io.put_string("Pfannkuchen(" + n.to_string + ") = " + fannkuch(n).to_string + "%N")
+            end
+         end
+      end
+
+   fannkuch (x: like n): like n is
+      require
+         x > 1
+      local
+         perm, perm1, count, maxperm: FAST_ARRAY[like n]
+         rot_rank, i, j, k, upper, cnt, flip_count, tmp, p0, dcptpr: like n
+      do
+         create perm.make(x)
+         create perm1.make(x + 1)
+         create count.make(x)
+         create maxperm.make(x)
+
+            -- initial (trivial) permutation
+         from
+            i := 0
+         until
+            i = x
+         loop
+            perm1.put(i, i)
+            i := i + 1
+         end
+         upper := x - 1
+         count.put(1, upper)
+         dcptpr := 30
+         from
+            rot_rank := upper - 1
+            cnt := x
+         until
+            rot_rank = upper
+         loop
+
+               -- if the thirties first permutations
+            if dcptpr > 0 then
+               dcptpr := dcptpr - 1
+               from
+                  buffer.clear_count
+                  i := 0
+               until
+                  i = x
+               loop
+                  buffer.append((1 + perm1.item(i)).to_string)
+                  i := i + 1
+               end
+               buffer.add_last('%N')
+               io.put_string(buffer)
+            end
+
+               -- update rotation counters
+            count.put(cnt - 1, rot_rank)
+            from
+            until
+               rot_rank = 0
+            loop
+               count.put(rot_rank, rot_rank - 1)
+               rot_rank := rot_rank - 1
+            end
+            -- count the needed flips
+            p0 := perm1.item(0)
+            if p0 /= 0 and then perm1.item(upper) /= upper then
+               from
+                  i := 0
+               until
+                  i = x
+               loop
+                  perm.put(perm1.item(i), i)
+                  i := i + 1
+               end
+               flip_count := 0
+               from
+                  k := p0
+               until
+                  k = 0
+               loop
+                  tmp := perm.item(k)
+                  perm.put(k, k)
+                  j := k - 1
+                  k := tmp
+                  from
+                     i := 1
+                  until
+                     i >= j
+                  loop
+                     tmp := perm.item(i)
+                     perm.put(perm.item(j), i)
+                     perm.put(tmp, j)
+                     i := i + 1
+                     j := j - 1
+                  end
+                  flip_count := flip_count + 1
+               end
+               if flip_count > Result then
+                  Result := flip_count
+                  from
+                     i := 0
+                  until
+                     i = x
+                  loop
+                     maxperm.put(perm1.item(i), i)
+                     i := i + 1
+                  end
+               end
+            end
+
+               -- next permutation
+            perm1.put(perm1.item(1), 0)
+            perm1.put(p0, 1)
+            cnt := count.item(0)
+            from
+               i := 1
+            until
+               cnt /= 0
+            loop
+               rot_rank := i
+               tmp := perm1.item(0)
+               from
+                  i := 0
+               until
+                  i > rot_rank
+               loop
+                  j := i + 1
+                  perm1.put(perm1.item(j), i)
+                  i := j
+               end
+               perm1.put(tmp, i)
+               cnt := count.item(rot_rank)
+            end
+         end
+      ensure
+         Result >= 0
+      end
+
+end -- class FANNKUCH
+-- The Computer Language Shootout
+-- http://shootout.alioth.debian.org/
+-- by Frederic Merizen
+
+class FASTA
+
+insert
+   ARGUMENTS
+
+creation {ANY}
+   make
+
+feature {ANY}
+   im: INTEGER is 139968
+
+   ia: INTEGER is 3877
+
+   ic: INTEGER is 29573
+
+   last: INTEGER_32
+
+   random (max: REAL_64): REAL_64 is
+      do
+         last := (last * ia + ic) \\ im
+         Result := max * last / im
+      end
+
+   alu: STRING is "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG%
+                  %GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA%
+                  %CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT%
+                  %ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA%
+                  %GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG%
+                  %AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC%
+                  %AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA"
+
+   iub: FAST_ARRAY[TUPLE[CHARACTER, REAL_64]] is
+      once
+         Result := {FAST_ARRAY[TUPLE[CHARACTER, REAL_64]]
+         <<   ['a', 0.27], ['c', 0.12], ['g', 0.12], ['t', 0.27], ['B', 0.02],
+            ['D', 0.02], ['H', 0.02], ['K', 0.02], ['M', 0.02], ['N', 0.02],
+            ['R', 0.02], ['S', 0.02], ['V', 0.02], ['W', 0.02], ['Y', 0.02] >> }
+      end
+
+   homo_sapiens: FAST_ARRAY[TUPLE[CHARACTER, REAL_64]] is
+      once
+         Result := {FAST_ARRAY[TUPLE[CHARACTER, REAL_64]]
+         << ['a', 0.3029549426680], ['c', 0.1979883004921],
+            ['g', 0.1975473066391], ['t', 0.3015094502008] >> }
+      end
+
+   make_cumulative (a: FAST_ARRAY[TUPLE[CHARACTER, REAL_64]]) is
+      local
+         cp: REAL_64; i: INTEGER; t: TUPLE[CHARACTER, REAL_64]
+      do
+         cp := 0.0
+         from
+            i := a.lower
+         until
+            i > a.upper
+         loop
+            t := a.item(i)
+            cp := cp + t.second
+            t.set_second(cp)
+            i := i + 1
+         end
+      end
+
+   make is
+      local
+         n: INTEGER
+      do
+         last := 42
+         make_cumulative(homo_sapiens)
+         make_cumulative(iub)
+         if argument_count > 0 then
+            n := argument(1).to_integer
+         else
+            n := 1000
+         end
+         make_repeat_fasta("ONE", "Homo sapiens alu", alu, n * 2, std_output)
+         make_random_fasta("TWO", "IUB ambiguity codes", iub, n * 3, std_output)
+         make_random_fasta("THREE", "Homo sapiens frequency", homo_sapiens, n * 5, std_output)
+      end
+
+   select_random (a: FAST_ARRAY[TUPLE[CHARACTER, REAL_64]]): CHARACTER is
+      local
+         r: REAL_64; i: INTEGER; stop: BOOLEAN; t: TUPLE[CHARACTER, REAL_64]
+      do
+         r := random(1.0)
+         from
+            i := a.lower
+         until
+            stop
+         loop
+            t := a.item(i)
+            stop := r < t.second or else i = a.upper
+            if stop then
+               Result := t.first
+            end
+            i := i + 1
+         end
+      end
+
+   line_length: INTEGER is 60
+
+   make_random_fasta (id, desc: STRING; a: FAST_ARRAY[TUPLE[CHARACTER, REAL_64]]; n: INTEGER; s: OUTPUT_STREAM) is
+      local
+         i, j: INTEGER
+      do
+         s.put_character('>')
+         s.put_string(id)
+         s.put_character(' ')
+         s.put_string(desc)
+         s.put_new_line
+         from
+            i := n
+         until
+            i < 1
+         loop
+            from
+               j := i.min(line_length)
+            until
+               j < 1
+            loop
+               s.put_character(select_random(a))
+               j := j - 1
+            end
+            s.put_new_line
+            i := i - line_length
+         end
+      end
+
+   make_repeat_fasta (id, desc, a: STRING; n: INTEGER; s: OUTPUT_STREAM) is
+      local
+         i, j, k, kn: INTEGER
+      do
+         s.put_character('>')
+         s.put_string(id)
+         s.put_character(' ')
+         s.put_string(desc)
+         s.put_new_line
+         kn := a.count
+         k := 1
+         from
+            i := n
+         until
+            i < 1
+         loop
+            from
+               j := i.min(line_length)
+            until
+               j < 1
+            loop
+               if k > kn then
+                  k := 1
+               end
+               io.put_character(a.item(k))
+               k := k + 1
+               j := j - 1
+            end
+            s.put_new_line
+            i := i - line_length
+         end
+      end
+
+end -- class FASTA
+-- -*- mode: eiffel -*-
+-- $Id: fibo.se,v 1.4 2005-11-16 07:54:12 bfulgham Exp $
+-- http://www.bagley.org/~doug/shootout/
+
+class FIBO
+
+insert
+	ARGUMENTS
+
+creation {ANY}
+	make
+
+feature {ANY}
+   make is
+      local
+	 n: INTEGER;
+      do
+	 if argument_count = 1 then
+	    n := argument(1).to_integer
+	 else
+	    n := 1
+	 end
+         std_output.put_integer(fib(n))
+         std_output.put_new_line
+      end;
+
+feature {NONE}
+
+   fib(n:INTEGER):INTEGER is
+      do
+	 if n < 2 then
+	    Result := 1
+	 else
+	    Result := fib(n-2) + fib(n-1)
+	 end
+      end;
+end
+--
+-- The Great Computer Language Shootout
+-- http://shootout.alioth.debian.org/
+--
+-- Written by josé for SE2.1
+--
+
+class HARMONIC
+
+insert
+	ARGUMENTS
+	
+creation {ANY}
+	make
+	
+feature {ANY}
+   make is local n: INTEGER s, i: REAL_64 do
+               check argument_count = 1 end
+               check argument(1).is_integer end
+               n := argument(1).to_integer
+               check n >= 0 end
+       from until n<=0 loop i:=i+1 s:=s+1.0/i n:=n-1 end
+       print(s.to_string_format(9)+"%N")
+   end
+end
+
+-- -*- mode: eiffel -*-
+-- $Id: hash.se-2.se,v 1.2 2005-11-16 07:54:12 bfulgham Exp $
+-- http://shootout.alioth.debian.org/
+
+-- <LOC-OFF>
+indexing
+   description: "Program to test and benchmark a hash table";
+   note: "based on hash_map code from Jacques Bouchard"
+   "(http://mageos.ifrance.com/bouchard/)"
+   "To compile with SmallEiffel: "
+   "   compile -no_split -boost hash_test -O2"
+   "The last is a C compiler optimization. Modify as necessary"
+   "Disabling the garbage collector with the -no_gc greatly"
+   "reduces executable size and slightly improves runtime."
+   "                                                      "
+   "To compile with ISE:                                   "
+   "  Edit the file to change the compiler dependent lines "
+   "  Create a new project. Create a system (Ace file) for "
+   "  that project that names HASH_TEST as the root class. "
+   "  A quick melt will pull this class into the project. "
+   "  Finalize the project to get a benchmark executable.";
+-- <LOC-ON>
+   
+class HASH
+
+insert
+	ARGUMENTS
+   
+creation {ANY}
+	make
+   
+feature {ANY} -- Initialization
+   make is
+      local
+	 n : INTEGER
+	 i, j, c : INTEGER
+	 s : STRING
+	 --ht : HASH_TABLE[INTEGER, STRING]  -- ISE version
+	 ht : HASH_MAP[INTEGER, STRING] -- SmallEiffel version
+	 
+	 arg: ARGUMENTS
+      do
+	 -- !!arg                           -- ISE version these two lines
+	 -- n := arg.argument(1).to_integer
+	 n := argument(1).to_integer
+	 
+	 -- !!ht.make (n)  -- ISE version
+	 !!ht.with_capacity (n) -- SE version
+	 
+	 from  i := 1
+	 until i > n
+	 loop
+	    s := i.to_hexadecimal
+	    from  j := 1
+	    until s @ j /= '0'
+	    loop  j := j + 1
+	    end
+	    ht.put (i, s.substring(j,s.count))
+	    i := i+1
+	    -- print ("added " + s + "%N")
+	 end
+	 
+	 from  i := n
+	 until i = 0
+	 loop
+	    s := i.to_string
+	    -- print ("looking up " + s + "%N")
+ 	    if ht.has (s) then
+	       c := c + 1
+	    end
+	    i := i - 1
+	 end
+	 
+	 print (c.out + "%N")
+
+      end
+
+end -- class HASH
+
+-- -*- mode: eiffel -*-
+-- $Id: hash.se,v 1.2 2005-11-16 07:54:12 bfulgham Exp $
+-- http://www.bagley.org/~doug/shootout/
+
+class HASH
+
+insert
+	ARGUMENTS
+   
+creation {ANY}
+	make
+   
+feature {ANY}
+	-- Initialization
+   make is
+      local
+	 n : INTEGER
+	 i, j, c : INTEGER
+	 s : STRING
+	 ht : DICTIONARY[INTEGER, STRING]
+	 
+	 arg: ARGUMENTS
+      do
+	 n := argument(1).to_integer
+
+	 !!ht.with_capacity(n);
+	 
+	 from  i := 1
+	 until i > n
+	 loop
+	    s := i.to_hexadecimal
+	    from  j := 1
+	    until s @ j /= '0'
+	    loop  j := j + 1
+	    end
+	    ht.put (i, s.substring(j,s.count))
+	    i := i+1
+	 end
+	 
+	 from  i := n
+	 until i = 0
+	 loop
+	    s := i.to_string
+ 	    if ht.has (s) then
+	       c := c + 1
+	    end
+	    i := i - 1
+	 end
+	 
+	 print (c.out + "%N")
+
+      end
+
+end -- class HASH
+
+-- -*- mode: eiffel -*-
+-- $Id: hash2.se,v 1.2 2005-11-16 07:54:12 bfulgham Exp $
+-- http://www.bagley.org/~doug/shootout/
+
+class HASH2
+
+insert
+	ARGUMENTS
+
+creation {ANY}
+	make
+   
+feature {ANY}
+	-- Initialization
+   make is
+      local
+	 n, i, prev : INTEGER
+	 hash1 : DICTIONARY[INTEGER, STRING]
+	 hash2 : DICTIONARY[INTEGER, STRING]
+	 it: ITERATOR[STRING]
+      do
+	 n := argument(1).to_integer
+
+	 !!hash1.with_capacity(10000);
+	 !!hash2.with_capacity(10000);
+	 
+	 from  i := 0
+	 until i = 10000
+	 loop
+	    hash1.put(i, "foo_" + i.to_string)
+	    i := i + 1
+	 end
+
+	 from  i := 0
+	 until i = n
+	 loop
+	    it := hash1.get_new_iterator_on_keys
+	    from  it.start
+	    until it.is_off
+	    loop
+	       if hash2.has(it.item) then
+		  prev := hash2.at(it.item)
+	       else
+		  prev := 0
+	       end
+	       hash2.put(prev + hash1.at(it.item), it.item)
+	       it.next;
+	    end
+	    i := i + 1
+	 end
+
+         std_output.put_integer(hash1.at("foo_1"))
+         std_output.put_string(" ")
+         std_output.put_integer(hash1.at("foo_9999"))
+         std_output.put_string(" ")
+         std_output.put_integer(hash2.at("foo_1"))
+         std_output.put_string(" ")
+         std_output.put_integer(hash2.at("foo_9999"))
+         std_output.put_character('%N')
+      end
+
+end -- class HASH2
+
+-- The Great Computer Language Shootout
+-- http://shootout.alioth.debian.org/
+--
+-- health for SmartEiffel by jose
+
+--SPLITFILE=health.e
+
+class HEALTH inherit ARGUMENTS creation make feature
+	make is local i,n:INTEGER region:HEALTH_REGION t:TOTALS do
+		if argument_count=1 and then argument(1).is_integer then
+			n:=argument(1).to_integer end
+		n:=n.max(10)
+		create region.make_main
+		from until i=n loop region.next_time i:=i+1 end
+		t:=region.accumulate_totals
+		print("Patients: "+t.patients.out+"%N")
+		print("Time:     "+t.time.out+"%N")
+		print("Visits:   "+t.visits.out+"%N")
+		print("%NTreatment Queue - Remaining Treatment Time%N")
+		region.hospital.treatment.do_all(agent end_print(?))
+		end
+	end_print(p:PATIENT) is do
+		print(p.remaining_time.out+"%Tanonymous patient%N")
+		end
+end
+
+--SPLITFILE=health_region.e
+
+class HEALTH_REGION creation make_region, make_main feature
+	districts: FAST_ARRAY[HEALTH_REGION]
+	hospital: HOSPITAL
+	Levels: INTEGER is 5
+	Districts: INTEGER is 4
+	make_main is do
+		make_region(Levels,0,42)
+		end
+	make_region(level, seed1, seed2:INTEGER) is 
+		local staff:INTEGER hr:HEALTH_REGION i:INTEGER do
+		staff:={INTEGER 1} |<< (level-1).to_integer_8
+		if level=1 then
+			make(staff,seed1*seed2,False)
+		else
+			make(staff,seed1*seed2,level=Levels)
+			from until i=Districts loop
+				create hr.make_region(level-1,4*seed1+i+1,seed2)
+				districts.add_last(hr)
+				i:=i+1 end
+			end
+		end
+	make(staff,seed:INTEGER;is_main:BOOLEAN) is do
+		create hospital.make(staff,seed,is_main)
+		create districts.with_capacity(Districts)
+		end
+	next_time is do
+		districts.do_all(agent {HEALTH_REGION}.next_time_and_transfer_to(hospital))
+		hospital.triage_examination
+		end
+	next_time_and_transfer_to(destination:HOSPITAL) is do
+		next_time
+		hospital.transfers.do_all(agent destination.new_arrival(?))
+		end
+	accumulate_totals: TOTALS is local i:INTEGER do
+		from Result:=hospital.accumulate_totals until i>districts.upper loop
+			Result:=Result+districts.item(i).accumulate_totals
+			i:=i+1 end
+		end
+end
+
+--SPLITFILE=hospital.e
+
+class HOSPITAL creation make feature
+	alea: RANDOM
+	discharged: TOTALS
+	is_main: BOOLEAN
+	staff: INTEGER
+	triage, examination, treatment, transfers: PATIENT_LIST
+	make(staf,seed:INTEGER;main:BOOLEAN) is do
+		alea.set_seed(seed) staff:=staf is_main:=main
+		end
+	triage_examination is do
+		transfers.clear
+		treatment.do_all(agent discharge_one_patient(?))
+		examination.do_all(agent treat_or_transfert_one_patient(?))
+		triage.do_all(agent triage_one_patient(?))
+		if alea.test(0.7) then new_arrival(create{PATIENT}) end
+		end
+	new_arrival(p:PATIENT) is do
+		p.enter_hospital
+		if staff<=0 then triage.add(p)
+			else staff:=staff-1 examination.add(p) p.wait(3) end
+		end
+	discharge_one_patient(p:PATIENT) is do
+		p.next_time
+		if p.finished then
+			staff:=staff+1 treatment.remove(p)
+			discharged.add(p) end
+		end
+	treat_or_transfert_one_patient(p:PATIENT) is do
+                p.next_time
+		if p.finished then
+			examination.remove(p)
+			if alea.test(0.1) or else is_main then
+				treatment.add(p) p.wait(10)
+			else
+				staff:=staff+1 transfers.add(p) end
+			end
+		end
+	triage_one_patient(p:PATIENT) is do
+		if staff<=0 then
+			p.incr_hospital_time
+		else
+			staff:=staff-1 triage.remove(p)
+			examination.add(p) p.wait(3) end
+		end
+	accumulate_totals: TOTALS is do
+		Result:=discharged+triage.accumulate_totals+
+			examination.accumulate_totals+
+			treatment.accumulate_totals
+		end
+end
+
+--SPLITFILE=random.e
+
+expanded class RANDOM feature
+	im: INTEGER is 139968
+	ia: INTEGER is 3877
+	ic: INTEGER is 29573
+	inv_im: REAL is once Result:=1.0/im end
+	last_integer: INTEGER
+	next is do last_integer := (last_integer #* ia + ic) #\\ im end
+	last_real: REAL is do Result := inv_im * last_integer end
+	test(chance: REAL): BOOLEAN is do next Result:=last_real>chance end
+	set_seed(seed:INTEGER) is do last_integer:=seed end
+end
+
+--SPLITFILE=patient.e
+
+class PATIENT feature
+	remaining_time, hospital_time, hospital_visits: INTEGER
+	wait(t:INTEGER) is do  remaining_time:=t  hospital_time:=hospital_time+t  end
+	enter_hospital is do hospital_visits:=hospital_visits+1 end
+	next_time is do remaining_time:=remaining_time-1 end
+	finished: BOOLEAN is do Result:=remaining_time=0 end
+	incr_hospital_time is do hospital_time:=hospital_time+1 end
+end
+
+--SPLITFILE=totals.e
+
+expanded class TOTALS feature
+	patients, time, visits: INTEGER
+	make(p,t,v:INTEGER) is do patients:=p time:=t visits:=v end
+	infix "+"(o:TOTALS):TOTALS is do
+		Result.make(patients+o.patients,time+o.time,visits+o.visits)
+		end
+	add(p:PATIENT) is do
+		patients:=patients+1
+		time:=time+p.hospital_time
+		visits:=visits+p.hospital_visits
+		end
+end
+
+--SPLITFILE=patient_list_node.e
+
+class PATIENT_LIST_NODE creation set_patient feature
+	patient: PATIENT
+	next: like Current
+	set_patient(p:PATIENT) is do patient:=p end
+	set_next(n: like Current) is do next:=n end
+end
+
+--SPLITFILE=patient_list.e
+
+expanded class PATIENT_LIST feature
+	head, tail: PATIENT_LIST_NODE
+	clear is do head:=Void tail:=Void end
+	add(p:PATIENT) is local node:PATIENT_LIST_NODE do
+		create node.set_patient(p)
+		if tail=Void then head:=node else tail.set_next(node) end
+		tail:=node end
+	remove(p:PATIENT) is local node,previous:PATIENT_LIST_NODE do
+		from node:=head until node=Void or else node.patient=p loop
+			previous:=node node:=node.next end
+		if node/=Void then
+			if previous/=Void then previous.set_next(node.next)
+				else head:=node.next end
+			if tail=node then tail:=previous end
+			end
+		end
+	do_all(proc: ROUTINE[ANY,TUPLE[PATIENT]]) is local node:PATIENT_LIST_NODE do
+		from node:=head until node=Void loop
+			proc.call([node.patient])
+			node:=node.next end
+		end
+	accumulate_totals: TOTALS is local node:PATIENT_LIST_NODE do
+		from node:=head until node=Void loop
+			Result.add(node.patient)
+			node:=node.next end
+		end
+end
+-- -*- mode: eiffel -*-
+-- $Id: heapsort.se,v 1.3 2005-11-16 07:54:12 bfulgham Exp $
+-- http://shootout.alioth.debian.org/
+--
+-- Modified to use FIXED_ARRAY by Brent Fulgham, based on
+--   recommendation of Jose Bollo
+
+class HEAPSORT
+
+insert
+	ARGUMENTS
+
+creation {ANY}
+	make
+
+feature {ANY}
+   make is
+      local
+	 array: FIXED_ARRAY[DOUBLE]
+	 n: INTEGER
+      do
+	 n := argument(1).to_integer
+	 !!array.make(n)
+	 fill_array(array)
+	 sort_array(n, array)
+	 io.put_string(array.item(n).to_string_format(10))
+	 io.put_new_line
+      end
+   
+   sort_array(n: INTEGER; ra: FIXED_ARRAY[DOUBLE]) is
+      local
+	 i, j, ir, l: INTEGER
+	 rra: DOUBLE
+	 done: BOOLEAN
+      do
+	 j := 0
+	 i := 0
+	 rra := 0.0
+	 ir := n
+	 l := n // 2
+	 done := false
+	 
+	 from until done loop
+	    if l > 1 then
+	       l := l - 1
+	       rra := ra.item(l)
+	    else
+	       rra := ra.item(ir)
+	       ra.put(ra.item(1), ir)
+	       ir := ir - 1
+	       if ir = 1 then
+		  ra.put(rra, 1)
+		  -- should throw exception out of here instead of 
+		  -- using boolean
+		  done := true
+	       end
+	    end
+	    
+	    if not done then
+	       i := l
+	       j := l * 2
+	       
+	       from until j > ir loop
+		  if (j < ir) and (ra.item(j) < ra.item(j+1)) then
+		     j := j + 1
+		  end
+		  if rra < ra.item(j) then
+		     ra.put(ra.item(j), i)
+		     i := j
+		     j := j + i
+		  else
+		     j := ir + 1
+		  end
+	       end
+	       ra.put(rra, i)
+	    end
+	 end
+      end
+
+
+   fill_array(an_array: FIXED_ARRAY[DOUBLE]) is
+      local
+	 rand: RANDOMNUMBER
+	 index: INTEGER
+      do
+	 from
+	    !!rand.make
+	    index := an_array.lower
+	 until
+	    index > an_array.upper
+	 loop
+	    an_array.put(rand.next(1), index)
+	    index := index + 1
+	 end
+      end
+
+end
+
+-- -*- mode: eiffel -*-
+-- $Id: hello.se,v 1.1 2004-05-19 18:10:16 bfulgham Exp $
+-- http://www.bagley.org/~doug/shootout/
+
+class HELLO
+
+creation make
+
+feature
+   make is
+      local
+      do
+         std_output.put_string("hello world")
+         std_output.put_new_line
+      end
+end
+--
+-- http://shootout.alioth.debian.org/
+-- k-nucleotide for SE2.1 by josÃ©
+--
+class KNUCLEOTIDE
+
+inherit ABSTRACT_SORTER[TUPLE[INTEGER,STRING]]
+
+insert ARGUMENTS
+
+creation make feature
+
+   make is do
+      create array.make(100000)
+      create sequence.make(100000)
+      create dictionary.with_capacity(10000)
+      read
+      write_frequencies(1)
+      write_frequencies(2)
+      write_count(once "GGT")
+      write_count(once "GGTA")
+      write_count(once "GGTATT")
+      write_count(once "GGTATTTTAATT")
+      write_count(once "GGTATTTTAATTTATAGT")
+   end
+
+   write_frequencies(length: INTEGER) is local i: INTEGER coef: REAL_64 do
+      count(length)
+      array.clear_count
+      dictionary.item_map_in(array)
+      sort(array)
+      coef := {INTEGER 100} / (1 + sequence.count - length)
+      from i:=array.lower until i>array.upper loop
+         io.put_string(array.item(i).second)
+         io.put_character(' ')
+         io.put_real_format(coef * array.item(i).first, 3)
+         io.put_character('%N')
+         i := i + 1
+      end
+      io.put_character('%N')
+   end
+
+   write_count(match: STRING) is local n: INTEGER do
+      count(match.count)
+      tuple := dictionary.reference_at(match)
+      if tuple /= Void then n := tuple.first end
+      io.put_integer(n)
+      io.put_character('%T')
+      io.put_string(match)
+      io.put_character('%N')
+   end
+
+   sequence: STRING
+   part: STRING
+   tuple: TUPLE[INTEGER,STRING]
+   dictionary: HASHED_DICTIONARY[like tuple,like part]
+   array: FAST_ARRAY[like tuple]
+
+   read is do
+      from io.read_line until io.end_of_input or else io.last_string.has_prefix(once ">THREE") loop
+         io.read_line
+      end
+      if not io.end_of_input then
+         from io.read_line until io.end_of_input or else io.last_string.first = '>' loop
+            if io.last_string.first /= ';' then sequence.append(io.last_string) end
+            io.read_line
+         end
+         sequence.to_upper
+      end
+   end
+
+   count(length: INTEGER) is local pos, i, j: INTEGER do
+      dictionary.clear_count
+      from
+         part := sequence.substring(1,length)
+         tuple := [{INTEGER 1}, part.twin]
+         dictionary.add(tuple,tuple.second)
+         pos := length
+      until
+         pos >= sequence.upper
+      loop
+         pos := pos + 1
+         from i:=1 until i=length loop j:=i+1 part.put(part.item(j),i) i:=j end
+         part.put(sequence.item(pos),length)
+         tuple := dictionary.reference_at(part)
+         if tuple = Void then
+            tuple := [{INTEGER 1}, part.twin]
+            dictionary.add(tuple,tuple.second)
+         else
+            tuple.set_first(1 + tuple.first)
+         end
+      end
+   end
+
+   lt(a,b: like tuple): BOOLEAN is do
+      Result := b.first<a.first
+         or else (a.first=b.first and then a.second<b.second)
+   end
+
+end
+
+-- -*- mode: eiffel -*-
+-- $Id: lists.se,v 1.3 2005-11-16 07:54:12 bfulgham Exp $
+-- http://www.bagley.org/~doug/shootout/ 
+-- from Friedrich Dominicus
+
+class LISTS
+
+insert
+	ARGUMENTS
+   
+creation {ANY}
+    make
+
+feature {ANY}
+    exc: EXCEPTIONS;
+    args: ARGUMENTS;
+    l1, l2, l3: DOUBLY_LINKED_LIST[INTEGER];
+    size : INTEGER is 10000;
+    run_n : INTEGER;
+
+    preamble is
+        do
+            create exc;
+            create args
+            if args.argument_count /= 1 then
+                io.put_string("exception_test <integer>%N");
+                exc.die(1);
+            end;
+            if args.argument(1).is_integer then
+                run_n := argument(1).to_integer;
+            else
+                io.put_string("Argument wasn't an integer, giving up%N");
+                exc.die(1);
+            end;
+        end
+
+    
+
+    make is
+        local
+          i : INTEGER;
+	  length : INTEGER;
+        do
+            preamble;
+            from i := 1
+            until i > run_n
+            loop
+                length := run_it
+                i := i + 1;
+            end;
+            
+            -- io.put_string ("l1 length = ");
+            io.put_integer (length);
+            io.put_new_line;
+        end;
+
+    run_it : INTEGER is
+        local
+            length : INTEGER;
+        do
+            create l1.make;
+            fill_l1;
+            -- copy L1 to L2 (can use any builtin list copy function, if 
+            -- available) 
+            l2 := clone(l1);
+            move_from_front_to_end;
+            
+            l3 := l1.clone (l1);
+            move_from_end_to_end;
+            -- reversing using the "official interface of the 
+            -- SmallEiffel datastructures"
+            --reverse_in_place_naive (l1);
+            -- hand crafted version see doubly_linked_list for details
+            l1.revert_in_place;
+            -- check that first item of L1 is now == SIZE.%
+            -- in Eiffel we could write
+            -- check l1.fist = size end;
+            -- if that does not hold and exception is raised. Well 
+            -- just for the record ;-)
+            if l1.first = size then
+                -- io.put_string("seems to work%N");
+            else
+                io.put_string("should not happen%N");
+            end;
+            -- compare L1 and L2 for equality and return length of L1 
+            -- which should be equal to SIZE
+            length := compare_lists (l1, l2);
+            Result := length;
+        end;
+
+    fill_l1 is
+            -- first create a list (L1) of integers from 1 through SIZE
+            -- (SIZE is currently defined as 10000).
+        local
+            i: INTEGER;
+        do
+            from i := 1
+            until i > size
+            loop
+                l1.add_last(i);
+                i := i + 1;
+            end;
+        end;
+
+    move_from_front_to_end is
+            -- remove each individual item from left side (head) of L2 and 
+            -- append to right side (tail) of L3 (preserving order). (L2 should 
+            -- be emptied by one item at a time as that item is appended 
+            -- to L3).
+            -- REMARK: built-in functionality is used which is not 
+            -- optimized for speed, e.g the add_last method creates a 
+            -- new node each time, this could be optimized by 
+            -- handcrafted code (in fact the shootout encourages the 
+            -- "implement yourself approach", which makes it biased 
+            -- towards hand-tailored implementations.
+        do
+            from !!l3.make
+            until l2.is_empty
+            loop
+                l3.add_last(l2.first);
+                l2.remove_first;
+            end;
+            check
+                l3_adjusted: l3.first = 1 and l3.last = size;
+            end; -- check
+            debug
+                io.put_string("l3 is now %N");
+                print (l3);
+                io.newline;
+            end;
+        end
+            
+    move_from_end_to_end is
+            -- remove each individual item from right side (tail) of L3 
+            -- and append to right side (tail) of L2 (reversing list). 
+            -- (L3  should be emptied by one item at a time as that item 
+            --  is appended to L2).
+            -- REMARKS: see move_from_font_to_end
+        do
+            from !!l2.make
+            until l3.is_empty
+            loop
+                l2.add_last(l3.last);
+                l3.remove_last;
+            end;
+            check
+                l2_built_properly: l2.first = size and l2.last = 1;
+            end;
+            debug
+                io.put_string ("l2 is now: %N");
+                print (l2);
+                io.put_new_line;
+            end;
+        end;
+
+
+    
+    
+    reverse_in_place_naive (dlist: TWO_WAY_LINKED_LIST [INTEGER]) is
+            -- first try should make quite a difference in run-time
+            -- reverse L1 (preferably in place) (can use any builtin 
+            -- function for this, if available.
+        local
+            i : INTEGER;
+            done : BOOLEAN;
+            -- fl_clone : TWO_WAY_LINKED_LIST[INTEGER];
+        do
+            -- fl_clone := clone(first_link);
+            from i := 1
+            until
+                i > size
+            loop
+                dlist.add(dlist.last, i);
+                -- inefficient. the problem is that remove_lasts moves
+                -- the cursoer and there for one has to run through 
+                -- the list over and over again. Well one can that 
+                -- just find out by reading the sources ...;-)
+                
+                dlist.remove_last;
+                i := i + 1;
+            end;
+            if dlist.first = size then
+                io.put_string("first element = size%N");
+            else
+                io.put_string("first element != size %N");
+            end;
+            debug
+                io.put_string("dlist is now %N");
+                print (dlist);
+                io.newline;
+            end;
+        end;
+    
+    compare_lists (al1, al2 : DOUBLY_LINKED_LIST[INTEGER]): INTEGER is
+        do
+            if al1.is_equal(al2) then
+                -- io.put_string("lists are equal%N");
+            else
+                io.put_string ("lists are not equal %N");
+            end;
+            Result := al1.count;
+        end;
+           
+       
+
+    
+end -- class LISTS
+--
+-- http://shootout.alioth.debian.org/
+--
+-- Mandelbrot for SE by josÃ©
+--
+
+class MANDELBROT
+
+insert ARGUMENTS
+
+creation make feature 
+
+   make is local
+      size, i, iter, x, y: INTEGER
+      zr, zi, cr, ci, pr, pi, limit: DOUBLE
+      stop, gone: BOOLEAN
+      bit, bit_accu: INTEGER_8
+   do
+      check argument_count = 1 end
+      check argument(1).is_integer end
+      size := argument(1).to_integer
+      check size > 1 end
+
+      -- write header
+      std_output.put_string("P4%N")
+      std_output.put_string(argument(1))
+      std_output.put_character(' ')
+      std_output.put_string(argument(1))
+      std_output.put_character('%N')
+
+      -- compute mandelbrot's bitmap
+      limit := 4.0
+      iter := 50
+      bit := 0x80
+      from y:=0 until y=size loop
+         ci := 2.0 * y / size - 1.0
+
+         from x:=0 until x=size loop
+            cr := 2.0 * x / size - 1.5
+
+            zr:=0 zi:=0 pr:=0 pi:=0
+            from i:=0 stop:=False until stop loop
+               zi := 2.0 * zr * zi + ci
+               zr := pr - pi + cr
+               pi := zi * zi
+               pr := zr * zr
+               if pi+pr>limit then
+                  stop := True
+                  gone := True
+               else
+                  i := i+1
+                  stop := i = iter
+               end
+            end
+
+            if gone then
+               gone := False
+            else
+               bit_accu := bit_accu | bit
+            end
+
+            if bit = 1 then
+               std_output.put_character(bit_accu.to_character)
+               bit_accu := 0
+               bit := 0x80
+            else
+               bit := bit |>>> 1
+            end
+            x := x+1
+         end
+
+         if bit /= 0x80 then
+            std_output.put_character(bit_accu.to_character)
+            bit_accu := 0
+            bit := 0x80
+         end
+
+         y := y+1
+      end
+   end
+end
+
+-- -*- mode: eiffel -*-
+-- $Id: matrix.se,v 1.4 2005-11-16 07:54:13 bfulgham Exp $
+-- http://shootout.alioth.debian.org/
+-- from Steve Thompson
+--
+-- Revised to use FIXED_ARRAY2 by Jose Bollo.
+--
+-- <LOC-OFF>
+--indexing
+--   description: "This class performs the matrix multiplication test" 
+--   author : Steve Thompson
+--   email  : "Steve_Thompson@prodigy.net"
+--   date   : February 18, 2001
+--   compile: "compile -clean -boost -no_split -O3 main.e -o main"
+--   run    : "main 300"
+-- <LOC-ON>
+   
+class MATRIX
+
+insert
+	ARGUMENTS
+
+creation {ANY}
+	make
+   
+feature {ANY} -- Creation
+   make is
+      local
+	 index, count: INTEGER
+	 m1, m2: like matrix
+      do
+	 from
+	    if argument_count < 1 then 
+	       count := 1
+	    else 
+	       count := argument(1).to_integer
+	    end
+	    index := 0
+	    m1 := new_matrix(30, 30) 
+	    m2 := new_matrix(30, 30) 
+	    !!matrix.make(30, 30)
+	 until
+	    index = count
+	 loop
+	    mmult(30, 30, m1, m2)
+	    index := index + 1
+	 end -- from
+	 print(matrix.item(0, 0).to_string + " " + matrix.item(2, 3).to_string + " " +
+	       matrix.item(3, 2).to_string + " " + matrix.item(4, 4).to_string + "%N")
+      end -- make
+   
+feature -- Queries
+   
+   matrix: FIXED_ARRAY2[INTEGER]
+   
+   new_matrix(rows, columns: INTEGER): like matrix is
+	 -- Create and populate a new matrix.
+      local
+	 i, j, count: INTEGER
+      do
+	 !!Result.make(rows, columns)
+	 from 
+	    count := 1
+	    i := 0
+	 until i = rows loop
+	    from j := 0 until j = columns loop
+	       Result.put(count, i, j)
+	       count := count + 1
+	       j := j + 1
+	    end 
+	    i := i + 1
+	 end
+      end -- new_matrix
+   
+feature -- Commands
+   
+   zero_matrix(rows, columns: INTEGER; a_matrix: like matrix) is
+	 -- Clear a matrix
+      do
+	 matrix.make(rows, columns)
+      end -- zero_matrix
+   
+   mmult(rows, columns: INTEGER; first, second: like matrix) is
+	 -- Multiply two matrices.
+      local
+	 i, j, k, val: INTEGER
+      do
+	 zero_matrix(rows, columns, matrix)
+	 from i := 0 until i = rows loop
+	    from j := 0 until j = columns loop
+	       val := 0
+	       from k := 0 until k = columns loop
+		  val := val + first.item(i, k) * second.item(k, j)
+		  k := k + 1
+	       end
+	       matrix.put(val, i, j)
+	       j := j + 1
+	    end
+	    i := i + 1
+	 end -- from
+      end -- mmult
+   
+end
+-- The Computer Language Shootout
+-- http://shootout.alioth.debian.org/
+-- contributed by  Cyril Adrian 
+
+-- SPLITFILE=linked_job.e
+class LINKED_JOB
+
+inherit
+   BACKGROUND_JOB
+      redefine
+         is_ready
+      end
+
+create {ANY}
+   link_to, make
+
+feature {ANY}
+   message (i: INTEGER) is
+      do
+         messages.add(i)
+      end
+
+feature {LOOP_ITEM}
+   continue is
+      do
+         if id /= 0 then
+            next.message(messages.first + 1)
+         else
+            if sum >= max then
+               stop.call([sum])
+            else
+               sum := sum + (messages.first+1)
+            end
+         end
+         messages.remove
+      end
+
+   is_ready (ready: READY_DESCRIPTION): BOOLEAN is
+      do
+         Result := not messages.is_empty
+         if id = 0 then
+            Result := Result or else sum >= max
+         end
+      end
+
+   done: BOOLEAN is
+      do
+         Result := False
+      end
+
+   restart is
+      do
+      end
+
+feature {}
+   id: INTEGER
+   next: like Current
+   messages: QUEUE[INTEGER]
+   sum: INTEGER
+   max: INTEGER
+   stop: PROCEDURE[TUPLE[INTEGER]]
+
+   link_to (a_id: like id; a_next: like next) is
+      require
+         a_id > 0
+         a_next /= Void
+      do
+         id := a_id
+         next := a_next
+         create messages.make
+      end
+
+   make (a_max: like max; a_stop: like stop) is
+      do
+         create messages.make
+         max := a_max
+         stop := a_stop
+      end
+
+end
+-- SPLITFILE=message.e
+class MESSAGE
+
+inherit
+   BACKGROUND_JOB
+
+insert
+   ARGUMENTS
+
+create {ANY}
+   make
+
+feature {}
+   Jobs_count: INTEGER is 500
+   messages_count, counter: INTEGER
+   job: LINKED_JOB
+   stack: LOOP_STACK
+
+   make is
+      local
+         i: INTEGER
+      do
+         create stack.make
+         stack.add_job(Current)
+         messages_count := argument(1).to_integer
+         from
+            create job.make(messages_count * Jobs_count, agent stop)
+            stack.add_job(job)
+            i := 1
+         until
+            i = Jobs_count
+         loop
+            create job.link_to(i, job)
+            stack.add_job(job)
+            i := i + 1
+         end
+         stack.run
+      end
+
+   stop (sum: INTEGER) is
+      do
+         print(sum.out + "%N")
+         stack.break
+      end
+
+feature {LOOP_ITEM}
+   continue is
+      do
+         job.message(0)
+         counter := counter + 1
+      end
+
+   done: BOOLEAN is
+      do
+         Result := counter = messages_count
+      end
+
+   restart is
+      do
+      end
+
+end
+-- -*- mode: eiffel -*-
+-- $Id: methcall.se,v 1.3 2005-11-16 07:54:13 bfulgham Exp $
+-- http://www.bagley.org/~doug/shootout/
+-- from Steve Thompson
+
+-- <LOC-OFF>
+--indexing
+--   description: "This class is the entry point for the method call test" 
+--   author : Steve Thompson
+--   email  : "Steve_Thompson@prodigy.net"
+--   date   : February 18, 2001
+--   compile: "compile -clean -boost -no_split -O3 main.e -o main"
+--   run    : "main 400000"
+-- <LOC-ON>
+   
+class METHCALL
+
+insert
+	ARGUMENTS
+
+creation {ANY}
+	make
+   
+feature {ANY} -- Creation
+   make is
+      local
+	 index: INTEGER
+	 n: INTEGER
+	 toggle: TOGGLE
+	 value: BOOLEAN
+	 nth_toggle: NTH_TOGGLE
+      do
+	 if argument_count = 0 then 
+	    n := 1
+	 else
+	    n := argument(1).to_integer
+	 end
+	 
+	 value := True
+	 !!toggle.make(value)
+	 from index := 0 until index = n loop
+	    value := toggle.activate.value
+	    index := index + 1
+	 end
+
+	 if value then print("true%N") else print("false%N") end
+	    value := True
+	    !!nth_toggle.make(value, 3)
+	 from index := 0 until index = n loop
+	    value := nth_toggle.activate.value
+	    index := index + 1
+	 end
+	 if value then print("true%N") else print("false%N") end
+	    
+      end -- make
+   
+end
+-- -*- mode: eiffel -*-
+-- $Id: moments.se,v 1.3 2005-11-16 07:54:13 bfulgham Exp $
+-- http://www.bagley.org/~doug/shootout/
+-- from Steve Thompson
+
+-- <LOC-OFF>
+--indexing
+--   description: "This class performs the statistical moments test" 
+--   author : Steve Thompson
+--   email  : "Steve_Thompson@prodigy.net"
+--   date   : February 18, 2001
+--   compile: "compile -clean -boost -no_split -O3 main.e -o main"
+--   run    : "main < Input"
+-- <LOC-ON>
+
+class MOMENTS
+
+insert
+	ARGUMENTS
+
+creation {ANY}
+	make
+
+feature {ANY} -- Creation
+   make is
+      local
+	 index: INTEGER
+	 number: INTEGER
+	 mid: INTEGER
+	 deviation: DOUBLE
+	 sorter: COLLECTION_SORTER[INTEGER]
+      do
+	 !!values.make(0,499)
+	 read_values
+	 mean := sum / values.count
+	 
+	 from index := values.lower until index > values.upper loop
+	    number := values @ index
+	    deviation := number - mean
+	    average_deviation := average_deviation + deviation.abs
+	    variance := variance + deviation ^ 2
+	    skew := skew + deviation ^ 3
+	    kurtosis := kurtosis + deviation ^ 4
+	    index := index + 1
+	 end
+	 
+	 average_deviation := average_deviation / values.count
+	 variance := variance / (values.count - 1)
+	 standard_deviation := variance.sqrt --math.sqrt(variance)
+	 if variance > 0.0 then
+	    skew := skew / (values.count * variance * standard_deviation)
+	    kurtosis := kurtosis / (values.count * variance * variance) - 3.0				
+	 end
+	 sorter.sort(values)
+	 mid := values.count // 2
+	 if (values.count \\ 2) = 0 then
+	    median := (values.item(mid) + values.item(mid - 1)) / 2
+	 else
+	    median := values @ mid
+	 end
+	 
+	 print ("n:                  " + values.count.to_string + "%N")
+	 print ("median:             " + median.to_string + "%N")
+	 print ("mean:               " + mean.to_string + "%N")
+	 print ("average_deviation:  " + average_deviation.to_string + "%N")
+	 print ("standard_deviation: " + standard_deviation.to_string + "%N")
+	 print ("variance:           " + variance.to_string + "%N")
+	 print ("skew:               " + skew.to_string + "%N")
+	 print ("kurtosis:           " + kurtosis.to_string + "%N")
+      end -- make
+   
+feature -- Queries
+   
+   sum: INTEGER
+   
+   mean,
+   median,
+   average_deviation,
+   standard_deviation,
+   variance,
+   skew,
+   kurtosis: DOUBLE 	
+   
+   values: ARRAY[INTEGER]
+	 -- Values read from stdin
+   
+   read_values is
+      local
+	 value: INTEGER
+	 index: INTEGER
+      do
+
+	 from
+	    index := values.lower 
+	    std_input.read_line 
+	 until std_input.end_of_input loop
+	    value := std_input.last_string.to_integer
+	    values.force(value, index)
+	    std_input.read_line
+	    sum := sum + value
+	    index := index + 1
+	 end 
+
+      end -- get_stdin
+   
+end
+-- -*- mode: eiffel -*-
+-- $Id: moments.se,v 1.2 2005-11-16 07:54:13 bfulgham Exp $
+-- http://www.bagley.org/~doug/shootout/
+-- from Steve Thompson
+
+
+-- <LOC-OFF>
+indexing
+   description: "This class performs the statistical moments test" 
+   author : Steve Thompson
+   email  : "Steve_Thompson@prodigy.net"
+   date   : February 18, 2001
+   compile: "compile -clean -boost -no_split -O3 main.e -o main"
+   run    : "main < Input"
+-- <LOC-ON>
+
+class MOMENTS
+
+insert
+	ARGUMENTS
+
+creation {ANY}
+	make
+
+feature {ANY} -- Creation
+   make is
+      local
+	 index: INTEGER
+	 number: INTEGER
+	 mid: INTEGER
+	 deviation: DOUBLE
+	 sorter: COLLECTION_SORTER[INTEGER]
+      do
+	 !!values.make(0,499)
+	 read_values
+	 mean := sum / values.count
+	 
+	 from index := values.lower until index > values.upper loop
+	    number := values @ index
+	    deviation := number - mean
+	    average_deviation := average_deviation + deviation.abs
+	    variance := variance + deviation ^ 2
+	    skew := skew + deviation ^ 3
+	    kurtosis := kurtosis + deviation ^ 4
+	    index := index + 1
+	 end
+	 
+	 average_deviation := average_deviation / values.count
+	 variance := variance / (values.count - 1)
+	 standard_deviation := variance.sqrt --math.sqrt(variance)
+	 if variance > 0.0 then
+	    skew := skew / (values.count * variance * standard_deviation)
+	    kurtosis := kurtosis / (values.count * variance * variance) - 3.0				
+	 end
+	 sorter.sort(values)
+	 mid := values.count // 2
+	 if (values.count \\ 2) = 0 then
+	    median := (values.item(mid) + values.item(mid - 1)) / 2
+	 else
+	    median := values @ mid
+	 end
+	 
+	 print ("n:                  " + values.count.to_string + "%N")
+	 print ("median:             " + median.to_string + "%N")
+	 print ("mean:               " + mean.to_string + "%N")
+	 print ("average_deviation:  " + average_deviation.to_string + "%N")
+	 print ("standard_deviation: " + standard_deviation.to_string + "%N")
+	 print ("variance:           " + variance.to_string + "%N")
+	 print ("skew:               " + skew.to_string + "%N")
+	 print ("kurtosis:           " + kurtosis.to_string + "%N")
+      end -- make
+   
+feature -- Queries
+   
+   sum,
+   mean,
+   median,
+   average_deviation,
+   standard_deviation,
+   variance,
+   skew,
+   kurtosis: DOUBLE 	
+   
+   values: ARRAY[INTEGER]
+	 -- Values read from stdin
+   
+   read_values is
+      local
+	 value: DOUBLE
+	 index: INTEGER
+      do
+
+	 sum := 0
+	 from
+	    index := values.lower 
+	    std_input.read_line 
+	 until std_input.end_of_input loop
+	    value := std_input.last_string.to_double
+	    std_input.read_line
+	    sum := sum + value
+	    index := index + 1
+	 end 
+
+      end -- get_stdin
+   
+end
+--
+-- The Great Computer Language Shootout
+-- http://shootout.alioth.debian.org/
+--
+-- Contributed by Arnaud Payement for Smart Eiffel
+--
+
+-- SPLITFILE=body.e
+class BODY
+
+creation {ANY}
+   jupiter, saturn, uranus, neptune, sun
+
+feature {ANY}
+   pi: REAL is 3.141592653589793
+
+   solar_mass: REAL is
+      once
+         Result := 4 * pi * pi
+      end
+
+   days_per_year: REAL is 365.24
+
+   x: REAL
+
+   y: REAL
+
+   z: REAL
+
+   vx: REAL
+
+   vy: REAL
+
+   vz: REAL
+
+   mass: REAL
+
+   set_x (a: REAL) is
+      do
+         x := a
+      end
+
+   set_y (a: REAL) is
+      do
+         y := a
+      end
+
+   set_z (a: REAL) is
+      do
+         z := a
+      end
+
+   set_vx (a: REAL) is
+      do
+         vx := a
+      end
+
+   set_vy (a: REAL) is
+      do
+         vy := a
+      end
+
+   set_vz (a: REAL) is
+      do
+         vz := a
+      end
+
+   jupiter is
+      do
+         x := 4.84143144246472090e+00
+         y := -1.16032004402742839e+00
+         z := -1.03622044471123109e-01
+         vx := 1.66007664274403694e-03 * days_per_year
+         vy := 7.69901118419740425e-03 * days_per_year
+         vz := -6.90460016972063023e-05 * days_per_year
+         mass := 9.54791938424326609e-04 * solar_mass
+      end
+
+   saturn is
+      do
+         x := 8.34336671824457987e+00
+         y := 4.12479856412430479e+00
+         z := -4.03523417114321381e-01
+         vx := -2.76742510726862411e-03 * days_per_year
+         vy := 4.99852801234917238e-03 * days_per_year
+         vz := 2.30417297573763929e-05 * days_per_year
+         mass := 2.85885980666130812e-04 * solar_mass
+      end
+
+   uranus is
+      do
+         x := 1.28943695621391310e+01
+         y := -1.51111514016986312e+01
+         z := -2.23307578892655734e-01
+         vx := 2.96460137564761618e-03 * days_per_year
+         vy := 2.37847173959480950e-03 * days_per_year
+         vz := -2.96589568540237556e-05 * days_per_year
+         mass := 4.36624404335156298e-05 * solar_mass
+      end
+
+   neptune is
+      do
+         x := 1.53796971148509165e+01
+         y := -2.59193146099879641e+01
+         z := 1.79258772950371181e-01
+         vx := 2.68067772490389322e-03 * days_per_year
+         vy := 1.62824170038242295e-03 * days_per_year
+         vz := -9.51592254519715870e-05 * days_per_year
+         mass := 5.15138902046611451e-05 * solar_mass
+      end
+
+   sun is
+      do
+         mass := solar_mass
+      end
+
+   offset_momentum (px: REAL; py: REAL; pz: REAL) is
+      do
+         vx := - px / solar_mass
+         vy := - py / solar_mass
+         vz := - pz / solar_mass
+      end
+
+end -- class BODY
+
+-- SPLITFILE=nbody.e
+class NBODY
+
+insert ARGUMENTS
+
+creation {ANY}
+   make
+
+feature {ANY}
+   make is
+      local
+         n: INTEGER; i: INTEGER; bodies: NBODY_SYSTEM
+      do
+         create bodies.make
+         std_output.put_real_format(bodies.energy,9)
+         std_output.put_string("%N")
+         n := argument(1).to_integer
+         from
+            i := 0
+         until
+            i = n
+         loop
+            bodies.advance(0.01)
+            i := i + 1
+         end
+         std_output.put_real_format(bodies.energy,9)
+         std_output.put_string("%N")
+      end
+
+end -- class NBODY
+-- SPLITFILE=nbody_system.e
+class NBODY_SYSTEM
+
+creation {ANY}
+   make
+
+feature {ANY}
+   bodies: FAST_ARRAY[BODY]
+
+   make is
+      local
+         b: BODY; px: REAL; py: REAL; pz: REAL; i: INTEGER; bi : BODY
+      do
+         create bodies.make(5)
+         create b.sun
+         bodies.put(b, 0)
+         create b.jupiter
+         bodies.put(b, 1)
+         create b.saturn
+         bodies.put(b, 2)
+         create b.uranus
+         bodies.put(b, 3)
+         create b.neptune
+         bodies.put(b, 4)
+         from
+            i := 0
+         until
+            i = 5
+         loop
+            bi := bodies.item(i)
+            px := px + bi.vx * bi.mass
+            py := py + bi.vy * bi.mass
+            pz := pz + bi.vz * bi.mass
+            i := i + 1
+         end
+         bodies.item(0).offset_momentum(px, py, pz)
+      end
+
+   advance (dt: REAL) is
+      local
+         dx: REAL; dy: REAL; dz: REAL; distance: REAL; mag: REAL; i: INTEGER; j: INTEGER; bi: BODY; bj: BODY
+      do
+         from
+            i := 0
+         until
+            i = 5
+         loop
+            bi := bodies.item(i)
+            from
+               j := i + 1
+            until
+               j = 5
+            loop
+               bj := bodies.item(j)
+               dx := bi.x - bj.x
+               dy := bi.y - bj.y
+               dz := bi.z - bj.z
+               distance := (dx * dx + dy * dy + dz * dz).sqrt
+               mag := dt / (distance * distance * distance)
+               bi.set_vx(bi.vx - dx * bj.mass * mag)
+               bi.set_vy(bi.vy - dy * bj.mass * mag)
+               bi.set_vz(bi.vz - dz * bj.mass * mag)
+               bj.set_vx(bj.vx + dx * bi.mass * mag)
+               bj.set_vy(bj.vy + dy * bi.mass * mag)
+               bj.set_vz(bj.vz + dz * bi.mass * mag)
+               j := j + 1
+            end
+            i := i + 1
+         end
+         from
+            i := 0
+         until
+            i = 5
+         loop
+            bi := bodies.item(i)
+            bi.set_x(bi.x + dt * bi.vx)
+            bi.set_y(bi.y + dt * bi.vy)
+            bi.set_z(bi.z + dt * bi.vz)
+            i := i + 1
+         end
+      end
+
+   energy: REAL is
+      local
+         dx: REAL; dy: REAL; dz: REAL; distance: REAL; e: REAL; i: INTEGER; j: INTEGER; bi: BODY; bj:BODY
+      do
+         from
+            i := 0
+         until
+            i = 5
+         loop
+            bi := bodies.item(i)
+            e := e + 0.5 * bi.mass * (bi.vx * bi.vx + bi.vy * bi.vy + bi.vz * bi.vz)
+            from
+               j := i + 1
+            until
+               j = 5
+            loop
+               bj := bodies.item(j)
+               dx := bi.x - bj.x
+               dy := bi.y - bj.y
+               dz := bi.z - bj.z
+               distance := (dx * dx + dy * dy + dz * dz).sqrt
+               e := e - bi.mass * bj.mass / distance
+               j := j + 1
+            end
+            i := i + 1
+         end
+         Result := e
+      end
+
+end -- class NBODY_SYSTEM
+
+-- -*- mode: eiffel -*-
+-- $Id: nestedloop.se,v 1.2 2005-11-16 07:54:13 bfulgham Exp $
+-- http://www.bagley.org/~doug/shootout/
+
+class NESTEDLOOP
+
+insert
+	ARGUMENTS
+
+creation {ANY} make
+
+feature {ANY}
+   make is
+      local
+	 n,a,b,c,d,e,f,x: INTEGER;
+      do
+	 if argument_count = 1 then
+	    n := argument(1).to_integer
+	 else
+	    n := 1
+	 end
+
+	 x := 0
+	 from
+	    a := 0
+	 until
+	    a = n
+	 loop
+	    from
+	       b := 0
+	    until
+	       b = n
+	    loop
+	       from
+		  c := 0
+	       until
+		  c = n
+	       loop
+		  from
+		     d := 0
+		  until
+		     d = n
+		  loop
+		     from
+			e := 0
+		     until
+			e = n
+		     loop
+			from
+			   f := 0
+			until
+			   f = n
+			loop
+			   x := x + 1
+			   f := f + 1
+			end
+			e := e + 1
+		     end
+		     d := d + 1
+		  end
+		  c := c + 1
+	       end
+	       b := b + 1
+	    end
+	    a := a + 1
+	 end
+
+         std_output.put_integer(x)
+         std_output.put_character('%N')
+      end;
+
+end
+--
+-- The Great Computer Language Shootout
+-- http://shootout.alioth.debian.org/
+--
+-- Written by Dima Dorfman, 2004
+--
+-- converted to SE2.1 by josé
+--
+
+class NSIEVE insert ARGUMENTS creation make feature
+
+   flags: FAST_ARRAY[BOOLEAN]
+
+   make is local n, m: INTEGER do
+       create flags.make(0)
+       check argument_count = 1 end
+       check argument(1).is_integer end
+       n := argument(1).to_integer
+       check n > 1 end
+
+       m := {INTEGER 1} |<< n.to_integer_8
+       m := 10000*m
+       flags.resize(m)
+       print("Primes up to "+m.to_string_format(8)+" "+nsieves(flags).to_string_format(8)+"%N")
+
+       m := m//2
+       flags.resize(m)
+       print("Primes up to "+m.to_string_format(8)+" "+nsieves(flags).to_string_format(8)+"%N")
+
+       m := m//2
+       flags.resize(m)
+       print("Primes up to "+m.to_string_format(8)+" "+nsieves(flags).to_string_format(8)+"%N")
+   end
+
+   nsieves(is_prime: like flags): INTEGER is local i, j: INTEGER do
+       is_prime.set_all_with(True)
+       from i:=2 until i>is_prime.upper loop
+           if is_prime.item(i) then
+               from j:=i+i until j>is_prime.upper loop
+                   is_prime.put(False,j)
+                   j := j+i
+               end
+               Result := Result + 1
+           end
+           i := i+1
+       end
+   end
+end
+
+-- The Great Computer Language Shootout
+-- http://shootout.alioth.debian.org/
+--
+-- Written by Dima Dorfman, 2004
+--
+-- converted to SE 2.1 by josÃ©
+--
+
+class NSIEVEBITS
+
+insert
+   ARGUMENTS
+   
+creation {ANY}
+   make
+   
+feature {ANY}
+
+   flags: FAST_ARRAY[INTEGER_32]
+
+   Bit_length: INTEGER is 32
+
+   make is local n, m: INTEGER do
+      check argument_count = 1 end
+      check argument(1).is_integer end
+      n := argument(1).to_integer
+      check n.in_range(2,17) end
+
+      m := 10000 |<< n.to_integer_8
+      create flags.make((m+Bit_length-1)//Bit_length)
+      std_output.put_string("Primes up to ")
+      std_output.put_integer_format(m,8)
+      std_output.put_character(' ')
+      std_output.put_integer_format(nsieves(flags,m),8)
+      std_output.put_new_line
+
+      m := m |>> 1
+      flags.resize((m+Bit_length-1)//Bit_length)
+      std_output.put_string("Primes up to ")
+      std_output.put_integer_format(m,8)
+      std_output.put_character(' ')
+      std_output.put_integer_format(nsieves(flags,m),8)
+      std_output.put_new_line
+
+      m := m |>> 1
+      flags.resize((m+Bit_length-1)//Bit_length)
+      std_output.put_string("Primes up to ")
+      std_output.put_integer_format(m,8)
+      std_output.put_character(' ')
+      std_output.put_integer_format(nsieves(flags,m),8)
+      std_output.put_new_line
+   end
+
+   nsieves(is_prime: like flags; upper: INTEGER): INTEGER is local i, j, k: INTEGER do
+      is_prime.set_all_with({INTEGER_32 -1})
+      from i:=2 until i>=upper loop
+         if (is_prime.item(i #// Bit_length) & ({INTEGER_32 1} |<< (i #\\ Bit_length).to_integer_8)) /= 0 then
+            from j:=i+i until j>=upper loop
+               k := j #// Bit_length
+               is_prime.put(is_prime.item(k) & (~({INTEGER_32 1} |<< (j #\\ Bit_length).to_integer_8)),k)
+               j := j+i
+            end
+            Result := Result + 1
+         end
+         i := i+1
+      end
+   end
+end
+
+-- -*- mode: eiffel -*-
+-- $Id: objinst.se,v 1.6 2005-11-16 07:54:13 bfulgham Exp $
+-- http://www.bagley.org/~doug/shootout/
+-- from Steve Thompson
+
+-- <LOC-OFF>
+--indexing
+--   description: "This class is the entry point for the instantiation performance test" 
+--   author : Steve Thompson
+--   email  : "Steve_Thompson@prodigy.net"
+--   date   : February 18, 2001
+--   compile: "compile -clean -boost -no_split -O3 main.e -o main"
+--   run    : "main 400000"
+-- <LOC-ON>
+
+class OBJINST
+
+insert
+	ARGUMENTS
+
+creation {ANY}
+	make
+
+feature {ANY} -- Print Formatting
+   format_out(state: BOOLEAN): STRING is
+     do
+        if state then
+	   Result := once "true"
+	else
+	   Result := once "false"
+	end
+     end
+   
+feature -- Creation
+   
+   make is
+      local
+	 index: INTEGER
+	 n: INTEGER
+	 toggle: TOGGLE
+	 nth_toggle: NTH_TOGGLE
+      do
+	 if argument_count = 0 then 
+	    n := 1
+	 else
+	    n := argument(1).to_integer
+	 end
+	 
+	 !!toggle.make(True)
+	 from index := 0 until index = 5 loop
+	    print(format_out(toggle.activate.value))
+	    print(once "%N")
+	    index := index + 1
+	 end
+	 from index := 0 until index = n loop
+	    !!toggle.make(True)
+	    index := index + 1
+	 end
+	 
+	 print(once "%N")
+	 
+	 !!nth_toggle.make(True, 3)
+	 from index := 0 until index = 8 loop
+	    print(format_out(nth_toggle.activate.value))
+	    print(once "%N")
+	    index := index + 1
+	 end
+	 from index := 0 until index = n loop
+	    !!nth_toggle.make(True, 3)
+	    index := index + 1
+	 end
+	 
+      end -- make
+   
+end
+--   The Computer Language Shootout
+--   http://shootout.alioth.debian.org
+--
+--   Contributed by A. Suter
+--
+--   Compilation:
+--      se c -clean -boost -no_gc -O3 -fomit-frame-pointer
+--      -funroll-loops -ffast-math partial_sums.e -o partial_sums
+
+class PARTIALSUMS
+
+insert
+   ARGUMENTS
+
+creation {ANY}
+   make
+
+feature {ANY}
+   make is
+      local
+         sum_1, sum_2, sum_3, flint, cookson, harmonic, riemann, alternating_harmonic, gregory: REAL
+         n_integer, k_integer: INTEGER; k_real, n_real: REAL; c, k_real_2, k_real_3: REAL; flag: BOOLEAN
+      do
+         if not (argument_count = 1 and then argument(1).is_integer) then
+            die_with_code(1)
+         end
+         n_integer := argument(1).to_integer
+         n_real := n_integer
+         if n_integer <= 1 then
+            die_with_code(1)
+         end
+
+         from
+            sum_1 := 1.0 -- short for k = 0
+            c := 2.0 / 3.0
+            k_integer := 1
+            k_real := 1.0
+         invariant
+            k_integer = k_real
+            n_integer = n_real
+         until
+            k_integer > n_integer
+         loop
+            k_real_2 := k_real ^ 2
+            k_real_3 := k_real_2 * k_real
+            sum_1 := sum_1 + c ^ k_integer
+            sum_2 := sum_2 + 1.0 / k_real.sqrt
+            sum_3 := sum_3 + 1.0 / (k_real * (k_real + 1.0))
+            riemann := riemann + 1.0 / k_real_2
+            flint := flint + 1.0 / (k_real_3 * k_real.sin ^ 2)
+            cookson := cookson + 1.0 / (k_real_3 * k_real.cos ^ 2)
+            harmonic := harmonic + 1.0 / k_real
+            if flag then
+               alternating_harmonic := alternating_harmonic - 1.0 / k_real
+               gregory := gregory - 1.0 / (2.0 * k_real - 1.0)
+            else
+               alternating_harmonic := alternating_harmonic + 1.0 / k_real
+               gregory := gregory + 1.0 / (2.0 * k_real - 1.0)
+            end
+
+            flag := not flag
+            k_integer := k_integer + 1
+            k_real := k_real + 1.0
+         end
+
+         io.put_string(sum_1.to_string_format(9) + "%T(2/3)^k%N")
+         io.put_string(sum_2.to_string_format(9) + "%Tk^-0.5%N")
+         io.put_string(sum_3.to_string_format(9) + "%T1/k(k+1)%N")
+         io.put_string(flint.to_string_format(9) + "%TFlint Hills%N")
+         io.put_string(cookson.to_string_format(9) + "%TCookson Hills%N")
+         io.put_string(harmonic.to_string_format(9) + "%THarmonic%N")
+         io.put_string(riemann.to_string_format(9) + "%TRiemann Zeta%N")
+         io.put_string(alternating_harmonic.to_string_format(9) + "%TAlternating Harmonic%N")
+         io.put_string(gregory.to_string_format(9) + "%TGregory%N")
+      end
+
+end -- class PARTIALSUMS
+-- SPLITFILE=pidigits.e
+class PIDIGITS
+--
+-- Written by Cyril Adrian <cyril.adrian@laposte.net>
+--
+
+insert
+   ARGUMENTS
+
+create {ANY}
+   make
+
+feature {}
+   step: INTEGER is 10
+
+   make is
+      local
+         digits: PI_DIGIT_SPIGOT; n, i, j: INTEGER
+      do
+         if argument_count = 1 then
+            from
+               n := argument(1).to_integer
+               create digits.make
+            until n <= 0 loop
+               if n >= step then
+                  from i := 0 until i = step loop
+                     digits.next
+                     std_output.put_integer(digits.item)
+                     i := i + 1
+                  end
+                  j := j + step
+               else
+                  from
+                     from i := 0 until i = n loop
+                        digits.next
+                        std_output.put_integer(digits.item)
+                        i := i + 1
+                     end
+                  until i = step loop
+                     std_output.put_character(' ')
+                     i := i + 1
+                  end
+                  j := j + n
+               end
+               std_output.put_character('%T')
+               std_output.put_character(':')
+               std_output.put_integer(j)
+               std_output.put_new_line
+               n := n - step
+            end
+         end
+      end
+
+end
+-- SPLITFILE=pi_digit_spigot.e
+class PI_DIGIT_SPIGOT
+--
+-- Written by Cyril Adrian <cyril.adrian@laposte.net>
+--
+
+create {PIDIGITS}
+   make
+
+feature {PIDIGITS}
+   next is
+      do
+         item := digit
+         if is_safe(item) then
+            produce(item)
+         else
+            consume
+            next
+         end
+      end
+
+   item: INTEGER
+
+feature {}
+   digit: INTEGER is
+      do
+         Result := z.extract(3)
+      end
+
+   is_safe (a_digit: like digit): BOOLEAN is
+      do
+         Result := a_digit = z.extract(4)
+      end
+
+   produce (i: INTEGER) is
+      do
+         inverse.qrst(10, -10 * i, 0, 1)
+         inverse.compose(z)
+         z.copy(inverse)
+      end
+
+   consume is
+      do
+         x.next
+         z.compose(x)
+      end
+
+feature {}
+   x, z, inverse: TRANSFORMATION
+
+   make is
+      do
+         z.qrst(1, 0, 0, 1)
+      end
+
+end
+-- SPLITFILE=transformation.e
+expanded class TRANSFORMATION
+--
+-- Written by Cyril Adrian <cyril.adrian@laposte.net>
+-- and Frederic Merizen <frederic.merizen@loria.fr>
+--
+
+insert
+   ANY
+      redefine
+         default_create, copy, is_equal
+      end
+
+feature {ANY}
+   copy (other: like Current) is
+      do
+         q.copy(other.q)
+         r.copy(other.r)
+         s.copy(other.s)
+         t.copy(other.t)
+      end
+
+   is_equal (other: like Current): BOOLEAN is
+      do
+         Result := q.is_equal(other.q) and then r.is_equal(other.r) and then s.is_equal(other.s) and then t.is_equal(other.t)
+      end
+
+feature {TRANSFORMATION}
+   q, r, s, t: MUTABLE_BIG_INTEGER
+
+feature {PI_DIGIT_SPIGOT}
+   qrst (a_q, a_r, a_s, a_t: INTEGER) is
+      do
+         q.from_integer(a_q)
+         r.from_integer(a_r)
+         s.from_integer(a_s)
+         t.from_integer(a_t)
+         k := 0
+      end
+
+   next is
+      do
+         k := k + 1
+         q.from_integer(k)
+         r.from_integer(4 * k + 2)
+         s.from_integer(0)
+         t.from_integer(2 * k + 1)
+      end
+
+   extract (j: INTEGER): INTEGER is
+      do
+         tmp1.from_integer(j)
+
+         -- n = q*j+r
+         tmp2.copy(q)
+         tmp2.multiply(tmp1)
+         tmp2.add(r)
+
+         -- d = q*j+t
+         tmp3.copy(s)
+         tmp3.multiply(tmp1)
+         tmp3.add(t)
+
+         -- Result = n/d
+         tmp2.divide(tmp3)
+         Result := tmp2.to_integer
+      end
+
+   compose (a: like Current) is
+      do
+         tmp1.copy(s)
+
+         -- ns = s*a.q + t*a.s
+         s.multiply(a.q)
+         tmp2.copy(t)
+         tmp2.multiply(a.s)
+         s.add(tmp2)
+
+         -- nt = s*a.r + t*a.t
+         tmp1.multiply(a.r)
+         t.multiply(a.t)
+         t.add(tmp1)
+
+         -- nr = q*a.r + r*a.t
+         tmp1.copy(a.r)
+         tmp1.multiply(q)
+         r.multiply(a.t)
+         r.add(tmp1)
+
+         -- nq = q*a.q
+         q.multiply(a.q)
+
+         k := 0
+      end
+
+feature {}
+   k: INTEGER
+
+   tmp1: MUTABLE_BIG_INTEGER is
+      once
+         create Result.from_integer(0)
+      end
+
+   tmp2: MUTABLE_BIG_INTEGER is
+      once
+         create Result.from_integer(0)
+      end
+
+   tmp3: MUTABLE_BIG_INTEGER is
+      once
+         create Result.from_integer(0)
+      end
+
+   default_create is
+      do
+         create q.from_integer(0)
+         create r.from_integer(0)
+         create s.from_integer(0)
+         create t.from_integer(0)
+      end
+
+end
+
+-- The Computer Language Shootout
+-- http://shootout.alioth.debian.org/
+-- by Frederic Merizen
+
+class RANDOM
+
+insert
+	ARGUMENTS
+
+creation {ANY}
+	make
+
+feature {ANY}
+	im: INTEGER is 139968
+
+	ia: INTEGER is 3877
+
+	ic: INTEGER is 29573
+
+	last: INTEGER_32
+
+	gen_random (max: REAL_64): REAL_64 is
+		do
+			last := (last * ia + ic) \\ im
+			Result := max * last / im
+		end
+
+	make is
+		local
+			n: INTEGER; dummy: like gen_random
+		do
+			last := 42
+			if argument_count > 0 then
+				n := argument(1).to_integer
+			else
+				n := 1
+			end
+			from
+				n := n - 1
+			until
+				n = 0
+			loop
+				n := n - 1
+				dummy := gen_random(100.0)
+			end
+			io.put_real_format(gen_random(100.0), 9)
+			io.put_new_line
+		end
+
+end -- class RANDOM
+-- The Great Computer Language Shootout
+-- http://shootout.alioth.debian.org/
+-- contributed by Jose
+-- Compiling with g++: compile -boost -no_split -clean -o ray ray -O3 -ffast-math -fomit-frame-pointer
+
+
+-- SPLITFILE=raytracer.e
+
+class RAYTRACER
+
+insert
+	ARGUMENTS
+
+creation {ANY}
+	make
+
+feature {ANY}
+	default_size: INTEGER is 160
+
+	fractal_level: INTEGER is 6
+
+	subdivision: INTEGER is 4
+
+	initial_radius: REAL_64 is 1.0
+
+	initial_center: VECTOR is
+		once
+			create Result.make(0.0, -1.0, 0.0)
+		end
+
+	light: VECTOR is
+		once
+			create Result.make(-1, -3, 2)
+			Result.normalize
+		end
+
+	color_factor: REAL_64 is
+		once
+			Result := 255.0 / (subdivision * subdivision)
+		end
+
+	vue_point: VECTOR is
+		once
+			create Result.make(0.0, 0.0, -4.0)
+		end
+
+	tracer: TRACER is
+		once
+			create Result.make
+		end
+
+	make is
+		local
+			n, x, y, dx, dy: INTEGER; direction: VECTOR
+		do
+			-- get the size of the image (number of pixel)
+			if argument_count >= 1 and then argument(1).is_integer then
+				n := argument(1).to_integer
+				if n <= 0 then
+					n := default_size
+				end
+			else
+				n := default_size
+			end
+			-- create the scene
+			tracer.put_origin(vue_point)
+			tracer.put_light(light)
+			tracer.put_scene(create_scene(fractal_level, initial_radius, initial_center))
+			create direction.zero
+			tracer.put_direction(direction)
+			-- compute the scene
+			io.put_string(once "P5")
+			io.put_new_line
+			io.put_integer(n)
+			io.put_character(' ')
+			io.put_integer(n)
+			io.put_new_line
+			io.put_string(once "255")
+			io.put_new_line
+			from
+				y := n
+			until
+				y = 0
+			loop
+				y := y - 1
+				from
+					x := 0
+				until
+					x >= n
+				loop
+					tracer.reset_material
+					from
+						dx := 0
+					until
+						dx = subdivision
+					loop
+						from
+							dy := 0
+						until
+							dy = subdivision
+						loop
+							direction.make(x + dx / subdivision - n / 2, y + dy / subdivision - n / 2, n)
+							direction.normalize
+							tracer.compute
+							dy := dy + 1
+						end
+						dx := dx + 1
+					end
+					io.put_character((0.5 + tracer.material * color_factor).force_to_integer_32.to_character)
+					x := x + 1
+				end
+			end
+		end
+
+	radius_factor: REAL_64 is
+		once
+			Result := 3.0 / (12.0).sqrt
+		end
+
+	create_scene (level: INTEGER; r: REAL_64; v: VECTOR): TRACEABLE is
+		local
+			rn: REAL_64; w: VECTOR; dz, dx: INTEGER; group: GROUP
+		do
+			if level = 1 then
+				Result := create {SPHERE}.make(v, r)
+			else
+				group := create {GROUP}.make(v, 3.0 * r)
+				group.add(create {SPHERE}.make(v, r))
+				rn := r * radius_factor
+				from
+					dz := -1
+				until
+					dz > 1
+				loop
+					from
+						dx := -1
+					until
+						dx > 1
+					loop
+						create w.make(v.x - dx * rn, v.y + rn, v.z - dz * rn)
+						group.add(create_scene(level - 1, 0.5 * r, w))
+						dx := dx + 2
+					end
+					dz := dz + 2
+				end
+				Result := group
+			end
+		end
+
+end -- class RAY
+
+
+-- SPLITFILE=tracer.e
+
+class TRACER
+
+insert
+	CONSTANTS
+
+creation {ANY}
+	make
+
+feature {ANY}
+	scene: TRACEABLE
+
+	direct_ray: TRACESTATE
+
+	reflected_ray: SHADOWSTATE
+--	reflected_ray: TRACESTATE
+
+	light: VECTOR
+
+	material: REAL_64
+
+	make is
+		do
+			create direct_ray
+			create reflected_ray
+		end
+
+	is_ready: BOOLEAN is
+		do
+			Result := direct_ray.is_ready and then light /= Void and then scene /= Void
+		end
+
+	put_origin (value: VECTOR) is
+		do
+			direct_ray.put_origin(value)
+		end
+
+	origin: VECTOR is
+		do
+			Result := direct_ray.origin
+		end
+
+	put_direction (value: VECTOR) is
+		do
+			direct_ray.put_direction(value)
+		end
+
+	direction: VECTOR is
+		do
+			Result := direct_ray.direction
+		end
+
+	put_light (value: VECTOR) is
+		do
+			light := - value
+			reflected_ray.put_direction(light)
+		end
+
+	put_scene (value: TRACEABLE) is
+		do
+			scene := value
+		end
+
+	reset_material is
+		do
+			material := 0
+		end
+
+	compute is
+		require
+			is_ready
+		local
+			normal: VECTOR; mat: REAL_64
+		do
+			direct_ray.reset
+			direct_ray.compute_distance(scene)
+			if direct_ray.intersected then
+				normal := direct_ray.normal
+				mat := (normal | light)
+				if mat > 0 then
+					reflected_ray.put_origin(direct_ray.intersection + normal * delta)
+					reflected_ray.reset
+					reflected_ray.compute_distance(scene)
+					if not reflected_ray.intersected then
+						material := material + mat
+					end
+				end
+			end
+		end
+
+end -- class TRACER
+
+
+-- SPLITFILE=tracestate.e
+
+class TRACESTATE
+
+insert
+	CONSTANTS
+
+feature {ANY}
+	origin: VECTOR
+
+	direction: VECTOR
+
+	item: NORMALIZABLE
+
+	distance: REAL_64
+
+	put_origin (org: VECTOR) is
+		do
+			origin := org
+		end
+
+	put_direction (dir: VECTOR) is
+		do
+			direction := dir
+		end
+
+	intersect (dist: REAL_64; obj: NORMALIZABLE) is
+		require
+			obj /= Void
+			dist >= 0
+		do
+			if distance > dist then
+				distance := dist
+				item := obj
+			end
+		ensure
+			intersected or else dist = infinity
+		end
+
+	reset is
+		do
+			item := Void
+			distance := infinity
+		ensure
+			not intersected
+		end
+
+	intersected: BOOLEAN is
+		do
+			Result := item /= Void
+		ensure
+			Result = (distance /= infinity)
+		end
+
+	intersection: VECTOR is
+		require
+			intersected
+		do
+			Result := origin + direction * distance
+		end
+
+	compute_distance (scene: TRACEABLE) is
+		require
+			is_ready
+		do
+			scene.compute_distance(Current)
+		end
+
+	normal: VECTOR is
+		require
+			intersected
+		do
+			Result := item.compute_normal(Current)
+		ensure
+			Result.is_normalized
+		end
+
+	is_ready: BOOLEAN is
+		do
+			Result := origin /= Void and then direction /= Void
+		end
+
+invariant
+	distance >= 0
+
+end -- class TRACESTATE
+
+
+-- SPLITFILE=shadowstate.e
+
+class SHADOWSTATE
+
+inherit 
+	TRACESTATE
+		redefine compute_distance end
+
+feature {ANY}
+	compute_distance (scene: TRACEABLE) is
+		do
+			if not intersected then
+				scene.compute_distance(Current)
+			end
+		end
+
+end
+
+-- SPLITFILE=traceable.e
+
+deferred class TRACEABLE
+
+feature {ANY}
+	compute_distance (state: TRACESTATE) is
+		deferred
+		end
+
+end -- class TRACEABLE
+
+
+-- SPLITFILE=normalizable.e
+
+deferred class NORMALIZABLE
+
+feature {ANY}
+	compute_normal (state: TRACESTATE): VECTOR is
+		require
+			state.item = Current
+		deferred
+		ensure
+			Result.is_normalized
+		end
+
+end -- class NORMALIZABLE
+
+
+-- SPLITFILE=group.e
+
+class GROUP
+
+inherit
+	TRACEABLE
+
+creation {ANY}
+	make
+
+feature {ANY}
+	bound: SPHERE
+
+	group: LINKED_LIST[TRACEABLE]
+
+	iterator: ITERATOR[TRACEABLE]
+
+	make (c: VECTOR; r: REAL_64) is
+		do
+			create bound.make(c, r)
+			create group.make
+			iterator := group.get_new_iterator
+		end
+
+	add (some: TRACEABLE) is
+		do
+			group.add_last(some)
+		end
+
+	compute_distance (state: TRACESTATE) is
+		do
+			if bound.distance(state) < state.distance then
+				from
+					iterator.start
+				until
+					iterator.is_off
+				loop
+					state.compute_distance(iterator.item)
+					iterator.next
+				end
+			end
+		end
+
+end -- class GROUP
+
+
+-- SPLITFILE=sphere.e
+
+class SPHERE
+
+inherit
+	TRACEABLE
+	NORMALIZABLE
+
+insert
+	CONSTANTS
+
+creation {ANY}
+	make
+
+feature {ANY}
+	center: VECTOR
+
+	square_radius: REAL_64
+
+	radius: REAL_64
+
+	make (c: VECTOR; r: REAL_64) is
+		do
+			center := c
+			square_radius := r * r
+			radius := r
+		end
+
+	distance (state: TRACESTATE): REAL_64 is
+		local
+			v: VECTOR; b, disc, d: REAL_64
+		do
+			Result := infinity
+			v := center - state.origin
+			b := (v | state.direction)
+			disc := b * b - v.square_length + square_radius
+			if disc >= 0.0 then
+				disc := disc.sqrt
+				d := b - disc
+				if d >= 0.0 then
+					Result := d
+				elseif b+disc > 0 then
+					Result := 0
+				end
+			end
+		end
+
+--	compute_distance (state: TRACESTATE) is
+--		do
+--			state.intersect(distance(state), Current)
+--		end
+
+	compute_distance (state: TRACESTATE) is
+		local
+			v: VECTOR; b, disc, d: REAL_64
+		do
+			v := center - state.origin
+			b := (v | state.direction)
+			disc := b * b - v.square_length + square_radius
+			if disc >= 0.0 then
+				disc := disc.sqrt
+				d := b - disc
+				if d >= 0.0 then
+					state.intersect(d,Current)
+				end
+			end
+		end
+
+	compute_normal (state: TRACESTATE): VECTOR is
+		do
+			Result := state.intersection - center
+			Result.normalize
+		end
+
+end -- class SPHERE
+
+
+-- SPLITFILE=vector.e
+
+class VECTOR
+
+insert
+	CONSTANTS
+
+creation {ANY}
+	zero, make
+
+feature {ANY}
+	x, y, z: REAL_64
+
+	zero is
+		do
+			make(0.0, 0.0, 0.0)
+		end
+
+	make (a, b, c: REAL_64) is
+		do
+			x := a
+			y := b
+			z := c
+		end
+
+	infix "*" (c: REAL_64): VECTOR is
+		do
+			create Result.make(c * x, c * y, c * z)
+		end
+
+	infix "+" (v: VECTOR): VECTOR is
+		do
+			create Result.make(x + v.x, y + v.y, z + v.z)
+		end
+
+	infix "-" (v: VECTOR): VECTOR is
+		do
+			create Result.make(x - v.x, y - v.y, z - v.z)
+		end
+
+	prefix "-": VECTOR is
+		do
+			create Result.make(- x, - y, - z)
+		end
+
+	infix "|" (v: VECTOR): REAL_64 is
+		do
+			Result := x * v.x + y * v.y + z * v.z
+		end
+
+	square_length: REAL_64 is
+		do
+			Result := x * x + y * y + z * z
+		end
+
+	length: REAL_64 is
+		do
+			Result := square_length.sqrt
+		end
+
+	normalize is
+		require
+			not is_zero_length
+		local
+			l: REAL_64
+		do
+			l := 1.0 / length
+			x := x * l
+			y := y * l
+			z := z * l
+		ensure
+			is_normalized
+		end
+
+	normed: VECTOR is
+		require
+			not is_zero_length
+		do
+			Result := Current * (1.0 / length)
+		ensure
+			Result.is_normalized
+		end
+
+	is_zero_length: BOOLEAN is
+		do
+			Result := square_length = 0
+		end
+
+	is_zero: BOOLEAN is
+		do
+			Result := x = 0 and then y = 0 and then z = 0
+		end
+
+	is_normalized: BOOLEAN is
+		do
+			Result := (square_length - 1.0).abs < compare_delta
+		end
+
+end -- class VECTOR
+
+
+-- SPLITFILE=constants.e
+
+class CONSTANTS
+
+feature {ANY}
+	epsilon: REAL_64 is 2.2204460492503131e-16
+
+	delta: REAL_64 is
+		once
+			Result := epsilon.sqrt
+		end
+
+	compare_delta: REAL_64 is 1e-9
+
+	infinity: REAL_64 is
+		once
+			Result := Maximum_real_64
+--			Result := 99999
+		end
+
+end -- class CONSTANTS
+
+--   The Computer Language Shootout
+--   http://shootout.alioth.debian.org
+--   Contributed by A. Suter
+--
+--   Compilation:
+--      se c -clean -boost -no_gc -O3 -fomit-frame-pointer
+--      -funroll-loops recursive.e -o recursive
+
+class RECURSIVE
+
+insert
+   ARGUMENTS
+
+creation {ANY}
+   make
+
+feature {ANY}
+   make is
+      local
+         n: INTEGER
+      do
+         if not (argument_count = 1 and then argument(1).is_integer) then
+            die_with_code(1)
+         end
+         n := argument(1).to_integer
+         if n <= 1 then
+            die_with_code(1)
+         end
+
+         io.put_string("Ack(3," + (n).to_string + "): "
+            + ack(3, n).to_string + "%N")
+         io.put_string("Fib(" + (27.0 + n).to_string_format(1) + "): "
+            + fib_real(27.0 + n).to_string_format(1) + "%N")
+         io.put_string("Tak(" + (3 * (n-1)).to_string + "," + (2 * (n-1)).to_string + "," + (n-1).to_string + "): "
+            + tak_integer(3 * (n-1), 2 * (n-1), n-1).to_string + "%N")
+         io.put_string("Fib(3): "
+            + fib_integer(3).to_string + "%N")
+         io.put_string("Tak(3.0,2.0,1.0): "
+            + tak_real(3.0, 2.0, 1.0).to_string_format(1) + "%N")
+      end
+
+   ack (x, y: INTEGER): INTEGER is
+      do
+         if x = 0 then
+            Result := y + 1
+         elseif y = 0 then
+            Result := ack(x - 1, 1)
+         else
+            Result := ack(x - 1, ack(x, y - 1))
+         end
+      end
+
+   fib_integer (n: INTEGER): INTEGER is
+      do
+         if n < 2 then
+            Result := 1
+         else
+            Result := fib_integer(n - 2) + fib_integer(n - 1)
+         end
+      end
+
+   fib_real (r: REAL): REAL is
+      do
+         if r < 2.0 then
+            Result := 1.0
+         else
+            Result := fib_real(r - 2.0) + fib_real(r - 1.0)
+         end
+      end
+
+   tak_integer (x, y, z: INTEGER): INTEGER is
+      do
+         if y < x then
+            Result := tak_integer(tak_integer(x - 1, y, z), tak_integer(y - 1, z, x), tak_integer(z - 1, x, y))
+         else
+            Result := z
+         end
+      end
+
+   tak_real (x, y, z: REAL): REAL is
+      do
+         if y < x then
+            Result := tak_real(tak_real(x - 1.0, y, z), tak_real(y - 1.0, z, x), tak_real(z - 1.0, x, y))
+         else
+            Result := z
+         end
+      end
+
+end -- class RECURSIVE
+--
+-- The Computer Language Shotout
+-- http://shootout.alioth.debian.org/
+--
+-- Contributed by Leland McInnes
+--
+
+class REGEXDNA
+
+insert
+    REGULAR_EXPRESSION_BUILDER
+    
+creation
+    make
+
+feature {ANY}
+    
+    make is
+            -- Perform regex-dna benchmark
+        local
+            initial_length, cleaned_length, final_length : INTEGER
+            cleaning_regex : REGULAR_EXPRESSION
+        do
+            create sequence.make_empty
+            io.read_tail_in(sequence)
+
+            initial_length := sequence.upper
+
+            cleaning_regex := convert_posix_pattern(">.*%N|%N")
+            check
+                cleaning_regex /= Void
+            end
+
+            cleaning_regex.prepare_substitution("")
+            cleaning_regex.substitute_all_in(sequence)
+
+            cleaned_length := sequence.count
+
+            count_variants
+            expand_patterns
+
+            final_length := sequence.count
+
+            io.put_new_line
+            io.put_integer(initial_length)
+            io.put_new_line
+            io.put_integer(cleaned_length)
+            io.put_new_line
+            io.put_integer(final_length)
+            io.put_new_line
+        end
+
+    count_variants is
+            -- Count the number of occurences of each variant pattern
+        local
+            i, count : INTEGER
+            match_pattern : REGULAR_EXPRESSION
+            variants : ARRAY[STRING]
+        do
+            variants := <<
+                          "agggtaaa|tttaccct",
+                          "[cgt]gggtaaa|tttaccc[acg]",
+                          "a[act]ggtaaa|tttacc[agt]t",
+                          "ag[act]gtaaa|tttac[agt]ct",
+                          "agg[act]taaa|ttta[agt]cct",
+                          "aggg[acg]aaa|ttt[cgt]ccct",
+                          "agggt[cgt]aa|tt[acg]accct",
+                          "agggta[cgt]a|t[acg]taccct",
+                          "agggtaa[cgt]|[acg]ttaccct"
+                          >>
+            
+            from
+                i := variants.lower
+            until
+                i > variants.upper
+            loop
+                match_pattern := convert_posix_pattern(variants.item(i))
+                check
+                    match_pattern /= Void
+                end
+
+                from
+                    count := 0
+                until
+                    not match_pattern.match_next(sequence)
+                loop                        
+                    count := count + 1
+                end
+
+                io.put_string(variants.item(i) + " ")
+                io.put_integer(count)
+                io.put_new_line
+
+                i := i + 1
+            end
+        end
+
+    expand_patterns is
+            -- Expand IUB code alternatives
+        local
+            i : INTEGER
+            iub_code : REGULAR_EXPRESSION
+            iub_code_patterns, replacement_patterns : ARRAY[STRING]
+        do
+            iub_code_patterns := <<
+                                   "B","D","H",
+                                   "K","M","N",
+                                   "R","S","V",
+                                   "W","Y">>
+            replacement_patterns := <<
+                                      "(c|g|t)","(a|g|t)","(a|c|t)",
+                                      "(g|t)","(a|c)","(a|c|g|t)",
+                                      "(a|g)","(c|g)","(a|c|g)",
+                                      "(a|t)","(c|t)"
+                                      >>
+            
+            from
+                i := iub_code_patterns.lower
+            until
+                i > iub_code_patterns.upper
+            loop
+                iub_code := convert_posix_pattern(iub_code_patterns.item(i))
+                check
+                    iub_code /= Void
+                end
+                iub_code.prepare_substitution(replacement_patterns.item(i))
+                iub_code.substitute_all_in(sequence)
+
+                i := i + 1
+            end
+        end
+
+feature {NONE} -- Implementation
+
+    sequence : STRING
+
+end
+-- The Great Computer Language Shootout
+-- http://shootout.alioth.debian.org/
+-- revcomp v1 for Smarteiffel contributed by jose
+
+class REVCOMP
+
+insert
+   ARGUMENTS
+   PLATFORM
+
+creation {ANY}
+   make
+   
+feature {ANY}
+   buffer: STRING
+   complement: FAST_ARRAY[CHARACTER]
+
+   make is 
+      local
+         line: STRING
+      do
+         make_complement
+         create buffer.make(16777216)
+         line := io.last_string
+         from io.read_line until io.end_of_input loop
+            if line.is_empty then
+            elseif line.first = '>' then
+               process
+               io.put_string(line)
+               io.put_new_line
+               buffer.clear_count
+            else
+               -- while (l > 0 && !isalpha (buffer[l-1])) l--;
+               buffer.append(line)
+            end
+            io.read_line
+         end
+         if not buffer.is_empty then process end
+      end
+
+   process is
+      local
+         i,j,k: INTEGER  
+      do
+         from k:=1 i:=buffer.lower j:=buffer.upper until i>j loop
+            io.put_character(complement.item(buffer.item(j).code))
+            buffer.put(complement.item(buffer.item(i).code), j)
+            if k=60 then
+               io.put_new_line
+               k := 1
+            else
+               k := k+1
+            end
+            i:=i+1
+            j:=j-1
+         end
+         from j:=buffer.upper until i>j loop
+            io.put_character(buffer.item(i))
+            if k=60 then
+               io.put_new_line
+               k := 1
+            else
+               k := k+1
+            end
+            i:=i+1
+         end
+         if k>1 then io.put_new_line end
+      end
+
+   make_complement is
+      local
+         code: INTEGER_16
+      do
+         create complement.make(1+Maximum_character_code)
+         from  until code>Maximum_character_code loop
+            complement.put(code.to_character,code)
+            code := code + 1
+         end
+         make_complementar('A', 'T')
+         make_complementar('C', 'G')
+         make_complementar('B', 'V')
+         make_complementar('D', 'H')
+         make_complementar('K', 'M')
+         make_complementar('R', 'Y')
+     end
+
+   make_complementar(a,b: CHARACTER) is
+     do
+        complement.put(a, b.code)
+        complement.put(a, b.to_lower.code)
+        complement.put(b, a.code)
+        complement.put(b, a.to_lower.code)
+     end
+
+end
+
+-- -*- mode: eiffel -*-
+-- $Id: reversefile.se-2.se,v 1.2 2005-11-16 07:54:14 bfulgham Exp $
+-- http://www.bagley.org/~doug/shootout/
+-- from: Friedrich Dominicus
+
+class REVERSEFILE
+
+insert
+	ARGUMENTS
+
+creation {ANY}
+	make
+
+feature {ANY}
+    make is
+        local
+            i: INTEGER;
+            arr_string: ARRAY[STRING];
+        do
+            create arr_string.make(1,100);
+            from io.read_line
+                i := 1;
+            until io.end_of_input
+            loop
+                arr_string.force(clone(io.last_string), i);
+                io.read_line;
+                i := i + 1;
+            end;
+            from i := arr_string.upper
+            until i < 1
+            loop
+                io.put_string (arr_string.item(i));
+                io.put_character('%N');
+                i := i -1 ;
+            end;
+        end;
+
+end -- class REVERSEFILE
+-- -*- mode: eiffel -*-
+-- $Id: reversefile.se,v 1.3 2005-11-16 07:54:14 bfulgham Exp $
+-- http://www.bagley.org/~doug/shootout/
+-- from Daniel F Moisset, modified by Frank Salter
+
+class REVERSEFILE
+
+insert
+	ARGUMENTS
+
+creation {ANY}
+	make
+
+feature {ANY}
+
+    make is
+        local
+            i: ITERATOR[STRING]
+            file_content : LINKED_LIST[STRING];
+        do
+            create file_content.make;
+            from
+                std_input.read_line
+            until std_input.end_of_input
+	    loop
+                file_content.add_first(std_input.last_string.twin);
+                std_input.read_line;
+            end;
+            i := file_content.get_new_iterator
+            from 
+	       i.start
+	    until i.is_off loop
+                std_output.put_string (i.item);
+		std_output.put_new_line;
+                i.next;
+            end;
+        end;
+
+end -- class REVERSEFILE
+class  SIEVE
+
+insert
+	ARGUMENTS
+
+creation {ANY}
+	make
+
+feature {ANY}
+   make is
+      local
+         count: INTEGER;
+         is_prime: FIXED_ARRAY[BOOLEAN];
+         i: INTEGER;
+         num: INTEGER;
+         j: INTEGER;
+         k: INTEGER;
+      do
+         if argument_count = 1 then
+            num := argument(1).to_integer
+         else
+            num := 1
+         end
+
+         !!is_prime.make(8194)
+
+         from
+            j := 0
+         until
+            j = num
+         loop
+            count := 0
+            from
+               i := 2
+            until
+               i > 8192
+            loop
+               is_prime.put(True, i)
+               i := i + 1
+            end
+
+            from
+               i := 2
+            until
+               i > 8192
+            loop
+               if is_prime@i then
+                  from
+                     k := i + i
+                  until
+                     k > 8192
+                  loop
+                     is_prime.put(False, k)
+                     k := k + i
+                  end
+                  count := count + 1
+               end
+               i := i + 1
+            end
+
+            j := j + 1
+         end
+
+         std_output.put_string("Count: ")
+         std_output.put_integer(count)
+         std_output.put_character('%N')
+      end
+
+end
+-- The Great Computer Language Shootout
+-- http://shootout.alioth.debian.org/
+--
+-- Original C contributed by Sebastien Loisel
+-- Conversion to eiffel by jos from C++ version of Jon Harrop
+-- Compile: compile -boost -o spectralnorm spectralnorm
+
+class SPECTRALNORM
+
+insert ARGUMENTS
+
+creation {ANY}
+   make
+
+feature {ANY}
+   make is
+      local
+         i, n: INTEGER; u, v: FAST_ARRAY[REAL_64]; vv, vbv: REAL_64
+      do
+         check
+            argument_count = 1
+         end
+         check
+            argument(1).is_integer
+         end
+         n := argument(1).to_integer
+         check
+            n > 0
+         end
+         create u.make(n)
+         create v.make(n)
+         u.set_all_with(1.0)
+         from
+         until
+            i = 10
+         loop
+            eval_ata_times_u(u, v)
+            u.set_all_with(0.0)
+            eval_ata_times_u(v, u)
+            i := i + 1
+         end
+         from
+            i := 0
+         until
+            i = n
+         loop
+            vbv := vbv + u.item(i) * v.item(i)
+            vv := vv + v.item(i) * v.item(i)
+            i := i + 1
+         end
+         io.put_real_format((vbv / vv).sqrt, 9)
+         io.put_new_line
+      end
+
+   eval_ata_times_u (u, atau: FAST_ARRAY[REAL_64]) is
+      local
+         tmp: FAST_ARRAY[REAL_64]
+      do
+         create tmp.make(u.count)
+         eval_a_times_u(u, tmp)
+         eval_at_times_u(tmp, atau)
+      end
+
+   eval_a_times_u (u, au: FAST_ARRAY[REAL_64]) is
+      local
+         i, j, n: INTEGER; x: REAL_64
+      do
+         from
+            n := u.count
+         until
+            i = n
+         loop
+            x := au.item(i)
+            from
+               j := 0
+            until
+               j = n
+            loop
+               x := x + eval_a(i, j) * u.item(j)
+               j := j + 1
+            end
+            au.put(x, i)
+            i := i + 1
+         end
+      end
+
+   eval_at_times_u (u, au: FAST_ARRAY[REAL_64]) is
+      local
+         i, j, n: INTEGER; x: REAL_64
+      do
+         from
+            n := u.count
+         until
+            i = n
+         loop
+            x := au.item(i)
+            from
+               j := 0
+            until
+               j = n
+            loop
+               x := x + eval_a(j, i) * u.item(j)
+               j := j + 1
+            end
+            au.put(x, i)
+            i := i + 1
+         end
+      end
+
+   eval_a (i, j: INTEGER): REAL_64 is
+      do
+         Result := 1.0 / (((i + j) * (i + j + 1)) #// 2 + i + 1).to_real_64
+      end
+
+end -- class SPECTRALNORM
+-- -*- mode: eiffel -*-
+-- $Id: spellcheck.se,v 1.5 2005-11-16 07:54:14 bfulgham Exp $
+-- http://shootout.alioth.debian.org/
+-- from Steve Thompson
+-- Updated for current SmartEiffel by Brent Fulgham (with a lot
+--   of help from Philippe Ribet!)
+
+-- <LOC-OFF>
+--indexing
+--   description: "This class performs the spell check test" 
+--   author : Steve Thompson
+--   email  : "Steve_Thompson@prodigy.net"
+--   date   : February 18, 2001
+--   compile: "compile -clean -boost -no_split -O3 spellcheck.e -o spellcheck"
+--   run    : "spellcheck < Input"
+-- <LOC-ON>
+
+class SPELLCHECK
+
+insert
+	ARGUMENTS
+
+creation {ANY}
+	make
+   
+feature {ANY}
+	-- Creation
+   make is
+      do
+	 read_dictionary
+	 from
+	    std_input.read_line
+	 until std_input.end_of_input loop
+	    if dictionary.has(std_input.last_string) = False then
+	       std_output.put_string(std_input.last_string)
+	       std_output.put_new_line
+	    end
+	    std_input.read_line
+	 end
+      end -- make
+   
+feature -- Queries
+   
+   dictionary: DICTIONARY[INTEGER, STRING]
+   
+feature -- Commands
+   
+   read_dictionary is
+      local
+	 file: TEXT_FILE_READ
+	 value: INTEGER 
+      do
+	 value := 1
+	 from
+	    !!dictionary.with_capacity(60000)
+	    !!file.connect_to("Usr.Dict.Words")
+	 until
+	    file.end_of_input
+	 loop
+	    file.read_line
+	    if not file.last_string.is_empty then
+	       if not dictionary.has(file.last_string) then
+	          dictionary.add(value, file.last_string.twin)
+	       end
+	    end
+	 end
+	 file.disconnect
+      end -- read_dictionary
+
+end
+-- -*- mode: eiffel -*-
+-- $Id: strcat.se,v 1.3 2005-11-16 07:54:14 bfulgham Exp $
+-- http://shootout.alioth.debian.org/
+-- from: Friedrich Dominicus
+-- Modified slightly for current SmartEiffel by Brent Fulgham
+
+class STRCAT
+
+insert
+	ARGUMENTS
+
+creation {ANY}
+    make
+
+feature {ANY}
+
+    concat_string : STRING is "hello%N";
+
+    make is
+        local
+            i,n : INTEGER;
+            str: STRING;
+        do
+            if argument_count = 1 then
+                n := argument(1).to_integer
+            else
+                n := 1
+            end
+
+            from i := 1
+                !!str.make(100);
+            until i > n
+            loop
+                str.append(concat_string);
+                i := i + 1;
+            end;
+            io.put_integer(str.count);
+            io.put_character ('%N');
+	    sleep(1);
+        end;
+
+feature {NONE}
+
+   -- helper function to call Unix sleep().
+   -- we do this so we can make the process hang around long
+   -- enough so the parent can measure its memory size.
+   sleep(i: INTEGER) is
+      external "C macro signature (int)"
+      end;
+
+end
+-- -*- mode: eiffel -*- 
+-- $Id: sumcol.se,v 1.6 2007-04-04 16:25:18 igouy-guest Exp $
+-- http://www.bagley.org/~doug/shootout/ 
+ 
+class SUMCOL
+
+insert
+   ARGUMENTS
+   
+creation {ANY}
+   make
+
+feature {ANY}
+
+   make is
+
+      local
+    sum: INTEGER;
+      do
+    sum := 0
+    from
+       io.read_line
+    until
+       io.end_of_input
+    loop
+       sum := sum + io.last_string.to_integer
+       io.read_line
+    end
+         std_output.put_integer(sum)
+         std_output.put_character('%N')
+      end
+end
+--
+-- The Great Computer Language Shootout
+-- http://shootout.alioth.debian.org/
+--
+-- from JAVA by Isaac Gouy
+-- adapted to SE2.1 by josé
+--
+
+class TAKFP
+
+insert
+	ARGUMENTS
+
+creation {ANY}
+	make
+	
+feature {ANY}
+	make is local n: REAL_32 do
+		check argument_count = 1 end
+		check argument(1).is_integer end
+		check argument(1).to_integer.fit_real_32 end
+		n := argument(1).to_real.force_to_real_32
+
+		std_output.put_real_format(tak({REAL_32 3.0}*n,{REAL_32 2.0}*n,n),1)
+		std_output.put_new_line
+	end
+
+	tak(x,y,z: REAL_32): REAL_32 is do
+		if x <= y then
+			Result := z
+		else
+			Result := tak(tak(x-{REAL_32 1.0},y,z), tak(y-{REAL_32 1.0},z,x), tak(z-{REAL_32 1.0},x,y))
+		end
+	end
+end
+
+-- tcpsockets for The Great Computer Shootout Program
+-- by Cyril Adrian <cyril.adrian@gmail.com>
+
+--SPLITFILE=tcpclient.e
+class TCPCLIENT
+
+create {TCPSOCKET}
+	make
+
+feature {}
+	number_of_requests: INTEGER
+
+	make (n: INTEGER; access: ACCESS) is
+		local
+			ios: SOCKET_INPUT_OUTPUT_STREAM
+			i, count, sum: INTEGER
+		do
+			number_of_requests := n
+			from
+				i := 1
+			until
+				i > 10 * n
+			loop
+				ios := access.stream
+				if ios.is_connected then
+					ios.put_string(request)
+					ios.read_line
+					count := count + 1
+					sum := sum + ios.last_string.count + 1 -- +1 because of '%N' not included
+					ios.disconnect
+				end
+				i := i + 1
+			end
+			print("replies: " + count.out + "%Tbytes: " + sum.out + "%N")
+		end
+
+	request: STRING is
+		once
+			create Result.make_filled('.', 64)
+			Result.put('%N', Result.upper)
+		end
+
+end
+
+--SPLITFILE=tcpconnection.e
+deferred class TCPCONNECTION
+
+inherit
+	CONNECTION
+
+feature {LOOP_ITEM}
+	continue is
+		local
+			s: STRING
+		do
+			ios.read_line
+			s := once ""
+			s.make_filled('.', reply_size)
+			s.put('%N', s.upper)
+			ios.put_string(s)
+			ios.disconnect
+			server.connection_closed
+		end
+
+feature {}
+	server: TCPSERVER
+
+	make (a_server: like server) is
+		do
+			server := a_server
+		end
+
+	reply_size: INTEGER is
+		deferred
+		end
+
+end
+
+--SPLITFILE=tcpconnection_big.e
+class TCPCONNECTION_BIG
+
+inherit
+	TCPCONNECTION
+
+create {TCPSERVER}
+	make
+
+feature {}
+	reply_size: INTEGER is 409600
+
+end
+
+--SPLITFILE=tcpconnection_medium.e
+class TCPCONNECTION_MEDIUM
+
+inherit
+	TCPCONNECTION
+
+create {TCPSERVER}
+	make
+
+feature {}
+	reply_size: INTEGER is 4096
+
+end
+
+--SPLITFILE=tcpconnection_small.e
+class TCPCONNECTION_SMALL
+
+inherit
+	TCPCONNECTION
+
+create {TCPSERVER}
+	make
+
+feature {}
+	reply_size: INTEGER is 64
+
+end
+
+--SPLITFILE=tcpserver.e
+class TCPSERVER
+
+insert
+	SERVER[TCPCONNECTION]
+		export {} start, start_in_stack
+		end
+
+create {TCPSOCKET}
+	make
+
+feature {}
+	handle_error (error_message: STRING) is
+			-- What to do when there was an error
+		do
+			std_error.put_string(error_message)
+			die_with_code(1)
+		end
+
+	new_connection: TCPCONNECTION is
+			-- Create a new connection
+		do
+			if count < 2 * number_of_requests then
+				create {TCPCONNECTION_SMALL} Result.make(Current)
+			elseif count < 9 * number_of_requests then
+				create {TCPCONNECTION_MEDIUM} Result.make(Current)
+			else
+				create {TCPCONNECTION_BIG} Result.make(Current)
+			end
+			count := count + 1
+		end
+
+feature {TCPCONNECTION}
+	connection_closed is
+		do
+			done := done + 1
+			if done = 10 * number_of_requests then
+				stack.break
+			end
+		end
+
+feature {}
+	count, done: INTEGER
+	number_of_requests: INTEGER
+
+	make (n: INTEGER; access: ACCESS) is
+		do
+			number_of_requests := n
+			start(access)
+		end
+
+end
+
+--SPLITFILE=tcpsocket.e
+class TCPSOCKET
+
+insert
+	ARGUMENTS
+
+create {ANY}
+	make
+
+feature {}
+	make is
+		local
+			n: INTEGER; access: TCP_ACCESS
+			server: TCPSERVER; client: TCPCLIENT
+		do
+			create access.make(create {HOST}.make("localhost"), 11000)
+			n := argument(1).to_integer
+			if n < 0 then
+				create server.make(-n, access)
+			else
+				create client.make(n, access)
+			end
+		end
+
+end
+-- -*- mode: eiffel -*-
+-- $Id: wc.se,v 1.3 2005-11-16 07:54:14 bfulgham Exp $
+-- http://shootout.alioth.debian.org/
+-- Contributed by Florian Hohn
+
+class WC
+
+insert
+	ARGUMENTS
+
+creation {ANY}
+   make
+
+feature {ANY}
+   make is
+      local
+	 nl, nw, nc: INTEGER; 
+	 in_word: BOOLEAN -- false=out of word;  true=in word
+      do
+	 from
+	    std_input.read_character
+	 until
+	    std_input.end_of_input
+	 loop
+	    nc := nc + 1
+	    inspect std_input.last_character
+	    when ' ', '%T' then
+	       in_word := False
+	    when '%N' then
+	       in_word := False
+	       nl := nl + 1
+	    else
+	       if not in_word then
+		  nw := nw + 1
+		  in_word := True
+	       end
+	    end -- inspect
+	    std_input.read_character
+	 end -- loop
+	 std_output.put_string(nl.to_string + " " + 
+	                       nw.to_string + " " + 
+			       nc.to_string + "%N")
+      end
+
+end -- class WC
+-- -*- mode: eiffel -*-
+-- $Id: wordfreq.se,v 1.2 2005-11-16 07:54:14 bfulgham Exp $
+-- http://www.bagley.org/~doug/shootout/
+
+-- based on code from "Text Processing Benchmark" by Friedrich Dominicus:
+-- http://www.qss.cz/bench/
+
+-- compile with: compile -boost -case_insensitive
+
+class WORDFREQ
+
+insert
+	ARGUMENTS
+
+inherit
+   YY_COMPRESSED_SCANNER_SKELETON
+      rename
+	 make_with_file as mwf,
+	 make as make_yy_bla
+      redefine
+	 terminate
+      end;
+   KL_SHARED_ARGUMENTS
+      export
+	 {NONE} all
+      end
+
+creation
+   make
+
+%}
+
+%option outfile="wordfreq.e"
+
+%%
+-- non-word chars
+[^a-z]+
+-- word chars
+[a-z]+        run
+
+<>            terminate
+
+%%
+
+feature
+
+   dict: DICTIONARY[INTEGER, STRING];
+   buffer: STRING;
+   args: ARGUMENTS;
+
+   make  is
+      local
+      do
+	
+	 !!args;
+	 mwf(io.standard_input)
+	 !!dict.with_capacity(196123);
+	 scan
+      end;
+
+
+   run is
+      local
+	 act_int: INTEGER;
+      do
+	
+	 if dict.has(text) then
+	    act_int := dict.at(text)
+	    dict.put((act_int+1), text);
+	 else
+	    dict.put(1, text);
+	 end; -- if
+      end; -- run
+
+   terminate is
+      local
+	 i: INTEGER;
+	 line, key: STRING
+      do
+	 !!line.make(10);
+	 from i := dict.lower
+	 until i > dict.upper
+	 loop
+	    io.put_integer(dict.item(i));
+	    io.put_string(": ")
+	    io.put_string(dict.key(i));
+	    io.put_new_line;
+	    i := i + 1;
+	 end;
+	 last_token := 0;
+      end;
+
+end  -- class COUNT_WORDS
+
+-- -*- mode: eiffel -*- 
+-- $Id: wordfreq.se,v 1.3 2005-11-16 07:54:14 bfulgham Exp $
+-- http://shootout.alioth.debian.org/
+--
+-- By Brent Fulgham
+
+class WORDFREQ
+
+insert
+	ARGUMENTS
+	
+creation {ANY}
+	make
+
+feature {ANY}
+    make is
+        local
+	    count, highlevel: INTEGER;
+	    c: CHARACTER;
+	    dictionary: DICTIONARY[INTEGER, STRING];
+	    outcol: ARRAY[STRING];
+	    sorter: REVERSE_COLLECTION_SORTER[STRING];
+	    word, temp: STRING;
+	    iter: ITERATOR[STRING];
+	do
+	    count := 0
+	    from
+	        !!dictionary.with_capacity(60000)
+		!!word.make(40)
+	        io.read_character
+	    until
+	        io.end_of_input
+	    loop
+	        c := io.last_character.to_lower
+		if not c.is_letter then
+		    -- insert word into dictionary
+		    if not word.is_empty then
+		        if not dictionary.has(word) then
+			    dictionary.add(1, clone(word))
+			else
+			    count := dictionary.at(word);
+			    count := count + 1;
+			    dictionary.put(count,word)
+			    if highlevel < count then
+			    	highlevel := count
+			    end
+			end
+		    end
+		    word.clear
+		else
+		    -- append to constructing word
+		    word.add_last(c)
+		end
+		io.read_character
+	    end;
+
+	    !!outcol.with_capacity(dictionary.count, 0)
+
+	    from
+	        iter := dictionary.get_new_iterator_on_keys
+		iter.start
+	    until
+	        iter.is_off
+	    loop
+	        temp := dictionary.at(iter.item).to_string
+		temp.precede_to_count(' ', 7)
+		temp.extend(' ')
+		temp.append(iter.item)
+
+		outcol.add_first(temp)
+		iter.next
+	    end
+
+	    sorter.sort(outcol)
+
+	    from
+	        iter := outcol.get_new_iterator
+		iter.start
+	    until
+	        iter.is_off
+	    loop
+	        std_output.put_string(iter.item + "%N")
+		iter.next
+	    end
+	end
+    end
+

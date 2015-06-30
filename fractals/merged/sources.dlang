@@ -1,0 +1,6659 @@
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   http://www.bagley.org/~doug/shootout/
+
+   converted to D by Dave Fladebo
+   compile: dmd -O -inline -release ackermann.d
+*/
+
+import std.stdio, std.string;
+
+int main(char[][] args)
+{
+    int n = args.length > 1 ? atoi(args[1]) : 1;
+
+    writefln("Ack(3,",n,"): ",Ack(3, n));
+
+    return 0;
+}
+
+int Ack(int M, int N)
+{
+    if(!M) return N + 1;
+    if(!N) return Ack(M-1, 1);
+    return(Ack(M-1, Ack(M, N-1)));
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   this program is modified from:
+     http://cm.bell-labs.com/cm/cs/who/bwk/interps/pap.html
+   Timing Trials, or, the Trials of Timing: Experiments with Scripting
+   and User-Interface Languages</a> by Brian W. Kernighan and
+   Christopher J. Van Wyk.
+
+   converted to D by Dave Fladebo
+   compile: dmd -O -inline -release ary.d
+*/
+
+import std.stdio, std.string;
+
+int main(char[][] args)
+{
+    int n = args.length > 1 ? atoi(args[1]) : 1;
+
+    int[] x, y;
+    x.length = y.length = n;
+
+    foreach(int i, inout int xi; x)
+    {
+        xi = i + 1;
+    }
+    
+    for(int k = 0; k < 1000; k++)
+    {
+        for(int i = n - 1; i >= 0; i--)
+        {
+            y[i] += x[i];
+        }
+    }
+
+    writefln(y[0]," ",y[y.length - 1]);
+
+    return 0;
+}
+// The Computer Language Benchmarks Game
+// http://shootout.alioth.debian.org/
+// By bearophile, optimized for simplicity, quite slow
+
+import std.stdio, std.conv;
+
+class TreeNode {
+    int item;
+    TreeNode left, right;
+
+    this(int item, TreeNode left=null, TreeNode right=null) {
+        this.item = item;
+        this.left = left;
+        this.right = right;
+    }
+
+    int check() {
+        return left is null ? item : item + left.check - right.check;
+    }
+}
+
+TreeNode makeTree(int item, int depth) {
+    if (depth > 0)
+        return new TreeNode(item, makeTree(2*item-1, depth-1), makeTree(2*item, depth-1));
+    else
+        return new TreeNode(item);
+}
+
+void main(string[] args) {
+    const minDepth = 4;
+    int n = (args.length > 1) ? toInt(args[1]) : 2;
+    int maxDepth = (minDepth + 2) > n ? minDepth + 2 : n;
+
+    int check = makeTree(0, maxDepth + 1).check;
+    writefln("stretch tree of depth ", maxDepth + 1, "\t check: ", check);
+
+    auto longLivedTree = makeTree(0, maxDepth);
+
+    for (int depth = minDepth; depth <= maxDepth; depth += 2) {
+        int iterations = 1 << (maxDepth - depth + minDepth);
+        check = 0;
+
+        for (int i = 1; i <= iterations; i++)
+            check += (makeTree(i, depth)).check + (makeTree(-i, depth)).check;
+
+        writefln(iterations * 2, "\t trees of depth ", depth, "\t check: ", check);
+    }
+
+    writefln("long lived tree of depth ", maxDepth, "\t check: ", longLivedTree.check);
+}
+/* The Computer Language Shootout Benchmarks
+   http://shootout.alioth.debian.org/
+
+   contributed by Frits van Bommel (update from entry by Dave Fladebo)
+   compile: dmd -O -inline -release binarytrees.d
+*/
+
+import std.string, std.stdio;
+import c = std.c.stdlib;
+
+int main(char[][] args)
+{
+    TreeNode*   stretchTree, longLivedTree, tempTree;
+    int         depth, minDepth, maxDepth, stretchDepth, N = args.length > 1 ? atoi(args[1]) : 1;
+
+    minDepth = 4;
+    maxDepth = (minDepth + 2) > N ? minDepth + 2 : N;
+    stretchDepth = maxDepth + 1;
+
+    stretchTree = TreeNode.BottomUpTree(0, stretchDepth);
+    writefln("stretch tree of depth ",stretchDepth,"\t check: ",stretchTree.ItemCheck);
+    TreeNode.DeleteTree(stretchTree);
+
+    longLivedTree = TreeNode.BottomUpTree(0, maxDepth);
+
+    for(depth = minDepth; depth <= maxDepth; depth += 2)
+    {
+        int check, iterations = 1 << (maxDepth - depth + minDepth);
+
+        for(int i = 0; i < iterations; i++)
+        {
+            tempTree = TreeNode.BottomUpTree(i, depth);
+            check += tempTree.ItemCheck;
+            TreeNode.DeleteTree(tempTree);
+
+            tempTree = TreeNode.BottomUpTree(-i, depth);
+            check += tempTree.ItemCheck;
+            TreeNode.DeleteTree(tempTree);
+        }
+
+        writefln(iterations * 2,"\t trees of depth ",depth,"\t check: ",check);
+    }
+
+    writefln("long lived tree of depth ",maxDepth,"\t check: ",longLivedTree.ItemCheck);
+    TreeNode.DeleteTree(longLivedTree);
+
+    return 0;
+}
+
+struct TreeNode
+{
+public:
+    static TreeNode* BottomUpTree(int item, int depth)
+    {
+        if(depth > 0)
+            return TreeNode(item
+                           ,BottomUpTree(2 * item - 1, depth - 1)
+                           ,BottomUpTree(2 * item, depth - 1));
+        return TreeNode(item);
+    }
+
+    int ItemCheck()
+    {
+        if(left)
+            return item + left.ItemCheck() - right.ItemCheck();
+        return item;
+    }
+
+    static void DeleteTree(TreeNode* tree)
+    {
+        if(tree.left)
+        {
+            DeleteTree(tree.left);
+            DeleteTree(tree.right);
+        }
+
+        delete tree;
+    }
+
+private:
+    TreeNode*           left, right;
+    int                 item;
+
+    static TreeNode* opCall(int item, TreeNode* left = null, TreeNode* right = null)
+    {
+        TreeNode* t = new TreeNode;
+        t.left = left;
+        t.right = right;
+        t.item = item;
+        return t;
+    }
+
+    new(uint sz)
+    {
+        return c.malloc(sz);
+    }
+
+    delete(void* p)
+    {
+        c.free(p);
+    }
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   Reference implementation in C# contributed by Isaac Gouy
+
+   converted to D by Dave Fladebo
+   compile: dmd -O -inline -release chameneos.d
+*/
+
+import std.stdio, std.string, std.thread, std.c.linux.linux;
+
+void main(char[][] args)
+{
+    int meetings, n = args.length > 1 ? atoi(args[1]) : 1;
+    MeetingPlace m = new MeetingPlace(n);
+
+    Creature[] creatures = new Creature[colours.length];
+    foreach(int i, inout Creature c; creatures)
+    {
+        c = new Creature(m,colours[i]);
+        c.start();
+    }
+    foreach(Creature c; creatures)
+    {
+        c.wait();
+        meetings += c.creaturesMet;
+    }
+    writefln(meetings);
+}
+
+enum Colour { blue, red, yellow, faded }
+Colour[] colours = [ Colour.blue, Colour.red, Colour.yellow, Colour.blue ];
+
+class MeetingPlace
+{
+    private static sem_t mustWait;
+    private Colour first, second;
+    private bool firstCall = true;
+    private int n;
+
+    this(int maxMeetings)
+    {
+        n = maxMeetings;
+        sem_init(&mustWait,0,1);
+    }
+
+    private Colour OtherCreaturesColour(Colour me)
+    {
+        Colour other = Colour.faded;
+
+        sem_wait(&mustWait);
+        if(firstCall)
+        {
+            if(n)
+            {
+                first = me;
+                firstCall = false;
+                sem_post(&mustWait);
+                other = second;
+                n--;
+            }
+            sem_post(&mustWait);
+        } else {
+            firstCall = true;
+            second = me;
+            other = first;
+        }
+
+        return other;
+    }
+}
+
+class Creature : Thread
+{
+    private MeetingPlace m;
+    private int creaturesMet = 0;
+    private Colour me;
+
+    this(MeetingPlace m, Colour c)
+    {
+        this.m = m; this.me = c;
+    }
+
+    int run()
+    {
+        while(me != Colour.faded) MeetOtherCreature();
+        return 0;
+    }
+
+    private void MeetOtherCreature()
+    {
+        Colour other = m.OtherCreaturesColour(me);
+        if(other == Colour.faded)
+        {
+            me = other;
+        } else {
+            me = Complement(other);
+            creaturesMet++;
+        }
+    }
+
+    private Colour Complement(Colour other)
+    {
+        switch(me)
+        {
+            case Colour.blue:
+                return other == Colour.red ? Colour.yellow : Colour.red;
+            case Colour.red:
+                return other == Colour.blue ? Colour.yellow : Colour.blue;
+            case Colour.yellow:
+                return other == Colour.blue ? Colour.red : Colour.blue;
+            default:
+                break;
+        }
+        return me;
+    }
+}
+/* The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+
+   Reference implementation in C# contributed by Isaac Gouy
+
+   converted to D by Dave Fladebo
+   bugfix by Klaus Friedel
+   compile: dmd -O -inline -release chameneos.d
+*/
+
+import std.stdio, std.string, std.thread, std.c.linux.linux;
+
+void main(char[][] args)
+{
+    int meetings, n = args.length > 1 ? atoi(args[1]) : 1;
+    MeetingPlace m = new MeetingPlace(n);
+
+    Creature[] creatures = new Creature[colours.length];
+    foreach(int i, inout Creature c; creatures)
+    {
+        c = new Creature(m,colours[i]);
+        c.start();
+    }
+    foreach(Creature c; creatures)
+    {
+        c.wait();
+        meetings += c.creaturesMet;
+    }
+    writefln(meetings);
+}
+
+enum Colour { blue, red, yellow, faded }
+Colour[] colours = [ Colour.blue, Colour.red, Colour.yellow, Colour.blue ];
+
+class MeetingPlace
+{
+    private sem_t mustWait;
+    private sem_t wait4second;
+    private Colour first, second;
+    private bool firstCall = true;
+    private int n;
+
+    this(int maxMeetings)
+    {
+        n = maxMeetings;
+        sem_init(&mustWait,0,1);
+        sem_init(&wait4second,0,0);
+    }
+
+    private Colour OtherCreaturesColour(Colour me)
+    {
+        Colour other = Colour.faded;
+
+        sem_wait(&mustWait);
+        if(firstCall)
+        {
+            if(n)
+            {
+                first = me;
+                firstCall = false;
+                sem_post(&mustWait); // second may enter now
+								sem_wait(&wait4second);
+								// second arrived
+                other = second;
+                n--;
+            }
+            sem_post(&mustWait); // meeting done: other creatures may enter now
+        } else {
+            firstCall = true;
+            second = me;
+            other = first;
+            sem_post(&wait4second);
+        }
+
+        return other;
+    }
+}
+
+class Creature : Thread
+{
+    private MeetingPlace m;
+    private int creaturesMet = 0;
+    private Colour me;
+
+    this(MeetingPlace m, Colour c)
+    {
+        this.m = m; this.me = c;
+    }
+
+    int run()
+    {
+        while(me != Colour.faded) MeetOtherCreature();
+        return 0;
+    }
+
+    private void MeetOtherCreature()
+    {
+        Colour other = m.OtherCreaturesColour(me);
+        if(other == Colour.faded)
+        {
+            me = other;
+        } else {
+            me = Complement(other);
+            creaturesMet++;
+        }
+    }
+
+    private Colour Complement(Colour other)
+    {
+        switch(me)
+        {
+            case Colour.blue:
+                return other == Colour.red ? Colour.yellow : Colour.red;
+            case Colour.red:
+                return other == Colour.blue ? Colour.yellow : Colour.blue;
+            case Colour.yellow:
+                return other == Colour.blue ? Colour.red : Colour.blue;
+            default:
+                break;
+        }
+        return me;
+    }
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   C# reference implementation contributed by Isaac Gouy
+
+   converted to D by Dave Fladebo
+   compile: dmd -O -inline -release dispatch.d
+*/
+
+import std.stdio, std.string;
+
+int main(char[][] args)
+{
+    int n = args.length > 1 ? atoi(args[1]) : 1;
+
+    Bottle[] ba = new Bottle[10];
+    foreach(int i, inout Bottle b; ba) b = new Bottle(i);
+
+    PressurizedBottle[] pa = new PressurizedBottle[10];
+    foreach(int i, inout PressurizedBottle p; pa) p = new PressurizedBottle(i);
+
+    int check = 0;
+    for(int i = 1; i <= n; i++)
+    {
+        check += bottleCheck(ba[1],ba[2],ba[3],ba[4],ba[5],i);
+        check += bottleCheck(ba[6],ba[7],ba[8],ba[9],ba[0],i);
+
+        check += bottleCheck(pa[1],pa[2],pa[3],pa[4],pa[5],i);
+        check -= bottleCheck(pa[6],pa[7],pa[8],pa[9],pa[0],i);
+    }
+    writefln(check);
+
+    return 0;
+}
+
+int bottleCheck(Bottle a1, Bottle a2, Bottle a3, Bottle a4, Bottle a5, int i)
+{
+    a1.cycle(); a2.cycle(); a3.cycle(); a4.cycle(); a5.cycle();
+
+    int c = i % 2;
+    return a1.check(c) + a2.check(c) + a3.check(c) + a4.check(c) + a5.check(c);
+}
+
+interface IBottle
+{
+    void state(BottleState s);
+}
+
+class BottleState
+{
+private:
+    static EmptyState Empty;
+    static FullState Full;
+    static SealedState Sealed;
+    static this()
+    {
+        Empty = new EmptyState();
+        Full = new FullState();
+        Sealed = new SealedState();
+    }
+
+protected:
+    abstract void next(IBottle b);
+    abstract int tag();
+
+public:
+    static BottleState initialState()
+    {
+        return Empty;
+    }
+
+    static class EmptyState : BottleState
+    {
+    public:
+        void next(IBottle b) { b.state(Full); }
+        int tag() { return 1; }
+    }
+
+    static class FullState : BottleState
+    {
+    public:
+        void next(IBottle b) { b.state(Sealed); }
+        int tag() { return 2; }
+    }
+
+    static class SealedState : BottleState
+    {
+    public:
+        void next(IBottle b) { b.state(Empty); }
+        int tag() { return 3; }
+    }
+}
+
+class PressurizedBottleState : BottleState
+{
+private:
+    static UnpressurizedEmptyState UnpressurizedEmpty;
+    static UnpressurizedFullState UnpressurizedFull;
+    static PressurizedUnsealedState PressurizedUnsealed;
+    static PressurizedSealedState PressurizedSealed;
+    static this()
+    {
+        UnpressurizedEmpty = new UnpressurizedEmptyState();
+        UnpressurizedFull = new UnpressurizedFullState();
+        PressurizedUnsealed = new PressurizedUnsealedState();
+        PressurizedSealed = new PressurizedSealedState();
+    }
+
+public:
+    static BottleState initialState()
+    {
+         return UnpressurizedEmpty;
+    }
+
+    static class UnpressurizedEmptyState : PressurizedBottleState
+    {
+    public:
+        void next(IBottle b) { b.state(UnpressurizedFull); }
+        int tag() { return 4; }
+    }
+
+    static class UnpressurizedFullState : PressurizedBottleState
+    {
+    public:
+        void next(IBottle b) { b.state(PressurizedUnsealed); }
+        int tag() { return 5; }
+    }
+
+    static class PressurizedUnsealedState : PressurizedBottleState
+    {
+    public:
+        void next(IBottle b) { b.state(PressurizedSealed); }
+        int tag() { return 6; }
+    }
+
+    static class PressurizedSealedState : PressurizedBottleState
+    {
+    public:
+        void next(IBottle b) { b.state(UnpressurizedEmpty); }
+        int tag() { return 7; }
+    }
+}
+
+class Bottle : IBottle
+{
+private:
+    int id;
+
+package:
+    BottleState s;
+    void empty() { s.next(this); }
+    void fill()  { s.next(this); }
+    void seal()  { s.next(this); }
+
+public:
+    this(int id)
+    {
+        this.id = id;
+        s = initialState();
+    }
+
+    int check(int c) { return s.tag() + id + c; }
+
+    void state(BottleState s)
+    {
+        this.s = s;
+    }
+
+    static BottleState initialState()
+    {
+        return BottleState.initialState();
+    }
+
+    void cycle()
+    {
+        fill(); seal(); empty();
+    }
+}
+
+class PressurizedBottle : Bottle
+{
+private:
+    void pressurize() { s.next(this); }
+
+public:
+    this(int id) { super(id); }
+
+    override static BottleState initialState()
+    {
+        return PressurizedBottleState.initialState();
+    }
+
+    void cycle()
+    {
+        fill(); pressurize(); seal(); empty();
+    }
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   http://www.bagley.org/~doug/shootout/
+
+   converted to D by Dave Fladebo
+   compile: dmd -O -inline -release echo.d
+*/
+
+import std.stdio, std.string, std.socket, std.thread;
+
+uint port;
+
+int main(char[][] args)
+{
+    int n = args.length > 1 ? atoi(args[1]) : 1;
+
+    Thread server = new Thread(&echoServer,cast(void*)n);
+    Thread client = new Thread(&echoClient,cast(void*)n);
+
+    server.start();
+    client.start();
+
+    server.wait();
+    client.wait();
+
+    return 0;
+}
+
+int echoServer(void* arg)
+{
+    int n = cast(int)arg;
+
+    Socket sock;
+
+    try
+    {
+        sock = serverSock.accept();
+    }
+    catch(SocketAcceptException sae)
+    {
+        fwritefln(stderr,"server/accept");
+        return(0);
+    }
+
+    int len, total;
+    char[] buffer = new char[4096];
+    while((len = sock.receive(buffer)) > 0)
+    {
+        total += len;
+        if(sock.send(buffer[0..len]) == Socket.ERROR)
+        {
+            fwritefln(stderr,"server/write");
+            break;
+        }
+    }
+
+    if(len == Socket.ERROR) fwritefln(stderr,"server/read");
+    sock.close();
+
+    writefln("server processed ",total," bytes");
+
+    return(0);
+}
+
+int echoClient(void* arg)
+{
+    int n = cast(int)arg;
+
+    Socket sock = clientSock();
+
+    char[] input, buffer = new char[4096], output = "Hello there sailor\n";
+    for(int i = 0; i < n; i++)
+    {
+        int len, total, start;
+        if((len = sock.send(output)) == Socket.ERROR)
+        {
+            fwritefln(stderr,"client/write");
+            break;
+        }
+        while((len = sock.receive(buffer)) > 0)
+        {
+            total += len;
+            input.length = total;
+            input[start..total] = buffer[0..len];
+            if(input[total - 1] == '\n') break;
+            start = total;
+        }
+        if(input != output || len == Socket.ERROR)
+        {
+            fwritefln(stderr,"client/read: ",input," ne \n",output);
+            break;
+        }
+    }
+
+    sock.close();
+
+    return(0);
+}
+
+Socket serverSock()
+{
+    Socket sock = new TcpSocket();
+    sock.bind(new InternetAddress(InternetAddress.PORT_ANY));
+    port = (cast(InternetAddress)sock.localAddress()).port;
+    sock.listen(10);
+    return(sock);
+}
+
+Socket clientSock()
+{
+    Socket sock = new TcpSocket();
+    sock.connect(new InternetAddress(port));
+    return(sock);
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   http://www.bagley.org/~doug/shootout/
+
+   converted to D by Dave Fladebo
+   compile: dmd -O -inline -release except.d
+*/
+
+import std.stdio, std.string;
+
+int main(char[][] args)
+{
+    int n = args.length > 1 ? atoi(args[1]) : 1;
+
+    while(n--)
+    {
+        some_function(n);
+    }
+
+    writefln("Exceptions: HI=",HI," / LO=",LO);
+
+    return 0;
+}
+
+size_t HI = 0;
+size_t LO = 0;
+
+class Hi_exception
+{
+public:
+    this(size_t _n) { n = _n; }
+    char[] what() { return(std.string.toString(n)); }
+private:
+    size_t n;
+}
+
+class Lo_exception
+{
+public:
+    this(size_t _n) { n = _n; }
+    char[] what() { return(std.string.toString(n)); }
+private:
+    size_t n; char N[8];
+}
+
+void blowup(size_t num)
+{
+    if(num % 2)
+    {
+        throw new Lo_exception(num);
+    }
+    throw new Hi_exception(num);
+}
+
+void lo_function(size_t num)
+{
+    try
+    {
+        blowup(num);
+    }
+    catch(Lo_exception ex)
+    {
+        ++LO;
+    }
+}
+
+void hi_function(size_t num)
+{
+    try
+    {
+        lo_function(num);
+    }
+    catch(Hi_exception ex)
+    {
+        ++HI;
+    }
+}
+
+void some_function(size_t num)
+{
+    try
+    {
+        hi_function(num);
+    }
+    catch
+    {
+        fwritefln(stderr,"We shouldn't get here");
+    }
+}
+/* The Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   converted to D by Dave Fladebo
+   compile: dmd -O -inline -release fannkuch.d
+*/
+
+import std.stdio, std.string;
+
+int main(char[][] args)
+{
+    int n = args.length > 1 ? atoi(args[1]) : 1;
+    writefln("Pfannkuchen(",n,") = ",fannkuch(n));
+    return 0;
+}
+
+int fannkuch(int n)
+{
+    int[] perm = new int[n], perm1 = new int[n], count = new int[n];
+    int   i, j, k, t, flips, r = n, maxFlipsCount = 0, check = 0;
+
+    foreach(int pi, inout int p; perm1) p = pi;
+    for(;;)
+    {
+        if (check < 30)
+        {
+            foreach(int p; perm1) writef(p+1);
+            writefln();
+            check++;
+        }
+
+        while(r != 1) { count[r-1] = r; r--; }
+        if(!(perm1[0] == 0 || perm1[n-1] == n-1))
+        {
+            foreach(int pi, int p; perm1) perm[pi] = p;
+
+            flips = 0;
+            i = perm[0];
+            do {
+                for(j = 1, k = i - 1; j < k; j++, k--)
+                {
+                    t = perm[j];
+                    perm[j] = perm[k];
+                    perm[k] = t;
+                }
+                flips++;
+                t = perm[i];
+                perm[i] = i;
+                i = t;
+            } while(i);
+
+            if(flips > maxFlipsCount) maxFlipsCount = flips;
+        }
+        for(;;)
+        {
+            if(r == n) return(maxFlipsCount);
+            t = perm1[0];
+            for(i = 0; i < r;)
+            {
+                j = i + 1;
+                perm1[i] = perm1[j];
+                i = j;
+            }
+            perm1[r] = t;
+
+            count[r]--;
+            if(count[r] > 0) break;
+            r++;
+        }
+    }
+}
+// The Computer Language Benchmarks Game
+// http://shootout.alioth.debian.org/
+// Faster version by bearophile
+
+import std.cstream, std.stream, std.conv;
+
+class Random {
+    private:
+        float seed = 42;
+        const int IA = 3877, IC = 29573, IM = 139968;
+
+    public:
+        final float genRandom(float max) {
+            return max * ((seed = (seed * IA + IC) % IM) * (1.0 / IM));
+        }
+}
+
+
+class Fasta: Random {
+    public:
+        enum TableType {
+            iub,
+            homosapiens
+        }
+
+        this() {
+            bso = new BufferedStream(dout);
+        }
+
+        ~this() {
+            bso.close();
+        }
+
+        final void makeRepeatFasta(char[] id, char[] desc, int n) {
+            const int length = 60;
+            int k = 0;
+
+            bso.writefln(">", id, " ", desc);
+            char[length] line;
+            while (n > 0) {
+                int m = n < length ? n : length;
+                for (int j = 0; j < m; j++, k++) {
+                    if (k >= alu.length)
+                        k = 0;
+                    line[j] = alu[k];
+                }
+                bso.writeLine(line[0 .. m]);
+                n -= length;
+            }
+        }
+
+        final void makeRandomFasta(char[] id, char[] desc, TableType tableType, int n) {
+            const int length = 60;
+            IUB[] table;
+
+            switch (tableType) {
+                case TableType.iub:
+                    table = iub;
+                    break;
+                default:
+                    table = homosapiens;
+                    break;
+            }
+
+            bso.writefln(">", id, " ", desc);
+            makeCumulative(table);
+            char[length] line;
+            while (n > 0) {
+                int m = n < length ? n : length;
+                for (int j; j < m; j++) {
+                    float rval = genRandom(1);
+                    for (int i; i < table.length; i++) {
+                        if (rval < table[i].p) {
+                            line[j] = table[i].c;
+                            break;
+                        }
+                    }
+                }
+                bso.writeLine(line[0 .. m]);
+                n -= length;
+            }
+        }
+
+
+    private:
+        struct IUB {
+            float p;
+            char c;
+        }
+
+        BufferedStream bso;
+
+        IUB[] iub = [IUB(0.27, 'a'),
+                     IUB(0.12, 'c'),
+                     IUB(0.12, 'g'),
+                     IUB(0.27, 't'),
+                     IUB(0.02, 'B'),
+                     IUB(0.02, 'D'),
+                     IUB(0.02, 'H'),
+                     IUB(0.02, 'K'),
+                     IUB(0.02, 'M'),
+                     IUB(0.02, 'N'),
+                     IUB(0.02, 'R'),
+                     IUB(0.02, 'S'),
+                     IUB(0.02, 'V'),
+                     IUB(0.02, 'W'),
+                     IUB(0.02, 'Y')];
+
+        IUB[] homosapiens = [IUB(0.3029549426680, 'a'),
+                             IUB(0.1979883004921, 'c'),
+                             IUB(0.1975473066391, 'g'),
+                             IUB(0.3015094502008, 't')];
+
+        const char[] alu = "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG"
+                           "GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA"
+                           "CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT"
+                           "ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA"
+                           "GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG"
+                           "AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC"
+                           "AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA";
+
+        void makeCumulative(IUB[] table) {
+            float prob = 0.0;
+            foreach(ref iub; table) {
+                prob += iub.p;
+                iub.p = prob;
+            }
+        }
+}
+
+
+void main(char[][] args) {
+    int n = args.length == 2 ? toInt(args[1]) : 1;
+
+    scope Fasta fasta = new Fasta;
+
+    fasta.makeRepeatFasta("ONE", "Homo sapiens alu", n*2);
+    fasta.makeRandomFasta("TWO", "IUB ambiguity codes", Fasta.TableType.iub, n*3);
+    fasta.makeRandomFasta("THREE", "Homo sapiens frequency", Fasta.TableType.homosapiens, n*5);
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   http://www.bagley.org/~doug/shootout/
+
+   converted to D by Dave Fladebo
+   compile: dmd -O -inline -release fibo.d
+*/
+
+import std.stdio, std.string;
+
+int main(char[][] args)
+{
+    int n = args.length > 1 ? atoi(args[1]) : 1;
+
+    writefln(fib(n));
+
+    return 0;
+}
+
+uint fib(uint n)
+{
+    if(n < 2)
+    {
+        return(1);
+    }
+    else
+    {
+        return(fib(n-2) + fib(n-1));
+    }
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   contributed by Isaac Gouy
+
+   converted to D by Dave Fladebo
+   compile: dmd -O -inline -release harmonic.d
+*/
+
+import std.stdio, std.string;
+
+int main(char[][] args)
+{
+    int i = 0, n = args.length > 1 ? atoi(args[1]) : 10000000;
+
+    double partialSum = 0.0;
+    for (int i=1; i<=n; i++) partialSum += 1.0/i;
+
+    writefln("%0.9f",partialSum);
+
+    return 0;
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   http://www.bagley.org/~doug/shootout/
+
+   converted to D by Dave Fladebo
+   compile: dmd -O -inline -release hash.d
+*/
+
+import std.stdio, std.string;
+
+int main(char[][] args)
+{
+    int n = args.length > 1 ? atoi(args[1]) : 1;
+
+    char[32]    str;
+    int[char[]] X;
+
+    for(int i = 1; i <= n; i++) {
+        int len = sprintf(str,"%x",i);
+        X[str[0..len].dup] = i;
+    }
+
+    int c;
+    for(int i = n; i > 0; i--) {
+        int len = sprintf(str,"%d",i);
+        if(str[0..len] in X) c++;
+    }
+
+    writefln(c);
+
+    return 0;
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   http://www.bagley.org/~doug/shootout/
+
+   converted to D by Dave Fladebo
+   compile: dmd -O -inline -release hash2.d
+*/
+
+import std.stdio, std.string;
+
+int main(char[][] args)
+{
+    int n = args.length > 1 ? atoi(args[1]) : 1;
+
+    char[16]    str;
+    int[char[]] X0;
+    int[char[]] X1;
+
+    for(int i = 0; i <= 9999; i++)
+    {
+        int len = sprintf(str,"foo_%d",i);
+        X0[str[0..len].dup] = i;
+    }
+
+    char[][]    keys = X0.keys;
+    int[]       vals = X0.values;
+    for(int i = 0; i < n; i++)
+    {
+        foreach(int j, char[] key; keys)
+        {
+            X1[key] += vals[j];
+        }
+    }
+
+    writefln("%d %d %d %d",
+       X0["foo_1"],
+       X0["foo_9999"],
+       X1["foo_1"],
+       X1["foo_9999"]);
+
+    return 0;
+}
+/* The Great Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+
+   C# reference implementation contributed by Isaac Gouy
+
+   converted to D by Dave Fladebo
+   compile: dmd -O -inline -release health2.d
+*/
+
+import std.stdio, std.c.stdlib;
+
+int main(char[][] args)
+{
+    int n = args.length > 1 ? atoi(args[1]) : 100;
+
+    HealthcareRegion healthcareSystem = HealthcareRegion.Create();
+
+    for(int i = 0; i < n; i++) 
+        healthcareSystem.TransferPatients();
+
+    Totals t = healthcareSystem.AccumulateTotals();
+
+    writefln("Patients: ", t.patients ); 
+    writefln("Time:     ", t.hospitalTime ); 
+    writefln("Visits:   ", t.hospitalVisits ); 
+
+    writefln("\nTreatment Queue - Remaining Treatment Time");
+    foreach(Patient p; healthcareSystem.TreatmentQueue())
+        writefln(p.remainingTime, "\tanonymous patient");
+
+    return 0;
+}
+
+class SimpleList(T)
+{
+private:
+    struct SimpleNode
+    {
+        T item;
+        SimpleNode* next;
+    }
+
+    SimpleNode* first, last;
+
+public:
+    void Add(T o)
+    {
+        SimpleNode* a = new SimpleNode;
+        a.item = o;
+        if(first is null) first = a;
+        else last.next = a;
+        last = a;
+    }
+
+    void Remove(T o)
+    {
+        if(first)
+        {
+            SimpleNode* t = first.next;
+            if(first.item is o)
+            {
+                delete first;
+                first = t;
+            }
+            else
+            {
+                SimpleNode* p = first;
+                while(t && !(t.item is o))
+                {
+                    p = t; t = t.next;
+                }
+                if (t && t.item is o)
+                {
+                    p.next = t.next;
+                    if(last is t) last = p;
+                    delete t;
+                }
+            }
+        }
+    }
+
+    void Clear() { delete first; }
+
+    int opApply(int delegate(inout T) dg)
+    {
+        int result = 0;
+
+        for(SimpleNode* n = first; n; n = n.next)
+        {
+            result = dg(n.item);
+            if (result) break;
+        }
+
+        return result;
+    }
+}
+
+struct Patient
+{
+    static Patient opCall() { Patient p; return p; }
+    int remainingTime, hospitalTime, hospitalVisits;
+}
+
+alias SimpleList!(Patient) PatientList;
+
+class HealthcareRegion 
+{
+private:
+    const int LEVELS = 5, DISTRICTS = 4;
+    HealthcareRegion[] districts;
+    Hospital localHospital;
+
+public:
+    static HealthcareRegion Create() { return HealthcareRegion.Create(LEVELS, 0, 42); }
+
+    static HealthcareRegion Create(int level, int seed1, int seed2)
+    {
+        HealthcareRegion r = null;
+        if(level > 0)
+        {
+            r = new HealthcareRegion(level, seed1*seed2);
+            for(int i = r.districts.length-1; i >= 0; i--)
+                r.districts[i] = Create(level-1, (seed1*4)+i+1, seed2);
+        }
+        return r;
+    }
+
+    this(int level, int s)
+    {
+        districts = new HealthcareRegion[DISTRICTS];
+        localHospital = new Hospital(level == LEVELS, level, s);
+    }
+
+    PatientList TransferPatients()
+    {
+        for(int i = districts.length-1; i >= 0; i--)
+            if(districts[i])
+                foreach(Patient p; districts[i].TransferPatients())
+                    localHospital.NewArrival(p);
+
+        localHospital.TriageExaminationTreatment(); 
+
+        return localHospital.RegionalTransferPatients();
+    }
+
+    Totals AccumulateTotals()
+    {
+        Totals t = new Totals();
+        for(int i = districts.length-1; i >= 0; i--)
+            if(districts[i])
+                t += districts[i].AccumulateTotals();
+
+        localHospital.AccumulateTotals(t);
+
+        return t;
+    }
+
+    PatientList TreatmentQueue() { return localHospital.TreatmentQueue(); }
+}
+
+class Hospital
+{
+public:
+    this(bool hasNoRegionalHospital, int level, int seed)
+    {
+        this.hasNoRegionalHospital = hasNoRegionalHospital;
+        availableStaff = 1 << (level - 1);
+        triage = new PatientList;
+        examination = new PatientList;
+        treatment = new PatientList;
+        transfers = new PatientList;
+        discharged = new Totals();
+        this.seed = seed;
+    }
+
+    void TriageExaminationTreatment()
+    {
+        DischargePatients();
+        TreatOrTransferPatients();
+        TriagePatients();
+
+        if(genRandom(1.0) > 0.7) NewArrival(Patient());
+    }
+
+    PatientList RegionalTransferPatients()
+    {
+        return transfers;
+    }
+
+    void AccumulateTotals(Totals t)
+    {
+        foreach(Patient p; triage) t += p;
+        foreach(Patient p; examination) t += p;
+        foreach(Patient p; treatment) t += p;
+        t += discharged;
+    }
+
+    void NewArrival(Patient p)
+    {
+        p.hospitalVisits++;
+        if(availableStaff > 0)
+        {
+            availableStaff--;
+            p.remainingTime = 3;
+            p.hospitalTime += 3;
+            examination.Add(p);
+        } else {
+            triage.Add(p);
+        }
+    }
+
+    PatientList TreatmentQueue() { return treatment; }
+
+private:
+    PatientList triage, examination, treatment, transfers;
+    Totals discharged;
+    int availableStaff;
+    bool hasNoRegionalHospital;
+
+    void DischargePatients()
+    {
+        foreach(inout Patient p; treatment)
+        {
+            p.remainingTime -= 1;
+            if(!p.remainingTime)
+            {
+                availableStaff++;
+                discharged += p;
+                treatment.Remove(p);
+            }
+        }
+    }
+
+    void TreatOrTransferPatients()
+    {
+        transfers.Clear();
+
+        foreach(inout Patient p; examination)
+        {
+            p.remainingTime -= 1;
+
+            if(!p.remainingTime)
+            {
+                // no transfer
+                if(genRandom(1.0) > 0.1 || hasNoRegionalHospital)
+                {
+                    p.remainingTime = 10;
+                    p.hospitalTime += 10;
+                    treatment.Add(p);
+                } else {
+                // transfer
+                    availableStaff++;
+                    transfers.Add(p);
+                }
+                examination.Remove(p);
+            }
+        }
+    }
+
+    void TriagePatients()
+    {
+        foreach(inout Patient p; triage)
+        {
+            if(availableStaff > 0)
+            {
+                availableStaff--;
+                p.remainingTime = 3;
+                p.hospitalTime += 3;
+                examination.Add(p);
+                triage.Remove(p);
+            } else {
+                p.hospitalTime++;
+            }
+        }
+    }
+
+    int seed;
+    const int IM = 139968, IA = 3877, IC = 29573;
+    double genRandom(double max) { return(max * (seed = (seed * IA + IC) % IM) / IM); }
+}
+
+class Totals 
+{
+    private long patients, hospitalTime, hospitalVisits;
+
+    public Totals opAddAssign(Totals b)
+    {
+        patients += b.patients;
+        hospitalTime += b.hospitalTime;
+        hospitalVisits += b.hospitalVisits;
+        return this;
+    }
+
+    public Totals opAddAssign(Patient p)
+    {
+        patients++;
+        hospitalTime += p.hospitalTime;
+        hospitalVisits += p.hospitalVisits;
+        return this;
+    }
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   http://www.bagley.org/~doug/shootout/
+
+   converted to D by Dave Fladebo
+   compile: dmd -O -inline -release heapsort.d
+*/
+
+import std.stdio, std.string;
+
+int main(char[][] args)
+{
+    int n = args.length > 1 ? atoi(args[1]) : 1;
+
+    double[] ary;
+
+    ary.length = n + 1;
+    Random r = new Random();
+    for(int i = 1; i <= n; i++)
+    {
+       ary[i] = r.genRandom(1);
+    }
+
+    heapsort(ary);
+
+    writefln("%.10f",ary[n]);
+
+    return 0;
+}
+
+void heapsort(double[] ra)
+{
+    int i, j;
+    int ir = ra.length - 1;
+    int l = (ir >> 1) + 1;
+    double rra;
+
+    for(;;)
+    {
+        if(l > 1)
+        {
+            rra = ra[--l];
+        }
+        else
+        {
+            rra = ra[ir];
+            ra[ir] = ra[1];
+            if(--ir == 1)
+            {
+                ra[1] = rra;
+                return;
+            }
+        }
+        i = l;
+        j = l << 1;
+        while (j <= ir)
+        {
+            if(j < ir && ra[j] < ra[j+1]) { ++j; }
+            if(rra < ra[j])
+            {
+                ra[i] = ra[j];
+                j += (i = j);
+            }
+            else
+            {
+                j = ir + 1;
+            }
+        }
+        ra[i] = rra;
+    }
+}
+
+class Random
+{
+private:
+    int last = 42;
+    const int IM = 139968;
+    const int IA = 3877;
+    const int IC = 29573;
+public:
+    double genRandom(double max)
+    {
+        return(max * (last = (last * IA + IC) % IM) / IM);
+    }
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   http://www.bagley.org/~doug/shootout/
+
+   converted to D by Dave Fladebo
+   compile: dmd -O -inline -release hello.d
+*/
+
+import std.stdio;
+
+int main()
+{
+    writefln("hello world");
+    return 0;
+}
+// The Computer Language Benchmarks Game
+// http://shootout.alioth.debian.org/
+
+// Adapted by bearophile from my Python version.
+// Compile:  dmd -O -release knucleotide.d
+
+// This code is slower because it's optimized to
+//   show higher level coding in D.
+
+import std.stdio, std.string;
+
+int[char[]] gen_freq(char[] seq, int frame) {
+    int[char[]] freqs;
+    auto ns = seq.length + 1 - frame;
+
+    for (auto ii = 0; ii < ns; ++ii)
+        freqs[ seq[ii .. ii + frame] ]++;
+    return freqs;
+}
+
+void sort_seq(char[] seq, int length) {
+    auto n = seq.length + 1 - length;
+    auto freqs = gen_freq(seq, length);
+    //auto l = sortedAA(freqs, function int(char[] k, int v) { return -v; });
+
+    struct Pair {
+        char[] k;
+        int v;
+        int opCmp(Pair otherPair) {
+            return (v > otherPair.v) ? -1 : 1;
+        }
+    }
+
+    auto pairs = new Pair[freqs.length];
+    uint i = 0;
+    foreach(k, v; freqs) {
+        pairs[i] = Pair(k, v);
+        i++;
+    }
+
+    foreach(p; pairs.sort)
+        writefln("%s %.3f", p.k, 100.0*p.v/n);
+    writefln();
+}
+
+void find_seq(char[] seq, char[] s) {
+    auto t = gen_freq(seq, s.length);
+    writefln((s in t) ? t[s] : 0, '\t', s);
+}
+
+void main() {
+    char[] line;
+    while (readln(stdin, line))
+        if (line[0 .. 3] == ">TH")
+            break;
+
+    char[][] seq;
+    while (readln(stdin, line)) {
+        if ((line[0] == '>') || (line[0] == ';'))
+            break;
+        seq ~= line.dup.chomp();
+    }
+
+    auto sequence = seq.join("").toupper();
+
+    sort_seq(sequence, 1);
+    sort_seq(sequence, 2);
+
+    foreach(se; split("GGT GGTA GGTATT GGTATTTTAATT GGTATTTTAATTTATAGT"))
+        find_seq(sequence, se);
+}
+// The Computer Language Benchmarks Game
+// http://shootout.alioth.debian.org/
+
+// Adapted by bearophile from my Python version
+
+
+import std.stdio, std.string;
+
+
+int[char[]] gen_freq(char[] seq, int frame) {
+    int[char[]] freqs;
+    auto ns = seq.length + 1 - frame;
+
+    for (size_t ii; ii < ns; ++ii)
+        freqs[ seq[ii .. ii + frame] ]++;
+    return freqs;
+}
+
+void sort_seq(char[] seq, int length) {
+    auto n = seq.length + 1 - length;
+    auto freqs = gen_freq(seq, length);
+
+    struct Pair {
+        char[] k;
+        int v;
+        int opCmp(Pair otherPair) {
+            return (v > otherPair.v) ? -1 : 1;
+        }
+    }
+
+    auto pairs = new Pair[freqs.length];
+    uint i = 0;
+    foreach(k, v; freqs) {
+        pairs[i] = Pair(k, v);
+        i++;
+    }
+
+    foreach(p; pairs.sort)
+        writefln("%s %.3f", p.k, 100.0*p.v/n);
+    writefln();
+}
+
+void find_seq(char[] seq, char[] s) {
+    auto t = gen_freq(seq, s.length);
+    writefln((s in t) ? t[s] : 0, '\t', s);
+}
+
+char[] inplaceUpper(char[] s) {
+    foreach(ref c; s)
+        if ('a' <= c && c <= 'z')
+            c -= 'a' - 'A';
+    return s;
+}
+
+void main() {
+    char[1000] line;
+    while(fgets(line.ptr, line.length, stdin))
+        if (line[0 .. 3] == ">TH")
+            break;
+
+    char[][] seq;
+    while(fgets(line.ptr, line.length, stdin)) {
+        if ((line[0] == '>') || (line[0] == ';'))
+            break;
+        char[] line2 = toString(line.ptr);
+        if (line2[$-1] == '\n')
+            seq ~= line2[0 .. $-1].dup;
+        else
+            seq ~= line2[0 .. $].dup;
+    }
+
+    auto sequence = seq.join("").inplaceUpper();
+
+    sort_seq(sequence, 1);
+    sort_seq(sequence, 2);
+
+    foreach(se; split("GGT GGTA GGTATT GGTATTTTAATT GGTATTTTAATTTATAGT"))
+        find_seq(sequence, se);
+}
+/*
+The Computer Language Shootout
+http://shootout.alioth.debian.org/
+
+Contributed by Josh Goldfoot
+Directly adapted from the C version by bearophile
+This version uses "simple_hash.d"
+
+This is an example of low-level coding in D,
+higher-level coding (and shorter code) is possible.
+It shows that D can use quite C-style code too.
+*/
+
+
+// full qualified imports to avoid bugs
+import std.c.stdio: printf, fgets, stdin, perror;
+import std.c.string: strlen, memcpy, memset;
+import std.ctype: toupper;
+import std.c.stdlib: exit;
+import std.gc: malloc, realloc;
+import simple_hash: ht_node, ht_ht, ht_create, ht_first,
+                    ht_find_new, ht_next, ht_destroy;
+
+
+long hash_table_size(int fl, long buflen) {
+    long maxsize1 = buflen - fl;
+    long maxsize2 = 4;
+
+    while (--fl > 0 && maxsize2 < maxsize1)
+        maxsize2 = maxsize2 * 4;
+    if (maxsize1 < maxsize2)
+        return maxsize1;
+    return maxsize2;
+}
+
+
+ht_ht* generate_frequencies(int fl, char* buffer, long buflen) {
+    ht_ht* ht;
+    char* reader;
+    long i;
+    char nulled;
+
+    if (fl > buflen)
+        return null;
+
+    ht = ht_create(hash_table_size(fl, buflen));
+    for (i = 0; i < buflen - fl + 1; i++) {
+        reader = &(buffer[i]);
+        nulled = reader[fl];
+        reader[fl] = 0x00;
+        ht_find_new(ht, reader).val++;
+        reader[fl] = nulled;
+    }
+
+    return ht;
+}
+
+
+void write_frequencies(int fl, char* buffer, long buflen) {
+    struct sorter {
+        char* sstring;
+        int num;
+    }
+
+    ht_ht* ht;
+    long total, i, j, size;
+    ht_node* nd;
+    sorter* s;
+    sorter tmp;
+
+    ht = generate_frequencies(fl, buffer, buflen);
+    total = 0;
+    size = 0;
+    for (nd = ht_first(ht); nd !is null; nd = ht_next(ht)) {
+        total = total + nd.val;
+        size++;
+    }
+
+    s = cast(sorter*)malloc(size * sorter.sizeof);
+    if (s is null) {
+        perror("s");
+        exit(1);
+    }
+    memset(s, 0, size * sorter.sizeof);
+
+
+    i = 0;
+    for (nd = ht_first(ht); nd !is null; nd = ht_next(ht)) {
+        s[i].sstring = nd.key;
+        s[i++].num = nd.val;
+    }
+
+    for (i = 0; i < size - 1; i++)
+        for (j = i + 1; j < size; j++)
+            if (s[i].num < s[j].num) {
+                memcpy(&tmp, &(s[i]), sorter.sizeof);
+                memcpy(&(s[i]), &(s[j]), sorter.sizeof);
+                memcpy(&(s[j]), &tmp, sorter.sizeof);
+            }
+
+    for (i = 0; i < size; i++)
+        printf("%s %.3f\n", s[i].sstring, 100 * cast(float)s[i].num / total);
+    printf("\n");
+    ht_destroy(ht);
+    realloc(s, 0);
+}
+
+
+void write_count(char* searchFor, char* buffer, long buflen) {
+    ht_ht* ht;
+
+    ht = generate_frequencies(strlen(searchFor), buffer, buflen);
+    printf("%d\t%s\n", ht_find_new(ht, searchFor).val, searchFor);
+    ht_destroy(ht);
+}
+
+
+void main() {
+    const BLEN = 10240;
+    char c;
+    char* line;
+    char* buffer;
+    char* tmp;
+    char* x;
+    int i, linelen, nothree;
+    long buflen, seqlen;
+
+    line = cast(char*)malloc(256);
+    if (!line)
+        return -1;
+    seqlen = 0;
+    nothree = 1;
+
+    while (nothree && fgets(line, 255, stdin))
+        if (line[0] == '>' && line[1] == 'T' && line[2] == 'H')
+            nothree = 0;
+    realloc(line, 0);
+
+    buflen = BLEN;
+    buffer = cast(char*)malloc(buflen + 1);
+    if (!buffer)
+        return -1;
+    x = buffer;
+
+    while (fgets(x, 255, stdin)) {
+        linelen = strlen(x);
+        if (linelen) {
+            if (x[linelen - 1] == '\n')
+                linelen--;
+
+            c = x[0];
+
+            if (c == '>')
+                break;
+            else if (c != ';') {
+                seqlen = seqlen + linelen;
+
+                if (seqlen + 512 >= buflen) {
+                    buflen = buflen + BLEN;
+                    tmp = cast(char*)realloc(buffer, buflen + 1);
+                    if (tmp is null)
+                        return -1;
+                    buffer = tmp;
+                    x = &(buffer[seqlen]);
+                }
+                else
+                    x = &(x[linelen]);
+
+                x[0] = 0;
+            }
+        }
+    }
+
+    for (i = 0; i < seqlen; i++)
+        buffer[i] = toupper(buffer[i]);
+
+    write_frequencies(1, buffer, seqlen);
+    write_frequencies(2, buffer, seqlen);
+
+    write_count("GGT", buffer, seqlen);
+    write_count("GGTA", buffer, seqlen);
+    write_count("GGTATT", buffer, seqlen);
+    write_count("GGTATTTTAATT", buffer, seqlen);
+    write_count("GGTATTTTAATTTATAGT", buffer, seqlen);
+
+    realloc(buffer, 0);
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   http://www.bagley.org/~doug/shootout/
+
+   converted to D by Dave Fladebo
+   compile: dmd -O -inline -release lists.d
+*/
+
+import std.stdio, std.string, std.c.stdlib;
+
+int main(char[][]args)
+{
+    int n = args.length > 1 ? std.string.atoi(args[1]) : 1;
+    int result = 0;
+    while(n--) result = test_lists();
+    writefln(result);
+
+    return 0;
+}
+
+// a simple Double Linked List
+// the head node is special, it's val is length of list
+struct DLL
+{
+    int val;
+    DLL* next;   /* points to next or head (if at tail) */
+    DLL* prev;   /* points to prev or tail (if at head) */
+}
+
+int list_length(DLL* head) { return(head.val); }
+int list_empty(DLL* head) { return(list_length(head) == 0); }
+DLL* list_first(DLL* head) { return(head.next); }
+DLL* list_last(DLL* head) { return(head.prev); }
+
+void list_push_tail(DLL* head, DLL* item)
+{
+    DLL* tail = head.prev;
+    tail.next = item;
+    item.next = head;
+    head.prev = item;
+    item.prev = tail;
+    head.val++;
+}
+
+DLL* list_pop_tail(DLL* head)
+{
+    DLL* prev, tail;
+    if(list_empty(head)) return(null);
+    tail = head.prev;
+    prev = tail.prev;
+    prev.next = head;
+    head.prev = prev;
+    head.val--;
+    return(tail);
+}
+
+void list_push_head(DLL* head, DLL* item)
+{
+    DLL* next = head.next;
+    head.next = item;
+    next.prev = item;
+    item.next = next;
+    item.prev = head;
+    head.val++;
+}
+
+DLL* list_pop_head(DLL* head)
+{
+    DLL* next;
+    if(list_empty(head)) return(null);
+    next = head.next;
+    head.next = next.next;
+    next.next.prev = head;
+    head.val--;
+    return(next);
+}
+
+int list_equal(DLL* x, DLL* y)
+{
+    DLL* xp, yp;
+    // first val's checked will be list lengths
+    for(xp=x, yp=y; xp.next != x; xp=xp.next, yp=yp.next)
+    {
+        if(xp.val != yp.val) return(0);
+    }
+    if(xp.val != yp.val) return(0);
+    return(yp.next == y);
+}
+
+void list_print(char* msg, DLL* x)
+{
+    int i = 0;
+    DLL* xp, first = x.next;
+    fputs(msg, stdout);
+    writefln("length: ",list_length(x));
+    for(xp=x.next; xp.next != first; xp=xp.next)
+    {
+        writefln("i:%3d  v:%3d  n:%3d  p:%3d", ++i, xp.val, xp.next.val, xp.prev.val);
+    }
+    writefln("[last entry points to list head]");
+    writefln("[val of next of tail is:  ",xp.next.val,"]");
+}
+
+DLL* list_new()
+{
+    DLL* l = new DLL();
+    l.next = l;
+    l.prev = l;
+    l.val = 0;
+    return(l);
+}
+
+/* inclusive sequence 'from' <-> 'to' */
+DLL* list_sequence(int from, int to)
+{
+    int size, tmp, i, j;
+    if(from > to)
+    {
+        tmp = from; from = to; to = tmp;
+    }
+    size = to - from + 1;
+    DLL* l = new DLL[size+1];
+    from--;
+    for(i=0, j=1; i<size; ++i, ++j)
+    {
+        l[i].next = &l[i+1];
+        l[j].prev = &l[j-1];
+        l[i].val = from++;
+    }
+    l[0].prev = &l[size];
+    l[size].next = &l[0];
+    l[size].prev = &l[size-1];
+    l[size].val = from;
+    l[0].val = size;
+    return(l);
+}
+
+DLL* list_copy(DLL* x)
+{
+    int i, j, size = list_length(x);
+    DLL* xp, l = new DLL[size+1];
+    for(i=0, j=1, xp=x; i<size; i++, j++, xp=xp.next)
+    {
+        l[i].next = &l[j];
+        l[j].prev = &l[i];
+        l[i].val = xp.val;
+    }
+    l[0].prev = &l[size];
+    l[size].next = &l[0];
+    l[size].val = list_last(x).val;
+    return(l);
+}
+
+void list_reverse (DLL* head)
+{
+    DLL* tmp, p = head;
+    do {
+        tmp = p.next;
+        p.next = p.prev;
+        p.prev = tmp;
+        p = tmp;
+    } while (p != head)
+}
+
+const int SIZE = 10000;
+
+int test_lists()
+{
+    int len = 0;
+    // create a list of integers (li1) from 1 to SIZE
+    DLL* li1 = list_sequence(1, SIZE);
+    // copy the list to li2
+    DLL* li2 = list_copy(li1);
+    // remove each individual item from left side of li2 and
+    // append to right side of li3 (preserving order)
+    DLL* li3 = list_new();
+    // compare li2 and li1 for equality
+    if(!list_equal(li2, li1))
+    {
+        fwritefln(stderr,"li2 and li1 are not equal");
+        exit(1);
+    }
+    while (!list_empty(li2))
+    {
+        list_push_tail(li3, list_pop_head(li2));
+    }
+    // li2 must now be empty
+    if(!list_empty(li2))
+    {
+        fwritefln(stderr,"li2 should be empty now");
+        exit(1);
+    }
+    // remove each individual item from right side of li3 and
+    // append to right side of li2 (reversing list)
+    while (!list_empty(li3))
+    {
+        list_push_tail(li2, list_pop_tail(li3));
+    }
+    // li3 must now be empty
+    if(!list_empty(li3))
+    {
+        fwritefln(stderr,"li3 should be empty now");
+        exit(1);
+    }
+    // reverse li1 in place
+    list_reverse(li1);
+    // check that li1's first item is now SIZE
+    if(list_first(li1).val != SIZE)
+    {
+        fwritefln(stderr,"li1 first value wrong, wanted %d, got %d",SIZE,list_first(li1).val);
+        exit(1);
+    }
+    // check that li1's last item is now 1
+    if(list_last(li1).val != 1)
+    {
+        fwritefln(stderr,"last value wrong, wanted %d, got %d",SIZE,list_last(li1).val);
+        exit(1);
+    }
+    // check that li2's first item is now SIZE
+    if(list_first(li2).val != SIZE)
+    {
+        fwritefln(stderr, "li2 first value wrong, wanted %d, got %d", SIZE, list_first(li2).val);
+        exit(1);
+    }
+    // check that li2's last item is now 1
+    if(list_last(li2).val != 1)
+    {
+        fwritefln(stderr, "last value wrong, wanted %d, got %d", SIZE, list_last(li2).val);
+        exit(1);
+    }
+    // check that li1's length is still SIZE
+    if(list_length(li1) != SIZE)
+    {
+        fwritefln(stderr, "li1 size wrong, wanted %d, got %d", SIZE, list_length(li1));
+        exit(1);
+    }
+    // compare li1 and li2 for equality
+    if(!list_equal(li1, li2))
+    {
+        fwritefln(stderr, "li1 and li2 are not equal");
+        exit(1);
+    }
+    len = list_length(li1);
+
+    delete li1;
+    delete li2;
+    delete li3;
+
+    // return the length of the list
+    return(len);
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   Contributed by Dave Fladebo
+   compile: dmd -O -inline -release mandelbrot2.d
+*/
+
+import std.stdio, std.string;
+
+void main(char[][] args)
+{
+  char bit_num = 0, byte_acc = 0;
+  int n = args.length > 1 ? atoi(args[1]) : 1;
+  const iter = 50;
+  const lim = 2.0 * 2.0;
+
+  writefln("P4\n%d %d",n,n);
+
+  for(auto y=0; y<n; y++)
+  {
+    for(auto x=0; x<n; x++)
+    {
+       auto Z = 0 + 0i; auto C = 2*cast(double)x/n - 1.5 + 2i*cast(double)y/n - 1i;
+
+       for(auto i = 0; i < iter && norm(Z) <= lim; i++)
+         Z = Z*Z + C;
+
+       byte_acc = (byte_acc << 1) | ((norm(Z) > lim) ? 0x00:0x01);
+
+       bit_num++;
+       if(bit_num == 8)
+       {
+           putc(byte_acc,stdout);
+           bit_num = byte_acc = 0;
+       }
+       else if(x == n-1)
+       {
+           byte_acc  <<= (8-n%8);
+           putc(byte_acc,stdout);
+           bit_num = byte_acc = 0;
+       }
+    }
+  }
+}
+
+double norm(cdouble C)
+{
+    return C.re*C.re + C.im*C.im;
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   http://www.bagley.org/~doug/shootout/
+
+   converted to D by Dave Fladebo
+   compile: dmd -O -inline -release matrix.d
+*/
+
+import std.stdio, std.string;
+
+const int SIZE = 30;
+
+int main(char[][] args)
+{
+    int i, n = args.length > 1 ? atoi(args[1]) : 1;
+
+    int[][] m1 = mkmatrix(SIZE,SIZE);
+    int[][] m2 = mkmatrix(SIZE,SIZE);
+    int[][] mm = mkmatrix(SIZE,SIZE);
+
+    for (i=0; i<n; i++) {
+        mmult(m1, m2, mm);
+    }
+
+    writefln("%d %d %d %d",mm[0][0],mm[2][3],mm[3][2],mm[4][4]);
+
+    return 0;
+}
+
+int[][] mkmatrix(int rows, int cols)
+{
+    int[][] m;
+    int count = 1;
+
+    m.length = rows;
+    foreach(inout int[] mi; m)
+    {
+        mi.length = cols;
+        foreach(inout int mij; mi)
+        {
+            mij = count++;
+        }
+    }
+
+    return(m);
+}
+
+void mmult(int[][] m1, int[][] m2, int[][] m3)
+{
+    foreach(int i, int[] m1i; m1)
+    {
+        foreach(int j, inout int m3ij; m3[i])
+        {
+            int val;
+            foreach(int k, int[] m2k; m2)
+            {
+                val += m1i[k] * m2k[j];
+            }
+            m3ij = val;
+        }
+    }
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   contributed by Dave Fladebo 
+
+   compile: dmd -O -inline -release message2.d
+*/
+
+import std.stdio, std.string, std.thread, std.c.linux.linux;
+
+void main(char[][] args)
+{
+    const int threads = 500;
+    int n = args.length > 1 ? atoi(args[1]) : 2;
+
+    Link chain = null;
+    Link.total = threads * n;
+    for(int i = 0; i < threads; i++)
+    {
+        Link next = new Link(chain);
+        chain = next;
+    }
+
+    Link first = chain;
+    while(chain)
+    {
+        chain.start;
+        chain = chain.next;
+    }
+
+    chain = first;
+    while(n--) chain.put(0);
+
+    while(chain)
+    {
+        chain.wait;
+        chain = chain.next;
+    }
+
+    writefln(Link.sum);
+}
+
+class Link : Thread
+{
+private:
+    int message = -1;
+    static threads = 0;
+
+public:
+    Link next;
+    static int sum = 0, total = 0;
+
+    this(Link next)
+    {
+        super(1024 * 16);
+        this.next = next;
+        threads++;
+    }
+
+    int run()
+    {
+        while(sum < total)
+        {
+            if(message > -1)
+            {
+                if(next)
+                {
+		    next.message = message + 1;
+                }
+                else
+                {
+                    sum += message + 1;
+                }
+            }
+            yield();
+        }
+        return 0;
+    }
+
+    void put(int msg)
+    {
+        message = msg;
+    }
+}
+/* The Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   contributed by - Michael Snoyman (D novice)
+*/
+import std.stdio;
+
+enum { E, SE, SW, W, NW, NE }
+const uint CellsPerRow = 5;
+const uint RowsPerBoard = 10;
+const uint CellsPerBoard = CellsPerRow * RowsPerBoard;
+const uint PermutationCount = 12;
+const uint CellsPerPiece = 5;
+
+class result_t {
+   ubyte[50] numbers;
+
+   void write() {
+      foreach(i, n; numbers) {
+         if((i % 10) == 5) // beginning of odd row
+            writef(" ");
+         assert(n < 10);
+         writef("%d ", n);
+         if((i % 5) == 4) // end of row
+            writefln("");
+      }
+   }
+
+   /// fill the values from a solved board
+   void fill(Board b)
+   in {
+      foreach(cell; b.cells)
+         assert(!(cell.pieceCell is null));
+   }
+   out {
+      int nums[10];
+      foreach(n; numbers) {
+         assert(n < 10);
+         ++nums[n];
+      }
+      foreach(i, num; nums)
+         assert(num == 5);
+   }
+   body {
+      foreach(n, cell; b.cells)
+         numbers[n] = cell.pieceCell.number;
+   }
+
+   int opCmp(Board rhs) {
+      foreach(index, number; numbers) {
+         int rnumber = rhs.cells[index].pieceCell.number;
+         assert(number < 10 && rnumber < 10);
+         if(number < rnumber)
+            return -1;
+         else if(number > rnumber)
+            return 1;
+      }
+      return 0;
+   }
+
+   ubyte opIndex(size_t index)
+   in {
+      assert(index < 50);
+   }
+   out(result) {
+      assert(result < 10);
+   }
+   body {
+      return numbers[index];
+   }
+
+   ubyte opIndexAssign(ubyte n, size_t index)
+   in {
+      assert(index < 50);
+      assert(n < 10);
+   }
+   body {
+      return numbers[index] = n;
+   }
+
+   invariant {
+      foreach(number; numbers)
+         assert(number < 10);
+   }
+}
+
+class PieceCell {
+   PieceConfig pieceConfig;
+   PieceCell[6] around;
+   BoardCell place;
+   int index; //FIXME
+
+   this(PieceConfig p, int index) {
+      pieceConfig = p;
+      this.index = index;
+   }
+   bool placed() { return !(place is null); }
+   void placed(bool b)
+   in {
+      assert(!b);
+   }
+   out {
+      assert(b == placed);
+   }
+   body {
+      if(!(place is null)) {
+         place.pieceCell = null;
+         place = null;
+      }
+   }
+
+   int number() {
+      return pieceConfig.piece.number;
+   }
+
+   void flip() {
+      PieceCell tmp = around[NE];
+      around[NE] = around[NW];
+      around[NW] = tmp;
+
+      tmp = around[SE];
+      around[SE] = around[SW];
+      around[SW] = tmp;
+
+      tmp = around[E];
+      around[E] = around[W];
+      around[W] = tmp;
+   }
+
+   void rotate() {
+      PieceCell tmp = around[0];
+      for(int i = 0; i < 5; ++i)
+         around[i] = around[i + 1];
+      around[5] = tmp;
+   }
+}
+
+class PieceConfig {
+   PieceCell[CellsPerPiece] cells;
+   Piece piece;
+   int permIndex; /// which permuation this is
+   
+   this(Piece piece, int permIndex) {
+      this.piece = piece;
+      this.permIndex = permIndex;
+      
+      for(int i = 0; i < CellsPerPiece; ++i)
+         cells[i] = new PieceCell(this, i);
+      loadConfig(piece.number);
+      if(permIndex >= PermutationCount/2)
+         flip();
+      for(int i = permIndex%(PermutationCount/2); i; --i)
+         rotate();
+   }
+
+   bool placed()
+   out(result) {
+      foreach(cell; cells)
+         assert(cell.placed == result);
+   }
+   body {
+      return cells[0].placed;
+   }
+
+   void placed(bool b) {
+      foreach(cell; cells)
+         cell.placed = b;
+   }
+
+private:
+   /// load the basic configuration for the given piece number
+   void loadConfig(int number)
+   in {
+      assert(number < 10);
+   }
+   body {
+      switch(number) {
+      case 0:
+         connect(0, E, 1);
+         connect(1, E, 2);
+         connect(2, E, 3);
+         connect(3, SE, 4);
+         break;
+      case 1:
+         connect(0, SE, 1);
+         connect(1, SW, 2);
+         connect(2, W, 3);
+         connect(3, SW, 4);
+         break;
+      case 2:
+         connect(0, W, 1);
+         connect(1, W, 2);
+         connect(2, SW, 3);
+         connect(3, SE, 4);
+         break;
+      case 3:
+         connect(0, E, 1);
+         connect(1, E, 2);
+         connect(1, SE, 3);
+         connect(2, SW, 3);
+         connect(3, SE, 4);
+         break;
+      case 4:
+         connect(0, SE, 1);
+         connect(1, SW, 2);
+         connect(1, E, 3);
+         connect(3, SE, 4);
+         break;
+      case 5:
+         connect(0, W, 1);
+         connect(0, SW, 2);
+         connect(1, SE, 2);
+         connect(1, SW, 3);
+         connect(2, W, 3);
+         connect(3, W, 4);
+         break;
+      case 6:
+         connect(0, E, 1);
+         connect(0, SE, 2);
+         connect(1, SW, 2);
+         connect(2, SW, 3);
+         connect(3, SE, 4);
+         break;
+      case 7:
+      /*
+         connect(0, SW, 1);
+         connect(1, W, 2);
+         connect(2, W, 3);
+         connect(2, NW, 4);
+         connect(3, NE, 4);
+      */
+         connect(0, SW, 1);
+         connect(0, SE, 2);
+         connect(1, E, 2);
+         connect(2, E, 3);
+         connect(3, NE, 4);
+         break;
+      case 8:
+         connect(0, SE, 1);
+         connect(1, SE, 2);
+         connect(2, E, 3);
+         connect(3, SE, 4);
+         break;
+      case 9:
+         connect(0, SE, 1);
+         connect(1, SE, 2);
+         connect(2, SE, 3);
+         connect(2, SW, 4);
+         connect(3, W, 4);
+         break;
+      default:
+         assert(0);
+      }
+   }
+
+   /// connect two cells along the specified border
+   void connect(int cell1, int border, int cell2)
+   in {
+      assert(cell1 != cell2);
+      assert(0 <= border && border < 6);
+   }
+   body {
+      cells[cell1].around[border] = cells[cell2];
+      switch(border) {
+         case E: border = W; break;
+         case W: border = E; break;
+         case SE: border = NW; break;
+         case NW: border = SE; break;
+         case NE: border = SW; break;
+         case SW: border = NE; break;
+         default: assert(0);
+      }
+      cells[cell2].around[border] = cells[cell1];
+   }
+
+   void flip() {
+      foreach(cell; cells)
+         cell.flip;
+   }
+
+   void rotate() {
+      foreach(cell; cells)
+         cell.rotate;
+   }
+}
+
+class Piece {
+   PieceConfig[PermutationCount] configs;
+   int number;
+
+   this(int number)
+   in {
+      assert(number >= 0 && number < 10);
+   }
+   body {
+      this.number = number;
+      for(int i = 0; i < PermutationCount; ++i)
+         configs[i] = new PieceConfig(this, i);
+   }
+}
+
+class BoardCell {
+   BoardCell[6] around;
+   PieceCell pieceCell;
+
+   uint place() { return place_; }
+   void setPlace(uint place, BoardCell[CellsPerBoard] cells)
+   in {
+      assert(place < 50);
+      foreach(cell; cells)
+         assert(!(cell is null));
+   }
+   body {
+      place_ = place;
+      uint row = place / 5;
+      assert(row < 10);
+      bool firstCol = ((place%5) == 0);
+      bool lastCol = ((place%5) == 4);
+
+      if(row % 2 == 0) { // even row
+         if(row) { // has northern around
+            if(!firstCol)
+               around[NW] = cells[place - 6];
+            around[NE] = cells[place - 5];
+         }
+         // all even rows have southern neighbors
+         if(!firstCol)
+            around[SW] = cells[place + 4];
+         around[SE] = cells[place + 5];
+      }
+      else { // odd row
+         // all odd rows have northern neighbors
+         around[NW] = cells[place - 5];
+         if(!lastCol)
+            around[NE] = cells[place - 4];
+         if(row != 9) { // has southern neighbors
+            around[SW] = cells[place + 5];
+            if(!lastCol)
+               around[SE] = cells[place + 6];
+         }
+      }
+
+      // add around on this row
+      if(!firstCol)
+         around[W] = cells[place - 1];
+      if(!lastCol)
+         around[E] = cells[place + 1];
+   }
+
+   /// size of the island i'm in; 0 for checked cells and placed ones
+   uint islandSize()
+   out(result) {
+      assert(result <= 50);
+   }
+   body {
+      if(!(pieceCell is null) || checked)
+         return 0;
+      uint ret = 1;
+      checked = true;
+      foreach(cell; around)
+         if(!(cell is null))
+            ret += cell.islandSize;
+      return ret;
+   }
+
+private:
+   uint place_;
+   bool checked;
+}
+
+class Board {
+   BoardCell[CellsPerBoard] cells;
+
+   this() {
+      for(int i = 0; i < CellsPerBoard; ++i)
+         cells[i] = new BoardCell();
+      for(int i = 0; i < CellsPerBoard; ++i)
+         cells[i].setPlace(i, cells);
+      assert(cells[0].islandSize == 50);
+      assert(cells[0].islandSize == 0);
+   }
+
+   /// attempt to put the given cell of the given config at the given place
+   bool put(PieceConfig pc, uint cellIndex, uint place)
+   in {
+      assert(place < 50);
+      assert(cellIndex < 5);
+      assert(!pc.placed);
+   }
+   out(result) {
+      assert(pc.placed == result);
+   }
+   body {
+      if(put(pc.cells[cellIndex], cells[place]))
+         return true;
+      pc.placed = false; // also removes the piece from the board
+      return false;
+   }
+
+   /// attempt to put a piececell in a boardcell
+   bool put(PieceCell p, BoardCell b)
+   in {
+      assert(!p.placed);
+   }
+   out(result) {
+      if(result) {
+         assert(p.placed);
+         foreach(cell; p.around)
+            assert(cell is null || cell.placed);
+      }
+   }
+   body {
+      if(!(b.pieceCell is null))
+         return false;
+      b.pieceCell = p;
+      p.place = b;
+
+      for(int i = 0; i < 6; ++i) {
+         PieceCell p2 = p.around[i];
+         if(p2 is null || p2.placed)
+            continue;
+         BoardCell b2 = b.around[i];
+         if(b2 is null)
+            return false;
+
+         if(!put(p2, b2))
+            return false;
+      }
+
+      return true;
+   }
+
+   /// checks that a possible solutions exists; purely an optimization
+   bool possible() {
+      foreach(cell; cells)
+         cell.checked = false;
+      foreach(cell; cells) {
+         if(cell.islandSize % 5)
+            return false;
+      }
+      return true;
+   }
+
+   /*
+   /// print out the board-- merely for debugging purposes
+   void printBoard() {
+      int[6] printOrder = [NW, NE, W, E, SW, SE];
+      writefln("cell\tNW NE W  E  SW SE");
+      foreach(place, cell; cells) {
+         assert(cell.place == place);
+         writef("%d\t", place);
+         foreach(direction; printOrder) {
+            BoardCell b = cell.around[direction];
+            if(b is null)
+               writef("--");
+            else {
+               if(b.place < 10)
+                  writef("0");
+               writef("%d", b.place);
+            }
+            writef(" ");
+         }
+         writefln("");
+      }
+      writefln("");
+   }
+   */
+}
+
+class Solver {
+   result_t low, high;
+   Piece[10] pieces;
+   Board b;
+   uint solutions;
+   int placedCount;
+
+   this() {
+      low = new result_t;
+      high = new result_t;
+      for(int i = 0; i < 50; ++i)
+         low[i] = 9;
+      for(int i = 0; i < 10; ++i)
+         pieces[i] = new Piece(i);
+      b = new Board();
+   }
+
+   void solve() {
+      if(placedCount == 10) {
+         ++solutions;
+         if(low > b)
+            low.fill(b);
+         if(high < b)
+            high.fill(b);
+         return;
+      }
+      ++placedCount;
+
+      // get the next empty board cell
+      int place;
+      for(place = 0; !(b.cells[place].pieceCell is null); ++place) {
+         assert(place < 50);
+      }
+
+      // try fitting each piece in that slot
+      foreach(number, piece; pieces) {
+         assert(piece.number == number);
+         if(piecePlaced[number])
+            continue;
+         piecePlaced[number] = true;
+         
+         // try each configuration of the piece
+         foreach(config; piece.configs) {
+            assert(!config.placed);
+
+            // try each cell within the config
+            for(int cellIndex = 0; cellIndex < 5; ++cellIndex) {
+               if(b.put(config, cellIndex, place)) {
+                  if(b.possible)
+                     solve();
+                  config.placed = false;
+               }
+            }
+            assert(!config.placed);
+         }
+         piecePlaced[number] = false;
+      }
+      --placedCount;
+   }
+private:
+   bool piecePlaced[10];
+}
+
+void main() {
+   Solver s = new Solver;
+   s.solve();
+   writefln("%d solutions found\n", s.solutions);
+   s.low.write;
+   writefln("");
+   s.high.write;
+   writefln("");
+}
+/* The Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   contributed by - Michael Snoyman (D novice)
+*/
+import std.stdio;
+
+enum { E, SE, SW, W, NW, NE }
+const uint CellsPerRow = 5;
+const uint RowsPerBoard = 10;
+const uint CellsPerBoard = CellsPerRow * RowsPerBoard;
+const uint PermutationCount = 12;
+const uint CellsPerPiece = 5;
+
+class result_t {
+	uint[50] numbers;
+
+	void write() {
+		foreach(i, n; numbers) {
+			if((i % 10) == 5) // beginning of odd row
+				writef(" ");
+			assert(n < 10);
+			writef("%d ", n);
+			if((i % 5) == 4) // end of row
+				writefln("");
+		}
+		writefln("");
+	}
+
+	/// fill the values from a solved board
+	void fill(Board b)
+	in {
+		foreach(cell; b.cells)
+			assert(cell.number >= 0);
+	}
+	out {
+		uint nums[10];
+		foreach(n; numbers) {
+			assert(n < 10);
+			++nums[n];
+		}
+		foreach(i, num; nums)
+			assert(num == 5);
+	}
+	body {
+		foreach(n, cell; b.cells)
+			numbers[n] = cell.number;
+	}
+
+	int opCmp(Board rhs) {
+		foreach(index, number; numbers) {
+			int rnumber = rhs.cells[index].number;
+			assert(number < 10 && rnumber < 10);
+			if(number < rnumber)
+				return -1;
+			else if(number > rnumber)
+				return 1;
+		}
+		return 0;
+	}
+
+	invariant {
+		foreach(number; numbers)
+			assert(number < 10);
+	}
+}
+
+class PieceCell {
+	PieceCell[6] around;
+	bool marked;
+
+	void flip() {
+		PieceCell tmp = around[NE];
+		around[NE] = around[NW];
+		around[NW] = tmp;
+
+		tmp = around[SE];
+		around[SE] = around[SW];
+		around[SW] = tmp;
+
+		tmp = around[E];
+		around[E] = around[W];
+		around[W] = tmp;
+	}
+
+	void rotate() {
+		PieceCell tmp = around[0];
+		for(int i = 0; i < 5; ++i)
+			around[i] = around[i + 1];
+		around[5] = tmp;
+	}
+
+	bool fillPlaces(Board b, int place, ubyte[5] places, inout int index) {
+		marked = true;
+		places[index++] = place;
+		foreach(direction, cell; around) {
+			if(cell is null || cell.marked)
+				continue;
+			if(b.cells[place].around[direction] is null)
+				return false;
+			int place2 = b.cells[place].around[direction].place;
+			if(!cell.fillPlaces(b, place2, places, index))
+				return false;
+		}
+		return true;
+	}
+}
+
+class PieceConfig {
+	Piece piece;
+	PieceCell[5] cells;
+
+	bool[50][5] fits;
+	ubyte[5][50][5] places;
+	
+	this(Piece piece, int permIndex, Board b) {
+		this.piece = piece;
+		for(int i = 0; i < CellsPerPiece; ++i)
+			cells[i] = new PieceCell;
+		loadConfig(piece.number);
+		if(permIndex >= PermutationCount/2)
+			flip();
+		for(int i = permIndex%(PermutationCount/2); i; --i)
+			rotate();
+		generateFits(b);
+	}
+
+	bool marked()
+	out(result) {
+		foreach(cell; cells)
+			assert(cell.marked == result);
+	}
+	body {
+		return cells[0].marked;
+	}
+
+	void marked(bool b)
+	out {
+		assert(marked == b);
+	}
+	body {
+		foreach(cell; cells)
+			cell.marked = b;
+	}
+
+private:
+	void generateFits(Board b) {
+		for(int cell = 0; cell < 5; ++cell) {
+			for(int place = 0; place < 50; ++place) {
+				marked = false;
+				int index;
+				if(cells[cell].fillPlaces(b, place, places[cell][place], index)) {
+					assert(index == 5);
+					fits[cell][place] = true;
+				}
+			}
+		}
+	}
+
+	/// load the basic configuration for the given piece number
+	void loadConfig(int number)
+	in {
+		assert(number < 10);
+	}
+	body {
+		switch(number) {
+		case 0:
+			connect(0, E, 1);
+			connect(1, E, 2);
+			connect(2, E, 3);
+			connect(3, SE, 4);
+			break;
+		case 1:
+			connect(0, SE, 1);
+			connect(1, SW, 2);
+			connect(2, W, 3);
+			connect(3, SW, 4);
+			break;
+		case 2:
+			connect(0, W, 1);
+			connect(1, W, 2);
+			connect(2, SW, 3);
+			connect(3, SE, 4);
+			break;
+		case 3:
+			connect(0, E, 1);
+			connect(1, E, 2);
+			connect(1, SE, 3);
+			connect(2, SW, 3);
+			connect(3, SE, 4);
+			break;
+		case 4:
+			connect(0, SE, 1);
+			connect(1, SW, 2);
+			connect(1, E, 3);
+			connect(3, SE, 4);
+			break;
+		case 5:
+			connect(0, W, 1);
+			connect(0, SW, 2);
+			connect(1, SE, 2);
+			connect(1, SW, 3);
+			connect(2, W, 3);
+			connect(3, W, 4);
+			break;
+		case 6:
+			connect(0, E, 1);
+			connect(0, SE, 2);
+			connect(1, SW, 2);
+			connect(2, SW, 3);
+			connect(3, SE, 4);
+			break;
+		case 7:
+			connect(0, SW, 1);
+			connect(0, SE, 2);
+			connect(1, E, 2);
+			connect(2, E, 3);
+			connect(3, NE, 4);
+			break;
+		case 8:
+			connect(0, SE, 1);
+			connect(1, SE, 2);
+			connect(2, E, 3);
+			connect(3, SE, 4);
+			break;
+		case 9:
+			connect(0, SE, 1);
+			connect(1, SE, 2);
+			connect(2, SE, 3);
+			connect(2, SW, 4);
+			connect(3, W, 4);
+			break;
+		default:
+			assert(0);
+		}
+	}
+
+	/// connect two cells along the specified border
+	void connect(int cell1, int border, int cell2)
+	in {
+		assert(cell1 != cell2);
+		assert(0 <= border && border < 6);
+	}
+	body {
+		cells[cell1].around[border] = cells[cell2];
+		switch(border) {
+			case E: border = W; break;
+			case W: border = E; break;
+			case SE: border = NW; break;
+			case NW: border = SE; break;
+			case NE: border = SW; break;
+			case SW: border = NE; break;
+			default: assert(0);
+		}
+		cells[cell2].around[border] = cells[cell1];
+	}
+
+	void flip() {
+		foreach(cell; cells)
+			cell.flip;
+	}
+
+	void rotate() {
+		foreach(cell; cells)
+			cell.rotate;
+	}
+}
+
+class Piece {
+	PieceConfig[PermutationCount] configs;
+	int number;
+
+	this(int number, Board b)
+	in {
+		assert(number >= 0 && number < 10);
+	}
+	body {
+		this.number = number;
+		for(int i = 0; i < PermutationCount; ++i)
+			configs[i] = new PieceConfig(this, i, b);
+	}
+}
+
+class BoardCell {
+	BoardCell[6] around;
+	int number = -1;
+
+	uint place() { return place_; }
+	void setPlace(uint place, BoardCell[CellsPerBoard] cells)
+	in {
+		assert(place < 50);
+		foreach(cell; cells)
+			assert(!(cell is null));
+	}
+	body {
+		place_ = place;
+		uint row = place / 5;
+		assert(row < 10);
+		bool firstCol = ((place%5) == 0);
+		bool lastCol = ((place%5) == 4);
+
+		if(row % 2 == 0) { // even row
+			if(row) { // has northern around
+				if(!firstCol)
+					around[NW] = cells[place - 6];
+				around[NE] = cells[place - 5];
+			}
+			// all even rows have southern neighbors
+			if(!firstCol)
+				around[SW] = cells[place + 4];
+			around[SE] = cells[place + 5];
+		}
+		else { // odd row
+			// all odd rows have northern neighbors
+			around[NW] = cells[place - 5];
+			if(!lastCol)
+				around[NE] = cells[place - 4];
+			if(row != 9) { // has southern neighbors
+				around[SW] = cells[place + 5];
+				if(!lastCol)
+					around[SE] = cells[place + 6];
+			}
+		}
+
+		// add around on this row
+		if(!firstCol)
+			around[W] = cells[place - 1];
+		if(!lastCol)
+			around[E] = cells[place + 1];
+	}
+
+	/// size of the island i'm in; 0 for checked cells and placed ones
+	uint islandSize()
+	out(result) {
+		assert(result <= 50);
+	}
+	body {
+		uint ret = 1;
+		checked = true;
+		foreach(cell; around)
+			if((!(cell is null)) && (cell.number == -1) && (!cell.checked))
+				ret += cell.islandSize;
+		return ret;
+	}
+
+	invariant {
+		assert(number >= -1);
+		assert(number < 10);
+	}
+
+private:
+	uint place_;
+	bool checked;
+}
+
+class Board {
+	BoardCell[CellsPerBoard] cells;
+
+	this() {
+		for(int i = 0; i < CellsPerBoard; ++i)
+			cells[i] = new BoardCell();
+		for(int i = 0; i < CellsPerBoard; ++i)
+			cells[i].setPlace(i, cells);
+		assert(cells[0].islandSize == 50);
+	}
+
+	/// attempt to put a piececell in a boardcell
+	bool put(PieceConfig pc, uint pieceIndex, uint place)
+	in {
+		assert(pieceIndex < 5);
+		assert(place < 50);
+		assert(cells[place].number == -1);
+	}
+	out(result) {
+		assert((cells[place].number >= 0) == result);
+	}
+	body {
+		if(!pc.fits[pieceIndex][place])
+			return false;
+		foreach(place2; pc.places[pieceIndex][place])
+			if(cells[place2].number > -1)
+				return false;
+		int number = pc.piece.number;
+		foreach(i, place2; pc.places[pieceIndex][place]) {
+			piecePlaces[number][i] = place2;
+			cells[place2].number = number;
+		}
+		return true;
+	}
+
+	/// remove a piece from the board
+	void remove(int number)
+	out {
+		foreach(cell; cells)
+			assert(cell.number != number);
+	}
+	body {
+		foreach(place; piecePlaces[number]) {
+			assert(cells[place].number == number);
+			cells[place].number = -1;
+		}
+	}
+
+	/// checks that a possible solutions exists; purely an optimization
+	bool possible(out int newPlace) {
+		int placeSize = 51; // size of island at newPlace
+		foreach(cell; cells)
+			cell.checked = false;
+		foreach(place, cell; cells) {
+			if(cell.checked || cell.number >= 0)
+				continue;
+			int size = cell.islandSize;
+			if(size % 5)
+				return false;
+			if(size && size < placeSize) {
+				newPlace = place;
+				placeSize = size;
+			}
+		}
+		return true;
+	}
+
+	/*
+	/// print out the board-- merely for debugging purposes
+	void printBoard() {
+		int[6] printOrder = [NW, NE, W, E, SW, SE];
+		writefln("cell\tNW NE W  E  SW SE");
+		foreach(place, cell; cells) {
+			assert(cell.place == place);
+			writef("%d\t", place);
+			foreach(direction; printOrder) {
+				BoardCell b = cell.around[direction];
+				if(b is null)
+					writef("--");
+				else {
+					if(b.place < 10)
+						writef("0");
+					writef("%d", b.place);
+				}
+				writef(" ");
+			}
+			writefln("");
+		}
+		writefln("");
+	}
+	*/
+
+private:
+	uint piecePlaces[10][5];
+}
+
+class Solver {
+	this() {
+		b = new Board();
+		low = new result_t;
+		high = new result_t;
+		for(int i = 0; i < 50; ++i)
+			low.numbers[i] = 9;
+		for(int i = 0; i < 10; ++i)
+			pieces[i] = new Piece(i, b);
+	}
+
+	void solve(int place = 0) {
+		++placedCount;
+
+		// try fitting each piece in that slot
+		foreach(number, piece; pieces) {
+			assert(piece.number == number);
+			if(piecePlaced[number])
+				continue;
+			piecePlaced[number] = true;
+			
+			// try each configuration of the piece
+			foreach(config; piece.configs) {
+				// try each cell within the config
+				foreach(i, cell; config.cells) {
+					if(b.put(config, i, place)) {
+						if(placedCount == 10) {
+							++solutions;
+							if(low > b)
+								low.fill(b);
+							if(high < b)
+								high.fill(b);
+						}
+						else {
+							int newPlace;
+							if(b.possible(newPlace))
+								solve(newPlace);
+						}
+						b.remove(number);
+					}
+				}
+			}
+			piecePlaced[number] = false;
+		}
+		--placedCount;
+	}
+
+	void write() {
+		writefln("%d solutions found\n", solutions);
+		low.write;
+		high.write;
+	}
+private:
+	bool piecePlaced[10];
+	result_t low, high;
+	Piece[10] pieces;
+	Board b;
+	uint solutions;
+	int placedCount;
+}
+
+void main() {
+	Solver s = new Solver;
+	s.solve;
+	s.write;
+}
+// The Computer Language Benchmarks Game
+// http://shootout.alioth.debian.org/
+// contributed by Michael Deardeuff (grignaak)
+// but all the real work was done by Ben St. John
+/*
+ (Real) Differences between this and Ben's implementation (g++ #4):
+    SPiece has a copy construtor
+   Soln has a clone() property
+   recordSolution uses the clone property
+*/
+import std.stdio;
+
+//-- Enums, aliases, consts ----------
+enum {X, Y, N_DIM};
+enum {EVEN, ODD, N_PARITY};
+enum {GOOD, BAD, ALWAYS_BAD};
+enum {OPEN, CLOSED, N_FIXED};
+
+
+alias uint BitVec;
+
+const int N_COL = 5;
+const int N_ROW = 10;
+const int N_CELL = N_COL * N_ROW;
+const int N_PIECE_TYPE = 10;
+const int MAX_ISLAND_OFFSET = 1024;
+const int N_ORIENT = 12;
+
+//-- Globals -------------------------
+IslandInfo g_islandInfo[MAX_ISLAND_OFFSET];
+int g_nIslandInfo = 0;
+OkPieces g_okPieces[N_ROW][N_COL];
+
+const uint g_firstRegion[32] = [
+   0x00, 0x01, 0x02, 0x03,   0x04, 0x01, 0x06, 0x07,
+   0x08, 0x01, 0x02, 0x03,   0x0c, 0x01, 0x0e, 0x0f,
+
+   0x10, 0x01, 0x02, 0x03,   0x04, 0x01, 0x06, 0x07,
+   0x18, 0x01, 0x02, 0x03,   0x1c, 0x01, 0x1e, 0x1f
+];
+
+const uint g_flip[32] = [
+   0x00, 0x10, 0x08, 0x18, 0x04, 0x14, 0x0c, 0x1c,
+   0x02, 0x12, 0x0a, 0x1a, 0x06, 0x16, 0x0e, 0x1e,
+
+   0x01, 0x11, 0x09, 0x19, 0x05, 0x15, 0x0d, 0x1d,
+   0x03, 0x13, 0x0b, 0x1b, 0x07, 0x17, 0x0f, 0x1f,
+];
+
+const uint s_firstOne[32] = [
+   0, 0, 1, 0,   2, 0, 1, 0,
+   3, 0, 1, 0,   2, 0, 1, 0,
+
+   4, 0, 1, 0,   2, 0, 1, 0,
+   3, 0, 1, 0,   2, 0, 1, 0,
+];
+
+//-- Functions -----------------------
+extern (C) void* memset(void*, int, int);
+
+uint getMask(uint iPos) {return (1 << (iPos));}
+
+int floor(int top, int bot) {
+   int toZero = top / bot;
+   // negative numbers should be rounded down, not towards zero
+   if ((toZero * bot != top) && ((top < 0) != (bot <= 0)))
+      toZero--;
+
+   return toZero;
+}
+
+uint getFirstOne(BitVec v, uint startPos = 0) {
+   if (v == cast(BitVec)0)
+      return 0;
+
+   uint iPos = startPos;
+   BitVec mask = 0xff << startPos;
+   while ((mask & v) == 0) {
+      mask <<= 8;
+      iPos += 8;
+   }
+   uint result = cast(uint)((mask & v) >> iPos);
+   uint resultLow = result & 0x0f;
+   if (resultLow != 0)
+      iPos += s_firstOne[resultLow];
+   else
+      iPos += 4 + s_firstOne[result >> 4];
+
+   return iPos;
+}
+
+uint countOnes(BitVec v) {
+   uint n = 0;
+   while (v) {
+      n++;
+      v = v & (v - 1);
+   }
+
+   return n;
+}
+
+
+uint flipTwoRows(uint bits) {
+   uint flipped = g_flip[bits >> N_COL] << N_COL;
+   return (flipped | g_flip[bits & Board.TOP_ROW]);
+}
+
+void markBad(IslandInfo info, uint mask, int eo, bool always) {
+   info.hasBad[eo][OPEN] |= mask;
+   info.hasBad[eo][CLOSED] |= mask;
+
+   if (always)
+      info.alwaysBad[eo] |= mask;
+}
+
+void initGlobals() {
+   foreach (inout IslandInfo i; g_islandInfo)
+      i = new IslandInfo();
+   foreach (inout OkPieces[N_COL] os; g_okPieces)
+      foreach (inout OkPieces o; os)
+         o = new OkPieces();
+}
+
+
+
+
+//-- Classes -------------------------
+
+class OkPieces {
+   byte nPieces[N_PIECE_TYPE];
+   uint pieceVec[N_PIECE_TYPE][N_ORIENT];
+};
+
+
+class IslandInfo {
+   uint hasBad[N_FIXED][N_PARITY];
+   uint isKnown[N_FIXED][N_PARITY];
+   uint alwaysBad[N_PARITY];
+};
+
+
+
+class Soln {
+   static const int NO_PIECE = -1;
+
+   bool isEmpty() {return (m_nPiece == 0);}
+   void popPiece() {m_nPiece--; m_synched = false;}
+   void pushPiece(BitVec vec, int iPiece, int row) {
+      SPiece p = m_pieces[m_nPiece++];
+      p.vec = vec;
+      p.iPiece = cast(short)iPiece;
+      p.row = cast(short)row;
+   }
+
+   this() { m_synched = false; m_nPiece = false; init();}
+
+   class SPiece {
+      BitVec vec;
+      short iPiece;
+      short row;
+      this() {}
+      this(BitVec avec, uint apiece, uint arow) {
+         vec = avec;
+                iPiece = cast(short)apiece;
+                row = cast(short)arow;
+      }
+      this(SPiece other) {
+         vec = other.vec;
+         iPiece = other.iPiece;
+         row = other.row;
+      }
+   }
+
+   SPiece m_pieces[N_PIECE_TYPE];
+   uint m_nPiece;
+   byte m_cells[N_ROW][N_COL];
+   bool m_synched;
+
+   void init() {
+      foreach (inout SPiece s; m_pieces)
+         s = new SPiece();
+   }
+   this(int fillVal) {
+      init();
+      m_nPiece = 0;
+      fill(fillVal);
+   }
+   Soln clone() {
+      Soln s = new Soln;
+      for (uint i = 0; i < m_pieces.length; i++)
+         s.m_pieces[i] = new SPiece(m_pieces[i]);
+
+      s.m_nPiece = m_nPiece;
+      s.m_cells[0..$] = m_cells[0..$];
+      s.m_synched = m_synched;
+      return s;
+   }
+
+
+   void fill(int val) {
+      m_synched = false;
+      memset(&m_cells, val, N_CELL);
+   }
+
+   char[] toString() {
+      char[] result;
+      for (int y = 0; y < N_ROW; y++) {
+         for (int x = 0; x < N_COL; x++) {
+            int val = m_cells[y][x];
+            result ~= ((val == NO_PIECE) ? '.' : cast(char)('0' + val));
+            result ~= ' ';
+         }
+         result ~= '\n';
+
+         // indent every second line
+         if (y % 2 == 0)
+            result ~= " ";
+      }
+      return result;
+   }
+
+   void setCells() {
+      if (m_synched)
+         return;
+
+      for (uint iPiece = 0; iPiece < m_nPiece; iPiece++) {
+         SPiece p = m_pieces[iPiece];
+         BitVec vec = p.vec;
+         byte pID = cast(byte)p.iPiece;
+         int rowOffset = p.row;
+
+         int nNewCells = 0;
+         for (int y = rowOffset; y < N_ROW; y++) {
+            for (int x = 0; x < N_COL; x++) {
+               if (vec & 1) {
+                  m_cells[y][x] = pID;
+                  nNewCells++;
+               }
+               vec >>= 1;
+            }
+            if (nNewCells == Piece.N_ELEM)
+               break;
+         }
+      }
+      m_synched = true;
+   }
+
+   bool lessThan(Soln r) {
+      if (m_pieces[0].iPiece != r.m_pieces[0].iPiece) {
+         return m_pieces[0].iPiece < r.m_pieces[0].iPiece;
+      }
+
+      setCells();
+      r.setCells();
+
+      for (int y = 0; y < N_ROW; y++) {
+         for (int x = 0; x < N_COL; x++) {
+            int lval = m_cells[y][x];
+            int rval = r.m_cells[y][x];
+
+            if (lval != rval)
+               return (lval < rval);
+         }
+      }
+
+      return false; // solutions are equal
+   }
+
+   void spin(Soln spun) {
+      setCells();
+
+      // swap cells
+      for (int y = 0; y < N_ROW; y++) {
+         for (int x = 0; x < N_COL; x++) {
+            byte flipped = m_cells[N_ROW - y - 1][N_COL - x - 1];
+            spun.m_cells[y][x] = flipped;
+         }
+      }
+
+      // swap first and last pieces (the rest aren't used)
+      spun.m_pieces[0].iPiece = m_pieces[N_PIECE_TYPE - 1].iPiece;
+      spun.m_synched = true;
+   }
+}
+
+
+//------------
+class Board {
+   static const BitVec L_EDGE_MASK =
+      (1L <<  0) | (1L <<  5) | (1L << 10) | (1L << 15) |
+      (1L << 20) | (1L << 25) | (1L << 30);
+   static const BitVec R_EDGE_MASK = L_EDGE_MASK << 4;
+   static const BitVec TOP_ROW = (1 << N_COL) - 1;
+   static const BitVec ROW_0_MASK =
+      TOP_ROW | (TOP_ROW << 10) | (TOP_ROW << 20) | (TOP_ROW << 30);
+   static const BitVec ROW_1_MASK = ROW_0_MASK << 5;
+   static const BitVec BOARD_MASK = (1 << 30) - 1;
+
+   static uint getIndex(uint x, uint y) { return y * N_COL + x; }
+
+   Soln m_curSoln;
+   Soln m_minSoln;
+   Soln m_maxSoln;
+   uint m_nSoln;
+
+   this() {
+      m_curSoln = new Soln(Soln.NO_PIECE), m_minSoln = new Soln(N_PIECE_TYPE),
+           m_maxSoln = new Soln(Soln.NO_PIECE), m_nSoln = (0);
+   }
+
+   static bool badRegion(inout BitVec toFill, BitVec rNew)
+   {
+      // grow empty region, until it doesn't change any more
+      BitVec region;
+      do {
+         region = rNew;
+
+         // simple grow up/down
+         rNew |= (region >> N_COL);
+         rNew |= (region << N_COL);
+
+         // grow right/left
+         rNew |= (region & ~L_EDGE_MASK) >> 1;
+         rNew |= (region & ~R_EDGE_MASK) << 1;
+
+         // tricky growth
+         BitVec evenRegion = region & (ROW_0_MASK & ~L_EDGE_MASK);
+         rNew |= evenRegion >> (N_COL + 1);
+         rNew |= evenRegion << (N_COL - 1);
+         BitVec oddRegion = region & (ROW_1_MASK & ~R_EDGE_MASK);
+         rNew |= oddRegion >> (N_COL - 1);
+         rNew |= oddRegion << (N_COL + 1);
+
+         // clamp against existing pieces
+         rNew &= toFill;
+      }
+      while ((rNew != toFill) && (rNew != region));
+
+      // subtract empty region from board
+      toFill ^= rNew;
+
+      uint nCells = countOnes(toFill);
+      return (nCells % Piece.N_ELEM != 0);
+   }
+
+   static int hasBadIslands(BitVec boardVec, int row)
+   {
+      // skip over any filled rows
+      while ((boardVec & TOP_ROW) == TOP_ROW) {
+         boardVec >>= N_COL;
+         row++;
+      }
+
+      uint iInfo = boardVec & ((1 << 2 * N_COL) - 1);
+      IslandInfo info = g_islandInfo[iInfo];
+
+      uint lastRow = (boardVec >> (2 * N_COL)) & TOP_ROW;
+      uint mask = getMask(lastRow);
+      uint isOdd = row & 1;
+      uint* alwaysBad = &info.alwaysBad[isOdd];
+
+      if (*alwaysBad & mask)
+         return BAD;
+
+      if (boardVec & (TOP_ROW << N_COL * 3))
+         return calcBadIslands(boardVec, row);
+
+      int isClosed = (row > 6); // because we track 3 rows
+      uint* isKnownVector = &info.isKnown[isOdd][isClosed];
+      uint* badIsleVector = &info.hasBad[isOdd][isClosed];
+
+      if (*isKnownVector & mask)
+         return ((*badIsleVector & mask) != 0);
+
+      if (boardVec == 0)
+         return GOOD;
+
+      int hasBad = calcBadIslands(boardVec, row);
+
+      *isKnownVector |= mask;
+      if (hasBad)
+         *badIsleVector |= mask;
+
+      return hasBad;
+   }
+   static int calcBadIslands(BitVec boardVec, int row)
+   {
+      BitVec toFill = ~boardVec;
+      if (row & 1) {
+         row--;
+         toFill <<= N_COL;
+      }
+
+      BitVec boardMask = BOARD_MASK; // all but the first two bits
+      if (row > 4) {
+         int boardMaskShift = (row - 4) * N_COL;
+         boardMask >>= boardMaskShift;
+      }
+      toFill &= boardMask;
+
+      // a little pre-work to speed things up
+      BitVec bottom = (TOP_ROW << (5 * N_COL));
+      bool filled = ((bottom & toFill) == bottom);
+      while ((bottom & toFill) == bottom) {
+         toFill ^= bottom;
+         bottom >>= N_COL;
+      }
+
+      BitVec startRegion;
+      if (filled || (row < 4))
+         startRegion = bottom & toFill;
+      else {
+         startRegion = g_firstRegion[toFill & TOP_ROW];
+         if (startRegion == 0)  {
+            startRegion = (toFill >> N_COL) & TOP_ROW;
+            startRegion = g_firstRegion[startRegion];
+            startRegion <<= N_COL;
+         }
+         startRegion |= (startRegion << N_COL) & toFill;
+      }
+
+      while (toFill)    {
+         if (badRegion(toFill, startRegion))
+            return (toFill ? ALWAYS_BAD : BAD);
+         int iPos = getFirstOne(toFill);
+         startRegion = getMask(iPos);
+      }
+
+      return GOOD;
+   }
+   static void calcAlwaysBad() {
+      for (uint iWord = 1; iWord < MAX_ISLAND_OFFSET; iWord++) {
+         IslandInfo isleInfo = g_islandInfo[iWord];
+         IslandInfo flipped = g_islandInfo[flipTwoRows(iWord)];
+
+         for (uint i = 0, mask = 1; i < 32; i++, mask <<= 1) {
+            uint boardVec = (i << (2 * N_COL)) | iWord;
+            if (isleInfo.isKnown[0][OPEN] & mask)
+               continue;
+
+            int hasBad = calcBadIslands(boardVec, 0);
+            if (hasBad != GOOD) {
+               bool always = (hasBad==ALWAYS_BAD);
+               markBad(isleInfo, mask, EVEN, always);
+
+               uint flipMask = getMask(g_flip[i]);
+               markBad(flipped, flipMask, ODD, always);
+            }
+         }
+         flipped.isKnown[1][OPEN] = cast(uint)(-1);
+         isleInfo.isKnown[0][OPEN] = cast(uint)(-1);
+      }
+   }
+
+   static bool hasBadIslandsSingle(BitVec boardVec, int row)
+   {
+      BitVec toFill = ~boardVec;
+      bool isOdd = cast(bool)(row & 1);
+      if (isOdd) {
+         row--;
+         toFill <<= N_COL; // shift to even aligned
+         toFill |= TOP_ROW;
+      }
+
+      BitVec startRegion = TOP_ROW;
+      BitVec lastRow = TOP_ROW << (5 * N_COL);
+      BitVec boardMask = BOARD_MASK; // all but the first two bits
+      if (row >= 4)
+         boardMask >>= ((row - 4) * N_COL);
+      else if (isOdd || (row == 0))
+         startRegion = lastRow;
+
+      toFill &= boardMask;
+      startRegion &= toFill;
+
+      while (toFill)    {
+         if (badRegion(toFill, startRegion))
+            return true;
+         int iPos = getFirstOne(toFill);
+         startRegion = getMask(iPos);
+      }
+
+      return false;
+   }
+
+   void genAllSolutions(BitVec boardVec, uint placedPieces, uint row)
+   {
+      while ((boardVec & TOP_ROW) == TOP_ROW) {
+         boardVec >>= N_COL;
+         row++;
+      }
+      uint iNextFill = s_firstOne[~boardVec & TOP_ROW];
+      OkPieces allowed = g_okPieces[row][iNextFill];
+
+      int iPiece = getFirstOne(~placedPieces);
+      int pieceMask = getMask(iPiece);
+      for (; iPiece < N_PIECE_TYPE; iPiece++, pieceMask <<= 1)
+      {
+         // skip if we've already used this piece
+         if (pieceMask & placedPieces)
+            continue;
+
+         placedPieces |= pieceMask;
+         for (int iOrient = 0; iOrient < allowed.nPieces[iPiece]; iOrient++) {
+            BitVec pieceVec = allowed.pieceVec[iPiece][iOrient];
+
+            // check if piece conflicts with other pieces
+            if (pieceVec & boardVec)
+               continue;
+
+            // add the piece to the board
+            boardVec |= pieceVec;
+
+            if (hasBadIslands(boardVec, row)) {
+               boardVec ^= pieceVec;
+               continue;
+            }
+
+            m_curSoln.pushPiece(pieceVec, iPiece, row);
+
+            // recur or record solution
+            if (placedPieces != Piece.ALL_PIECE_MASK)
+               genAllSolutions(boardVec, placedPieces, row);
+            else
+               recordSolution(m_curSoln);
+
+            // remove the piece before continuing with a new piece
+            boardVec ^= pieceVec;
+            m_curSoln.popPiece();
+         }
+
+         placedPieces ^= pieceMask;
+      }
+   }
+
+   void recordSolution(Soln s) {
+      m_nSoln += 2; // add solution and its rotation
+
+      if (m_minSoln.isEmpty()) {
+         m_minSoln = m_maxSoln = s.clone;
+         return;
+      }
+
+      if (s.lessThan(m_minSoln))
+         m_minSoln = s.clone;
+      else if (m_maxSoln.lessThan(s))
+         m_maxSoln = s.clone;
+
+      Soln spun = new Soln();
+      s.spin(spun);
+      if (spun.lessThan(m_minSoln))
+         m_minSoln = spun;
+      else if (m_maxSoln.lessThan(spun))
+         m_maxSoln = spun;
+   }
+}
+
+//------------
+class Piece {
+   class Instance {
+      ulong m_allowed;
+      BitVec m_vec;
+      int m_offset;
+   };
+
+   static const int N_ELEM = 5;
+   static const int ALL_PIECE_MASK = (1 << N_PIECE_TYPE) - 1;
+   static const uint SKIP_PIECE = 5; // it's magic!
+
+   alias int TPts[N_ELEM][N_DIM];
+
+   static const BitVec BaseVecs[N_PIECE_TYPE] = [
+   0x10f, 0x0cb, 0x1087, 0x427, 0x465,
+   0x0c7, 0x8423, 0x0a7, 0x187, 0x08f
+   ];
+
+   static Piece s_basePiece[N_PIECE_TYPE][N_ORIENT];
+
+   Instance m_instance[N_PARITY];
+
+   void init() {
+      foreach (inout Instance i; m_instance)
+         i = new Instance();
+   }
+   this() {init();}
+
+   static this() {
+   foreach (inout Piece[N_ORIENT] ps; s_basePiece)
+      foreach (inout Piece p; ps)
+         p = new Piece();
+   }
+   static void setCoordList(BitVec vec, TPts pts) {
+      int iPt = 0;
+      BitVec mask = 1;
+      for (int y = 0; y < N_ROW; y++) {
+         for (int x = 0; x < N_COL; x++) {
+            if (mask & vec) {
+               pts[iPt][X] = x;
+               pts[iPt][Y] = y;
+
+               iPt++;
+            }
+            mask <<= 1;
+         }
+      }
+   }
+
+   static BitVec toBitVector(TPts pts) {
+      int y, x;
+      BitVec result = 0;
+      for (int iPt = 0; iPt < N_ELEM; iPt++) {
+         x = pts[iPt][X];
+         y = pts[iPt][Y];
+
+         int pos = Board.getIndex(x, y);
+         result |= (1 << pos);
+      }
+
+      return result;
+   }
+
+   static void shiftUpLines(TPts pts, int shift) {
+      // vertical shifts have a twist
+      for (int iPt = 0; iPt < N_ELEM; iPt++) {
+         int* rx = &pts[iPt][X];
+         int* ry = &pts[iPt][Y];
+
+         if (*ry & shift & 0x1)
+            (*rx)++;
+         *ry -= shift;
+      }
+   }
+
+   static int shiftToX0(TPts pts, Instance instance, int offsetRow)
+   {
+      // .. determine shift
+      int x, y, iPt;
+      int xMin = pts[0][X];
+      int xMax = xMin;
+      for (iPt = 1; iPt < N_ELEM; iPt++) {
+         x = pts[iPt][X];
+         y = pts[iPt][Y];
+
+         if (x < xMin)
+            xMin = x;
+         else if (x > xMax)
+            xMax = x;
+      }
+
+      // I'm dying for a 'foreach' here
+      int offset = N_ELEM;
+      for (iPt = 0; iPt < N_ELEM; iPt++) {
+         int* rx = &pts[iPt][X];
+         int* ry = &pts[iPt][Y];
+
+         *rx -= xMin;
+
+         // check offset -- leftmost cell on top line
+         if ((*ry == offsetRow) && (*rx < offset))
+            offset = *rx;
+      }
+
+      instance.m_offset = offset;
+      instance.m_vec = toBitVector(pts);
+      return xMax - xMin;
+   }
+
+   void setOkPos(uint isOdd, int w, int h) {
+      Instance p = m_instance[isOdd];
+      p.m_allowed = 0;
+      ulong posMask = 1UL << (isOdd * N_COL);
+
+      for (int y = isOdd; y < N_ROW - h; y+=2, posMask <<= N_COL) {
+         if (p.m_offset)
+            posMask <<= p.m_offset;
+
+         for (int xPos = 0; xPos < N_COL - p.m_offset; xPos++, posMask <<= 1) {
+            // check if the new position is on the board
+            if (xPos >= N_COL - w)
+               continue;
+
+            // move it to the desired location
+            BitVec pieceVec = p.m_vec << xPos;
+
+            if (Board.hasBadIslandsSingle(pieceVec, y))
+               continue;
+
+            // position is allowed
+            p.m_allowed |= posMask;
+         }
+      }
+   }
+
+   static void genOrientation(BitVec vec, uint iOrient, Piece target)
+   {
+      // get (x,y) coordinates
+      TPts pts;
+      setCoordList(vec, pts);
+
+      int y, x, iPt;
+      int rot = iOrient % 6;
+      int flip = iOrient >= 6;
+      if (flip) {
+         for (iPt = 0; iPt < N_ELEM; iPt++)
+            pts[iPt][Y] = -pts[iPt][Y];
+      }
+
+      // rotate as necessary
+      while (rot--) {
+         for (iPt = 0; iPt < N_ELEM; iPt++) {
+            x = pts[iPt][X];
+            y = pts[iPt][Y];
+
+            // I just worked this out by hand. Took a while.
+            int xNew = floor((2 * x - 3 * y + 1), 4);
+            int yNew = floor((2 * x + y + 1), 2);
+            pts[iPt][X] = xNew;
+            pts[iPt][Y] = yNew;
+         }
+      }
+
+      // determine vertical shift
+      int yMin = pts[0][Y];
+      int yMax = yMin;
+      for (iPt = 1; iPt < N_ELEM; iPt++) {
+         y = pts[iPt][Y];
+
+         if (y < yMin)
+            yMin = y;
+         else if (y > yMax)
+            yMax = y;
+      }
+      int h = yMax - yMin;
+      Instance even = target.m_instance[EVEN];
+      Instance odd = target.m_instance[ODD];
+
+      shiftUpLines(pts, yMin);
+      int w = shiftToX0(pts, even, 0);
+      target.setOkPos(EVEN, w, h);
+      even.m_vec >>= even.m_offset;
+
+      // shift down one line
+      shiftUpLines(pts, -1);
+      w = shiftToX0(pts, odd, 1);
+      // shift the bitmask back one line
+      odd.m_vec >>= N_COL;
+      target.setOkPos(ODD, w, h);
+      odd.m_vec >>= odd.m_offset;
+   }
+
+   static void genAllOrientations() {
+      for (int iPiece = 0; iPiece < N_PIECE_TYPE; iPiece++) {
+         BitVec refPiece = BaseVecs[iPiece];
+         for (int iOrient = 0; iOrient < N_ORIENT; iOrient++) {
+            Piece p = s_basePiece[iPiece][iOrient];
+            genOrientation(refPiece, iOrient, p);
+            if ((iPiece == SKIP_PIECE) && ((iOrient / 3) & 1))
+               p.m_instance[0].m_allowed = p.m_instance[1].m_allowed = 0;
+         }
+      }
+      for (int iPiece = 0; iPiece < N_PIECE_TYPE; iPiece++) {
+         for (int iOrient = 0; iOrient < N_ORIENT; iOrient++) {
+            ulong mask = 1;
+            for (int iRow = 0; iRow < N_ROW; iRow++) {
+               Instance p = getPiece(iPiece, iOrient, (iRow & 1));
+               for (int iCol = 0; iCol < N_COL; iCol++) {
+                  OkPieces allowed = g_okPieces[iRow][iCol];
+                  if (p.m_allowed & mask) {
+                     byte* nPiece = &allowed.nPieces[iPiece];
+                     allowed.pieceVec[iPiece][*nPiece] = p.m_vec << iCol;
+                     (*nPiece)++;
+                  }
+
+                  mask <<= 1;
+               }
+            }
+         }
+      }
+   }
+
+
+   static Instance getPiece(uint iPiece, uint iOrient, uint iParity) {
+      return s_basePiece[iPiece][iOrient].m_instance[iParity];
+   }
+}
+
+
+
+//-- Main ----------------------------
+int main(char[][] args) {
+   if (args.length > 2)
+      return 1; // spec says this is an error
+
+   initGlobals();
+   Board b = new Board();
+   Piece.genAllOrientations();
+   Board.calcAlwaysBad();
+   b.genAllSolutions(0, 0, 0);
+
+   writefln(b.m_nSoln, " solutions found\n");
+   writefln(b.m_minSoln);
+   writefln(b.m_maxSoln);
+
+   return 0;
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   http://www.bagley.org/~doug/shootout/
+
+   converted to D by Dave Fladebo
+   compile: dmd -O -inline -release methcall.d
+*/
+
+import std.stdio, std.string;
+
+int main(char[][] args)
+{
+	int n = args.length > 1 ? atoi(args[1]) : 1;
+
+	bool val = true;
+	Toggle toggle = new Toggle(val);
+	for(int i = 0; i < n; i++)
+    {
+		val = toggle.activate().value;
+	}
+	writefln(val ? "true" : "false");
+
+	val = true;
+	NthToggle ntoggle = new NthToggle(val, 3);
+	for(int i = 0; i < n; i++)
+    {
+		val = ntoggle.activate().value;
+	}
+	writefln(val ? "true" : "false");
+
+    return 0;
+}
+
+class Toggle
+{
+package:
+    bool state;
+
+    this(bool start_state) { state = start_state; }
+
+    bool value()
+    {
+		return(state);
+    }
+
+    Toggle activate()
+    {
+		state = !state;
+		return(this);
+    }
+}
+
+class NthToggle : public Toggle
+{
+package:
+    int count_max;
+    int counter;
+
+    this(bool start_state, int max_counter) { super(start_state); count_max = max_counter; }
+
+    Toggle activate()
+    {
+        counter++;
+		if(counter >= count_max)
+        {
+			state = !state;
+			counter = 0;
+		}
+		return(this);
+    }
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   http://www.bagley.org/~doug/shootout/
+   from Waldek Hebisch
+
+   converted to D by Dave Fladebo
+   compile: dmd -O -inline -release moments.d
+*/
+
+import std.stream, std.math, std.c.stdlib;
+
+int main()
+{
+    int         n = 0;
+    int         mid = 0;
+    double      sum  = 0.0;
+    double      mean = 0.0;
+    double      average_deviation = 0.0;
+    double      standard_deviation = 0.0;
+    double      variance = 0.0;
+    double      skew = 0.0;
+    double      kurtosis = 0.0;
+    double      median = 0.0;
+    double[]    nums;
+
+    int start = 0;
+    nums.length = 4096;
+    char[] file = stdin.toString();
+    foreach(int idx, char c; file)
+    {
+        if(c == '\n' || idx == (file.length - 1))
+        {
+            if(nums.length == n) nums.length = n * 2;
+            sum += (nums[n++] = atof(cast(char*)file[start..idx]));
+            start = idx + 1;
+        }
+    }
+
+    mean = sum / n;
+
+    foreach(double num; nums[0..n])
+    {
+        double dev = num - mean;
+        average_deviation += fabs(dev);
+        variance += dev * dev;
+        skew += dev * dev * dev;
+        kurtosis += dev * dev * dev * dev;
+    }
+
+    average_deviation /= n;
+    variance /= (n - 1);
+    standard_deviation = sqrt(variance);
+
+    if(variance)
+    {
+        skew /= (n * variance * standard_deviation);
+        kurtosis = (kurtosis/(n * variance * variance)) - 3.0;
+    }
+
+    mid = n / 2;
+    kmedian(nums, n, mid);
+    median = n % 2 ? nums[mid] : (nums[mid] + max(nums,mid))/2;
+
+    stdout.writefln("n:                  %d\n", n
+                   ,"median:             %f\n", median
+                   ,"mean:               %f\n", mean
+                   ,"average_deviation:  %f\n", average_deviation
+                   ,"standard_deviation: %f\n", standard_deviation
+                   ,"variance:           %f\n", variance
+                   ,"skew:               %f\n", skew
+                   ,"kurtosis:           %f"  , kurtosis);
+
+    return 0;
+}
+
+void kmedian(double* a, int n, int k)
+{
+    while(1)
+    {
+        int j = rand() % n;
+        double b = a[j];
+        int i = 0;
+        j = n - 1;
+        while(1)
+        {
+            while(a[i] < b) i++;
+            while(a[j] > b) j--;
+            if(i < j)
+            {
+                double t = a[i];
+                a[i] = a[j];
+                a[j] = t;
+                i++;
+                j--;
+            }
+            else
+            {
+                if(a[j] < b) j++;
+                if(a[i] > b) i--;
+                break;
+            }
+        }
+        if(i < k)
+        {
+            k -= i + 1;
+            n -= i + 1;
+            a += i + 1;
+        }
+        else if(j > k)
+        {
+            n = j;
+        }
+        else
+        {
+        return;
+        }
+    }
+}
+
+double max(double[] a, int n)
+{
+    double m = a[0];
+
+    for(int j = 1; j < n; j++)
+    {
+        if(a[j] > m) m = a[j];
+    }
+
+    return(m);
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   contributed by Mark C. Lewis
+
+   converted to D by Dave Fladebo
+   compile: dmd -O -inline -release nbody.d
+*/
+
+import std.math, std.stdio, std.string;
+
+int main(char[][] args)
+{
+    int n = args.length > 1 ? std.string.atoi(args[1]) : 1;
+
+    NBodySystem bodies = new NBodySystem();
+
+    writefln("%0.9f",bodies.energy());
+    for(int i = 0; i < n; i++)
+    {
+        bodies.advance(0.01);
+    }
+    writefln("%0.9f",bodies.energy());
+
+    return 0;
+}
+
+class NBodySystem
+{
+public:
+    this()
+    {
+        bodies[0] = sun;
+        bodies[1] = jupiter;
+        bodies[2] = saturn;
+        bodies[3] = uranus;
+        bodies[4] = neptune;
+
+        double px = 0.0;
+        double py = 0.0;
+        double pz = 0.0;
+
+        foreach(Body i; bodies)
+        {
+            px += i.vx * i.mass;
+            py += i.vy * i.mass;
+            pz += i.vz * i.mass;
+        }
+
+        bodies[0].offsetMomentum(px,py,pz);
+    }
+
+    void advance(double dt)
+    {
+        double dx, dy, dz, distance, mag, im, jm;
+
+        foreach(int idx, inout Body i; bodies)
+        {
+            im = i.mass;
+            foreach(inout Body j; bodies[idx + 1 .. length])
+            {
+                jm = j.mass;
+
+                dx = i.x - j.x;
+                dy = i.y - j.y;
+                dz = i.z - j.z;
+
+                distance = sqrt(dx*dx + dy*dy + dz*dz);
+                mag = dt / (distance * distance * distance);
+
+                i.vx -= dx * jm * mag;
+                i.vy -= dy * jm * mag;
+                i.vz -= dz * jm * mag;
+
+                j.vx += dx * im * mag;
+                j.vy += dy * im * mag;
+                j.vz += dz * im * mag;
+            }
+        }
+
+        foreach(inout Body i; bodies)
+        {
+            i.x += dt * i.vx;
+            i.y += dt * i.vy;
+            i.z += dt * i.vz;
+        }
+    }
+
+    double energy()
+    {
+        double dx, dy, dz, im, e = 0.0;
+
+        foreach(int idx, Body i; bodies)
+        {
+            im = i.mass;
+            e += 0.5 * im * (i.vx * i.vx + i.vy * i.vy + i.vz * i.vz);
+
+            foreach(Body j; bodies[idx + 1 .. length])
+            {
+                dx = i.x - j.x;
+                dy = i.y - j.y;
+                dz = i.z - j.z;
+
+                e -= (im * j.mass) / sqrt(dx*dx + dy*dy + dz*dz);
+            }
+        }
+
+        return e;
+    }
+
+private:
+    const double SOLAR_MASS = 4 * PI * PI;
+    const double DAYS_PER_YEAR = 365.24;
+
+    struct Body
+    {
+        double x = 0.0, y = 0.0, z = 0.0, vx = 0.0, vy = 0.0, vz = 0.0, mass = 0.0;
+
+        void offsetMomentum(double px, double py, double pz)
+        {
+            vx = -px / SOLAR_MASS;
+            vy = -py / SOLAR_MASS;
+            vz = -pz / SOLAR_MASS;
+        }
+    }
+
+    Body[5] bodies;
+
+    Body sun = { mass: SOLAR_MASS };
+
+    Body jupiter = {
+        x: 4.84143144246472090e+00,
+        y: -1.16032004402742839e+00,
+        z: -1.03622044471123109e-01,
+        vx: 1.66007664274403694e-03 * DAYS_PER_YEAR,
+        vy: 7.69901118419740425e-03 * DAYS_PER_YEAR,
+        vz: -6.90460016972063023e-05 * DAYS_PER_YEAR,
+        mass: 9.54791938424326609e-04 * SOLAR_MASS
+    };
+
+    Body saturn = {
+        x: 8.34336671824457987e+00,
+        y: 4.12479856412430479e+00,
+        z: -4.03523417114321381e-01,
+        vx: -2.76742510726862411e-03 * DAYS_PER_YEAR,
+        vy: 4.99852801234917238e-03 * DAYS_PER_YEAR,
+        vz: 2.30417297573763929e-05 * DAYS_PER_YEAR,
+        mass: 2.85885980666130812e-04 * SOLAR_MASS
+    };
+
+    Body uranus = {
+        x: 1.28943695621391310e+01,
+        y: -1.51111514016986312e+01,
+        z: -2.23307578892655734e-01,
+        vx: 2.96460137564761618e-03 * DAYS_PER_YEAR,
+        vy: 2.37847173959480950e-03 * DAYS_PER_YEAR,
+        vz: -2.96589568540237556e-05 * DAYS_PER_YEAR,
+        mass: 4.36624404335156298e-05 * SOLAR_MASS
+    };
+
+    Body neptune = {
+        x: 1.53796971148509165e+01,
+        y: -2.59193146099879641e+01,
+        z: 1.79258772950371181e-01,
+        vx: 2.68067772490389322e-03 * DAYS_PER_YEAR,
+        vy: 1.62824170038242295e-03 * DAYS_PER_YEAR,
+        vz: -9.51592254519715870e-05 * DAYS_PER_YEAR,
+        mass: 5.15138902046611451e-05 * SOLAR_MASS
+    };
+}
+// The Computer Language Benchmarks Game
+// http://shootout.alioth.debian.org/
+
+// contributed by Christoph Bauer
+// Class-less version optimized for speed by bearophile
+// Compile: dmd -O -release -inline nbody.d
+
+import std.string: atoi;
+import std.math: sqrt, PI;
+
+const double SOLAR_MASS = 4 * PI * PI;
+const double DAYS_PER_YEAR = 365.24;
+const int NBODIES = 5;
+
+struct planet {
+    double x, y, z, vx, vy, vz, mass;
+}
+
+typedef planet[NBODIES] TyPlanets;
+
+TyPlanets bodies = [
+    {                                                             /* SUN */
+        0.0, 0., 0., 0., 0., 0., SOLAR_MASS
+    },
+    {                                                             /* JUPITER */
+        4.84143144246472090E+00,
+        -1.16032004402742839E+00,
+        -1.03622044471123109E-01,
+        1.66007664274403694E-03 * DAYS_PER_YEAR,
+        7.69901118419740425E-03 * DAYS_PER_YEAR,
+        -6.90460016972063023E-05 * DAYS_PER_YEAR,
+        9.54791938424326609E-04 * SOLAR_MASS
+    },
+    {                                                             /* SATURN */
+        8.34336671824457987E+00,
+        4.12479856412430479E+00,
+        -4.03523417114321381E-01,
+        -2.76742510726862411E-03 * DAYS_PER_YEAR,
+        4.99852801234917238E-03 * DAYS_PER_YEAR,
+        2.30417297573763929E-05 * DAYS_PER_YEAR,
+        2.85885980666130812E-04 * SOLAR_MASS
+    },
+    {                                                             /* URANUS */
+        1.28943695621391310E+01,
+        -1.51111514016986312E+01,
+        -2.23307578892655734E-01,
+        2.96460137564761618E-03 * DAYS_PER_YEAR,
+        2.37847173959480950E-03 * DAYS_PER_YEAR,
+        -2.96589568540237556E-05 * DAYS_PER_YEAR,
+        4.36624404335156298E-05 * SOLAR_MASS
+    },
+    {                                                             /* NEPTUNE */
+        1.53796971148509165E+01,
+        -2.59193146099879641E+01,
+        1.79258772950371181E-01,
+        2.68067772490389322E-03 * DAYS_PER_YEAR,
+        1.62824170038242295E-03 * DAYS_PER_YEAR,
+        -9.51592254519715870E-05 * DAYS_PER_YEAR,
+        5.15138902046611451E-05 * SOLAR_MASS
+    }
+];
+
+
+void offset_momentum(TyPlanets bodies) {
+    double px = 0.0, py = 0.0, pz = 0.0;
+    foreach(ref b; bodies) {
+        px += b.vx * b.mass;
+        py += b.vy * b.mass;
+        pz += b.vz * b.mass;
+    }
+    bodies[0].vx = - px / SOLAR_MASS;
+    bodies[0].vy = - py / SOLAR_MASS;
+    bodies[0].vz = - pz / SOLAR_MASS;
+}
+
+
+double energy(TyPlanets bodies) {
+    double e = 0.0;
+    foreach(idx, ref b1; bodies) {
+        double im = b1.mass;
+        e += 0.5 * im * (b1.vx * b1.vx + b1.vy * b1.vy + b1.vz * b1.vz);
+
+        foreach(ref b2; bodies[idx + 1 .. length]) {
+            double dx = b1.x - b2.x;
+            double dy = b1.y - b2.y;
+            double dz = b1.z - b2.z;
+
+            e -= (im * b2.mass) / sqrt(dx*dx + dy*dy + dz*dz);
+        }
+    }
+    return e;
+}
+
+
+void advance(TyPlanets bodies, double dt) {
+    foreach(idx, ref b; bodies) {
+        double bm = b.mass;
+        foreach(ref b2; bodies[idx + 1 .. length]) {
+            double b2m = b2.mass;
+            double dx = b.x - b2.x;
+            double dy = b.y - b2.y;
+            double dz = b.z - b2.z;
+            double distance = sqrt(dx * dx + dy * dy + dz * dz);
+            double mag = dt / (distance * distance * distance);
+            b.vx -= dx * b2m * mag;
+            b.vy -= dy * b2m * mag;
+            b.vz -= dz * b2m * mag;
+            b2.vx += dx * bm * mag;
+            b2.vy += dy * bm * mag;
+            b2.vz += dz * bm * mag;
+        }
+    }
+    foreach(ref b; bodies) {
+        b.x += dt * b.vx;
+        b.y += dt * b.vy;
+        b.z += dt * b.vz;
+    }
+}
+
+
+void main(char[][] args) {
+    int n = args.length > 1 ? atoi(args[1]) : 1;
+
+    offset_momentum(bodies);
+    printf("%.9f\n", energy(bodies));
+
+    for (int i = 1; i <= n; i++)
+        advance(bodies, 0.01);
+
+    printf("%.9f\n", energy(bodies));
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   http://www.bagley.org/~doug/shootout/
+
+   converted to D by Dave Fladebo
+   compile: dmd -O -inline -release nestedloop.d
+*/
+
+import std.stdio, std.string;
+
+int main(char[][] args) {
+    int n = args.length > 1 ? atoi(args[1]) : 1;
+    int a, b, c, d, e, f, x = 0;
+
+    for(a=0; a<n; ++a)
+        for(b=0; b<n; ++b)
+            for(c=0; c<n; ++c)
+                for(d=0; d<n; ++d)
+                    for(e=0; e<n; ++e)
+                        for(f=0; f<n; ++f)
+                            x++;
+
+    writefln(x);
+
+    return 0;
+}
+/* The Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   Written by Dave Fladebo
+   Compile with: dmd -O -inline -release nsieve.d
+*/
+
+import std.stdio, std.string;
+
+void main(char[][] args)
+{
+    int n = args.length > 1 ? atoi(args[1]) : 1;
+
+    for(int i = 0; i < 3; i++)
+    {
+        int m = 10000 << (n-i);
+        writefln("Primes up to %8d %8d", m, nsieve(m));
+    }
+}
+
+int nsieve(int m)
+{
+    typedef bool tbool = true;
+    bool[] isPrime = cast(bool[])new tbool[m];
+    int count = 0;
+
+    for(int i = 2; i < isPrime.length; i++)
+    {
+        if(isPrime[i])
+        {
+            count++;
+            for(int k = i * 2; k < isPrime.length; k += i)
+                isPrime[k] = false;
+        }
+    }
+
+    return count;
+}
+// The Computer Language Benchmarks Game
+// http://shootout.alioth.debian.org/
+
+// contributed by Joost van der Sluis
+// modified by bearophile
+
+import std.stdio, std.string, std.intrinsic;
+
+void main(char[][] args) {
+    int n = args.length > 1 ? atoi(args[1]) : 1;
+
+    for(uint i = 0; i < 3; i++)
+        primes(n-i);
+}
+
+void primes(uint n) {
+    const uint bpc = uint.sizeof * 8;
+    uint count, size = 10000 << n;
+    uint[] flags;
+
+    flags.length = size / bpc + 1;
+    flags[] = uint.max;
+    uint* flagsp = flags.ptr;
+
+    for (uint prime = 2; prime <= size; ++prime) {
+        if (bt(flagsp, prime)) {
+            count++;
+            for (uint i = prime << 1; i <= size; i += prime)
+                if (bt(flagsp, i))
+                    btr(flagsp, i);
+        }
+    }
+
+    printf("Primes up to %8d %8d\n", size, count);
+}
+/* The Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   contributed by Joost van der Sluis
+
+   converted to D by Dave Fladebo
+   compile: dmd -O -inline -release nsievebits2.d
+*/
+
+import std.stdio, std.string;
+
+int main(char[][] args)
+{
+    int n = args.length > 1 ? atoi(args[1]) : 1;
+
+    for(int i = 0; i < 3; i++)
+        primes(n-i);
+
+    return 0;
+}
+
+void primes(int n)
+{
+    const uint bpc = uint.sizeof * 8;
+    int count, prime, size = 10000 << n;
+    uint[] flags;
+
+    flags.length = size / bpc + 1;
+    flags[] = uint.max;
+
+    for(prime = 2; prime <= size; prime++)
+    {
+        bool IsSet(uint i)
+        {
+            int offset = i / bpc;
+            uint mask   = 1 << (i % bpc);
+            return (flags[offset] & mask) <> 0;
+        }
+        if(IsSet(prime))
+        {
+            count++;
+            for(int i = prime + prime; i <= size; i += prime)
+            {
+                void Clear(uint i)
+                {
+                    int offset = i / bpc;
+                    uint mask   = 1 << (i % bpc);
+                    if((flags[offset] & mask) <> 0) flags[offset] = flags[offset] ^ mask;
+                }
+                Clear(i);
+            }
+        }
+    }
+
+    writefln("Primes up to %8d %8d", size, count);
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   http://www.bagley.org/~doug/shootout/
+
+   converted to D by Dave Fladebo
+   compile: dmd -O -inline -release objinst.d
+*/
+
+import std.stdio, std.string;
+
+int main(char[][] args)
+{
+	int n = args.length > 1 ? atoi(args[1]) : 1;
+
+    Toggle toggle1 = new Toggle(true);
+    for(int i = 0; i < 5; i++)
+    {
+        writefln(toggle1.activate().value() ? "true" : "false");
+    }
+
+    for(int i = 0; i < n; i++)
+    {
+        Toggle toggle = new Toggle(true);
+    }
+
+    writefln();
+
+    NthToggle ntoggle1 = new NthToggle(true, 3);
+    for(int i = 0; i < 8; i++)
+    {
+        writefln(ntoggle1.activate().value() ? "true" : "false");
+    }
+
+    for(int i = 0; i < n; i++)
+    {
+        NthToggle ntoggle = new NthToggle(true, 3);
+    }
+
+    return 0;
+}
+
+class Toggle
+{
+package:
+    bool state;
+
+    this(bool start_state) { state = start_state; }
+
+    bool value()
+    {
+        return(state);
+    }
+
+    Toggle activate()
+    {
+        state = !state;
+        return(this);
+    }
+}
+
+class NthToggle: Toggle
+{
+package:
+    int count_max;
+    int counter;
+
+    this(bool start_state, int max_counter) { super(start_state); count_max = max_counter; }
+
+    Toggle activate()
+    {
+        counter++;
+        if(counter >= count_max)
+        {
+            state = !state;
+            counter = 0;
+        }
+        return(this);
+    }
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   contributed by Dave Fladebo
+   compile: dmd -O -inline -release partialsums.d
+*/
+
+import std.math, std.stdio, std.string;
+
+void main(char[][] args)
+{
+    double n = (args.length > 1 ? atoi(args[1]) : 0) + 1, alt = 1;
+    double sum0=0, sum1=0, sum2=0, sum3=0, sum4=0, sum5=0, sum6=0, sum7=0, sum8=0;
+
+    for(double d = 1; d < n; d++, alt = -alt)
+    {
+        double d2 = d * d, d3 = d2 * d;
+        double ds = sin(d), dc = cos(d);
+
+        sum0 += pow(2 / 3.0L,cast(uint)d - 1);
+        sum1 += 1 / sqrt(d);
+        sum2 += 1 / (d * (d + 1));
+
+        //  Flint Hills
+        sum3 += 1 / (d3 * ds * ds);
+        //  Cookson Hills
+        sum4 += 1 / (d3 * dc * dc);
+
+        //  Harmonic
+        sum5 += 1 / d;
+        //  Riemann Zeta
+        sum6 += 1 / (d2);
+
+        //  Alternating Harmonic
+        sum7 += alt / d;
+        //  Gregory
+        sum8 += alt / (2 * d - 1);
+    }
+
+    writefln("%0.9f\t(2/3)^k", sum0);
+    writefln("%0.9f\tk^-0.5", sum1);
+    writefln("%0.9f\t1/k(k+1)", sum2);
+    writefln("%0.9f\tFlint Hills", sum3);
+    writefln("%0.9f\tCookson Hills", sum4);
+    writefln("%0.9f\tHarmonic", sum5);
+    writefln("%0.9f\tRiemann Zeta", sum6);
+    writefln("%0.9f\tAlternating Harmonic", sum7);
+    writefln("%0.9f\tGregory", sum8);
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   contributed by Mike Pall
+
+   converted to D by Dave Fladebo
+   compile: dmd -O -inline -release -I../../Include/dlang/gmp4d -L-lgmp pidigits3.d
+
+   GMP for D library provided by Ben Hinkle (http://home.comcast.net/~benhinkle/gmp-d/)
+*/
+
+import std.stdio, std.string, gmp;
+
+void main(char[][] args)
+{
+    ctx_t c;
+    c.n = args.length > 1 ? atoi(args[1]) : 27;
+    pidigits(&c);
+}
+
+/* Generate successive digits of PI. */
+void pidigits(ctx_t* c)
+{
+    int k = 1;
+    c.d = 0;
+    c.i = 0;
+    mpz_init_set_ui(c.q, 1);
+    mpz_init_set_ui(c.r, 0);
+    mpz_init_set_ui(c.s, 0);
+    mpz_init_set_ui(c.t, 1);
+    mpz_init(c.u);
+    mpz_init(c.v);
+    mpz_init(c.w);
+    for(;;)
+    {
+        int y = extract(c, 3);
+        if(y == extract(c, 4))
+        {
+            if(prdigit(c, y)) return;
+            compose_r(c, 10, -10*y, 0, 1);
+        }
+        else
+        {
+            compose_l(c, k, 4*k+2, 0, 2*k+1);
+            k++;
+        }
+    }
+}
+
+struct ctx_t
+{
+    mpz_t q, r, s, t;	/* Transformation matrix components. */
+    mpz_t u, v, w;	/* Temporary numbers. */
+    int d, i, n;	/* Counters. */
+    char digits[10];	/* Accumulated digits for one line. */
+}
+
+/* Print one digit. Returns 1 for the last digit. */
+int prdigit(ctx_t* c, int y)
+{
+    c.digits[c.d++] = '0'+y;
+    if(++c.i % 10 == 0 || c.i == c.n)
+    {
+        writefln("%-10s\t:%d", c.digits, c.i);
+        c.d = 0;
+    }
+    return c.i == c.n;
+}
+
+/* Extract one digit. */
+int extract(ctx_t* c, uint j)
+{
+    mpz_mul_ui(c.u, c.q, j);
+    mpz_add(c.u, c.u, c.r);
+    mpz_mul_ui(c.v, c.s, j);
+    mpz_add(c.v, c.v, c.t);
+    mpz_tdiv_q(c.w, c.u, c.v);
+    return mpz_get_ui(c.w);
+}
+
+/* Compose matrix with numbers on the right. */
+void compose_r(ctx_t* c, int bq, int br, int bs, int bt)
+{
+    mpz_mul_si(c.u, c.r, bs);
+    mpz_mul_si(c.r, c.r, bq);
+    mpz_mul_si(c.v, c.t, br);
+    mpz_add(c.r, c.r, c.v);
+    mpz_mul_si(c.t, c.t, bt);
+    mpz_add(c.t, c.t, c.u);
+    mpz_mul_si(c.s, c.s, bt);
+    mpz_mul_si(c.u, c.q, bs);
+    mpz_add(c.s, c.s, c.u);
+    mpz_mul_si(c.q, c.q, bq);
+}
+
+/* Compose matrix with numbers on the left. */
+void compose_l(ctx_t* c, int bq, int br, int bs, int bt)
+{
+    mpz_mul_si(c.r, c.r, bt);
+    mpz_mul_si(c.u, c.q, br);
+    mpz_add(c.r, c.r, c.u);
+    mpz_mul_si(c.u, c.t, bs);
+    mpz_mul_si(c.t, c.t, bt);
+    mpz_mul_si(c.v, c.s, br);
+    mpz_add(c.t, c.t, c.v);
+    mpz_mul_si(c.s, c.s, bq);
+    mpz_add(c.s, c.s, c.u);
+    mpz_mul_si(c.q, c.q, bq);
+}
+
+// Reset the GMP memory functions back to the GMP default.
+//  This is needed because gmp4d/gmppool.d is linked in by the
+//  Shootout build command (as needed by version 1 of pidigits.d).
+//  gmp4d/gmppool.d overrides the GMP default if it is linked
+//  w/ the application.
+static this()
+{
+    mp_set_memory_functions(&malloc, &_realloc, &_free);
+}
+
+extern(C)
+{
+    void* malloc(size_t);
+    void* realloc(void*,size_t);
+    void  free(void*);
+    void* _realloc(void* ptr, size_t old, size_t sz)
+    {
+        return realloc(ptr,sz);
+    }
+    void  _free(void* ptr, size_t sz)
+    {
+        free(ptr);
+    }
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   contributed by Isaac Gouy
+
+   converted to D by Dave Fladebo
+   compile: dmd -O -inline -release process.d
+*/
+
+import std.thread, std.stream, std.string;
+
+int main(char[][] args)
+{
+    int n = args.length > 1 ? atoi(args[1]) : 1;
+
+    EndLink chainEnd = new EndLink(n);
+    chainEnd.start();
+
+    Link chain = chainEnd;
+    for(int i = 1; i < n; i++)
+    {
+        Link link = new Link(chain);
+        chain = link;
+    }
+
+    chain.put(0);
+    while(chain.next)
+    {
+        chain.start();
+        chain.wait();
+        chain = chain.next;
+    }
+
+    chainEnd.wait();
+    stdout.writefln(chainEnd.count);
+
+    return 0;
+}
+
+class Link: Thread
+{
+private:
+    int message = -1;
+
+public:
+    Link next;
+
+    this(Link t)
+    {
+        next = t;
+    }
+
+    int run()
+    {
+        next.put(this.take());
+        return 0;
+    }
+
+    synchronized void put(int m)
+    {
+        message = m;
+        yield();
+    }
+
+protected:
+    synchronized int take()
+    {
+        if(message != -1)
+        {
+            int m = message;
+            message = -1;
+            return m + 1;
+        }
+        yield();
+        return 0;
+    }
+}
+
+class EndLink: Link
+{
+private:
+    int finalCount;
+
+public:
+    int count = 0;
+
+    this(int i)
+    {
+        super(null);
+        finalCount = i;
+    }
+
+    int run()
+    {
+        while(count < finalCount)
+        {
+            count += this.take();
+            yield();
+        }
+        return 0;
+    }
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   http://www.bagley.org/~doug/shootout/
+
+   converted to D by Dave Fladebo
+   compile: dmd -O -inline -release prodcons.d
+*/
+
+import std.stdio, std.string, std.thread;
+
+int main(char[][] args)
+{
+    int n = args.length > 1 ? atoi(args[1]) : 1;
+
+    data = new Data;
+
+    Thread prod = new Thread(&producer,cast(void*)n);
+    Thread cons = new Thread(&consumer,cast(void*)n);
+
+    prod.start();
+    cons.start();
+
+    prod.wait();
+    cons.wait();
+
+    writefln(data.produced," ",data.consumed);
+
+    return 0;
+}
+
+int producer(void *arg)
+{
+    int i = 1, n = cast(int)arg;
+
+    while(i <= n)
+    {
+        synchronized(data)
+        {
+            if(!data.count)
+            {
+                data.value = i;
+                data.count = 1;
+                data.produced++;
+                i++;
+            }
+        }
+        Thread.yield();
+    }
+
+    return(0);
+}
+
+int consumer(void *arg)
+{
+    int i = 0, n = cast(int)arg;
+
+    while(i < n)
+    {
+        synchronized(data)
+        {
+            if(data.count)
+            {
+                i = data.value;
+                data.count = 0;
+                data.consumed++;
+            }
+        }
+        Thread.yield();
+    }
+
+    return(0);
+}
+
+Data data;
+
+class Data
+{
+    int count, value, consumed, produced;
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   http://www.bagley.org/~doug/shootout/
+
+   converted to D by Dave Fladebo
+   compile: dmd -O -inline -release random.d
+*/
+
+import std.stdio, std.string;
+
+int main(char[][] args)
+{
+	int n = args.length > 1 ? atoi(args[1]) : 1;
+
+    double result = 0.0;
+    Random r = new Random();
+	while(n--)
+    {
+		result = r.genRandom(100);
+	}
+    writefln("%.9f",result);
+
+    return 0;
+}
+
+class Random
+{
+private:
+    int last = 42;
+    const int IM = 139968;
+    const int IA = 3877;
+    const int IC = 29573;
+public:
+    double genRandom(double max)
+    {
+        return(max * (last = (last * IA + IC) % IM) / IM);
+    }
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   contributed by Isaac Gouy
+
+   converted to D by Bob W
+   modified to use IFTI by Dave Fladebo
+
+   compile: dmd -O -inline -release recursive2.d
+*/
+
+import std.stdio, std.string;
+
+void main(char[][] args)
+{
+    int n = (args.length > 1 ? atoi(args[1]) : 1) - 1;
+    writefln("Ack(3,%d): %d",n + 1,Ack(3,n + 1));
+    writefln("Fib(%.1f): %.1f",28.0+n,Fib(28.0+n));
+    writefln("Tak(%d,%d,%d): %d",3*n,2*n,n,Tak(3*n,2*n,n));
+    writefln("Fib(3): %d",Fib(3));
+    writefln("Tak(3.0,2.0,1.0): %.1f",Tak(3.0,2.0,1.0));
+}
+
+T Ack(T)(T m, T n)
+{
+    if(m == 0) return n + 1;
+    else if(n == 0) return Ack(m-1, 1);
+    return Ack(m-1, Ack(m, n-1));
+}
+
+T Fib(T)(T n)
+{
+    if(n < 2) return 1;
+    return Fib(n-2) + Fib(n-1);
+}
+
+T Tak(T)(T x, T y, T z)
+{
+    if(y < x) return Tak(Tak(x-1,y,z), Tak(y-1,z,x), Tak(z-1,x,y));
+    else return z;
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   contributed by Dave Fladebo
+
+   compile: dmd -O -inline -release regexdna2.d
+*/
+
+import std.cstream, std.regexp, std.outbuffer;
+
+void main()
+{
+    auto seq = din.toString();
+    auto initLen = seq.length;
+
+    auto ob = new OutBuffer();
+    auto r = new RegExp(">.*\n|\n",null);
+    foreach(str; r.split(seq))
+    {
+        ob.write(str);
+    }
+    seq = ob.toString();
+    int codeLen = seq.length;
+
+    foreach(v; variants)
+    {
+        int count = 0;
+        foreach(m; RegExp(v,null).search(seq)) count++;
+        dout.writefln(v," ",count);
+    }
+
+    foreach(key, val; subst)
+    {
+        seq = (new RegExp(key,"g")).replace(seq,val);
+    }
+
+    dout.writefln("\n",initLen,"\n",codeLen,"\n",seq.length);
+}
+
+static char[][] variants = [
+     "agggtaaa|tttaccct","[cgt]gggtaaa|tttaccc[acg]","a[act]ggtaaa|tttacc[agt]t","ag[act]gtaaa|tttac[agt]ct"
+    ,"agg[act]taaa|ttta[agt]cct","aggg[acg]aaa|ttt[cgt]ccct","agggt[cgt]aa|tt[acg]accct"
+    ,"agggta[cgt]a|t[acg]taccct","agggtaa[cgt]|[acg]ttaccct"
+];
+
+char[][char[]] subst;
+
+static this()
+{
+    subst["B"] = "(c|g|t)"; subst["D"] = "(a|g|t)"; subst["H"] = "(a|c|t)"; subst["K"] = "(g|t)";
+    subst["M"] = "(a|c)"; subst["N"] = "(a|c|g|t)"; subst["R"] = "(a|g)"; subst["S"] = "(c|g)";
+    subst["V"] = "(a|c|g)"; subst["W"] = "(a|t)"; subst["Y"] = "(c|t)";
+}
+/*
+** The Computer Language Shootout
+** http://shootout.alioth.debian.org/
+** contributed by Mike Pall
+** converted to D by Dave Fladebo
+**
+** regex-dna benchmark using PCRE
+**
+** compile with:
+**   dmd -O -inline -release -L-lpcre regexdna3.d
+*/
+
+import std.cstream, std.stdio, std.string, std.c.stdlib;
+
+void main(char[][] args)
+{
+  char[][2] seq;
+  size_t idx, ilen, clen, slen;
+  int n, flip;
+
+  char[4096] cbuf;
+  while((n = din.readBlock(cbuf.ptr, cbuf.length)) > 0)
+  {
+    seq[0] ~= cbuf[0 .. n];
+    ilen += n;
+  }
+
+  clen = fb_subst(seq[1], seq[0], ">.*|\n", "");
+
+  foreach (variant; variants)
+  {
+    writefln("%s %d", variant, fb_countmatches(seq[1], variant));
+  }
+
+  for (slen = 0, flip = 1, idx = 0; idx < subst.length; idx += 2, flip = 1 - flip)
+  {
+    slen = fb_subst(seq[1-flip], seq[flip], subst[idx], subst[idx+1]);
+  }
+
+  writefln("\n%d\n%d\n%d", ilen, clen, slen);
+
+  return;
+}
+
+/* Substitute pattern p with replacement r, copying from src to dst string. */
+size_t fb_subst(inout char[] dst, char[] src, char[] p, char[] r)
+{
+  pcre*       re;
+  pcre_extra* re_ex;
+  char*       re_e;
+  char*       dp;
+  int         re_eo, pos;
+  int[3]      m;
+  size_t      clen, need, dlen;
+
+  if ((re = pcre_compile(toStringz(p), PCRE_FLAGS, &re_e, &re_eo, null)) is null) exit(1);
+  re_ex = pcre_study(re, 0, &re_e);
+
+  while(pcre_exec(re, re_ex, src.ptr, src.length, pos, 0, m.ptr, 3) >= 0)
+  {
+    clen = m[0] - pos;
+    need = dlen + clen + r.length;
+    if (dst.length < need) dst.length = need * 2;
+    dst[dlen .. dlen + clen] = src[pos .. pos + clen];
+    dst[dlen + clen .. dlen + clen + r.length] = r;
+    dlen += clen + r.length;
+    pos = m[1];
+  }
+  clen = src.length - pos;
+  if(dst.length < dlen + clen) dst.length = dlen + clen;
+  dst[dlen .. dlen + clen] = src[pos .. pos + clen];
+
+  return dst.length = dlen + clen;
+}
+
+/* Count all matches with pattern p in src string. */
+int fb_countmatches(char[] src, char[] p)
+{
+  pcre* re;
+  pcre_extra* re_ex;
+  char* re_e;
+  int re_eo, pos, count;
+  int[3] m;
+
+  if ((re = pcre_compile(toStringz(p), PCRE_FLAGS, &re_e, &re_eo, null)) is null) exit(1);
+  re_ex = pcre_study(re, 0, &re_e);
+
+  while(pcre_exec(re, re_ex, src.ptr, src.length, pos, 0, m.ptr, 3) >= 0)
+  {
+       pos = m[1];
+       count++;
+  }
+
+  return count;
+}
+
+extern (C)
+{
+    struct pcre;
+    pcre* pcre_compile(char*, int, char**, int*, ubyte*);
+    pcre_extra* pcre_study(pcre*, int,char**);
+    int pcre_exec(pcre*, pcre_extra*, char*, int, int, int, int*, int);
+}
+
+const PCRE_FLAGS = 0x00000000;
+
+struct pcre_extra
+{
+  ulong flags;
+  void *study_data;
+  ulong match_limit;
+  void *callout_data;
+  ubyte* tables;
+}
+
+const char[][] variants =
+[
+  "agggtaaa|tttaccct",         "[cgt]gggtaaa|tttaccc[acg]",
+  "a[act]ggtaaa|tttacc[agt]t", "ag[act]gtaaa|tttac[agt]ct",
+  "agg[act]taaa|ttta[agt]cct", "aggg[acg]aaa|ttt[cgt]ccct",
+  "agggt[cgt]aa|tt[acg]accct", "agggta[cgt]a|t[acg]taccct",
+  "agggtaa[cgt]|[acg]ttaccct"
+];
+
+const char[][] subst =
+[
+  "B", "(c|g|t)", "D", "(a|g|t)",   "H", "(a|c|t)", "K", "(g|t)",
+  "M", "(a|c)",   "N", "(a|c|g|t)", "R", "(a|g)",   "S", "(c|g)",
+  "V", "(a|c|g)", "W", "(a|t)",     "Y", "(c|t)"
+];
+// The Computer Language Benchmarks Game
+// http://shootout.alioth.debian.org/
+// modified by bearophile, Dec 1 2007
+
+
+import std.stdio, std.string, std.cstream;
+import std.regexp: RegExp, search, resplit = split;
+
+void main() {
+    char[][] sseq;
+    int n;
+    char[1 << 15] cbuf;
+
+    // auto seq = din.toString(); // SLOW
+    while ((n = din.readBlock(cbuf.ptr, cbuf.length)) > 0)
+        // sseq ~= cbuf[0 .. n][]; // slow
+        sseq ~= cbuf[0 .. n].dup;
+    auto seq = sseq.join("");
+    auto ilen = seq.length;
+
+    //seq = sub(seq, ">.*\n|\n", "", "g"); // SLOW!!
+    seq = resplit(seq, ">.*\n|\n").join("");
+    int clen = seq.length;
+
+    foreach(p; split("agggtaaa|tttaccct
+                      [cgt]gggtaaa|tttaccc[acg]
+                      a[act]ggtaaa|tttacc[agt]t
+                      ag[act]gtaaa|tttac[agt]ct
+                      agg[act]taaa|ttta[agt]cct
+                      aggg[acg]aaa|ttt[cgt]ccct
+                      agggt[cgt]aa|tt[acg]accct
+                      agggta[cgt]a|t[acg]taccct
+                      agggtaa[cgt]|[acg]ttaccct")) {
+        int m = 0;
+        foreach(_; RegExp(p).search(seq))
+            m++;
+        writefln(p, ' ', m);
+    }
+
+    foreach(el; split("B(c|g|t) D(a|g|t) H(a|c|t) K(g|t) M(a|c)
+                       N(a|c|g|t) R(a|g) S(c|g) V(a|c|g) W(a|t) Y(c|t)"))
+        // seq = RegExp(el[0..1], "g").replace(seq, el[1..$]); // Slow
+        seq = (new RegExp(el[0..1], "g")).replace(seq, el[1..$]);
+
+    writefln("\n", ilen, "\n", clen, "\n", seq.length);
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   http://www.bagley.org/~doug/shootout/
+
+   converted to D by Dave Fladebo
+   compile: dmd -O -inline -release regexmatch.d
+*/
+
+import std.regexp, std.stream, std.string;
+
+char[] pattern =
+r"(^| )((\d\d\d|\(\d\d\d\)) \d\d\d[-| ]\d\d\d\d)( |$)"
+;
+
+int main(char[][] args)
+{
+    int n = args.length > 1 ? std.string.atoi(args[1]) : 1;
+
+    char[][]    lines = splitlines(stdin.toString());
+    RegExp      re = new RegExp(pattern,"gi");
+    int         match;
+    char[32]    ph;
+
+    while(n--)
+    {
+        foreach(char[] line; lines)
+        {
+            int idx = re.find(line);
+            if(idx >= 0)
+            {
+                ph[0] = '(';
+                int jdx = 1;
+                while(idx < line.length)
+                {
+                    char c = line[idx];
+                    if(std.ctype.isdigit(c))
+                    {
+                        ph[jdx++] = c;
+                        if(jdx == 4)
+                        {
+                            ph[jdx++] = ')';
+                            ph[jdx++] = ' ';
+                        }
+                        else if(jdx == 9)
+                        {
+                            ph[jdx++] = '-';
+                        }
+                        else if(jdx == 14)
+                        {
+                            ph[jdx] = '\0';
+                            break;
+                        }
+                    }
+                    idx++;
+                }
+                if(!n)
+                {
+                    match++;
+                    printf("%d: %.*s\n",match,ph);
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   Contributed by Dave Fladebo
+
+   compile: dmd -O -inline -release revcomp.d
+*/
+
+import std.ctype, std.stdio, std.c.stdlib, std.c.string;
+
+void main (char[][] args)
+{
+    char buffer[1024];
+    char* inp = cast(char*)malloc(129);
+    int mlen = 128;
+    int slen = 0;
+
+    buildIubComplement;
+
+    while(fgets(buffer.ptr, 1023, stdin))
+    {
+    	if(buffer[0] == '>')
+        {
+    	    if(slen > 0)
+            {
+    	    	process(inp, slen);
+    	    	slen = 0;
+    	    }
+    	    printf("%.*s", buffer);
+    	} else {
+    	    int l = strlen(buffer.ptr);
+    	    while(l > 0 && !isalpha(buffer[l-1])) l--;
+    	    while(slen + l > mlen)
+            {
+    	    	mlen += mlen;
+    	    	inp = cast(char*)realloc(inp, mlen + 1);
+    	    }
+
+    	    memcpy(inp + slen, buffer.ptr, l);
+    	    slen += l;
+    	}
+    }
+    if(slen > 0) process(inp, slen);
+    free(inp);
+}
+
+char[][] iubpairs = [['A','T'], ['C','G'], ['B','V'], ['D','H'], ['K','M'], ['R','Y'], ['\0','\0']];
+
+char[char.max + 1] iubComplement;
+
+void buildIubComplement()
+{
+    for(int i=0; i <= char.max; i++) iubComplement[i] = i;
+    for(int i=0; iubpairs[i][0] != '\0'; i++)
+    {
+    	iubComplement[iubpairs[i][0]] = iubpairs[i][1];
+    	iubComplement[iubpairs[i][1]] = iubpairs[i][0];
+    	iubComplement[tolower (iubpairs[i][0])] = iubpairs[i][1];
+    	iubComplement[tolower (iubpairs[i][1])] = iubpairs[i][0];
+    }
+}
+
+void inPlaceReverse(char* strand, int len)
+{
+    int i;
+    for(i=0, len--; i < len; i++,len--)
+    {
+    	char c = strand[i];
+    	strand[i] = iubComplement[strand[len]];
+    	strand[len] = iubComplement[c];
+    }
+    if(i == len) strand[i] = iubComplement[strand[i]];
+}
+
+void process(char* strand, int len)
+{
+    char* s;
+
+    inPlaceReverse(strand, len);
+    s = strand;
+
+    while(len > 60)
+    {
+    	char c = s[60];
+    	s[60] = '\0';
+    	puts (s);
+    	s[60] = c;
+    	s += 60;
+    	len -= 60;
+    }
+
+    s[len] = '\0';
+    puts(s);
+}
+// The Computer Language Benchmarks Game
+// http://shootout.alioth.debian.org/
+// Converted from my Python version by bearophile
+// This version shows hi-level coding in D V.1.0
+
+
+import std.stdio, std.string;
+
+void show(char[][] seq, char[] table) {
+    auto seq2 = seq.join("").translate(table, "\n").reverse;
+    for(int i = 0; i < seq2.length; i += 60)
+        writefln(seq2[i .. (i+60 > length) ? length : i+60]);
+}
+
+void main() {
+    char[][] seq;
+    char[] line;
+    auto tab = maketrans("ACBDGHKMNSRUTWVYacbdghkmnsrutwvy",
+                         "TGVHCDMKNSYAAWBRTGVHCDMKNSYAAWBR");
+
+    while ((line = readln()) != null)
+        if (line[0] == '>' || line[0] == ';') {
+            show(seq, tab);
+            writef(line);
+            seq.length = 0;
+        } else
+            seq ~= line;
+    show(seq, tab);
+}
+// The Computer Language Benchmarks Game
+// http://shootout.alioth.debian.org/
+// Modified from my Python version by bearophile
+
+
+import std.stdio, std.string;
+
+void show(char[][] seq, char[] table) {
+    int tot, pos;
+
+    foreach(word; seq)
+        tot += word.length;
+    auto seq2 = new char[tot]; // initial guess
+
+    foreach(word; seq)
+        foreach(c; word)
+            if (c != '\n') {
+                seq2[pos] = table[c];
+                pos++;
+            }
+    seq2.length = pos;
+
+    seq2.reverse;
+
+    for(int i = 0; i < seq2.length; i += 60)
+        writefln(seq2[i .. (i+60 > length) ? length : i+60]);
+}
+
+void main() {
+    char[][] seq;
+    char[] line;
+    auto tab = maketrans("ACBDGHKMNSRUTWVYacbdghkmnsrutwvy",
+                         "TGVHCDMKNSYAAWBRTGVHCDMKNSYAAWBR");
+
+    while ((line = readln()) != null)
+        if (line[0] == '>' || line[0] == ';') {
+            show(seq, tab);
+            writef(line);
+            seq.length = 0;
+        } else
+            seq ~= line;
+    show(seq, tab);
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   contributed by Dave Fladebo
+   compile: dmd -O -inline -release reversefile.d
+*/
+
+import std.stream;
+
+int main()
+{
+    BufferedStream bsi = new BufferedStream(stdin,4096);
+    char[] file = bsi.toString();
+    bsi.close();
+
+    int len = file.length - 1;
+    BufferedStream bso = new BufferedStream(stdout,4096);
+    for(int idx = len; idx >= 0; idx--)
+    {
+        char c = file[idx];
+        if(c == '\n' || idx == 0)
+        {
+            if(idx == 0) idx--;
+            if(idx != len) bso.write(cast(ubyte[])file[idx+1..len+1]);
+            len = idx;
+        }
+    }
+    bso.close();
+
+    return 0;
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   http://www.bagley.org/~doug/shootout/
+
+   converted to D by Dave Fladebo
+   compile: dmd -O -inline -release sieve.d
+*/
+
+import std.stdio, std.string;
+
+int main(char[][] args)
+{
+    int n = args.length > 1 ? atoi(args[1]) : 1;
+
+    char flags[8192 + 1];
+    int  count;
+
+    while(n--)
+    {
+        count = 0; 
+        flags[] = 1;
+        for(int i = 2; i < flags.length; i++)
+        {
+            if(flags[i])
+            {
+                // remove all multiples of prime: i
+                for(int j = i + i; j < flags.length; j += i) flags[j] = 0;
+                count++;
+            }
+        }
+    }
+
+    writefln("Count: ",count);
+
+    return 0;
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   converted to D by Dave Fladebo
+   compile: dmd -O -inline -release spectralnorm.d
+*/
+
+import std.math, std.stdio, std.string;
+
+void main(char[][] args)
+{
+    int      N = args.length > 1 ? cast(int)atoi(args[1]) : 2000;
+    double[] u = new double[N], v = new double[N], w = new double[N];
+    double   vBv = 0, vv = 0;
+
+    u[] = 1.0;
+    for(int i = 0; i < 10; i++)
+    {
+        eval_AtA_times_u(u,v,w);
+        eval_AtA_times_u(v,u,w);
+    }
+
+    foreach(int i, double vi; v)
+    {
+        vBv += u[i] * vi;
+        vv  += vi * vi;
+    }
+    writefln("%0.9f",sqrt(vBv/vv));
+}
+
+void eval_AtA_times_u(double[] u, double[] v, double[] w)
+{
+    eval_A_times_u(u,w);
+    eval_At_times_u(w,v);
+}
+
+void eval_A_times_u(double[] u, double[] Au)
+{
+    foreach(int i, inout double Aui; Au)
+    {
+        Aui = 0.0;
+        foreach(int j, double uj; u)
+        {
+            Aui += eval_A(i,j) * u[j];
+        }
+    }
+}
+
+void eval_At_times_u(double[] u, double[] Au)
+{
+    foreach(int i, inout double Aui; Au)
+    {
+        Aui = 0.0;
+        foreach(int j, double uj; u)
+        {
+            Aui += eval_A(j,i) * uj;
+        }
+    }
+}
+
+double eval_A(int i, int j)
+{
+    return 1.0/(((i+j)*(i+j+1)/2)+i+1);
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   http://www.bagley.org/~doug/shootout/
+
+   converted to D by Dave Fladebo
+   compile: dmd -O -inline -release spellcheck.d
+*/
+
+import std.stream;
+
+const int MAXLINELEN = 128;
+
+int main()
+{
+    byte[char[]]    da;
+    char[]          bufr = new char[MAXLINELEN];
+
+    BufferedFile dct = new BufferedFile("Usr.Dict.Words");
+    while(!dct.eof)
+    {
+        da[dct.readLine(bufr).dup];
+    }
+    dct.close();
+
+    char[]          line;
+    BufferedStream  bsi = new BufferedStream(std.stream.stdin, 4096);
+    BufferedStream  bso = new BufferedStream(std.stream.stdout,4096);
+    while(!bsi.eof)
+    {
+        line = bsi.readLine(bufr);
+        if(!(line in da)) bso.writeLine(line);
+    }
+    bso.close();
+    bsi.close();
+
+    return 0;
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   http://www.bagley.org/~doug/shootout/
+
+   converted to D by Dave Fladebo
+   compile: dmd -O -inline -release strcat.d
+*/
+
+import std.stdio, std.string, std.outbuffer;
+
+int main(char[][] args)
+{
+    int n = args.length > 1 ? atoi(args[1]) : 1;
+
+    OutBuffer ob = new OutBuffer();
+
+    for(int i = 0; i < n; i++)
+    {
+        ob.write("hello\n");
+    }
+
+    writefln(ob.toString().length);
+
+    return 0;
+}
+// The Computer Language Benchmarks Game
+//   http://shootout.alioth.debian.org/
+
+// Modified by bearophile
+// Compile: dmd -O -inline -release sumcol.d
+
+import std.c.stdio: printf;
+import std.stdio: fgets, stdin;
+import std.c.stdlib: atoi;
+
+void main() {
+    int sum;
+    char[128] line;
+
+    while(fgets(line.ptr, line.length, stdin))
+        sum += atoi(line.ptr);
+
+    printf("%d\n", sum);
+}
+/* The Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   Contributed by Brent Fulgham
+
+   converted to D by Dave Fladebo
+   compile: dmd -O -inline -release takfp.d
+*/
+
+import std.string, std.stdio;
+
+int main(char[][] args)
+{
+    int n = args.length > 1 ? atoi(args[1]) : 1;
+
+    writefln("%.1f", Tak(n*3.0, n*2.0, n*1.0));
+
+    return 0;
+}
+
+float Tak(float x, float y, float z)
+{
+    if(y >= x) return z;
+    return(Tak(Tak(x-1,y,z), Tak(y-1,z,x), Tak(z-1,x,y)));
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   Contributed by Dave Fladebo
+
+   compile: dmd -O -inline -release tcpecho.d
+*/
+
+import std.stdio, std.string, std.socket, std.socketstream, std.thread;
+
+const int MULTIPLIER    = 6400;
+const int REPLY_SIZE    = 64;
+const int REQUEST_SIZE  = 64;
+const int BUFFER_SIZE   = 1024;
+const int PORT          = 11000;
+
+char[REQUEST_SIZE]  REQUEST;
+char[REPLY_SIZE]    REPLY;
+
+int main(char[][] args)
+{
+    int n = (args.length > 1 ? atoi(args[1]) : 1) * MULTIPLIER;
+
+    Thread server = new Thread(&Server,null);
+    Thread client = new Thread(&Client,cast(void*)n);
+
+    server.start();
+    client.start();
+
+    server.wait();
+    client.wait();
+
+    return 0;
+}
+
+int Server(void* arg)
+{
+    SocketStream ss = new SocketStream(serverSocket.accept);
+
+    char[BUFFER_SIZE] buffer;
+    while(ss.readBlock(buffer,REQUEST_SIZE) > 0)
+    {
+        ss.writeBlock(REPLY,REPLY_SIZE);
+    }
+
+    ss.close();
+
+    return(0);
+}
+
+int Client(void* arg)
+{
+    int n = cast(int)arg, bytes, replies;
+
+    TcpSocket ts = new TcpSocket(new InternetAddress("127.0.0.1",PORT));
+
+    char[BUFFER_SIZE] buffer;
+    while(n--)
+    {
+        int recvd;
+        ts.send(REQUEST);
+        while(recvd < REPLY_SIZE)
+        {
+            recvd += ts.receive(buffer);
+        }
+        bytes += recvd;
+        replies++;
+    }
+
+    ts.close();
+
+    writefln("replies: ",replies,"\tbytes: ",bytes);
+
+    return(0);
+}
+
+TcpSocket serverSocket()
+{
+    TcpSocket ts = new TcpSocket();
+    ts.bind(new InternetAddress(PORT));
+    ts.listen(0);
+    return(ts);
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   Contributed by Dave Fladebo
+
+   compile: dmd -O -inline -release tcprequest.d
+*/
+
+import std.stdio, std.string, std.socket, std.socketstream, std.c.time;
+extern (C) int fork();
+
+const int MULTIPLIER = 100, REPLY_SIZE = 4096, REQUEST_SIZE = 64, BUFFER_SIZE = 1024, PORT = 11000;
+
+char[REQUEST_SIZE]  REQUEST;
+char[REPLY_SIZE]    REPLY;
+
+int main(char[][] args)
+{
+    int n = (args.length > 1 ? atoi(args[1]) : 1) * MULTIPLIER;
+
+    int pid = fork();
+    if(!pid) Client(n);
+    if(pid > 0) Server();
+
+    return pid < 0 ? 1 : 0;
+}
+
+void Server()
+{
+    SocketStream ss = new SocketStream(serverSocket.accept);
+
+    char[BUFFER_SIZE] buffer;
+    while(ss.readBlock(buffer,REQUEST_SIZE) > 0)
+    {
+        ss.writeBlock(REPLY,REPLY_SIZE);
+    }
+
+    ss.close();
+}
+
+void Client(int n)
+{
+    int bytes, replies;
+
+    usleep(1);  // Let server start
+
+    TcpSocket ts = new TcpSocket(new InternetAddress("127.0.0.1",PORT));
+
+    char[BUFFER_SIZE] buffer;
+    while(n--)
+    {
+        int recvd;
+        ts.send(REQUEST);
+        while(recvd < REPLY_SIZE)
+        {
+            recvd += ts.receive(buffer);
+        }
+        bytes += recvd;
+        replies++;
+    }
+
+    ts.close();
+
+    writefln("replies: ",replies,"\tbytes: ",bytes);
+}
+
+TcpSocket serverSocket()
+{
+    TcpSocket ts = new TcpSocket();
+    ts.bind(new InternetAddress(PORT));
+    ts.listen(0);
+    return ts;
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   Contributed by Dave Fladebo
+
+   compile: dmd -O -inline -release tcpstream.d
+*/
+
+import std.stdio, std.string, std.socket, std.socketstream, std.thread;
+
+const int MULTIPLIER    = 1;
+const int REPLY_SIZE    = 409600;
+const int REQUEST_SIZE  = 64;
+const int BUFFER_SIZE   = 1024;
+const int PORT          = 11000;
+
+char[REQUEST_SIZE]  REQUEST;
+char[REPLY_SIZE]    REPLY;
+
+int main(char[][] args)
+{
+    int n = (args.length > 1 ? atoi(args[1]) : 1) * MULTIPLIER;
+
+    Thread server = new Thread(&Server,null);
+    Thread client = new Thread(&Client,cast(void*)n);
+
+    server.start();
+    client.start();
+
+    server.wait();
+    client.wait();
+
+    return 0;
+}
+
+int Server(void* arg)
+{
+    SocketStream ss = new SocketStream(serverSocket.accept);
+
+    char[BUFFER_SIZE] buffer;
+    while(ss.readBlock(buffer,REQUEST_SIZE) > 0)
+    {
+        ss.writeBlock(REPLY,REPLY_SIZE);
+    }
+
+    ss.close();
+
+    return(0);
+}
+
+int Client(void* arg)
+{
+    int n = cast(int)arg, bytes, replies;
+
+    TcpSocket ts = new TcpSocket(new InternetAddress("127.0.0.1",PORT));
+
+    char[BUFFER_SIZE] buffer;
+    while(n--)
+    {
+        int recvd;
+        ts.send(REQUEST);
+        while(recvd < REPLY_SIZE)
+        {
+            recvd += ts.receive(buffer);
+        }
+        bytes += recvd;
+        replies++;
+    }
+
+    ts.close();
+
+    writefln("replies: ",replies,"\tbytes: ",bytes);
+
+    return(0);
+}
+
+TcpSocket serverSocket()
+{
+    TcpSocket ts = new TcpSocket();
+    ts.bind(new InternetAddress(PORT));
+    ts.listen(0);
+    return(ts);
+}
+/*
+ * The Computer Language Benchmarks Game
+ * http://shootout.alioth.debian.org/
+ *
+ * Contributed by Premysl Hruby
+ * convert to D by dualamd
+ */
+
+module ThreadRing;
+
+import std.stdio : writefln;
+import std.conv : toInt;
+
+import std.c.linux.pthread;
+import std.c.stdlib : exit;
+
+const uint NUM_THREADS = 503;
+const uint STACK_SIZE = 16*1024;
+
+int   token = -1;
+bool finished = false;
+
+extern (C)
+{
+   pthread_mutex_t[NUM_THREADS]      mutex;
+   char[STACK_SIZE][NUM_THREADS]   stacks;
+
+   void* thread_func( void *num )
+   {
+      int thisnode   = cast(int)num;
+      int nextnode   = ( thisnode + 1 ) % NUM_THREADS;
+
+      while (true) 
+      {
+         pthread_mutex_lock( &(mutex[ thisnode ]) );
+
+         if ( token > 0 ) 
+         {
+            token--;
+            pthread_mutex_unlock( &(mutex[ nextnode ]) );
+         }
+         else 
+         {
+             writefln( thisnode +1 );
+             exit(0);
+         }
+      }
+
+      return null;
+   }
+}
+
+int main(string[] args)
+{
+   try
+   {
+      token = toInt(args[1]);
+   }
+   catch (Exception e)   
+   {
+      token = 1000; // test case
+   }
+
+   pthread_t cthread;
+   pthread_attr_t stack_attr;
+
+   pthread_attr_init(&stack_attr);
+
+   for (int i = 0; i < NUM_THREADS; i++) 
+   {
+      pthread_mutex_init( &(mutex[ i ]), null);
+      pthread_mutex_lock( &(mutex[ i ]) );
+
+      // manual set stack space & stack size for each thread
+      pthread_attr_setstack( &stack_attr, &(stacks[i]), STACK_SIZE );
+
+      pthread_create( &cthread, &stack_attr, &thread_func, cast(void*)i );
+   }
+
+   // start game
+   pthread_mutex_unlock( &(mutex[0]) );
+
+   // wait for result
+   pthread_join( cthread, null );
+
+   return 1;
+}
+
+/*
+ * The Computer Language Benchmarks Game
+ * http://shootout.alioth.debian.org/
+
+ * contributed by Anh Tran
+ */
+
+import std.stdio;
+import std.thread : Thread;
+import std.conv;
+
+const NUM_THREADS   = 503;
+const STACK_SIZE   = 32*1024; // 32KB
+
+// for easier management from main thread
+RingThread   [NUM_THREADS]   rt_arr;
+int         [NUM_THREADS]   token_arr;
+
+bool   finished   = false;
+
+public class RingThread : public Thread 
+{
+public:
+   RingThread      next_node;
+   int          node_id;
+
+   this( int thread_id ) 
+   {
+      super( STACK_SIZE );   // create new thread with specified stack size
+      node_id = thread_id;
+   }
+
+   ~this() {}
+   
+   override int run()
+   {
+      while (!finished)
+      {
+         if (token_arr[node_id] < 0)
+            yield();
+         else
+         {
+            if (token_arr[node_id] > 0)
+            {
+               int next_id = (node_id < (NUM_THREADS -1)) ? node_id +1 : 0;
+               token_arr[next_id] = token_arr[node_id] -1;
+               token_arr[node_id] = -1;
+            }
+            else
+            {
+               writefln(node_id +1);
+               finished = true;
+               break;
+            }
+         }
+         
+      }
+      
+      next_node = null;
+      return 1;
+   }
+}
+
+
+void main( string[] args ) 
+{
+   // set token state to IDLE
+   for (int i = 0; i < NUM_THREADS; i++)
+      token_arr[i] = -1;
+
+   // init HEAD
+   auto head = new RingThread( 0 );
+   rt_arr[0] = head;
+
+   // init remain threads
+   for (int i = 1; i < NUM_THREADS; i++)
+   {
+      auto r = new RingThread( i );
+
+      rt_arr[i] = r;
+      rt_arr[i -1].next_node = r; // link to next thread
+   }
+   
+   // TAIL node points to HEAD
+   rt_arr[ NUM_THREADS -1 ].next_node = rt_arr[0];
+   
+   try
+   {
+      // set initial token value
+      token_arr[0] = toInt( args[1] );
+   }
+   catch (Exception)
+   {
+      token_arr[0] = 1000;
+   }
+
+   // let's roll
+   for (int i = 0; i < NUM_THREADS; i++)
+      rt_arr[i].start();
+
+   // just sleep
+   for (int i = 0; i < NUM_THREADS; i++)
+      rt_arr[i].wait();
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   contributed by Dave Fladebo
+   compile: dmd -O -inline -release wc.d
+*/
+
+import std.stream;
+
+int main()
+{
+    int  nl, nw, nc, nread, inword;
+    char[4096] buf;
+
+    while((nread = stdin.readBlock(buf, buf.length)) > 0)
+    {
+        nc += nread;
+        for(int idx = 0; idx < nread; idx++)
+        {
+            switch(buf[idx])
+            {
+                case '\n':
+                    nl++;
+                case ' ':
+                case '\t':
+                    nw += inword;
+                    inword = 0;
+                    break;
+                default:
+                    inword = 1;
+                    break;
+            }
+        }
+    }
+
+    stdout.writefln("%d %d %d", nl, nw, nc);
+
+    return 0;
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   contributed by Dave Fladebo
+   compile: dmd -O -inline -release wordfreq.d
+*/
+
+import std.stream, std.stdio;
+
+int main()
+{
+    const char[4096]    buffer;
+    int[char[]]         words;
+    char[]              word = new char[16];
+    int                 nread, chrpos;
+
+    while((nread = std.stream.stdin.readBlock(buffer, buffer.length)) > 0)
+    {
+        for(int idx = 0; idx < nread; idx++)
+        {
+            char chr = buffer[idx];
+            if((chr >= 'a' && chr <= 'z') || (chr >= 'A' && chr <= 'Z'))
+            {
+                if(word.length <= chrpos) word.length = chrpos * 2;
+                word[chrpos++] = chr < 'a' ? chr + ('a' - 'A') : chr;
+            }
+            else if(chrpos)
+            {
+                int* pVal = (word[0..chrpos] in words);
+                if(pVal) (*pVal)++;
+                else words[word[0..chrpos].dup] = 1;
+                chrpos = 0;
+            }
+        }
+    }
+
+    int[char[]] data;
+    char[] str = new char[word.length + 16];
+    foreach(char[] word, int val; words)
+    {
+        int len = sprintf(str,"%7d %.*s", val, word);
+        data[str[0..len].dup] = val;
+    }
+
+    char[][] keys = data.keys;
+    foreach(char[] key; keys.sort.reverse)
+    {
+        writefln(key);
+    }
+
+    return 0;
+}

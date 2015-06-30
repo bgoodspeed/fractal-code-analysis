@@ -1,0 +1,1930 @@
+
+
+
+@book{DoD:Pink:93,
+	author={{Department of Defense}},
+	year={1993},
+	title={A Guide to Understanding Covert Channel Analysis of Trusted Systems},
+	publisher={DoD NCSC-TG-030 [ Light Pink Book]},
+	url={http://www.fas.org/irp/nsa/rainbow/tg030.htm},
+	cite_category={Background},
+	annotate={A guide to covert channel analysis.  Written as part of the ``rainbow series'' by the Department of Defense.
+
+Some examples of covert channels include: storage and timing channels; noisy and noiseless channels; and aggregated channels.
+
+Storage and timing channels potentially leak information by a programs utilization of resources (I/O, CPU, network etc).
+
+Noisy channels potentially leak information by their bandwidth utilization (spikes can indicate an increase in noise and thus resubmission).
+
+Aggregated channel leaks can arise from aggregate data being used to ``reverse engineer'' original data, sometimes via secondary aggregates, other times due to poorly sanitized data.}
+}
+
+@book{DoD:Teal:92,
+	author={{Department of Defense}},
+	year={1992},
+	title={A Guide to Understanding Security Modeling in Trusted Systems},
+	publisher={DoD NCSC-TG-010 [Teal book]},
+	url={http://www.fas.org/irp/nsa/rainbow/tg010.pdf},
+	cite_category={Background},
+	annotate={The ``teal book'' in the Department of Defense rainbow series.  Covers security models as employed by (primarily) the Trusted Computing Systems Evaluation Criteria (TCSEC) (the ``orange book'') and the Trusted Network Interpretation of the TCSEC (the ``red book'').  It is essentially a tutorial introduction to the mathematical methods used in the rainbow series publications.}
+}
+
+@book{DoD:Purple:91,
+	author={{Department of Defense}},
+	year={1991},
+	title={Trusted Database Management System Interpretation of the Trusted Computer System Evaluation Criteria},
+	publisher={DoD 5200.28-STD, 1991, NCSC-TG-021 [Lavender/Purple book]},
+	url={http://www.fas.org/irp/nsa/rainbow/tg021.htm},
+	cite_category={QualityAssurance},
+	annotate={The ``purple book'' in the Department of Defense rainbow series.
+
+Details the alterations and changes to the interpretations of the original Trusted Computer System Evaluation Criteria required to support a trusted database management system (DBMS).
+
+The sets of subjects and objects are much larger, and include all the buffers, transactions, tables, materialized views, and many other support structures of a DBMS.
+
+New roles are introduced, such as database administrator, and the associated access control requirements have been updated.}
+}
+
+@book{DoD:Blue:91,
+	author={{Department of Defense}},
+	year={1991},
+	title={A Guide to Understanding Identification and Authentication in Trusted Systems},
+	publisher={DoD NCSC-TG-017 [Light Blue Book]},
+	url={http://www.fas.org/irp/nsa/rainbow/tg017.htm},
+	cite_category={Background},
+	annotate={A Department of Defense rainbow series book on the problems of identification and authorization.
+
+Authentication is proof of identity, typically by three fundamental types: by knowledge; by ownership; and, by characteristic (e.g. biometrics).
+
+Authorization is via interaction with the access control system (be it role-based access control, mandatory access control, etc), once authentication is established.}
+}
+
+@book{DoD:Red:87,
+	author={{Department of Defense}},
+	year={1987},
+	title={Trusted Network Interpretation of the Trusted Computer System Evaluation Criteria},
+	publisher={DoD 5200.28-STD, 1987, NCSC-TG-005 [Red book]},
+	url={http://www.fas.org/irp/nsa/rainbow/tg005.htm},
+	cite_category={QualityAssurance},
+	annotate={The ``red book'' in the Department of Defense rainbow series.  Covers the network interpretation of the trusted computer system evaluation criteria standards (TCSEC).
+
+Viewed as a single trusted system, the network requires a single reference monitor (in charge of policy enforcement).  The notion of subjects in the original TCSEC is extended to include processes that act on behalf of individual systems to create and preserve connections.
+
+Supports multiple partitioned systems via a multi-level gateway.  This configuration begins to reflect the more modern network architecture of de-militarized zones (DMZs) connected by secure routers.}
+}
+
+@book{DoD:Orange:85,
+	author={{Department of Defense}},
+	year={1985},
+	title={Trusted Computer System Evaluation Criteria},
+	publisher={DoD 5200.28-STD, CSC-STD-001-83 [Orange Book]},
+	url={http://www.fas.org/irp/nsa/rainbow/std001.htm},
+	cite_category={QualityAssurance},
+	annotate={Defacto standard for North American security requirements for Trusted Computer systems.  Later subsumed by the Common Criteria (along with merged requirements from the equivalent European requirements).
+
+Defines standard terms including authorization, access control, etc.  Includes guidelines/requirements for considering systems trusted at certain levels (e.g. ``B2'' or ``A1''), and what applications require what levels of assurance.}
+}
+
+@article{PosixSpec,
+	author={{Open Group}},
+	year={2008},
+	title={Single UNIX Specification, Version 3},
+	journal={IEEE Std 1003.1},
+	url={http://www.unix.org/version3/ieee_std.html},
+	cite_category={OperatingSystems},
+	annotate={POSIX specification.  Defines operating system interfaces for things like threads, user controls and identifiers.  Heavily influences (and influenced by) Unix-based systems.}
+}
+
+@article{Abadi:CryptoCalculus:99,
+	author={Martin Abadi and Andrew Gordon},
+	year={1999},
+	title={A calculus for cryptographic protocols: The spi calculus},
+	journal={Information and Computation},
+	volume={148},
+	pages={36-47},
+	cite_category={Cryptography},
+	annotate={Presents the SPI calculus.  Evolved from the pi calculus, by adding explicit modelling support for cryptographic primitives (encryption, decryption, shared keys, etc).  
+
+Evolved into the ``applied pi calculus'' (as described by Abadi and Fournet in ``Analyzing Security Protocols with Secrecy Types and Logic Programs'').  
+
+Merged with Blanchet's work on Prolog-based automated verification software ProVerif.}
+}
+
+@article{Anh:ReconstructModel:02,
+	author={Gail-Joon Ahn and Seung-Phil Hong and Michael Shin},
+	year={2002},
+	title={Reconstructing a formal security model},
+	journal={Information and Software Technology},
+	volume={44},
+	number={11},
+	pages={649-657},
+	cite_category={ProcessAndDesign},
+	annotate={Role Based Access Control system.  Designed with UML (the unified modeling language for object oriented software) and OCL (the object constraints language) to help reduce the gap between the designed system and the final artifact.
+
+The constraints are modeled directly into the diagrammatic representation.  The model consists of set theoretic concepts and simple mappings along with assertions regarding constraints.  
+
+The key contribution from this paper in the context of my research is the tighter connection of the model to the produced system.}
+}
+
+@article{Almeida:CertifiedCrypto:13,
+	author={J. Almeida},
+	year={2013},
+	title={Certified computer-aided cryptography: efficient provably  secure machine code from high-level implementations},
+	journal={Proceedings of the 2013 ACM SIGSAC conference on Computer and communications security},
+	pages={1217},
+	url={https://eprint.iacr.org/2013/316.pdf},
+	cite_category={Cryptography},
+	annotate={Describes the use of formal verification based on the CompCert certified C extensions to produce secure bytecode for cryptographic protocols.  The basis for the EasyCrypt library, which is built to permit the description and modeling of cryptographic protocols.  Analysis in an adversarial game-based approach is possible for proofs about protocol information handling.}
+}
+
+@article{AMS:AuthorshipOrder:04,
+	author={AMS.},
+	year={2004},
+	title={The Culture of Research and Scholarship in Mathematics:  Joint Research and Its Publication},
+	journal={American Mathematical Society},
+	cite_category={Misc},
+	annotate={American Mathematical Society guidelines on authorship.  General policy is to cite authors in alphabetical order, unlike other fields.}
+}
+
+@article{Appel:VerifiedSHA256:14,
+	author={A. Appel},
+	year={2015},
+	title={Verification of a Cryptographic Primitive: SHA-256},
+	journal={ACM Transactions on Programming Languages and Systems},
+	url={http://www.cs.princeton.edu/~appel/papers},
+	cite_category={Cryptography},
+	annotate={A Coq-verified implementation of the SHA-256 cryptographic hash digest function.  Uses a separation logic for C called verifiable c, which is connected to the CompCert verified C compiler.  Separation logic comes from Hoare logic, which involve preconditions and postconditions for a given operation.  Typically separation logic deals with heap/pointer based operations, enabling proofs to omit such pointer-related details while maintaining robustness.  Automated proof scripts for Coq are provided to establish the program implementing SHA-256 is compatable with the FIPS-180 specification for secure hash functions.}
+}
+
+@article{Augustsson:Cayenne:99,
+	author={Lennart Augustsson},
+	year={1999},
+	title={Cayenne - A Language with Dependent Types},
+	journal={Advanced Functional Programming Lecture Notes in Computer Science},
+	volume={1608},
+	pages={240},
+	cite_category={ProgrammingLanguages},
+	annotate={Describes a haskell-like language called cayenne, that supports dependent types.  Handles pattern matching on strings which Idris can't currently do.}
+}
+
+@book{Beck:TDD:03,
+	author={Kent Beck},
+	year={2003},
+	title={Test-Driven Development by Example},
+	publisher={Addison Wesley},
+	cite_category={ProcessAndDesign},
+	annotate={Beck describes the agile practice of test driven development by a series of examples illustrating the workflow.  He explains it using the phrase ``red, green, refactor''.  This means that no code is written until there is a failing (red) test case prompting the creation of the code.  Next, just enough code is written to satisfy the currently failing test case (green).  Finally, the resulting code is cleaned up and duplication (and other code smells) are removed (refactor).}
+}
+
+@book{Beck:XPExplained:99,
+	author={Kent Beck},
+	year={1999},
+	title={XP Explained, 1st Edition
+},
+	publisher={Addison-Wesley Professional},
+	cite_category={ProcessAndDesign},
+	annotate={Kent Beck describes extreme programming, XP.  He discusses key components of the practice, including pair programming and test driven development.  Pair programming helps to reduce defects by constantly having two sets of eyes (i.e. continual code review), by allowing one person to keep in mind the ``big picture''.  Test driven development reduces defects by formalising and automating the specification of the program, ensuring the code is verifiable at all times.}
+}
+
+@article{Bell:LookingBack:05,
+	author={D. Bell},
+	year={2005},
+	title={Looking Back at the Bell LaPadula Model},
+	journal={ACSAC},
+	url={http://www.acsac.org/2005/papers/Bell.pdf},
+	cite_category={OperatingSystems},
+	annotate={Bell looks at the outcomes from his 1973 model as described in ``Secure computer systems: Mathematical foundations'' and related security proofs.  Addresses other works of his own and of others that have built on the original model.  Includes works added to address deficiencies (e.g. Biba's view to support integrity).  
+
+Also surveys alternative formulations designed to adapt his model to other environments including networks, database management systems and parallel/distributed systems.}
+}
+
+@article{Bell:ConcerningModelling:88,
+	author={D. Bell},
+	year={1988},
+	title={Concerning modelling of Computer Security},
+	journal={Proc. IEEE Symp. Security and Privacy},
+	pages={8-13},
+	cite_category={OperatingSystems},
+	annotate={Bell describes the differences in modeling efforts for computer science (particularly security) and modeling in other disciplines (such as the physical sciences).
+
+The two most important aspects of a useful model according to Bell are: a ``faithful representation'' of the sytem in question; and that it permits ``analysis''.
+
+Rebuts a criticism of the original model put forth by McLean in ``Reasoning about Security Models''.  Based on a difference in the definition of models.  If viewed in the ``context of foundations'' (which requires proofs of consistency and soundness, and deals with issues akin to Godel incompleteness) then the criticism is valid.  If viewed as in the ``Model as Abstraction'' context, then the criticism is not valid, as the claims of security are constrained by the definitions of security in the original Bell and LaPadula paper ``Secure computer systems: Mathematical foundations.''}
+}
+
+@article{Bell:SecureCompSystems:73,
+	author={D. Bell and L. LaPadula},
+	year={1973},
+	title={Secure Computer Systems:  Mathematical Foundations},
+	journal={MITRE Technical Report},
+	volume={I},
+	number={2547},
+	url={http://www.albany.edu/acc/courses/ia/classics/belllapadula1.pdf},
+	cite_category={OperatingSystems},
+	annotate={The seminal paper on security modelling.  Presents a formal model based on a state machine with transition rules based on subject (e.g. a person) and object (e.g. a file) and an access control list encoding these relationships.  Provides three types of security: simple security (cannot access objects above subjects security clearance); *-property, or the ``star'' property (cannot write to a low clearance object while reading a high clearance object); and, discretionary access to extend clearance.
+
+Theorems are provided stating that a system starting in a secure state and only allows secure transitions remains secure.}
+}
+
+@article{Benington:Waterfall:83,
+	author={Herbert Benington},
+	year={1983},
+	title={Production of Large Computer Programs},
+	journal={IEEE Annals of the History of Computing},
+	volume={5},
+	number={4},
+	pages={350},
+	cite_category={QualityAssurance},
+	annotate={Waterfall adapted from electrical/hardware engineering practices because no processes existed before then.}
+}
+
+@article{Benson:ModelDistrib:90,
+	author={G. Benson and I. Akyildiz and W. Appelbe},
+	year={1990},
+	title={A Formal Protection Model of Security in Centralized, Parallel, and Distributed Systems  },
+	journal={ACM Transactions on Computing Systems},
+	volume={8},
+	number={3},
+	cite_category={OperatingSystems},
+	annotate={Defines the  CPD model (centralized, parallel distributed).
+
+Using a state machine formalism to show a particular parallel/distributed system can be reduced to the problem of securing a sequential system (as was done by Bell and LaPadula in their 1973 Mitre technical report).
+
+Makes a distinction between commands (a sequence of atomic intstructions) that end in a secure state and commands that never leave a secure state.  This permits the non-deterministic front end portion of the system model to enumerate all possible instruction interleavings are secure.}
+}
+
+@article{Bertot:CoqHurry:10,
+	author={Y. Bertot},
+	year={2010},
+	title={Coq in a Hurry},
+	journal={Technical Report, MARELLE - INRIA Sophia Antipolis},
+	cite_category={Background},
+	annotate={A tutorial and introduction to the Coq proof assistant system.  Gives information about how to apply the extensible tactical combinator library (LTac) to further automate proofs.  Introduces the type system (including algebraic data types) and the type checker available to the system (but not to the proof side).  Discusses limitation of recursive functions (specifically the necessity of termination guarantees).}
+}
+
+@book{Bertot:CoqArt:04,
+	author={Y. Bertot and P. Casteran},
+	year={2004},
+	title={Interactive theorem proving and program development : Coq'Art : the calculus of inductive constructions},
+	publisher={Springer},
+	address={Berlin; New York},
+	note={ID: 55514299},
+	isbn={3540208542 9783540208549},
+	language={English},
+	cite_category={ProgrammingLanguages},
+	annotate={Textbook covering the calculus of inductive constructions.  The calculus forms the basis of the Coq proof assistant system.  Forms a functional programming core of the system, with severe restrictions on the available operations on types.  For example, the only looping construct available is in fixpoints (Coq's notion of a recursive function), and they require strict termination guarantees.  This permits automated reasoning and certainty arguments.}
+}
+
+@article{Beznosov:AgileSecAssurance:04,
+	author={Konstantin Beznosov and Phillippe Kruchten},
+	year={2004},
+	title={Towards Agile Security Assurance  
+ },
+	journal={Proceedings of the workshop on New security paradigms, Nova Scotia, Canada},
+	pages={47-54},
+	url={http://lersse-dl.ece.ubc.ca/record/87/files/87.pdf},
+	cite_category={ProcessAndDesign},
+	annotate={A look at the feasibility of adopting an ``agile'' (iterative, design/development/testing cycles) approach to security assurance versus the traditional ``waterfall'' (big design phase up front) approach.
+
+Argues some of the mismatch between what was designed or modeled and what was delivered can be ammeliorated by agile process, notably test driven development (described by Beck in ``Test Driven Development by Example'').}
+}
+
+@article{Biba:Integrity:75,
+	author={Kenneth Biba},
+	year={1975},
+	title={Integrity Considerations for Secure Computer Systems},
+	journal={MITRE Technical Report},
+	number={3153},
+	url={http://seclab.cs.ucdavis.edu/projects/history/papers/biba75.pdf},
+	cite_category={Background},
+	annotate={Biba presents a state-transition based model similar to Bell and LaPadula's model (BLP) described in ``Secure computer systems: Mathematical foundations''.  Where BLP focused on confidentiality (being driven by military security labels), Biba's model focused on data integrity.
+
+In colloquial terms Biba's model can be viewed as an ``upside down'' version of BLP.  To preserve data integrity (e.g. a low level employee performing an unauthorized transaction) Biba permits no ``writing up'' (writing to an object above the subject's security level).  Likewise Biba's model does not permit a high level subject to read a low level object.  
+
+The transition rules are analogous to BLP: Simple Integrity (cf security) -no read down; the ``star property'' becomes ``integrity'' (no write up); the invocation property becomes the inability to upgrade access via discretionary access control rules.}
+}
+
+@book{Bishop:CompSecArt:03,
+	author={Matt Bishop},
+	year={2003},
+	title={Computer security : art and science},
+	publisher={Addison-Wesley},
+	cite_category={Background},
+	annotate={Textbook on computer security.  Discusses security policies - including confidentiality models (such Bell LaPadula, as well as McLean's attacks on it); integrity policies - including Biba's, Lipner's and Clark-Wilson's.
+
+Later chapters discuss assurance and trust in systems including formal verification techniques.  It also provides a classification of verification methodologies.  A key distinction is between proof-based and model-based techniques.  
+
+Covers a starting point with the ``Hierarchical Development Methodology'' (Neumann), through the Boyer-Moore Theorem Prover (using a LISP-like declarative syntax), and the Gypsy (based on assertions embedded into the language surrounding entry/exit/synchronization conditions).
+
+
+At the time of writing the current verification systems were: the Prototype Verification System (PVS Owry, 1992), which is based on a declarative language with ``theories'' about types; the Symbolic Model Verifier (Burch et al, Symbolic Model Checking, 1992), based on ``control tree logic'', a variant of predicate calculus.
+
+McLean also provides a summary of formal methods to 1999 in ``Twenty Years of Fornal methods''.}
+}
+
+@article{Blanchet:CryptoProlog:01,
+	author={Bruno Blanchet},
+	year={2001},
+	title={An Efficient Cryptographic Protocol Verifier Based on Prolog Rules},
+	journal={IEEE Computer Security Foundations Workshop},
+	pages={82},
+	url={http://prosecco.gforge.inria.fr/personal/bblanche/publications/BlanchetCSFW01.ps.gz},
+	cite_category={Cryptography},
+	annotate={Initial paper on protocol verification based on Prolog rules.  Later work with Abadi integrates portions of the ``spi calculus'' (Described by Abadi et. al.).
+
+Rules are in three categories.  One representing the computational capabilities of the attacker, another the facts known to the attacker (e.g. public keys), and the last: a description of the protocol itself.  
+
+Uses an intermediate form to model the protocol and relies on approximations to reduce the state size. 
+
+The goal of the solver is to determine if the attacker can determine the secret being protected by the protocol.}
+}
+
+@article{Brady:AlgebraicDependentTypesIdris:13,
+	author={Edwin Brady},
+	year={2013},
+	title={Programming and Reasoning with Algebraic Effects and Dependent Types},
+	journal={ICFP},
+	cite_category={ProgrammingLanguages},
+	annotate={Algebraic dependent types in Idris are discussed.}
+}
+
+@article{Brady:IdrisSystemsProgramming:11,
+	author={Edwin Brady},
+	year={2011},
+	title={Idris - Systems Programming meets Full Dependent Types},
+	journal={ACM Programming Languages and Program Verification},
+	cite_category={ProgrammingLanguages},
+	annotate={Introduces the Idris programming language for systems programming.  Uses dependent types to enable formal verification of system-level implementations.}
+}
+
+@article{Brewer:ChineseWall:89,
+	author={David Brewer and Michael Nash},
+	year={1989},
+	title={THE CHINESE WALL SECURITY POLICY},
+	journal={Proceedings of IEEE Symposium on Security and Privacy},
+	pages={206},
+	url={http://www.cs.purdue.edu/homes/ninghui/readings/AccessControl/brewer_nash_89.pdf},
+	cite_category={Background},
+	annotate={Addresses a gap in Bell and LaPadula's model (1973) to account for then-current U.K. financial regulations.  Based on information flow models.  Introduces the notion of conflict of interest classes.  
+
+Permits dynamic classification changes (based on updating conflict classes).  
+
+The model itself is based on simple set theory and access matrices.}
+}
+
+@article{CCRA:CommonCriteria:12,
+	author={CCRA},
+	year={2012},
+	title={Common Criteria for Information Technology Security Evaluation},
+	journal={CCRA, V3.R4},
+	url={http://www.commoncriteriaportal.org/cc/},
+	cite_category={QualityAssurance},
+	annotate={The common criteria (CC) grew out of the Trusted Computing Base Security Evaluation Guidelines (the Department of Defence ``Orange Book'') and merged with the European equivalent ``Evaluation Assurance'' Levels.  
+
+Provides a model, functional requirements and assurance requirements.  Also gives guidelines for product/capability certification and evaluation.}
+}
+
+@book{Chaitin:AlgoInfo:87,
+	author={Gregory Chaitin},
+	year={1987},
+	title={Algorithmic information theory},
+	publisher={Cambridge University Press},
+	cite_category={Background},
+	annotate={Chaitin introduces algorithmic information theory, extending the idea of information theory by Shannon.  The idea is to capture the information content of a signal by measuring the size of the smallest possible program that could reproduce the signal.  Note this quantity is not computable.  It is an open question as to the bounds of such a quantity based on the nature of the signal.  It is related to the Kolmogorov complexity (which encapsulates the ``randomness'' of a signal).}
+}
+
+@article{Chapman:Levitation:10,
+	author={James Chapman},
+	year={2010},
+	title={The Gentle Art of Levitation},
+	journal={ACM SIGPLAN International Conference on Functional Programming},
+	cite_category={ProgrammingLanguages},
+	annotate={Levitation is a technique for providing a type theory with closure properties.}
+}
+
+@article{Chlipala:HigherOrderImperative:09,
+	author={Adam Chlipala},
+	year={2009},
+	title={Effective Interactive Proofs for Higher-Order Imperative Programs},
+	journal={ACM ICFP},
+	url={http://ynot.cs.harvard.edu/papers/icfp09.pdf},
+	cite_category={ProgrammingLanguages},
+	annotate={Introduces Ynot, a separation logic library for the Coq proof assistant.  Separation logic deals with heap and pointer manipulation by extending the notion of Hoare triples.  A Hoare triple is a computation together preconditions and postconditions related to it.  In this implementation the separation type is constructed as a monad in much the same way IO and side-effects are granted to the strictly functional language Haskell.  The library is used to provide proofs of correctness of programs that use side effects or IO.}
+}
+
+@book{Chlipala:DependentTypes:08,
+	author={Adam Chlipala},
+	year={2008},
+	title={Certified Programming with Dependent Types},
+	publisher={The MIT Press},
+	url={http://adam.chlipala.net/cpdt/cpdt.pdf},
+	cite_category={ProgrammingLanguages},
+	annotate={Program verification using the Coq proof assistant system.  Uses type theory and the Curry Howard isomorphism (the correspondence between propositions and types, such that programs computing types can represent proofs of implications between propositions).  Certificates in this context mean a proof that the program meets its specification.
+
+Compare with ACL2, PVS, Twelf.  Dependent types are algebraic types (meaning the type itself is dependent on the values contained within it).  ``The theoretical foundation of Coq is a formal system called the Calculus of Inductive Constructions'' by Coquand.}
+}
+
+@article{Christiansen:DepTypeProviders:13,
+	author={David Christiansen},
+	year={2013},
+	title={Dependent Type Providers},
+	journal={Proceedings of the 9th ACM SIGPLAN Workshop on Generic Programming},
+	pages={25},
+	cite_category={ProgrammingLanguages},
+	annotate={Type providers (functions that return types used in type signatures)}
+}
+
+@article{Church:LambdaCalc:41,
+	author={Alonzo Church},
+	year={1941},
+	title={The Calculi of Lambda-Conversion},
+	journal={Princeton University Press},
+	cite_category={Theory},
+	annotate={Churches treatise on the lambda calculus}
+}
+
+@article{Claessen:Quickcheck:11,
+	author={Koen Claessen and John Hughes},
+	year={2011},
+	title={QuickCheck: A Lightweight Tool for Random Testing of Haskell Programs},
+	journal={ACM SIGPLAN Notices},
+	volume={46},
+	number={4},
+	pages={53},
+	cite_category={ProgrammingLanguages},
+	annotate={Quickcheck an extended TDD library for haskell.}
+}
+
+@article{Clark:CommMilComp:89,
+	author={David Clark and David Wilson},
+	year={1989},
+	title={A Comparison of Commercial and Military Computer Security Policies},
+	journal={IEEE},
+	url={http://theory.stanford.edu/~ninghui/courses/Fall03/papers/clark_wilson.pdf},
+	cite_category={Background},
+	annotate={The Clark/Wilson model is another integrity model (c.f. Biba's model, as opposed to Bell and LaPadula's model which focused on confidentiality).  It is based on a model of data and transactions.
+
+All interactions (transactions) on constrained data items must conform to two sets of rules.  Operating on a triple of (user, process, {data}), each process consumes constrained or unconstrained data and produces constrained data.  The two rule-sets that enforce this are certification based (responsible for making sure the state of constrained data is valid, i.e. ``external integrity'') or enforcement based (responsible for the operation of the system, i.e. ``internal integrity'').}
+}
+
+@article{Clarkson:Hyperproperties:10,
+	author={M. Clarkson},
+	year={2010},
+	title={Hyperproperties},
+	journal={Journal of Computer Security},
+	volume={18},
+    pages={1157-1210},
+	url={https://www.cs.cornell.edu/fbs/publications/Hyperproperties.pdf},
+	cite_category={ProgrammingLanguages},
+	annotate={Hyperproperties are an extension of traces.  Traces are sequences of function and system calls.  These hyperproperties can be used to prove security properties, by simply noting what sequences of system calls are permittable at a given time, or in a given state.  Similar to the work on trace based verification applied to functional programs with monadic IO by Chlipala.}
+}
+
+@article{Concas:FractalSoftware:06,
+	author={G. Concas and M. F. Locci},
+	year={2006},
+	title={Fractal dimension in software networks   },
+	journal={Europhysics Letters},
+	volume={76},
+	number={6},
+	pages={1221},
+	url={http://iopscience.iop.org/0295-5075/76/6/1221/pdf/0295-5075_76_6_1221.pdf},
+	cite_category={QualityAssurance},
+	annotate={Looks at the network graph imposed by Object Oriented programming principles (such as inheritance, composition, polymorphism).  The graph is analysed using the ``box-counting'' method to calculate the fractal dimension of the two dimensional graph.  The dimension tells us how close to ``space filling'' a given curve is, which in turn relates to the complexity of the graph shape.}
+}
+
+@article{Coquand:CalcConstruct:86,
+	author={Thierry Coquand and G. Huet},
+	year={1986},
+	title={The calculus of construction},
+	journal={Technical Report 530 (INRIA, Centre de Rocquencourt)},
+	url={http://hal.inria.fr/docs/00/07/60/24/PDF/RR-0530.pdf},
+	cite_category={Background},
+	annotate={A higher-order (meaning the functions can take arguments that are themselves functions) typed  (meaning that all expressions must be resolvable to a data type) lambda calculus.  Serves as the basis for the Coq proof assistant system.  
+
+It is important that the typed lambda calculi feature the strong normalization property, which is to say that all computations terminate.  Without this feature, spurious ``proofs'' are possible (by relying on a non-terminating call).}
+}
+
+@book{Cormen:IntroToAlgos:01,
+	author={Thomas Cormen and Charles Leiserson and Ron Rivest and Clifford Stein},
+	year={2001},
+	title={Introduction to Algorithms},
+	publisher={MIT Press},
+	cite_category={Background},
+	annotate={Classic introduction to algorithms textbook.  Used as a reference for searching, sorting and graph manipulation algorithms.  Also includes asymptotic runtime analysis, such as ``big oh'' notation, techniques and results.}
+}
+
+@article{Datta:SecProtocols:05,
+	author={Anupam Datta and Ante Derek and John Mitchell and Dusko Pavlovic},
+	year={2005},
+	title={A derivation system and compositional logic  for security protocols},
+	journal={IOS Press, Journal of Computer Security},
+	pages={423},
+	url={http://seclab.stanford.edu/pcl/papers/ddmp-jcs05.pdf},
+	cite_category={Cryptography},
+	annotate={Discusses a framework permitting proofs of security of protocols composed of secure, ``off the shelf'' components.
+
+Uses a formal system based on ``cord calculus''.  Based on the pi and spi calculi.  Cords form a category with tuples of variables as objects and processes (from the calculus) as morphisms.
+
+Uses a ``Dolev-Yao'' model (developed to prove public key system security) to demonstrate safety against attacks as well as protocol flows included by design.}
+}
+
+@article{deMoura:Z3:08,
+	author={Leonardo de Moura},
+	year={2008},
+	title={Proofs and Refutations, and Z3},
+	journal={Proceedings of the LPAR Workshops, Knowledge Exchange: Automated Provers and Proof Assistants, and the 7th International Workshop on the Implementation of Logics},
+	volume={418},
+	cite_category={ProgrammingLanguages},
+	annotate={Discusses Z3, a Satisfiability Modulo Theories (SMT) solver.  Focused on satisfiability of predicate expressions.  As a programming system it is similar to Prolog, in that it is backwards chain driven.  A user states his or her goals, along with basic facts/axioms about the system, and the solver works to resolve or unify the goals and the facts.}
+}
+
+@article{Delahaye:Ltac:00,
+	author={David Delahaye},
+	year={2000},
+	title={A tactic language for the system {Coq}.},
+	journal={In Proceedings Logic for Programming and Automated Reasoning},
+	url={http://cedric.cnam.fr/~delahaye/papers/ltac%20(LPAR'00).pdf},
+	cite_category={ProgrammingLanguages},
+	annotate={Introduces a tactic library called Ltac for extending Coq's automatic proof abilities.  Tactics represent intermediate lemmas within Coq, including pattern matching suggestions for rewrite rules and other procedures used for proofs.  The language is fully Turing-complete, so it can extend the capabilities arbitrarily (using the Objective CAML language upon which Coq is built).}
+}
+
+@article{Denning:LatticeSecureFlow:76,
+	author={Dorothy Denning},
+	year={1976},
+	title={A Lattice Model of Secure Information Flow},
+	journal={Communications of the ACM},
+	volume={19},
+	number={5},
+	pages={236-243},
+	cite_category={Background},
+	annotate={Defines a formal model based on: a set of objects (files etc), processes (programs running on behalf of some agent); clearance levels; a mechanism to determine the resulting clearance level/classification of a combination of two objects; and a flow relationship operator (indicating the permission of information to flow from object A to B).
+
+Provides a proof that the structures defined in the model form a lattice (that is all entities have a concrete upper and lower bound).  
+
+Makes the observation that control flow analysis can be provided only given a model for conditional (``if'') statements.   Other branching and looping constructs are argued to be equivalent.}
+}
+
+@book{Denning:DataSec:82,
+	author={Dorothy Denning and Peter Denning},
+	year={1982},
+	title={Data Security},
+	publisher={Addison-Wesley},
+	url={http://www.gtnoise.net/papers/library/denning-data.pdf},
+	cite_category={Background},
+	annotate={Discusses data security in terms of access controls, flow controls and inference controls.
+
+The access control mechanisms in this paper are similar to those described by Harrison et al in the HRU model, and are compatible with Bell and LaPadula's formalism.
+
+Flow controls are an extension of access control mechanisms.  Based on clearances similar to Biba's integrity rules.  Since implicit flows can occur at all decision points in a program, register-level monitoring appears to be required to ensure flows have not ``leaked''.
+
+Inference controls typically arise from the use of (perhaps improperly) sanitized or aggregated data.}
+}
+
+@book{Doets:HaskellRoad:04,
+	author={Kees Doets},
+	year={2004},
+	title={The Haskell Road to Logic, Maths and Programming},
+	publisher={King's College Publications},
+	edition={1},
+	cite_category={ProgrammingLanguages},
+	annotate={Introductory text on math, logic proofs and programming.  All introduced in Haskell.}
+}
+
+@article{Dolev:SecPublicKey:83,
+	author={D. Dolev and A. Yao},
+	year={1983},
+	title={On the security of public-key protocols},
+	journal={IEEE Transactions on Information Theory},
+	volume={2},
+	number={29},
+	pages={198},
+	url={http://www.cs.huji.ac.il/~dolev/pubs/dolev-yao-ieee-01056650.pdf},
+	cite_category={Cryptography},
+	annotate={An algebraic/symbolic model.  Provides a framework for describing and analysing (attacking) cryptographic protocols.  Supports a simplified notion of the network/transmission medium.  Presumes an attacker may create arbitrary messages and read any messages.}
+}
+
+@article{Earl:IntrospectiveAnalysis:12,
+	author={C. Earl and M. Might},
+	year={2012},
+	title={Introspective Pushdown Analysis of Higher-Order Programs},
+	journal={ICFP},
+	url={http://arxiv.org/pdf/1207.1813.pdf; https://www.youtube.com/watch?v=HaPsYmOmgcI},
+	cite_category={QualityAssurance},
+	annotate={Introduces flow analysis for higher order programs.  This analysis is built to improve on static code analysis for bug-finding.  It can be viewed as halfway between static anaysis (which does not execute the code under inspection) and dynamic analysis (which inspects the code as it executes).  The approach is possible due to the strong type system in Haskell, which is used to reduce the overwhelming state space that needs to be searched for errors.}
+}
+
+@book{Eisenhower:Planning:57,
+	author={Dwight Eisenhower},
+	year={1957},
+	title={Public Papers of the Presidents of the United States},
+	publisher={National Archives and Records Service, Government Printing Office},
+	pages={818},
+	cite_category={Misc},
+	annotate={Public speech by Eisenhower, telling a story originating from the military.  The value of planning, despite the potential lack of utility of the actual plan.}
+}
+
+@book{Feathers:WEWLC:04,
+	author={Michael Feathers},
+	year={2004},
+	title={Working Effectively With Legacy Code},
+	publisher={Prentice Hall Professional},
+	cite_category={QualityAssurance},
+	annotate={Feathers does an excellent job describing the challenges in working on legacy systems, and some techniques to cope with the induced complexity.  He defines legacy systems as ones without automated test cases.  He concludes that such systems are brittle (prone to breaking during maintenance and changes).}
+}
+
+@article{Felty:Tacticals:93,
+	author={Amy Felty},
+	year={1993},
+	title={Implementing Tactics and Tacticals in a Higher-Order Logic Programming Language},
+	journal={Journal of Automated Reasoning},
+	volume={11},
+	number={1},
+	pages={43},
+	cite_category={Background},
+	annotate={Describes the augmentation of the lambda calculus to support building tactics for proof languages.  Requires a higher order langauge.  The term tactical refers to a tactic which takes a tactic as an argument, essentially a higher order tactic.}
+}
+
+@article{Fischer:SurvivalSkills:95,
+	author={BA Fischer and MJ Zigmond},
+	year={1995},
+	title={Survival skills for graduate school and beyond.
+},
+	journal={New Directions for Higher Education},
+	volume={101},
+	pages={29},
+	cite_category={Misc},
+	annotate={Describes some soft skills needed by grad students.  Encourages students to plan backwards to make sure they've determined their goals and to make sure the path they are on will lead to them.  Includes strategies for research/thesis planning and proposals.}
+}
+
+@article{Ford:Packrat:02,
+	author={Bryan Ford},
+	year={2002},
+	title={Packrat parsing:: simple, powerful, lazy, linear time, functional pearl},
+	journal={ICFP 02 Proceedings of the seventh ACM SIGPLAN international conference on Functional programming},
+	url={http://pdos.csail.mit.edu/~baford/packrat/thesis/},
+	cite_category={ProgrammingLanguages},
+	annotate={Packrat linear time parsers are described and implemented in Haskell.}
+}
+
+@book{Fowler:Refactoring:99,
+	author={Martin Fowler},
+	year={1999},
+	title={Refactoring. Improving the Design of Existing Code.},
+	publisher={Addison-Wesley},
+	cite_category={ProcessAndDesign},
+	annotate={Fowler's classic text on systematic, small-step improvement of source code.  Each step is small enough as to be (generally) automatic, and easily demonstrated to be correct.  The end result is a much larger change to the structure of the source code, without the risks incurred by making large changes all at once.  He also discusses code ``smells'', symptoms of code segments that are likely to cause problems.  He categorizes said smells and provides suggestions for improving the segments.}
+}
+
+@article{Galinsky:Power:06,
+	author={A. Galinsky and J. Magee and M. Inesi and D. Gruenfeld},
+	year={2006},
+	title={Power and Perspectives Not Taken.},
+	journal={Association for Psychological Science},
+	volume={17},
+	pages={1068},
+	cite_category={Misc},
+	annotate={Galinsky et al discuss the power dynamics in negotiations between power-imbalanced parties.}
+}
+
+@article{Goldwasser:OneTimePrograms:08,
+	author={S. Goldwasser},
+	year={2008},
+	title={One-Time Programs},
+	journal={CRYPTO LNCS 5157},
+	pages={39-56},
+	url={CRYPTO 2008, LNCS 5157, pp. 39–56, 2008.},
+	cite_category={Cryptography},
+	annotate={A mechanism to allow one-run programs.  Uses cryptographic techniques to enable a ``self destruct'' mechanism.  
+
+Comparable to hardware requirements for tamper-proofing (as described by the firmware modeling paper by Lotz et. al. where they describe the challenges in updating Bell and LaPadula's model to a microprocessor).}
+}
+
+@article{Goldwasser:ProvablySecureCrypto:90,
+	author={S. Goldwasser},
+	year={1990},
+	title={The search for provably secure cryptosystems},
+	journal={Proceeding, Symposium of Applied Math, Cryptology and Computational Number Theory},
+	volume={42},
+	pages={89-113},
+	cite_category={Cryptography},
+	annotate={Discusses Interactive Proofs and Zero Knowledge proofs.  Includes comparisons of information-theoretical security/perfect secrecy (per Shannon's ``Information Theory'') and Semantic and computationally secure systems.  Established research directions for secure cryptosystems given these inherent difficulties.}
+}
+
+@article{Gonthier:4Color:08,
+	author={Georges Gonthier},
+	year={2008},
+	title={Formal proof-the four-color theorem.},
+	journal={Notices of the American Mathematical Society},
+	volume={55},
+	number={11},
+	pages={1382},
+	cite_category={Theory},
+	annotate={The use of Coq to prove and formally verify the 4 color theorem.}
+}
+
+@article{Graham:Protection:72,
+	author={G. Graham and Peter Denning},
+	year={1972},
+	title={Protection - principles and practice},
+	journal={AFIPS Conf. Proceedings},
+	volume={40},
+	pages={417-429},
+	cite_category={OperatingSystems},
+	annotate={Defines a model based on an access control matrix.  Provides rules on how subjects can interact with objects.  
+
+Rules include creating and deleting subjects and objects.  Likewise granding read, access control matrix update, delete and transfer right permissions.  Note that in such a system it is undecidable in the general case whether a sequence of steps can add rules to an access matrix that might render it insecure.}
+}
+
+@book{Gratzer:Lattice:78,
+	author={G. Gratzer},
+	year={1978},
+	title={General lattice theory},
+	publisher={New York: Academic Press},
+	cite_category={Background},
+	annotate={Security and confidentiality levels often form a lattice.  This volume is a standard mathematic reference for such structures.
+
+Formally, a lattice is a partially ordered set with a least upper bound and a greatest lower bound.  
+
+These elements are used to establish high and low water marks for access.}
+}
+
+@article{Grune:PhilOfSci:14,
+	author={T. Grune-Yanoff},
+	year={2014},
+	title={Teaching philosophy of science to scientists: why, what and how. },
+	journal={Euro. Jnl. Phil. Sci.},
+	volume={4},
+	pages={115},
+	cite_category={Misc},
+	annotate={Teaching the philosophy of science.  Discussion of methodology, as well as the pertitent ``bounds'' or disciplines.  Useful in particular to know when we're crossing the line between science or math and philosophy.}
+}
+
+@article{Haley:FrameworkSecReq:08,
+	author={Charles Haley},
+	year={2008},
+	title={A Framework for Security Requirements Engineering},
+	journal={IEEE TRANSACTIONS ON SOFTWARE ENGINEERING},
+	volume={31},
+	number={1},
+	pages={133-153},
+	url={http://charles.the-haleys.org/papers/Haley-SESS06-p35.pdf},
+	cite_category={QualityAssurance},
+	annotate={Defines security goals in terms of protected target objects.  The paper describes the phases involved in determining targets and provides suggested phrasing of requirements.
+
+Conspicuously lacking is any mechanism for verifying or validating the requirements.  
+
+Does make the argument against merely classifying security requirements amongst non-functional requirements.  That is: make sure security requirements are ``active'' requirements, not just ``passive''.}
+}
+
+@book{Hansson:EncyclopediaOfPhil:14,
+	author={S. Hansson},
+	year={2014},
+	title={Science and Pseudoscience. The Stanford Encyclopedia of Philosophy.},
+	publisher={URL:http://plato.stanford.edu/entries/pseudo-science/.},
+	cite_category={Misc},
+	annotate={Encyclopedia of philosophy entry on pseudo-science.  Discusses issues in integrity of data reporting, misleading data.  Important notion is that of falsifiability (``Can the claim be refuted?'').}
+}
+
+@article{Harrison:ProtectionInOS:76,
+	author={Michael Harrison and Walter Ruzzo and Jeffrey Ullman},
+	year={1976},
+	title={Protection in Operating Systems},
+	journal={ACM},
+	volume={19},
+	number={8},
+	cite_category={OperatingSystems},
+	annotate={Harrison et al define a model (called the HRU model) for protection (meaning integrity of the access control matrix).  Based on Graham/Denning's model, which dealt with how to add/remove subjects/objects and update access control matrix securely.
+
+Modeled as a matrix (rows are subjects, columns are objects) containing the access rights at the time.  Compound operation of simple operations are bundled as a transaction - the whole being successful only if all the components are succesful.
+
+The authors note the general property of security (``can a finite sequence of commands add a right to previously empty cell?'') is undecidable.}
+}
+
+@article{Hicks:SecureTypedLangs:07,
+	author={Boniface Hicks},
+	year={2007},
+	title={SECURE SYSTEMS DEVELOPMENT USING SECURITY-TYPED LANGUAGES},
+	journal={Pennsylvania State University PhD dissertation},
+	url={https://etda.libraries.psu.edu/paper/8013/3303},
+	cite_category={ProgrammingLanguages},
+	annotate={From the abstract: ``This introduces a semantic gap between high-level, security policy semantics and the low-level, operational semantics of computer systems. Bridging this semantic gap by proving that high-level policy semantics are actually implemented in a computer system is a daunting problem."
+
+Looks at an extension to the Java programming language Jif, to support declarations of security labels (such as classification).  Also introduces JifClipse (eclipse plugins) to support Jif, including syntax highlighting, information flow highlighting and other features.
+
+Provides proofs of soundness of the type system developed to implement Jif.
+
+Looks at SELinux extensions, and their comparison to Jif.  
+
+Considers the challenges bridging from policy languages to implementation languages.  This is an important theme across many papers.}
+}
+
+@article{Hoare:AxiomaticBasis:69,
+	author={C. Hoare},
+	year={1969},
+	title={An Axiomatic Basis for Computer Programming},
+	journal={Communications of the ACM},
+	volume={12},
+	number={10},
+	url={http://www.spatial.maine.edu/~worboys/processes/hoare%20axiomatic.pdf},
+	cite_category={Background},
+	annotate={Describes Hoare logic, used for proving correctness of programs.  Based on pre-conditions and post-conditions along with rules for composition.  They are extended to form the basis of separation logic, employed by Reynolds et. al, and later the Ynot library for the Coq proof assistant.}
+}
+
+@article{Khedri:ProductFamilyAlgebra:11,
+	author={P. Hofner and R. Khedri and B. Moller},
+	year={2011},
+	title={An algebra of product families},
+	journal={Software and Systems Modeling},
+	volume={10},
+	number={2},
+	pages={161},
+	cite_category={Background},
+	annotate={An algebraic formulation of product families is given.  The product features are categorized into a tree structure  Multiple features are denoted by an operation analogous to multiplication, alternatives amongst features can be denoted by an operation akin to addition.  Similarly optional features are supported.  The whole model can then be implemented by a Haskell program, making use of monads to implement optional features.}
+}
+
+@article{Holler:FuzzFrags:12,
+	author={Christian Holler and Kim Herzig and Andreas Zeller},
+	year={2012},
+	title={Fuzzing with code fragments.},
+	journal={In Proc. USENIX Security},
+	pages={445-458},
+	url={https://www.youtube.com/watch?v=mCIog3FaGco},
+	cite_category={Attack},
+	annotate={Fuzzing is testing by generating inputs for functions/methods in code.  This is often done by randomly generating inputs.
+
+In this paper, fuzzing is done by generating valid code fragments according to the grammar of the target program language.  Uses multiples implementations of the system (in this case the javascript engine) to define the ``correct'' behavior.  This is important to know because when you generate randomized language fragments as input, you won't know ahead of time what they should evaluate to, or whether the errors they generate are for the ``right'' reasons.}
+}
+
+@article{Howard:CurryHowardIso:80,
+	author={W. Howard},
+	year={1980},
+	title={The formulae-as-types notion of construction},
+	journal={To H.B. Curry: Essays on Combinatory Logic, Lambda Calculus and Formalism. Academic Press Limited, 1980.},
+	pages={479},
+	cite_category={Background},
+	annotate={Introduction of the the Curry-Howard isomorphism of propositions/types as proofs.  In essence the correspondence shows us that if a program exists that transforms from type A (associated with a proposition X) to type B (associated with a proposition Y), then that program corresponds to a proof that X implies Y.  This idea is the core concept behind many proof systems, including Coq.}
+}
+
+@article{Isaak:ResearchPlan:99,
+	author={DJ Issak and WA Hubert},
+	year={1999},
+	title={Catalyzing the transition from student to scientist-a model for graduate research training.},
+	journal={Bioscience},
+	volume={49},
+	number={4},
+	pages={321},
+	cite_category={Misc},
+	annotate={Biosciences-focused article on a process for writing a research plan.  Talks about thesis topic selection, scoping, research plan, peer review, data collection, data analysis.   Assumes a data-heavy approach to a thesis (versus proof-oriented), but aspects such as verfiability and falsifiability still apply.}
+}
+
+@article{Jang:BrowserSecurity:12,
+	author={Dongseok Jang and Zachary Tatlock and Sorin Lerner},
+	year={2012},
+	title={Establishing Browser Security Guarantees through Formal Shim Verification},
+	journal={USENIX Security},
+	url={http://goto.ucsd.edu/quark/usenix12.pdf},
+	cite_category={ProgrammingLanguages},
+	annotate={Describes a formally verified microkernel within a web browser.  Uses the Coq proof assisstant and ``formal shim'' verification to keep verification effort manageable.  The ``shims'' isolate the secure formally verified kernel from the remainder of the system, which is not verified correct line by line.  This is roughly comparable to interace boundaries using a strict message passing architecture.  While they do not verify anything on the ``outside'' of the shim boundaries, they do prove that they cannot interfere with the browser kernel security.}
+}
+
+@article{Kantelhardt:DFA:01,
+	author={Jan Kantelhardt},
+	year={2001},
+	title={Detecting long-range correlations with detrended fluctuation analysis.},
+	journal={Elsevier Physica A},
+	volume={295},
+	pages={441},
+	cite_category={Background},
+	annotate={Improved detrended up to order N algorithm for long range persistence analysis in time series fluctuation (DFA).  This is used to detect patterns in time series and measure self affinity (a particular type of fractal analysis and self symmetry).  Uses a series of fractal measurements of variability and merges them into a single value (or multi-fractal DFA, MFDFA).}
+}
+
+@article{Klean:FormalKernel:09,
+	author={G. Klein},
+	year={2009},
+	title={seL4: Formal Verification of an OS Kernel},
+	journal={22nd ACM Symposium on Operating System Principles},
+	url={http://www.sigops.org/sosp/sosp09/papers/klein-sosp09.pdf},
+	cite_category={OperatingSystems},
+	annotate={Describes the use of the Isabelle proof assistant and a restricted C subset called CLight described by Leroy et. al. to create a formally verifiable kernel.  The kernel is based on the L4 microkernel.  The kernel is proven to be secure and the properties are verified automatically by the proof system.}
+}
+
+@article{Knuth:Goto:74,
+	author={D. Knuth},
+	year={1974},
+	title={Structured Programming with go to Statements},
+	journal={ACM Journal Computing Surveys},
+	volume={6},
+	number={4},
+	pages={268},
+	cite_category={Misc},
+	annotate={Knuth discusses programming using the goto statement for flow control.  Of particular interest is his oft quoted sentiment that premature optimization is the root of all evil.}
+}
+
+@article{Knuth:TAOCP3:73,
+	author={D. Knuth},
+	year={1973},
+	title={The Art of Computer Programming, Volume 3: Sorting and Searching.},
+	journal={Addison-Wesley},
+	volume={3},
+	cite_category={Background},
+	annotate={Volume 3 of Knuth's omnibus on computer programming.  Used here for an implementation of a simple hash function.  Also a standard reference for searching and sorting algorithms and their runtimes.}
+}
+
+@article{Knuth:EarlyLanguages:09,
+	author={Donald Knuth and Luis Pardo},
+	year={2009},
+	title={Early development of programming languages},
+	journal={Encyclopedia of Computer Science and Technology},
+	pages={419},
+	cite_category={ProgrammingLanguages},
+	annotate={EArly programming languages article}
+}
+
+@article{Kolmogorov:Complexity:98,
+	author={A. Kolmogorov},
+	year={1998},
+	title={On Tables of Random Numbers},
+	journal={Theoretical Computer Science},
+	volume={207},
+	number={2},
+	pages={387},
+	cite_category={Background},
+	annotate={Talks about Kolmogorov complexity, the amount of data required to reconstruct a stream.  This is related to Chaitin's notion of algorithmic information theory, which essentially merged this result with Shannon's information theory.}
+}
+
+@article{Konstantinidis:EditDistance:07,
+	author={S. Konstantinidis},
+	year={2007},
+	title={Computing the edit distance of a regular language.},
+	journal={Information and Computation},
+	volume={205},
+	pages={1307},
+	cite_category={Background},
+	annotate={Algorithm given to calculate the edit distance of a regular language.  Defined as the smallest edit distance between any two words in the language.  Proof that the distance can be calculated in polynomial time is given, based on the construction of a non-deterministic finite automaton (NDFA) encoding the edit operations along with the regular language specified by the base NDFA recognizing the regular language.  The edit distance is also the maximum number of errors a given language can detect.}
+}
+
+@article{Lamport:21stCentryProofs:12,
+	author={Leslie Lamport},
+	year={2012},
+	title={How to write a 21st century proof.},
+	journal={Journal of Fixed Point Theory and Applications},
+	volume={11},
+	number={1},
+	pages={43},
+	cite_category={Theory},
+	annotate={Structured formal language in proofs is discussed by turing award winning lamport}
+}
+
+@article{Landwehr:SecurityFlaws:94,
+	author={Carl Landwehr},
+	year={1994},
+	title={A Taxonomy of Computer Program Security Flaws, with Examples},
+	journal={ACM Computing Surveys},
+	volume={26},
+	number={3},
+	cite_category={Attack},
+	annotate={Landwehr tries to categorize security flaws in software systems.  
+
+Includes: domain errors (leaking data, incompletely destroying data); validation errors (handling untrusted input, mismanaging memory); naming errors (providing but not protecting multiple routes to data); and, serialization errors (including violated consistency assumptions such as transactionality or atomicity).
+
+Tries to answer 3 questions: ``how did it enter the system?''; ``when did it enter the system?''; and ``where in the system is it manifest?''.  Starting with each of these questions produces a different taxonomy.  This suggests a taxonomy might not be the ideal way to categorize/arrange data such as this.}
+}
+
+@article{Landwehr:FormalModels:81,
+	author={Carl Landwehr},
+	year={1981},
+	title={Formal Models for Computer Security},
+	journal={ACM Computing Surveys},
+	volume={13},
+	number={3},
+	url={http://winlab.rutgers.edu/~trappe/Courses/AdvSec05/LandwehrSecModels.pdf},
+	cite_category={Background},
+	annotate={A survey of formal models up to 1981.  
+
+Focuses on access matrix models, information flow models and those based on Bell and LaPadula.  
+Key point is the importance of precisely defining security (which in fact comes from each model).  Without the definition no assurance of security is possible.  The scope of the definitions dictates the utility and ultimate success of the model.}
+}
+
+@article{Leroy:FormalCompiler:09,
+	author={Xavier Leroy},
+	year={2009},
+	title={Formal verification of a realistic compiler},
+	journal={Communications of the ACM},
+	volume={52},
+	number={7},
+	pages={107},
+	cite_category={ProgrammingLanguages},
+	annotate={Introduces a formally verified Clight (a subset of the C language) to powerPC assembler compiler.  The portions of the C standard (ANSI) not included are mainly esoteric pieces of bit manipulation and pointer arithmetic not used by most programs.  Used in practice to build secure microkernels like seL4.}
+}
+
+@article{Linden:OSStructsForSecurity:76,
+	author={Theodore Linden},
+	year={1976},
+	title={Operating System Structures to Support Security and Reliable Software},
+	journal={National Bureau of Standards Technical Report 919},
+	url={http://csrc.nist.gov/publications/history/lind76.pdf},
+	cite_category={OperatingSystems},
+	annotate={Discusses structures required for operating systems to meet security goals.
+
+The approach is centered on ``small protection domains'' (to isolate security risks and simplify system designs) and ``extended type objects'' (to encode classifications and security policy data).
+
+Argues for the separation of policy enforcement from functionality, so that the failure of a given (sub)system does not effect the security of the overall system or other subsystems.
+
+Uses ``capability based addressing'' (related to setuid programs in POSIX) to limit overall privilege and access.}
+}
+
+@article{Lipton:LinearAlgoDecidingSec:77,
+	author={Richard Lipton and Lawrence Snyder},
+	year={1977},
+	title={A Linear Time Algorithm for Deciding Subject Security},
+	journal={Journal of the ACM},
+	volume={24},
+	number={3},
+	pages={455-464},
+	cite_category={Background},
+	annotate={Proves an algorithm for security on a take-grant based model is decidable in linear time.  Based on graph theory.  Take grant models make explicit the notions of discretionary access control (that is: runtime updating of an access control matrix or other access control structure).}
+}
+
+@inproceedings{Loscocco:InevitabilityFailure:01,
+	author={Peter Loscocco and Stephen Smalley},
+	year={2001},
+	title={The Inevitability of Failure: The Flawed Assumption of Security in Modern Computing Environments},
+	booktitle={Usenix},
+	url={http://www.nsa.gov/research/_files/publications/inevitability.pdf},
+	cite_category={Attack},
+	annotate={Notes that mandatory security as defined in the TCSec is ``insufﬁcient to meet the needs of either the Department of Defense or private industry as it ignores critical properties such as intransitivity and dynamic separation of duty''.
+
+Suggests that mandatory access controls including cryptographic data protection policies should have OS-level support.
+
+Argues that security must exist at every level, from the OS to the application level to the network stack.}
+}
+
+@article{Lotz:FormalModelHardware:00,
+	author={Volkmar Lotz and Volker Kessler and Georg Walter},
+	year={2000},
+	title={A Formal Security Model for Microprocessor Hardware},
+	journal={IEEE TRANSACTIONS ON SOFTWARE ENGINEERING},
+	volume={26},
+	number={8},
+	cite_category={OperatingSystems},
+	annotate={Formal model to be used for embedded systems and hardware level security.  Covers both integrity and confidentiality, without specifying particular operating system or application.  
+
+Uses a ``state transition automaton on infinite strucutures''. See Automata on Infinite Objects by Thomas for details.  Developed to enable an ``ITSEC QA level E4'' assurance ranking (a formal ranking similar to A2 in the older American standard Trusted Computer Systems Evaluation Criteria, both of which were later merged to become the Common Criteria).  
+
+Briefly discusses the need for self-desctructive CPUs (upon tamper detection).  Analogous mechanisms in the software space are discussed by Goldwasser in his paper on ``One time programs''.}
+}
+
+@article{Malecha:TraceVerification:09,
+	author={Gregory Malecha and Greg Morrisett and Ryan Wisnesky},
+	year={2009},
+	title={Trace Based Verification of Imperative Programs with I/O},
+	journal={Journal of Symbolic Computation. Vol 46, issue 2.},
+	volume={46},
+	number={2},
+	url={http://ynot.cs.harvard.edu/papers/jsc-wwv-10.pdf},
+	cite_category={ProgrammingLanguages},
+	annotate={Article on using traces of system calls to verify imperative programs.  The key idea is that certain types of calls should never cause other patterns of system calls to occur (for example, a failed authentication request should never cause a write to the password database).  Bridges a gap in functional programming languages (which lend themselves to analysis only when they are purely functional) by permitting the analysis of the imperitive (e.g. IO or side-effect driven) portions of the systems.}
+}
+
+@article{Martin:IntroTrustedComp:08,
+	author={Andrew Martin},
+	year={2008},
+	title={The ten-page introduction to  Trusted Computing},
+	journal={CS-RR-08-11, Oxford University},
+	cite_category={Background},
+	annotate={Discusses ``Trusted Computing Platforms'' as put forth by the Department of Defense in their ``rainbow series''.  Describes the architectural components necessary to achieve the platform.
+
+Three roots of trust are needed: measurement (a secured hash algorithm to confirm the integrity of the system); storage (a secure location to store a secret key or keys); and reporting (a secure location to store the identity of the platform).
+
+Next the paper describes the phases required to boot a secure system using the roots of trust described above.
+
+Finally discusses the impacts of the trusted platform on things like digital rights management, privacy, rights to freedom.}
+}
+
+@book{Martin:CleanCode:08,
+	author={Robert Martin},
+	year={2008},
+	title={Clean Code: A Handbook of Agile Software Craftsmanship},
+	publisher={Prentice-Hall},
+	cite_category={ProcessAndDesign},
+	annotate={Robert Martin describes characteristics of clean, maintainable codebases.  Discusses code ``smells'', tries to formalize certain intuitions about ``bad'' code.  Filled with examples of both ``good'' and ``bad`` code.}
+}
+
+@article{MartinLof:TypeTheory:84,
+	author={Per Martin-Lof},
+	year={1984},
+	title={Intuitionistic Type Theory},
+	journal={Bibliopolis.},
+	cite_category={ProgrammingLanguages},
+	annotate={Intuitionistic or constructive type theory is an alternative to the calculus of inductive constructions.
+It forms the basis for dependent types in programming languages.  Unlike Hindley-Milner languages where types and values are distinct, with this variant the line is blurred.}
+}
+
+@article{Maurer:CondPerfectSecrecy:92,
+	author={Ueli Maurer},
+	year={1992},
+	title={Conditionally-perfect secrecy and a provably secure randomized cipher.},
+	journal={Journal of Cryptology},
+	volume={5},
+	number={1},
+	pages={53-66},
+	cite_category={Cryptography},
+	annotate={Acknowledges Shannon's ``pessimistic theorem'' of secrecy - specifically that perfect secrecy requires a key length equal to the message length.
+
+This paper discusses a cipher that is provably secure with a shorter key length provided the attacker has ``finite memory capacity''.
+
+There is a probabilistic chance that a single bit can leak information about the plain text, but the probability can be manipulated to arbitrarily high levels.}
+}
+
+@article{Maximilien:TDDDefectRates:03,
+	author={Michael Maximilien},
+	year={2003},
+	title={Assessing test-driven development at {IBM}.},
+	journal={IEEE Software Engineering},
+	cite_category={QualityAssurance},
+	annotate={Shows the defect rate using TDD is 50\% lower than ad-hoc testing at IBM for that project.}
+}
+
+@article{McCabe:SoftwareComplexity:76,
+	author={Thomas McCabe},
+	year={1976},
+	title={A Complexity Measure},
+	journal={IEEE TRANSACTIONS ON SOFTWARE ENGINEERING},
+	pages={308},
+	cite_category={QualityAssurance},
+	annotate={The cyclomatic software complexity measure is introduced.  Based on the topological number of independent paths through a function.  Each and loop and conditional introduces a new path.  Gives a bound on the minimum number of test cases required to ``cover'' a function.  Note that this quantity is unbounded and not normalized.}
+}
+
+@article{McKinna:WhyDependent:06,
+	author={James McKinna},
+	year={2006},
+	title={Why dependent types matter},
+	journal={ACM SIGPLAN-SIGACT symposium on Principles of programming languages},
+	cite_category={ProgrammingLanguages},
+	annotate={McKinna and Brady discuss Epigram, a language based on martin-lof type theory, featuring dependent types.}
+}
+
+@article{McLean:SpecModelSec:90,
+	author={J. McLean},
+	year={1990},
+	title={The specification and modeling of computer security},
+	journal={IEEE Computer},
+	volume={23},
+	cite_category={Background},
+	annotate={Provides an argument from a mathematical modeling standpoint that there are gaps in Bell LaPadula's model.  Bell rebutts the argument arguing multiple definitions of the term ``model''.
+
+They key argument is that the simple *-property (simple security) is insufficient.  
+
+Between this paper and Bell's rebuttal it's clear that the definitions of security and the goals of the policies the models attempt to provide are the most important aspects of the model to clarify.  All results and assurances stem from the restrictions in the definitions.}
+}
+
+@article{McLean:AlgebraOfSec:88,
+	author={J. McLean},
+	year={1988},
+	title={The algebra of security},
+	journal={IEEE Symposium on Security and Privacy},
+	pages={18},
+	url={http://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=8092&isnumber=427},
+	cite_category={Background},
+	annotate={McLean develops a boolean algebra supporting mandatory and discretionary access control.  The framework forms a ``distributive lattice''.  A boolean algebra guarantees that any combination of controls based on subject or object will not introduce a new type, and the lattice structure guarantees a minimal and maximal type for each composition.}
+}
+
+@article{McLean:ReasoningAboutSecModels:87,
+	author={J. McLean},
+	year={1987},
+	title={Reasoning about Security Models},
+	journal={Proc. IEEE Symp. Security and Privacy},
+	pages={123-131},
+	cite_category={Background},
+	annotate={McLean discusses shortcomings of formal security models.  The paper focuses on Bell and LaPadula's model, but is not specific to their model alone.  
+
+His results ``cast doubt on... the fruitfulness of seeking global defintions of security''.
+
+He further notes that ``no explication of security can be based solely on the notion of a secure transition.  The concept of a secure initial state is always required.''}
+}
+
+@misc{Metzger:CaseFormalVerification:13,
+	author={Perry Metzger},
+	year={`gmane.comp.encryption.general' forum posting, 2013},
+	title={The Case for Formal Verification},
+	volume={2014},
+	cite_category={Misc},
+    annotate={A mailing list post decrying the perceived lack of formal verification in both practice and theory.  Reading this post was a crystalizing moment in my decision to pursue this research.  Discusses projects like the seL4 microkernel, the Coq proof assistant, the CompCert verified C compiler and Quark as success stories in formal verification.}
+}
+
+@article{Miller:OracleTesting:78,
+	author={Edward Miller and William Howden},
+	year={1978},
+	title={Software Testing and Validation Techniques},
+	journal={IEEE Computer Society Press},
+	pages={16},
+	cite_category={QualityAssurance},
+	annotate={Describes the use of Oracles in software testing to validate the correctness of output/behavior.}
+}
+
+@article{Moggi:Monads:93,
+	author={Eugenio Moggi},
+	year={1993},
+	title={Notions of computation and monads.},
+	journal={Information and Computation},
+	cite_category={Background},
+	annotate={Moggi introduces the idea of monads (borrowed from category theory).  Often used as an extension of the lambda calculus.  These permit encapsulation of IO and side effects.  A monad is like part of a mathematical group, where you get only a single binary operation and the assurance of associativity (but not, for example, commutativity).}
+}
+
+@article{Moggi:Monads:91,
+	author={Eugenio Moggi},
+	year={1991},
+	title={Notions of computation and monads.},
+	journal={Information and computation},
+	volume={93},
+	number={1},
+	pages={55},
+	annotate={Discussion of monads (an algebraic structure) with a single category style operation supporting associativity.}
+}
+
+@article{Morgenstern:SecurityTypes:10,
+	author={J. Morgenstern and D. Licata},
+	year={2010},
+	title={Security-typed programming within  dependently typed programming.},
+	journal={Proceedings of the 15th ACM SIGPLAN International Conference on Functional Programming},
+	pages={169},
+	cite_category={ProgrammingLanguages},
+	annotate={Security types in dependently typed languages.}
+}
+
+@book{Neumann:ProvablySecureOS:80,
+	author={Peter Neumann},
+	year={1980},
+	title={A Provably secure operating system : the system, its applications, and proofs},
+	publisher={SRI International, CSL-116},
+	edition={2nd},
+	cite_category={OperatingSystems},
+	annotate={The design, specification, implementation and proofs of security of an operating system are presented.  
+
+``The stepwise refinement method (as described by Dijkstra in `A case against the goto statement') allows a programmer to elaborate his concept of a program in suc­cessively finer detail and to make convincing arguments of the program's correctness. ''
+
+Section 8.2 discusses a recurring theme surrounding the success of security proofs being determined by the quality of the specifications -- the description of the desired (security) behaviours of the system.}
+}
+
+@article{NIST:SHA:12,
+	author={NIST},
+	year={2012},
+	title={FIPS PUB 180-4 Secure Hash Standard},
+	journal={NIST},
+	url={http://csrc.nist.gov/publications/fips/fips180-4/fips-180-4.pdf},
+	cite_category={Cryptography},
+	annotate={The formal specification of the secure hash algorithm family of message digests.  This tells us formally and completely what properties an implementation of SHA-256 (and other hash functions) must exhibit.}
+}
+
+@article{Norell:Agda:09,
+	author={Ulf Norell},
+	year={2009},
+	title={Dependently Typed Programming in Agda},
+	journal={Advanced Functional Programming Lecture Notes in Computer Science},
+	volume={5832},
+	pages={230},
+	cite_category={ProgrammingLanguages},
+	annotate={Discussion of the AGDA language, supporting dependent types.}
+}
+
+@article{Nuzzo:PValues:14,
+	author={R. Nuzzo},
+	year={2014},
+	title={Statistical errors: p-values, the 'gold standard' of statistical validity, are not as reliable as many scientists assume.},
+	journal={Nature},
+	volume={506},
+	pages={150},
+	cite_category={ProcessAndDesign},
+	annotate={Discusses the dangers of over-reliance on p values in stats.  Similarly one can get in trouble misunderstanding the scope of results or techniques.  The boundaries of techniques are where they tend to produce ``interesting'' results.}
+}
+
+@article{Paris:Peano:77,
+	author={J. Paris},
+	year={1977},
+	title={A mathematical incompleteness in Peano arithmetic},
+	journal={Studies in Logic and the Foundations of Mathematics},
+	cite_category={Theory},
+	annotate={Peano arithmetic}
+}
+
+@article{Paulson:VerifyingCryptoProtocols:98,
+	author={L. Paulson},
+	year={1998},
+	title={The Inductive Approach to Verifying Cryptographic Protocols},
+	journal={Journal of Computer Security},
+	volume={6},
+	pages={85-128},
+	cite_category={Cryptography},
+	annotate={From the abstract: ``based on predicate calculus and copes with infinite state systems. Proofs are generated using Isabelle/HOL''.
+
+Discusses the security goals of secrecy and authenticity, but not denial of service.  
+
+Notes two formal mechanisms for protocol analysis including an exhaustive state search, and ``belief logic'' (which deal with potential inferences attackers may make from messages).
+
+In this paper protocols are described as traces (series of messages), and inductively proven using the Isabelle automated theorem proving system.}
+}
+
+@article{Paulson:Isabelle:89,
+	author={L. Paulson},
+	year={1989},
+	title={The foundation of a generic theorem prover.},
+	journal={Journal of Automated Reasoning},
+	volume={5},
+	number={3},
+	pages={363},
+	cite_category={ProgrammingLanguages},
+	annotate={Introduces the Isabelle theorem proving assistant.  Built on top of ML and supports higher order logic (HOL).  Usage described in a later paper called ``The Inductive Approach to Verifying Cryptographic Protocols.''}
+}
+
+@book{Peitgen:FractalsForClassroom:91,
+	author={Heinz-Otto Peitgen},
+	year={1991},
+	title={Fractals for the Classroom.  Part one, Introduction to Fractals and Chaos.},
+	publisher={Springer-Verlag},
+	cite_category={Background},
+	annotate={An introduction to fractals, self-similarity, multi-scale analysis and feedback loops.  Provides means for addressing and measuring complexity and space-filling properties.  Cited here to help understand fractal complexity analysis as may be applied to a software metric.}
+}
+
+@book{Pfleeger:SecInComp:06,
+	author={Charles Pfleeger},
+	year={2006},
+	title={Security in Computing, 4th ed.},
+	publisher={Prentice Hall},
+	edition={4},
+	url={http://rvrjcce.ac.in/ksm/sc.pdf},
+	cite_category={Background},
+	annotate={Textbook on general computer security.  Includes chapters on network/operating system/database security.  
+
+Of particular interest is chapter 5 on ``Designing Trusted Operating Systems''.  A trusted system by this context is built by developing a policy, from which is built a model, from which the system is designed, and finally assurance (whereby the implemented system is shown to correspond to the model and thus the policy).
+
+The chapter maintains a distinction between military and commercial security policies (c.f. Bell and LaPadula's confidentiality model and Biba's integrity model).}
+}
+
+@article{Pierce:SoftwareFoundations:13,
+	author={Benjamin Pierce},
+	year={2013},
+	title={Software Foundations},
+	journal={Course notes, online at http://www.cis.upenn.edu/~bcpierce/sf},
+	url={http://www.cis.upenn.edu/~bcpierce/sf/},
+	cite_category={ProgrammingLanguages},
+	annotate={Text describing the Coq proof assistant system.  Includes sections on other styles of automated theorem provers, formal logic and functional programming.  Coq is based on Coquand's work on the Calculus of Inductive Constructions.  It is fully extendable by the LTac proof tactic definition library.  Can be used to prove theorems about the models, which are both runnable within the system and extractable to other languages (such as OCaml and Haskell).}
+}
+
+@article{Symantec:BreachCosts:13,
+	author={Ponemon Institute},
+	year={2013},
+	title={2013 Cost of Data Breach Study: Global Analysis},
+	journal={Symantec Whitepapers},
+	url={https://www4.symantec.com/mktginfo/whitepaper/053013_GL_NA_WP_Ponemon-2013-Cost-of-a-Data-Breach-Report_daiNA_cta72382.pdf},
+	cite_category={Misc},
+	annotate={Summary of costs associated with data security breaches.}
+}
+
+@book{Portoraro:AutomatedReasoning:01,
+	author={Frederic Portoraro},
+	year={2001},
+	title={Automated Reasoning. The Stanford Encyclopedia of Philosophy.},
+	publisher={URL:http://plato.stanford.edu/entries/reasoning-automated/.},
+	cite_category={Background},
+	annotate={Encyclopedia of philosophy.  Short introduction to automated reasoning.  The topic and approach are similar in theoretical background to theorem provers/proof assistants.  Gives a general introduction to the field, along with the history of its development.}
+}
+
+@article{Provos:PrivEscalation:03,
+	author={Niels Provos},
+	year={2003},
+	title={Preventing Privilege Escalation},
+	journal={Proceedings of the 12th USENIX Security Symposium},
+	pages={231},
+	cite_category={OperatingSystems},
+	annotate={Discusses the application programming interface (API) for BSD (a family of unix variants) Authentication, as used by the open source system OpenBSD.  Privilege separation and strict interprocess communication (IPC) rules enable minimal privileges.}
+}
+
+@article{Prowell:CleanRoom:99,
+	author={Stacy Prowell},
+	year={1999},
+	title={Cleanroom Software Engineering: Technology and Process},
+	journal={Addison-Wesley},
+	cite_category={QualityAssurance},
+	annotate={Clean room software engineering process described.}
+}
+
+@book{Puterman:MarkovProcesses:05,
+	author={Martin Puterman},
+	year={2005},
+	title={Markov Decision Processes Discrete Stochastic Dynamic Programming},
+	publisher={Wiley Interscience},
+	cite_category={Background},
+	annotate={Textbook on Markov processes.  Markov processes are state machines where transitions are probabalistic.  Additionally the probabilities, are such that the past history of state transitions do not influence the probability of the next transition.  The decision process variety involves constructing a decision making policy based on the probabilities for transitions.  In some cases the decision process variety deals with variants that do not have full observability (that is: those whose states are not necessarily known to the policy maker).  The latter is used to model attack planning, as it premits formalizing the uncertainty of target machine configuration.}
+}
+
+@book{Raatikainen:Goedel:13,
+	author={Panu Raatikainen},
+	year={2013},
+	title={Goedel's Incompleteness Theorems. The Stanford Encyclopedia of Philosophy.},
+	publisher={URL: http://plato.stanford.edu/entries/goedel-incompleteness/.},
+	cite_category={Background},
+	annotate={Encyclopedia of philosophy.  Section on Goedel's incompleteness theorems.  Essentially an introduction to the limits of mathematics and formal systems.  Useful to keep theoretical work grounded to what might be possible.}
+}
+
+@article{Radjenovic:SoftwareMetrics:13,
+	author={Danijel Radjenovic},
+	year={2013},
+	title={Software fault prediction metrics: A systematic literature review},
+	journal={Information and Software Technology},
+	volume={55},
+	number={8},
+	pages={1397},
+	cite_category={QualityAssurance},
+	annotate={Survey of software fault prediction metrics.  Most of them are based on object oriented languages and deal with measurements of coupling between objects, inheritors, polymorphism and the like.  Some are broader, like the classical McCabe metric, which operates at the procedure/method/function level, and counts the loops and conditional statements.  Discusses the boundary between metrics and static analysis (of which metrics are a type, but static analysis is a broader topic).  Metrics in this case have the property of quantifying a qualitative aspects of systems.  Some are normalized and bounded, where others are unbounded and harder to compare.  Most do not apply across languages.}
+}
+
+@article{Reardon:SecureDataDeletion:10,
+	author={Joel Reardon and David Basin and Srdjan Capkun},
+	year={2010},
+	title={SoK: Secure Data Deletion},
+	journal={Institute of Information Security, Zurich},
+	cite_category={Attack},
+	annotate={Discussion on techniques to securely delete data.  Includes approaches that differ based on the ``level'' at which they operate (e.g. application level, device driver level, physical level,etc).
+
+The security is evaluated given levels of sophistication available to an attacker.  This adversarial model includes levels from physical access to ``keyboard'' driven (or software based) recovery.}
+}
+
+@article{Reynolds:SepLogic:02,
+	author={J. Reynolds},
+	year={2002},
+	title={Separation Logic: A Logic for Shared Mutable Data Structures},
+	journal={IEE Computer Society, Logic in Computer Science},
+	url={http://www.cs.cmu.edu/~jcr/seplogic.pdf},
+	cite_category={ProgrammingLanguages},
+	annotate={Presents a separation logic, extends the notion of Hoare triples.  Separation logic mainly deals with separating proof details about heap and pointer manipulation from the rest of a program flow.   As with Hoare triples, each computation contains a precondition and a postcondition, however in this case these are typically assertions about the state of the heap before and after a computation.  Implemented for the Coq proof assistant in the Ynot library.}
+}
+
+@article{Ricketts:ProofAssistant:14,
+	author={Daniel Ricketts},
+	year={2014},
+	title={Automating Formal Proofs for Reactive Systems},
+	journal={PLDI 14},
+	url={https://www.youtube.com/watch?v=phwVo66aChc},
+	cite_category={ProgrammingLanguages},
+	annotate={Proof assistant software verification.  Talks about strengths of software systems built using proof assistants.  Also talks about why this is not more widespread.}
+}
+
+@article{Rowland:InformationHidingInIP:97,
+	author={Craig Rowland},
+	year={1997},
+	title={Covert Channels in the TCP/IP Protocol Suite},
+	journal={First Monday},
+	volume={2},
+	number={5},
+	url={http://firstmonday.org/ojs/index.php/fm/article/view/528/449},
+	cite_category={Attack},
+	annotate={A new way to accomplish information hiding (steganography).  Using protocol headers in packets.  This is important in the data exfiltration phase of the attack planning process.  Getting data out  without detection is sometimes more challenging than illicitly obtaining the data in the first place.}
+}
+
+@article{Sabelfeld:LangBasedFlowSec:03,
+	author={A. Sabelfeld},
+	year={2003},
+	title={Language-Based Information-Flow Security},
+	journal={IEEE JOURNAL ON SELECTED AREAS IN COMMUNICATIONS},
+	volume={21},
+	number={1},
+	url={http://www.cse.chalmers.se/~andrei/jsac.pdf},
+	cite_category={ProgrammingLanguages},
+	annotate={A survey of information flow enforcement techniques built into programming languages.  Based on annotations on methods, which add metadta similar to debugger instrumentation.  Gives hints to the compiler/interpreter about what legal paths (including assignments, returns, argument passing and the like) data can follow.}
+}
+
+@article{Sarraute:PenTestIsPOMDMP:13,
+	author={Carlos Sarraute},
+	year={2013},
+	title={Penetration Testing == POMDP Solving?},
+	journal={Core Security},
+	url={http://arxiv.org/pdf/1306.4714.pdf},
+	cite_category={Attack},
+	annotate={Studies approaches to automated attack planning.  Observes the problem is in some ways reducible to partially observable markov decision processes (POMDP) solving.  That is: finding an optimal control scheme despite operating in a network not all states nor transitions are known or observable (and thus exist as a probability space).  He concludes that this approach is still not sufficient, but does represent an improvement on the state of the art.}
+}
+
+@article{Sarraute:AutomatedAttackPlan:12,
+	author={Carlos Sarraute},
+	year={2012},
+	title={Automated Attack Planning},
+	journal={Instituto Tecnologico de Buenos Aires},
+	url={http://arxiv.org/pdf/1307.7808.pdf},
+	cite_category={Attack},
+	annotate={Sarraute argues that a model for penetration testing that acknowledges the unknown portions of the process is more accurate than just ignoring them.  Partially observable markov decision processes allow the scanning portion of attack planning to be modeled explicitly.}
+}
+
+@article{Sassaman:SecurityApplicationsFormalLang:11,
+	author={Len Sassaman and Meredith Patterson and Sergey Bratus and Michael Locasto and Anna Shubina},
+	year={2011},
+	title={Security Applications of Formal Language Theory},
+	journal={Dartmouth Computer Science Technical Report TR2011-709},
+	url={http://langsec.org/papers/langsec-tr.pdf},
+	cite_category={Theory},
+	annotate={Notes the role of the formal languages in the chomsky hierarchy in securing systems and in offensive security}
+}
+
+@article{Schneider:EnforceablePolicies:00,
+	author={F. Schneider},
+	year={2000},
+	title={Enforceable Security Policies},
+	journal={ACM Transactions on Information and System Security},
+	volume={3},
+	number={1},
+	pages={30},
+	url={https://www.cs.cornell.edu/fbs/publications/EnfSecPols.pdf},
+	cite_category={ProcessAndDesign},
+	annotate={Provides automata-theoretic models and proofs using them to show what policies can be enforced by a monitoring system.  This is an important step because many policies only exist ``on paper'' and thus are only manually enforceable, if at all.}
+}
+
+@book{Schwaber:SCRUM:01,
+	author={Ken Schwaber and Mike Beedle},
+	year={2001},
+	title={Agile Software Development with SCRUM},
+	publisher={Prentice Hall},
+	edition={1st},
+	cite_category={ProcessAndDesign},
+	annotate={Project management textbook.  Schwaber's introduction to the SCRUM software development lifecycle process.  Deals with agile project, release and vision planning.  Also discusses technical processes, very similar to the XP tenets described by Beck.}
+}
+
+@article{Shannon:SecrecySystems:49,
+	author={Claude Shannon},
+	year={1949},
+	title={Communication Theory of Secrecy Systems},
+	journal={Bell Systems Technical Journal},
+	url={http://en.wikipedia.org/wiki/One-time_pad},
+	cite_category={Cryptography},
+	annotate={Defines notion of perfect secrecy.  Vernam ciphers and One-time-pads are essentially equivalent to any perfectly secret system.  Depends on the key size being equal to the message size and perfectly random.
+
+Formal definitions of a ``secrecy system'' are given.  Since this result requires such a large key size, it is not practical in most cases and most research has moved towards ``computationally secure'' systems, rather than pursuing perfect secrecy.}
+}
+
+@book{Sipser:TheoryOfComputation:07,
+	author={Michael Sipser},
+	year={2007},
+	title={Theory of Computation},
+	publisher={CEngage Learning},
+	address={India},
+	cite_category={Background},
+	annotate={Textbook covering automata theory.  Specifically used for canonical formatting and statements of standard theoretical constructs.  Including: finite state machines, context free grammars, complexity theory and proof techniques for the aforementioned constructs.}
+}
+
+@article{Sondik:POMDP:71,
+	author={E. Sondik},
+	year={1971},
+	title={The optimal control of partially observable Markov processes},
+    journal={STANFORD UNIVERSITY TECHNICAL REPORT},
+	cite_category={Attack},
+	annotate={The key idea is converting a continuous state markov process into a finite (albeit large) markov process is infeasible.  So uses dynamic programming to find the ``hyperplanes for the optimal policy region''.  Markov processes occur in attack planning scenarios because we have incomplete knowledge of their state.}
+}
+
+@article{Spishak:RegexTypeSystem:12,
+	author={Eric Spishak and Werner Dietl and Michael Ernst},
+	year={2012},
+	title={A type system for regular expressions},
+	journal={Formal Techniques for Java-like Programs},
+	cite_category={ProgrammingLanguages},
+	annotate={Amendments via annotations to the Java programming langauge API for regular expressions.  Also type checking to detect certain classes of misuse of regular expressions.}
+}
+
+@article{Stemwedel:WhatIsPhilSci:14,
+	author={J. D. Stemwedel},
+	year={2014},
+	title={What is philosophy of science (and should scientists care)?},
+	journal={"Doing Good Science" Blog. Scientific American Blog Network. URL:http://blogs.scientificamerican.com/doing-good-science/2014/04/07/what-is-philosophy-of-science-and-should-scientists-care/.},
+	cite_category={Misc},
+	annotate={Blog post of the philosophy of science.  Discusses some of the nature of ``good'' versus ``bad'' science.  Includes, but is not limited to pseudoscience, nor mere falsifiability as described by Popper.}
+}
+
+@article{Suteanu:ArticWind:14,
+	author={Cristian Suteanu},
+	year={2014},
+	title={Pattern Variability in Arctic Air Temperature Records},
+	journal={Surveys in Geophysics},
+	volume={35},
+	pages={1215},
+	cite_category={Misc},
+	annotate={Discusses the application of fractal multi-scale analysis to arctic wind patterns.  Uses the Haar wavelet approach as well as detrended fluctuation analysis.  The same techniques can be applied to study complexity in source code, perhaps leading to the development of a complexity metric.}
+}
+
+@article{Suteanu:AirTemps:14,
+	author={Cristian Suteanu},
+	year={2014},
+	title={Statistical Variability and Persistence Change in Daily Air Temperature Time Series  from High Latitude Arctic Stations},
+	journal={Pure Appl. Geophys.},
+	cite_category={Misc},
+	annotate={Haar wavelet and detrended fluctuation analysis of air temperature patterns.  Shows what the state of the art looks like for pattern analyses in time series data.  Can be used to interpret access patterns in network traffic, server load and similar time-series datasets.}
+}
+
+@article{Thomas:AutomataOnInfiniteObj:90,
+	author={W. Thomas},
+	year={1990},
+	title={Automata on Infinite Objects},
+	journal={Handbook of Theoretical Computer Science},
+	volume={B},
+	cite_category={Background},
+	annotate={Covers automata theory over infinite structures.  Contrasted with standard models which assume finite sets.  Used by Lotz to extend Bell's model to cope with the massive size of the state space graph when updating the original to work in the context of a microprocessor (without benefit of an operating system).}
+}
+
+@article{Thompson:TrustingTrust:84,
+	author={K. Thompson},
+	year={1984},
+	title={Reflections on trusting trust},
+	journal={Communications of the ACM},
+	volume={27},
+	number={8},
+	url={http://cm.bell-labs.com/who/ken/trust.html},
+	cite_category={Attack},
+	annotate={Turing award lecture on the chains of trust we rely on in software.  Trust is built by layers, and each tool used in the production of a system has its own network of trust assumptions.
+
+Discusses a ``theoretical'' quine (self-outputting program) to be inserted in a compiler.  The quine would detect the compilation of a login program, and insert a backdoor.  It would also detect the compilation of a compiler, and insert the login backdoor login and the compiler tampering logic.
+
+A compiler compiled by this bugged compiler would then indefinitely produce the backdoors in both classes of programs, with no source-level mechanism to detect the tampering.}
+}
+
+@article{Tsim:ISO9000:02,
+	author={Y. Tsim},
+	year={2002},
+	title={An adaptation to ISO 9001:2000 for certified organisations},
+	journal={Managerial Auditing Journal},
+	volume={17},
+	number={5},
+	pages={245},
+	cite_category={QualityAssurance},
+	annotate={Tsim describes the use of ISO9001 for organizations}
+}
+
+@article{Turing:ComputableNumbers:37,
+	author={A. Turing},
+	year={1937},
+	title={On Computable Numbers, with an Application to the {Entscheidungsproblem}},
+	journal={Proceedings of the London Mathematical Society},
+	volume={2},
+	number={42},
+	pages={230},
+	cite_category={Theory},
+	annotate={Turing computable numbers (basis of the recursively enumerable class, aka turing machine recognizable).}
+}
+
+@article{Valverde:SmallWorlds:03,
+	author={Sergi Valverde},
+	year={2003},
+	title={Hierarchical Small-Worlds in Software Architecture},
+	journal={Santa Fe Inst. Working Paper},
+	url={http://arxiv.org/pdf/cond-mat/0307278.pdf},
+	cite_category={QualityAssurance},
+	annotate={Fractal dimension in software systems.  Not quite established as a metric, but still provides a certain measure of complexity.  Focused on object oriented software, by virtue of the network graph implied by the structure of the objects in the system.}
+}
+
+@book{vonPlato:Proof:08,
+	author={Jan von Plato},
+	year={2008},
+	title={Proof Theory. The Stanford Encyclopedia of Philosophy.},
+	publisher={URL: http://plato.stanford.edu/entries/proof-theory-development/.},
+	cite_category={Background},
+	annotate={Encyclopedia of philosophy.  Section on proof theory.  This is the basis for automated proof systems, discusses foundational issues at the heart of the effort.}
+}
+
+@article{Wadler:Propositions:12,
+	author={Philip Wadler},
+	year={2012},
+	title={Propositions as sessions},
+	journal={ACM SIGPLAN Notices.},
+	volume={47},
+	number={9},
+	cite_category={Theory},
+	annotate={Wadler talks about intuitionistic lambda calculus/type theory.  Discusses implications on polymorphism and dependent types as extensions of the curry howard correspondence.}
+}
+
+@article{Wadlow:WhoTrust:14,
+	author={Thomas Wadlow},
+	year={2014},
+	title={Who Must You Trust?},
+	journal={ACM Queue},
+	volume={12},
+	number={5},
+	url={http://queue.acm.org/detail.cfm?id=2630691},
+	cite_category={Attack},
+	annotate={Talks about the network of trust required to operate a system.  From vendors, to internal developers/administrators, to clients.  Considers the implications of trusting a person or system: that you now implicitly trust what or whom they trust.  
+
+Discusses certain mitigating techniques and case studies where they were not applied (and the issues that arose from missing that).}
+}
+
+@article{Wash:FolkModels:10,
+	author={Rick Wash},
+	year={2010},
+	title={Folk Models of Home Computer Security},
+	journal={Symposium on Usable Privacy and Security (SOUPS)},
+	cite_category={Attack},
+	annotate={A study of ``mental models'' of security.  Typically looking at end-user, non-professional network and system security.
+
+The ubiquitousness of home networks (wired and wireless) of heterogenous devices makes these models more and more prevalent.  
+
+Discusses models of security threats such as viruses and hackers.  Discusses models of security for typical vectors of attack such as web and email.
+
+It is worth noting in this case that the term ``model'' does not carry the mathematical weight (nor associated formality or proofs) that other models studied have.}
+}
+
+@article{Weirich:DependentTypes:12,
+	author={Stephanie Weirich},
+	year={2014},
+	title={Depending on types.},
+	journal={Proceedings of the 19th ACM SIGPLAN international conference on Functional programming},
+	cite_category={ProgrammingLanguages},
+	annotate={Discusses whether Haskell qualifies, what Haskell offers to dep. type languages, and what it can take from them.}
+}
+
+@article{Wheeler:PreventingHeartbleed:14,
+	author={David Wheeler},
+	year={2014},
+	title={Preventing Heartbleed},
+	journal={IEEE Computer},
+	volume={47},
+	number={8},
+	pages={80},
+	cite_category={ProcessAndDesign},
+	annotate={Wheeler discusses the Heartbleed bug in the OpenSSL library.  He focuses on prevention techniques including static and dynamic code analysis, heap and stack protection mechanisms and other tactics.  Concludes tactics that facilitate manual reviews are the mitigation that would have been likely to reveal bugs like Heartbleed (which in fact is how it was found, albeit extremely late).}
+}
+
+@article{White:ReusableData:13,
+	author={E. White},
+	year={2013},
+	title={Nine simple ways to make it easier to (re)use your data.},
+	journal={Ideas in Ecology and Evolution},
+	volume={6},
+	pages={1},
+	cite_category={Misc},
+	annotate={Discusses ways to format/store data such that it is reusable by others.  Many theoretical concepts from databases like sentinel values/normal forms are addressed.  Along with the strategy of record-oriented data storage and transformations into schemas useful for later manipulation.}
+}
+
+@book{Rand:StatisticalRobustness:05,
+	author={Rand Wilcox},
+	year={2005},
+	title={Introduction to robust estimation and hypothesis testing.},
+	publisher={Academic Press},
+	cite_category={Background},
+	annotate={Textbook discussing robustness of statistical methods and values.   In particular talks about the R-value, and how outliers can skew the results.  Gives a sense of the limits of statistical analysis.  Especially useful to non-statisticians.}
+}
+
+@book{Wilson:BeautifulCode:07,
+	author={Greg Wilson},
+	year={2007},
+	title={Beautiful Code: Leading Programmers Explain How They Think.},
+	publisher={O'Reilly},
+	cite_category={QualityAssurance},
+	annotate={A series of well-known programmers describe code they believe to be beautiful, each with their own biases and reasons for that consideration.  A contrast to many other books and writers (such as Beck and Fowler) that are focused on negative aspects of code (like ``smells'' and antipatterns).}
+}
+
+@article{Wilson:Authorship:85,
+	author={Jr Winston  R.B.},
+	year={1985},
+	title={A suggested procedure for determining order of authorship in research publications.},
+	journal={Journal of Counseling and Development},
+	volume={63},
+	pages={515},
+	cite_category={Misc},
+	annotate={American Psychology Association guidelines for assigning authorship order.  Based on a number of quality points such as literature review, research design and manuscript editing.}
+}
+
+@article{Xi:PracticalDepTypes:99,
+	author={Hongwei Xi and Frank Pfenning},
+	year={1999},
+	title={Dependent Types in Practical Programming},
+	journal={ACM Symposium on Principles of Programming Languages},
+	cite_category={ProgrammingLanguages},
+	annotate={Variant of ML to support an early version of dependent types.}
+}
+
+@book{Zalta:Encyclopedia:14,
+	author={E. N. Zalta},
+	year={2014},
+	title={Stanford Encyclopedia of Philosophy.},
+	publisher={URL: http://plato.stanford.edu/.},
+	cite_category={Misc},
+	annotate={Encyclopedia of Philosophical concepts.}
+}
+
+@article{Zuckerberg:AnalysisParalysis:08,
+	author={B. Zuckerberg and JP Gibbs},
+	year={2008},
+	title={Overcoming ``analysis paralysis''.},
+	journal={Frontiers in Ecology and the Environment},
+	volume={6},
+	pages={505},
+	cite_category={Misc},
+	annotate={Discusses how to start analysing data, when it seems very overwhelming.  Includes tips about organization, potential first steps and other tweaks.}
+}
+
+@book{Berstel:TheoryOfCodes:85,
+    title={Theory of codes},
+    author={Berstel, Jean and Perrin, Dominique},
+    volume={117},
+    year={1985},
+    publisher={Academic Press}
+}
+
+@book{Shallit:FormalLangTheory:09,
+    title={A second course in formal languages and automata theory},
+    author={Shallit, Jeffrey Outlaw},
+    volume={179},
+    year={2009},
+    publisher={Cambridge University Press Cambridge}
+}
+
+@book{Norvig:GeneralProblemSolver:92,
+    title={The General Problem Solver},
+    author={Norvig, Peter},
+    volume={3},
+    year={1992},
+    publisher={Morgan Kaufmann}
+}
+
+@book{Graham:OnLisp:94,
+    title={On lisp},
+    author={Graham, Paul},
+    year={1994},
+    publisher={Prentice Hall}
+}
+
+@book{Stroustrup:Cpp:86,
+    title={The C++ programming language},
+    author={Stroustrup, Bjarne},
+    year={1986},
+    publisher={Pearson Education India}
+}
+
+@book{Matsumoto:Ruby:02,
+    title={Ruby programming language},
+    author={Matsumoto, Yukio and Ishituka, K},
+    year={2002},
+    publisher={Addison Wesley Publishing Company}
+}
+
+
+@book{Jones:Haskell:03,
+    title={Haskell 98 language and libraries: the revised report},
+    author={Jones, Simon L Peyton},
+    year={2003},
+    publisher={Cambridge University Press}
+}
+
+@book{Kernighan:C:88,
+    title={The C programming language},
+    author={Kernighan, Brian W and Ritchie, Dennis M},
+    volume={2},
+    year={1988},
+    publisher={Prentice-Hall Englewood Cliffs}
+}
+
+@book{Bourbaki:Algebra:98,
+    title={Algebra I: chapters 1-3},
+    author={Bourbaki, Nicolas},
+    year={1998},
+    publisher={Springer Science \& Business Media}
+}
+
+@article{Levenshtein:EditDist:66,
+    title={Binary codes capable of correcting deletions, insertions, and reversals},
+    author={Levenshtein, Vladimir I},
+    journal={Soviet physics doklady},
+    volume={10},
+    number={8},
+    pages={707--710},
+    year={1966}
+}
+
+
+@inproceedings{Krishnaswami:LinearDepTypes:15,
+    author = {Krishnaswami, Neelakantan R. and Pradic, Pierre and Benton, Nick},
+    title = {Integrating Linear and Dependent Types},
+    journal = {Proceedings of the 42Nd Annual ACM SIGPLAN-SIGACT Symposium on Principles of Programming Languages},
+    year = {2015}
+} 
+
+@article {Almeida:VerifiedComputation:14,
+	title = {Verified Implementations for Secure and Verifiable Computation},
+	volume = {456},
+	year = {2014},
+	month = {June},
+	publisher = {HASLab/INESC TEC \& University of Minho},
+	institution = {HASLab/INESC TEC \& University of Minho},
+	address = {Braga, Portugal},
+	abstract = {<p>Formal verification of the security of software systems is gradually moving from the traditional focus on idealized models, to the more ambitious goal of producing verified implementations. This trend is also present in recent work targeting the verification of cryptographic software, but the reach of existing tools has so far been limited to cryptographic primitives, such as RSA-OAEP encryption, or standalone protocols, such as SSH. This paper presents a scalable approach to formally verifying implementations of higherlevel cryptographic systems, directly in the computational model. We consider circuit-based cloud-oriented cryptographic protocols<br />
+for secure and verifiable computation over encrypted data. Our examples share as central component Yao{\textquoteright}s celebrated transformation of a boolean circuit into an equivalent {\textquotedblleft}garbled{\textquotedblright} form that can be evaluated securely in an untrusted environment. We leverage the foundations of garbled circuits set forth by Bellare, Hoang, and Rogaway (CCS 2012, ASIACRYPT 2012) to build verified implementations of garbling schemes, a verified implementation of Yao{\textquoteright}s secure function evaluation protocol, and a verified (albeit partial)<br />
+implementation of the verifiable computation protocol by Gennaro, Gentry, and Parno (CRYPTO 2010). The implementations are formally verified using EasyCrypt, a tool-assisted framework for building high-confidence cryptographic proofs, and critically rely on two novel features: a module and theory system that supports compositional reasoning, and a code extraction mechanism for generating implementations from formalizations.</p>
+},
+	issn = {2014/456},
+	attachments = {http://haslab.uminho.pt/sites/default/files/jba/files/456.pdf},
+	author = {Jos{\'e} Bacelar Almeida and Manuel Bernardo Barbosa and Gilles Barthe and Guillaume Davy and Fran{\c c}ois Dupressoir and Benjamin Gr{\'e}goire and Pierre- Yves Strub}
+}
+
+@article{Doczkal:ConstructiveRegularLangs:13,
+  author={Doczkal, Christian},
+  title={A Constructive Theory of Regular Languages in Coq},
+  volume={8307},
+  journal={Lecture Notes in Computer Science},
+  publisher={Springer},
+  pages={82-97},
+  year={2013}
+  
+}
+

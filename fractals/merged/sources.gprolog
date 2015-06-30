@@ -1,0 +1,232 @@
+%%% -*- mode: prolog -*-
+%%% $Id: ackermann.gprolog,v 1.3 2005-05-13 06:04:09 igouy-guest Exp $
+%%% http://shootout.alioth.debian.org/
+
+ack(0,N,Val) :- Val is N + 1.
+ack(M,0,Val) :- M > 0, M1 is M - 1, ack(M1,1,Val).
+ack(M,N,Val) :- M > 0, N > 0, M1 is M - 1, N1 is N -1,
+		ack(M, N1, Val1), ack(M1, Val1, Val).
+
+main :-
+	argument_value(1, ACount),
+	number_atom(Count, ACount),
+	write('Ack(3,'),
+	write(Count),
+	write('): '),
+	ack(3,Count,Val),
+	write(Val),
+	nl,
+	halt.
+
+:- initialization(main).
+%%% -*- mode: prolog -*-
+%%% $Id: fibo.gprolog,v 1.3 2005-04-25 19:01:38 igouy-guest Exp $
+%%% http://shootout.alioth.debian.org/
+
+fibo(0,1).
+fibo(1,1).
+fibo(N,Val) :- N > 0, N1 is N - 1, fibo(N1,Val1),
+		N2 is N - 2, fibo(N2,Val2),
+		Val is Val1 + Val2.
+
+main :-
+	argument_value(1, ACount),
+	number_atom(Count, ACount),
+	fibo(Count,Val),
+	write(Val), nl, halt.
+
+:- initialization(main).
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   contributed by isykes 20050604
+   modified by isykes 20050608
+
+   compile with: gplc --global-size 175000 --min-size harmonic.pro
+	for n<=10000000	*/
+
+:-initialization(run).
+
+	run:-	argument_list([Input]),
+		number_atom(Nth_val,Input),
+		harmonic(Nth_val,0),halt.
+
+		harmonic(0,Sigma):- format('~9f~N', [Sigma]).
+		harmonic(Old_val,Old_Sigma):-
+			New_Sigma is Old_Sigma + (1 / Old_val),
+			New_val is dec(Old_val),!,
+			harmonic(New_val,New_Sigma).
+%%% -*- mode: prolog -*-
+%%% $Id: hello.gprolog,v 1.2 2004-06-30 07:28:58 bfulgham Exp $
+%%% http://shootout.alioth.debian.org/
+
+main :-
+	write('hello world'), nl, halt.
+
+:- initialization(main).
+% ----------------------------------------------------------------------
+% The Great Computer Language Shootout                              
+% http://shootout.alioth.debian.org/                                
+%                                                                   
+% Contributed by Anthony Borla                                      
+% ----------------------------------------------------------------------
+
+:- initialization(main).
+
+% ------------------------------- %
+
+main :-
+  argument_value(1, Arg), number_atom(N, Arg),
+  gen_random_after_N(N, 42, 100, 0, R),
+  format('~9f~N', [R]), halt.
+
+% ------------------------------- %
+
+gen_random_after_N(0, _, _, R, R).
+
+gen_random_after_N(N, S, M, _, R) :-
+  N1 is N - 1,
+  gen_random(S, M, SA, RA),
+  gen_random_after_N(N1, SA, M, RA, R).
+
+% ------------- %
+
+gen_random(S, M, NS, RN) :-
+  IA is 3877, IC is 29573, IM is 139968, 
+  NS is (S * IA + IC) mod IM,
+  RN is M * NS / IM.
+%%% -*- mode: prolog -*-
+%%% $Id: sieve.gprolog,v 1.2 2005-05-13 16:24:19 igouy-guest Exp $
+%%% http://shootout.alioth.debian.org/ 
+%%%
+%%% Based on a program by Jim Montgomery
+%%%
+
+%%% integers
+%%%    Generates a list of integers from Low to High
+integers(_,_,[]).
+integers(Low,Limit,[Low|Rest]) :-
+    Low =< Limit,
+    !, CurrInt is Low+1,
+    integers(CurrInt,Limit,Rest).
+
+%%% sieve
+%%%    Selects smallest remaining number in list (it is prime) and then
+%%%    removes all multiples of this prime from the list
+sieve([],[]).
+sieve([Head|Tail],[Head|Primes]) :-
+    remove(Head,Tail,New),
+    sieve(New,Primes).
+
+%%% remove
+%%    Remove all multiples of the current prime number from list
+remove(Prime,[],[]).
+remove(Prime,[H|Tail],[Head|Val]) :-
+    \+(0 is Head mod Prime),
+    !, remove(Prime,Tail,Val).
+remove(Prime,[Head|Tail],Val) :-
+    0 is Head mod Prime,
+    !, remove(Prime,Tail,Val).
+
+%%% loop
+%%%%    loop construct to do this task Count times
+loop(_,0,_).
+loop(Limit,Count,List) :-
+    Current is Count - 1,
+    integers(2,Limit,Integers),
+    sieve(Integers,List),
+    loop(Limit,Current,List).
+
+%%% main
+%%%    program driver
+main :-
+	argument_value(1, ACount),
+	number_atom(Count,ACount),
+	loop(8192,Count,List),
+	length(List,Val),
+	write('Count: '),
+	write(Val), nl, halt.
+
+:- initialization(main).
+	
+% ----------------------------------------------------------------------
+% The Great Computer Language Shootout                              
+% http://shootout.alioth.debian.org/                                
+%                                                                   
+% Contributed by Anthony Borla                                      
+% ----------------------------------------------------------------------
+
+:- initialization(main).
+
+% ------------------------------- %
+
+main :-
+  sum_file(user_input, 0, N),
+  write(user_output, N),
+  halt.
+
+% ------------------------------- %
+
+sum_file(S, A, A) :-
+  at_end_of_stream(S), !.
+
+sum_file(S, A, N) :-
+  read_integer(S, I),
+  A1 is A + I,
+  sum_file(S, A1, N).
+% ----------------------------------------------------------------------
+% The Great Computer Language Shootout                              
+% http://shootout.alioth.debian.org/                                
+%                                                                   
+% Contributed by Anthony Borla                                      
+% ----------------------------------------------------------------------
+
+:- initialization(main).
+
+% ------------------------------- %
+
+main :-
+  argument_value(1, Arg), number_atom(N, Arg),
+  X is N * 3, Y is N * 2, Z is N,
+  tak(X, Y, Z, R),
+  write(R), halt.
+
+% ------------------------------- %
+
+tak(X, Y, Z, R) :-
+  Y >= X, R = Z.
+
+tak(X, Y, Z, R) :-
+  Zm is Z - 1, Ym is Y - 1, Xm is X - 1,
+  tak(Xm, Y, Z, Rx), tak(Ym, Z, X, Ry), tak(Zm, X, Y, Rz), 
+  tak(Rx, Ry, Rz, R).
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   contributed by isykes 20050531
+   modified by isykes 20050615 to read file stream from std in.
+
+   compile with: gplc --min-size count-word.pro
+*/
+
+:-initialization(scanfile(0,0,0,'c',user_input)).
+
+	scanfile(Chars,Words,Lines,_,Stream):-
+		at_end_of_stream(Stream),
+		write(Lines),write(' '),
+		write(Words),write(' '),
+		write(Chars),write('\n'),!.
+	scanfile(I_Chrs,I_Wrds,I_Lns,IW_flag,Stream):-
+		get_char(Stream,Char),
+		O_Chrs is I_Chrs + 1,
+		process_char(Char,I_Wrds,I_Lns,IW_flag,O_Wrds,O_Lns,OW_flag),
+		scanfile(O_Chrs,O_Wrds,O_Lns,OW_flag,Stream),!.
+
+		process_char('\n',IW,IL,'c',OW,OL,'w'):- OW is IW + 1,OL is IL + 1,!.
+		process_char('\n',W,IL,'w',W,OL,'w'):- OL is IL + 1,!.
+		process_char(Char,W,L,_,W,L,'c'):- \+(is_white(Char)),!.
+		process_char(_,IW,L,'c',OW,L,'w'):- OW is IW + 1,!.
+		process_char(_,W,L,'w',W,L,'w').
+
+			is_white(' '):- !.
+			is_white('\t').

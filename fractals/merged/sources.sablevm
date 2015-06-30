@@ -1,0 +1,760 @@
+// $Id: echo.sablevm,v 1.12 2005-05-22 23:50:20 bfulgham Exp $
+// http://www.bagley.org/~doug/shootout/
+// author: Dirus@programmer.net
+
+import java.io.*;
+import java.net.*;
+
+public class echo {
+    public static void main(String[] args) throws Exception {
+	int iIterations = 1;
+	try {
+	    iIterations = Integer.parseInt(args[0]);
+	} catch(Exception e) { }
+
+	EchoServer esServer = new EchoServer(0);
+	new EchoClient(InetAddress.getLocalHost(), esServer.getPort(), iIterations);
+    }
+}
+
+class EchoClient extends Thread {
+    private static final String GREETING = "Hello there sailor\n";
+    private final InetAddress inetaServer;
+    private final int         iPort;
+    private final int         iIterations;
+
+    public EchoClient(InetAddress inetaServer, int iPort, int iIterations) {
+	this.inetaServer = inetaServer;
+	this.iPort = iPort;
+	this.iIterations = iIterations;
+	start();
+    }
+
+    public void run() {
+	Socket socketFromServer = null;
+	try {
+	    socketFromServer = new Socket(inetaServer, iPort);
+	    BufferedReader in = new BufferedReader(new InputStreamReader(socketFromServer.getInputStream()));
+	    OutputStream out = socketFromServer.getOutputStream();
+
+	    byte[] bytesOut = GREETING.getBytes();
+	    String strIn = GREETING.trim();
+	    for(int i = 0; i < iIterations; ++i) {
+		out.write(bytesOut);
+		out.flush();
+		String strRead = in.readLine();
+		if(!strRead.equals(strIn))
+		    throw new RuntimeException("client: \"" + strIn + "\" ne \"" + strRead + "\"");
+	    }
+	} catch(Exception e) {
+	    e.printStackTrace();
+	}
+
+	try {
+	    socketFromServer.close();
+	} catch(Exception e) { }
+    }
+}
+
+class EchoServer extends Thread {
+    private static final int   BUFFER_SIZE = 1024;
+    private final ServerSocket ssAccepting;
+    private final int          iPort;
+
+    public EchoServer(int iPort) throws IOException {
+	ssAccepting = new ServerSocket(iPort);
+	this.iPort = ssAccepting.getLocalPort();
+	start();
+    }
+
+    public final int getPort() {
+	return iPort;
+    }
+
+    public void run() {
+	byte bytesIn[] = new byte[BUFFER_SIZE];
+	try {
+	    Socket socketClient = ssAccepting.accept();
+	    InputStream in = socketClient.getInputStream();
+	    OutputStream out = socketClient.getOutputStream();
+	    int iLength, iCount = 0;
+	    while ((iLength = in.read(bytesIn)) != -1) {
+		out.write(bytesIn, 0, iLength);
+		out.flush();
+		iCount += iLength;
+	    }
+	    System.out.println("server processed " + iCount + " bytes");
+	} catch (Exception e) {
+	    e.printStackTrace();
+	}
+    }
+}
+// $Id: except.sablevm,v 1.12 2005-05-22 23:50:20 bfulgham Exp $
+// http://www.bagley.org/~doug/shootout/
+// Collection class code is from my friend Phil Chu, Thanks Phil!
+
+import java.io.*;
+import java.util.*;
+import java.text.*;
+
+class Lo_Exception extends Exception {
+    int num = 0;
+    public Lo_Exception(int num) {
+	this.num = num;
+    }
+    public String toString() {
+	return "Lo_Exception, num = " + this.num;
+    }
+}
+
+class Hi_Exception extends Exception {
+    int num = 0;
+    public Hi_Exception(int num) {
+	this.num = num;
+    }
+    public String toString() {
+	return "Hi_Exception, num = " + this.num;
+    }
+}
+
+public class except {
+    static int Lo = 0;
+    static int Hi = 0;
+
+    public static void main(String args[]) throws IOException {
+	int n = Integer.parseInt(args[0]);
+
+	for (int i=0; i<n; i++) {
+	    some_function(i);
+	}
+	System.out.println("Exceptions: HI=" + Hi + " / LO=" + Lo);
+    }
+
+    public static void some_function(int n) {
+	try {
+	    hi_function(n);
+	} catch (Exception e) {
+	    System.out.println("We shouldn't get here: " + e);
+	}
+    }
+
+    public static void hi_function(int n) throws Hi_Exception, Lo_Exception {
+	try {
+	    lo_function(n);
+	} catch (Hi_Exception e) {
+	    Hi++;
+	}
+    }
+
+    public static void lo_function(int n) throws Hi_Exception, Lo_Exception {
+	try {
+	    blowup(n);
+	} catch (Lo_Exception e) {
+	    Lo++;
+	}
+    }
+
+    public static void blowup(int n) throws Hi_Exception, Lo_Exception {
+	if ((n % 2) == 0) {
+	    throw new Lo_Exception(n);
+	} else {
+	    throw new Hi_Exception(n);
+	}
+    }
+}
+// $Id: fibo.sablevm,v 1.14 2005-05-22 23:50:20 bfulgham Exp $
+// http://www.bagley.org/~doug/shootout/
+
+public class fibo {
+    public static void main(String args[]) {
+	int N = Integer.parseInt(args[0]);
+	System.out.println(fib(N));
+    }
+    public static int fib(int n) {
+	if (n < 2) return(1);
+	return( fib(n-2) + fib(n-1) );
+    }
+}
+// $Id: hash.sablevm,v 1.12 2005-05-22 23:50:20 bfulgham Exp $
+// http://www.bagley.org/~doug/shootout/
+
+// this program is modified from:
+//   http://cm.bell-labs.com/cm/cs/who/bwk/interps/pap.html
+// Timing Trials, or, the Trials of Timing: Experiments with Scripting
+// and User-Interface Languages</a> by Brian W. Kernighan and
+// Christopher J. Van Wyk.
+
+import java.io.*;
+import java.util.*;
+
+public class hash {
+
+    public static void main(String args[]) throws IOException {
+	int n = Integer.parseInt(args[0]);
+	int i, c;
+	String s = "";
+	Integer ii;
+	// the original program used:
+	// Hashtable ht = new Hashtable();
+	// John Olsson points out that Hashtable is for synchronized access
+	// and we should use instead:
+	HashMap ht = new HashMap();
+
+	c = 0;
+	for (i = 1; i <= n; i++)
+	    ht.put(Integer.toString(i, 16), new Integer(i));
+	for (i = 1; i <= n; i++)
+	    // The original code converted to decimal string this way:
+	    // if (ht.containsKey(i+""))
+	    if (ht.containsKey(Integer.toString(i, 10)))
+		c++;
+
+	System.out.println(c);
+    }
+}
+
+// $Id: hash2.sablevm,v 1.12 2005-05-22 23:50:20 bfulgham Exp $
+// http://www.bagley.org/~doug/shootout/
+
+import java.util.*;
+
+class Val {
+    int val;
+    Val(int init) { val = init; }
+}
+
+public class hash2 {
+    public static void main(String args[]) {
+	int n = Integer.parseInt(args[0]);
+	HashMap hash1 = new HashMap(10000);
+	HashMap hash2 = new HashMap(n);
+
+	for(int i = 0; i < 10000; i++)
+	    hash1.put("foo_" + Integer.toString(i, 10), new Val(i));
+	for(int i = 0; i < n; i++) {
+	    Iterator it = hash1.entrySet().iterator();
+	    while(it.hasNext()) {
+			Map.Entry h1 = (Map.Entry)it.next();
+			String key = (String)h1.getKey();
+			int v1 = ((Val)h1.getValue()).val;
+			if (hash2.containsKey(key))
+				((Val)hash2.get(key)).val += v1;
+			else
+				hash2.put(key, new Val(v1));
+	    }
+	}
+
+	System.out.print(((Val)hash1.get("foo_1")).val    + " " +
+	                 ((Val)hash1.get("foo_9999")).val + " " +
+	                 ((Val)hash2.get("foo_1")).val    + " " +
+	                 ((Val)hash2.get("foo_9999")).val + "\n");
+    }
+}
+// $Id: heapsort.sablevm,v 1.12 2005-05-22 23:50:20 bfulgham Exp $
+// http://www.bagley.org/~doug/shootout/
+
+import java.text.*;
+import java.lang.reflect.Array;
+
+public class heapsort {
+
+    public static final long IM = 139968;
+    public static final long IA =   3877;
+    public static final long IC =  29573;
+
+    public static void main(String args[]) {
+	int N = Integer.parseInt(args[0]);
+	NumberFormat nf = NumberFormat.getInstance();
+	nf.setMaximumFractionDigits(10);
+	nf.setMinimumFractionDigits(10);
+	nf.setGroupingUsed(false);
+	double []ary = (double[])Array.newInstance(double.class, N+1);
+	for (int i=1; i<=N; i++) {
+	    ary[i] = gen_random(1);
+	}
+	heapsort(N, ary);
+	System.out.print(nf.format(ary[N]) + "\n");
+    }
+
+    public static long last = 42;
+    public static double gen_random(double max) {
+	return( max * (last = (last * IA + IC) % IM) / IM );
+    }
+
+    public static void heapsort(int n, double ra[]) {
+	int l, j, ir, i;
+	double rra;
+
+	l = (n >> 1) + 1;
+	ir = n;
+	for (;;) {
+	    if (l > 1) {
+		rra = ra[--l];
+	    } else {
+		rra = ra[ir];
+		ra[ir] = ra[1];
+		if (--ir == 1) {
+		    ra[1] = rra;
+		    return;
+		}
+	    }
+	    i = l;
+	    j = l << 1;
+	    while (j <= ir) {
+		if (j < ir && ra[j] < ra[j+1]) { ++j; }
+		if (rra < ra[j]) {
+		    ra[i] = ra[j];
+		    j += (i = j);
+		} else {
+		    j = ir + 1;
+		}
+	    }
+	    ra[i] = rra;
+	}
+    }
+}
+// $Id: hello.sablevm,v 1.12 2005-05-22 23:50:21 bfulgham Exp $
+// http://shootout.alioth.debian.org/
+
+public class hello {
+    public static void main(String args[]) {
+	System.out.print("hello world\n");
+    }
+}
+// $Id: lists.sablevm-2.sablevm,v 1.1 2004-11-10 06:43:53 bfulgham Exp $
+// http://www.bagley.org/~doug/shootout/
+// from Stephen Darnell
+
+//import java.io.*;		// XXX Not needed
+//import java.util.*;	// XXX Replaced by private version
+//import java.text.*;	// XXX Not needed
+
+public class lists {
+
+	// XXX Make SIZE a final static
+    final static int SIZE = 10000;
+
+    public static void main(String args[])
+    {
+		int n = 10;
+		if (args.length == 1)
+		{
+			n = Integer.parseInt(args[0]);
+		}
+
+		long start = System.currentTimeMillis();
+
+		int result = 0;
+		for (int i = 0; i < n; i++) {
+		    result = test_lists();
+		}
+		long stop = System.currentTimeMillis();
+
+		System.out.println(result);
+		// System.out.println("Took "+(stop-start)+" ms");
+    }
+
+    public static int test_lists() {
+	int result = 0;
+	// create a list of integers (Li1) from 1 to SIZE
+	LinkedList Li1 = new LinkedList();
+	for (int i = 1; i < SIZE+1; i++) {
+	    Li1.addLast(new LLEntry(i));
+	}
+
+//	System.out.println("Li1 "+Li1.size());
+
+	// copy the list to Li2 (not by individual items)
+	LinkedList Li2 = new LinkedList(Li1);
+	LinkedList Li3 = new LinkedList();
+
+//	System.out.println("Li2 "+Li2.size()+" Li3 "+Li3.size());
+
+	// remove each individual item from left side of Li2 and
+	// append to right side of Li3 (preserving order)
+	while (! Li2.isEmpty()) {
+	    Li3.addLast(Li2.removeFirst());
+	}
+
+//	System.out.println("Li2 "+Li2.size()+" Li3 "+Li3.size());
+
+	// Li2 must now be empty
+	// remove each individual item from right side of Li3 and
+	// append to right side of Li2 (reversing list)
+	while (! Li3.isEmpty()) {
+	    Li2.addLast(Li3.removeLast());
+	}
+
+//	System.out.println("Li2 "+Li2.size()+" Li3 "+Li3.size());
+
+	// Li3 must now be empty
+	// reverse Li1
+	LinkedList tmp = new LinkedList();
+	while (! Li1.isEmpty()) {
+	    tmp.addFirst(Li1.removeFirst());
+	}
+	Li1 = tmp;
+	// check that first item is now SIZE
+	if (Li1.getFirst().val != SIZE) {
+	    System.err.println("first item of Li1 != SIZE");
+	    return(0);
+	}
+	// compare Li1 and Li2 for equality
+	if (! Li1.equals(Li2)) {
+	    System.err.println("Li1 and Li2 differ");
+	    System.err.println("Li1:" + Li1);
+	    System.err.println("Li2:" + Li2);
+	    return(0);
+	}
+	// return the length of the list
+	return(Li1.size());
+    }
+}
+
+class LLEntry
+{
+	LLEntry prev, next;
+	int val;
+
+	LLEntry() { }
+
+	LLEntry(int value) {
+		val = value;
+	}
+}
+
+class LinkedList extends LLEntry
+{
+	LinkedList()
+	{
+		next = prev = this;
+	}
+
+	LinkedList( LinkedList other )
+	{
+		this();
+
+		LLEntry last = this;
+		for( LLEntry curr = other.next ; curr != other ; curr = curr.next )
+		{
+			LLEntry entry = new LLEntry(curr.val);
+			last.next = entry;
+			entry.prev = last;
+			last = entry;
+		}
+		last.next = this;
+		this.prev = last;
+
+		this.val = other.val;
+	}
+
+	boolean isEmpty()
+	{
+		return val == 0;
+	}
+
+	void addFirst( LLEntry entry )
+	{
+		entry.prev = this;
+		entry.next = this.next;
+		this.next.prev = entry;
+		this.next = entry;
+		this.val++;
+	}
+
+	void addLast( LLEntry entry )
+	{
+		entry.next = this;
+		entry.prev = this.prev;
+		this.prev.next = entry;
+		this.prev = entry;
+		this.val++;
+	}
+
+	LLEntry removeFirst()
+	{
+		LLEntry entry = this.next;
+		if (entry == this)
+			return null;
+
+		this.val--;
+		this.next = entry.next;
+		entry.next.prev = this;
+		return entry;
+	}
+
+	LLEntry removeLast()
+	{
+		LLEntry entry = this.prev;
+		if (entry == this)
+			return null;
+
+		this.val--;
+		this.prev = entry.prev;
+		entry.prev.next = this;
+		return entry;
+	}
+
+	LLEntry getFirst()
+	{
+		return this.next;
+	}
+
+	int size()
+	{
+// Simple sanity checking code:
+//		int n = 0;
+//		for( LLEntry curr = this.next; curr != this ; curr = curr.next)
+//		{
+//			n++;
+//		}
+//		if (n != this.val)
+//			throw new Error("size mismatch");
+
+		return this.val;
+	}
+
+	boolean equals(LinkedList other)
+	{
+		LLEntry myItem = this;
+		LLEntry theirItem = other;
+		do
+		{
+			if (myItem.val != theirItem.val)
+				return false;
+			theirItem = theirItem.next;
+			myItem = myItem.next;
+		}
+		while(myItem != this);
+		return true;
+	}
+}
+// $Id: lists.sablevm-3.sablevm,v 1.1 2004-11-10 06:43:53 bfulgham Exp $
+// http://www.bagley.org/~doug/shootout/
+// from Stephen Darnell
+
+//import java.io.*;		// XXX Not needed
+//import java.util.*;	// XXX Replaced by private version
+//import java.text.*;	// XXX Not needed
+
+public class lists {
+
+	// XXX Make SIZE a final static
+    final static int SIZE = 10000;
+
+    public static void main(String args[])
+    {
+		int n = 10;
+		if (args.length == 1)
+		{
+			n = Integer.parseInt(args[0]);
+		}
+
+		long start = System.currentTimeMillis();
+
+		int result = 0;
+		for (int i = 0; i < n; i++) {
+		    result = test_lists();
+		}
+		long stop = System.currentTimeMillis();
+
+		System.out.println(result);
+		// System.out.println("Took "+(stop-start)+" ms");
+    }
+
+    public static int test_lists() {
+	int result = 0;
+	// create a list of integers (Li1) from 1 to SIZE
+	LinkedList Li1 = new LinkedList();
+	for (int i = 1; i < SIZE+1; i++) {
+	    Li1.addLast(new LLEntry(i));
+	}
+
+//	System.out.println("Li1 "+Li1.size());
+
+	// copy the list to Li2 (not by individual items)
+	LinkedList Li2 = new LinkedList(Li1);
+	LinkedList Li3 = new LinkedList();
+
+//	System.out.println("Li2 "+Li2.size()+" Li3 "+Li3.size());
+
+	// remove each individual item from left side of Li2 and
+	// append to right side of Li3 (preserving order)
+	while (! Li2.isEmpty()) {
+	    Li3.addLast(Li2.removeFirst());
+	}
+
+//	System.out.println("Li2 "+Li2.size()+" Li3 "+Li3.size());
+
+	// Li2 must now be empty
+	// remove each individual item from right side of Li3 and
+	// append to right side of Li2 (reversing list)
+	while (! Li3.isEmpty()) {
+	    Li2.addLast(Li3.removeLast());
+	}
+
+//	System.out.println("Li2 "+Li2.size()+" Li3 "+Li3.size());
+
+	// Li3 must now be empty
+	// reverse Li1
+	LinkedList tmp = new LinkedList();
+	while (! Li1.isEmpty()) {
+	    tmp.addFirst(Li1.removeFirst());
+	}
+	Li1 = tmp;
+	// check that first item is now SIZE
+	if (Li1.getFirst().val != SIZE) {
+	    System.err.println("first item of Li1 != SIZE");
+	    return(0);
+	}
+	// compare Li1 and Li2 for equality
+	if (! Li1.equals(Li2)) {
+	    System.err.println("Li1 and Li2 differ");
+	    System.err.println("Li1:" + Li1);
+	    System.err.println("Li2:" + Li2);
+	    return(0);
+	}
+	// return the length of the list
+	return(Li1.size());
+    }
+}
+
+class LLEntry
+{
+	LLEntry prev, next;
+	int val;
+
+	LLEntry(int value) {
+		val = value;
+	}
+}
+
+class LinkedList
+{
+	LLEntry head;
+
+	LinkedList()
+	{
+		head = new LLEntry(0);
+		head.prev = head.next = head;
+	}
+
+	LinkedList( LinkedList other )
+	{
+		this();
+
+		LLEntry last = head;
+		LLEntry otherHead = other.head;
+		for( LLEntry curr = otherHead.next ; curr != otherHead ; curr = curr.next )
+		{
+			LLEntry entry = new LLEntry(curr.val);
+			last.next = entry;
+			entry.prev = last;
+			last = entry;
+		}
+		last.next = head;
+		head.prev = last;
+
+		head.val = otherHead.val;
+	}
+
+	boolean isEmpty()
+	{
+		return head.val == 0;
+	}
+
+	void addFirst( LLEntry entry )
+	{
+		entry.prev = head;
+		entry.next = head.next;
+		head.next.prev = entry;
+		head.next = entry;
+		head.val++;
+	}
+
+	void addLast( LLEntry entry )
+	{
+		entry.next = head;
+		entry.prev = head.prev;
+		head.prev.next = entry;
+		head.prev = entry;
+		head.val++;
+	}
+
+	LLEntry removeFirst()
+	{
+		LLEntry entry = head.next;
+		if (entry == head)
+			return null;
+
+		head.val--;
+		head.next = entry.next;
+		entry.next.prev = head;
+		return entry;
+	}
+
+	LLEntry removeLast()
+	{
+		LLEntry entry = head.prev;
+		if (entry == head)
+			return null;
+
+		head.val--;
+		head.prev = entry.prev;
+		entry.prev.next = head;
+		return entry;
+	}
+
+	LLEntry getFirst()
+	{
+		return head.next;
+	}
+
+	int size()
+	{
+// Simple sanity checking code:
+//		int n = 0;
+//		for( LLEntry curr = head.next; curr != head ; curr = curr.next)
+//		{
+//			n++;
+//		}
+//		if (n != head.val)
+//			throw new Error("size mismatch");
+
+		return head.val;
+	}
+
+	boolean equals(LinkedList other)
+	{
+		LLEntry myHead = head;
+		LLEntry myItem = myHead;
+		LLEntry theirItem = other.head;
+		do
+		{
+			if (myItem.val != theirItem.val)
+				return false;
+			theirItem = theirItem.next;
+			myItem = myItem.next;
+		}
+		while(myItem != myHead);
+		return true;
+	}
+}
+// $Id: strcat.sablevm-2.sablevm,v 1.1 2004-11-10 06:46:28 bfulgham Exp $
+// http://shootout.alioth.debian.org/
+
+import java.io.*;
+import java.util.*;
+
+public class strcat {
+    public static void main(String args[]) throws IOException {
+	int n = Integer.parseInt(args[0]);
+	String str = "";
+
+	for (int i=0; i<n; i++) {
+	    str += "hello\n";
+	}
+
+	System.out.println(str.length());
+    }
+}

@@ -1,0 +1,931 @@
+(* -*- mode: sml -*-
+ * $Id: ackermann.poly,v 1.1 2004-10-15 07:31:35 bfulgham Exp $
+ * http://shootout.alioth.debian.org/
+ *)
+
+structure Test : sig
+    val main : (string * string list) -> {}
+end = struct
+
+fun ack(0,n) = n+1
+  | ack(m,0) = ack(m-1,1)
+  | ack(m,n) = ack(m-1,ack(m,(n-1)));
+
+fun atoi s = case Int.fromString s of SOME num => num | NONE => 0;
+fun printl [] = print "\n" | printl(h::t) = ( print h ; printl t );
+
+fun main(name, args) = 
+  let
+    val arg = hd(args @ ["1"]);
+    val num = atoi arg;
+    val ack = ack(3, num);
+    val result = Int.toString ack;
+  in
+      print "Ack(3,"; print arg; print "): "; print result; print "\n";
+      PolyML.quit()
+  end;
+end
+
+val _ = PolyML.print_depth 0;
+val _ = PolyML.error_depth 0;
+val _ = PolyML.onEntry(fn() => Test.main("ackermann", CommandLine.arguments()));
+val _ = PolyML.commit();
+
+(* -*- mode: sml -*-
+ * $Id: ary.poly,v 1.3 2005-05-13 16:24:17 igouy-guest Exp $
+ * http://shootout.alioth.debian.org/
+ *)
+
+structure Test : sig
+    val main : (string * string list) -> {}
+end = struct
+
+fun index i = i;
+
+fun ary n =
+    let
+	val x = Array.array(n, 0)
+	val y = Array.array(n, 0)
+	fun xinit i =
+	    if i = n then ()
+	    else (Array.update(x, i, i + 1) ; xinit (i + 1))
+	fun xtoy i =
+	    if i < 0 then ()
+	    else (Array.update(y, i, Array.sub(x, i) + Array.sub(y, i)) ; xtoy (i - 1))
+        fun aryloop i =
+	    if i < 0 then ()
+	    else (xtoy(n-1); aryloop (i-1))
+    in
+	xinit 0;
+	aryloop 999;
+	print (Int.toString (Array.sub(y, 0)));
+	print " ";
+	print (Int.toString (Array.sub(y, (n-1))));
+	print "\n"
+    end;
+
+fun atoi s = case Int.fromString s of SOME num => num | NONE => 0;
+
+fun main(name, args) = 
+    let
+	val arg = hd(args @ ["1"])
+	val num = atoi arg
+    in
+	ary num;
+        PolyML.quit()
+    end
+end
+
+val _ = PolyML.print_depth 0;
+val _ = PolyML.error_depth 0;
+val _ = PolyML.onEntry(fn() => Test.main("ary", CommandLine.arguments()));
+val _ = PolyML.commit();
+(* -*- mode: sml -*-
+ * $Id: fibo.poly,v 1.3 2005-04-25 19:01:38 igouy-guest Exp $
+ * http://shootout.alioth.debian.org/
+ *)
+
+structure Test : sig
+    val main : (string * string list) -> {}
+end = struct
+
+
+fun fib n = if n < 2 then 1 else fib (n-2) + fib (n-1);
+
+fun atoi s = case Int.fromString s of SOME num => num | NONE => 0;
+
+fun main(name, args) = 
+  let
+    val arg = hd(args @ ["1"]);
+    val num = atoi arg;
+    val fib = fib num;
+    val result = Int.toString fib;
+  in (
+      print result; print "\n";
+      PolyML.quit()
+  ) end;
+end
+
+val _ = PolyML.print_depth 0;
+val _ = PolyML.error_depth 0;
+val _ = PolyML.onEntry(fn() => Test.main("fibo", CommandLine.arguments()));
+val _ = PolyML.commit();
+(* -*- mode: sml -*-
+ * $Id: hello.poly,v 1.1 2004-11-10 06:42:07 bfulgham Exp $
+ * http://shootout.alioth.debian.org/
+ *)
+
+structure Test : sig
+    val main : (string * string list) -> {}
+end = struct
+
+fun main(name, args) = 
+  let in print "hello world\n"; PolyML.quit() end;
+end
+
+val _ = PolyML.print_depth 0;
+val _ = PolyML.error_depth 0;
+val _ = PolyML.onEntry(fn() => Test.main("hello", []));
+val _ = PolyML.commit();
+(* -*- mode: sml -*-
+ * $Id: matrix.poly,v 1.1 2004-10-18 07:15:00 bfulgham Exp $
+ * http://shootout.alioth.debian.org/
+ * from Stephen Weeks
+ *)
+(* Translated from matrix.ocaml. *)
+
+structure Test : sig
+    val main : (string * string list) -> {}
+end = struct
+
+fun incr r = r := !r + 1
+fun for (start, stop, f) =
+   let
+      fun loop i =
+	 if i > stop
+	    then ()
+	 else (f i; loop (i + 1))
+   in
+      loop start
+   end
+
+structure Array2 =
+   struct
+      datatype 'a t = T of 'a array array
+
+      fun sub (T a, r, c) = Array.sub (Array.sub (a, r), c)
+      fun subr (T a, r) =
+	 let val a = Array.sub (a, r)
+	 in fn c => Array.sub (a, c)
+	 end
+      fun update (T a, r, c, x) = Array.update (Array.sub (a, r), c, x)
+      fun array (r, c, x) =
+	 T (Array.tabulate (r, fn _ => Array.array (c, x)))
+   end
+val sub = Array2.sub
+val update = Array2.update
+   
+val size = 30
+
+fun mkmatrix (rows, cols) =
+   let
+      val count = ref 1
+      val last_col = cols - 1
+      val m = Array2.array (rows, cols, 0)
+   in
+      for (0, rows - 1, fn i =>
+	   for (0, last_col, fn j =>
+		(update (m, i, j, !count)
+		 ; incr count)));
+      m
+   end
+
+fun mmult (rows, cols, m1, m2, m3) =
+   let
+      val last_col = cols - 1
+      val last_row = rows - 1
+   in
+      for (0, last_row, fn i =>
+	   for (0, last_col, fn j =>
+		update (m3, i, j,
+			let
+			   val m1i = Array2.subr (m1, i)
+			   fun loop (k, sum) =
+			      if k < 0
+				 then sum
+			      else loop (k - 1,
+					 sum + m1i k * sub (m2, k, j))
+			in loop (last_row, 0)
+			end)))
+   end
+
+fun atoi s = case Int.fromString s of SOME num => num | NONE => 0;
+fun printl [] = print "\n" | printl(h::t) = ( print h ; printl t );
+
+fun main (name, args) =
+  let
+     val n = atoi (hd (args @ ["1"]))
+     val m1 = mkmatrix (size, size)
+     val m2 = mkmatrix (size, size)
+     val m3 = Array2.array (size, size, 0)
+     val _ = for (1, n - 1, fn _ => mmult (size, size, m1, m2, m3))
+     val _ = mmult (size, size, m1, m2, m3)
+  in
+     printl [Int.toString (sub (m3, 0, 0)),
+	     " ",
+	     Int.toString (sub (m3, 2, 3)),
+	     " ",
+	     Int.toString (sub (m3, 3, 2)),
+	     " ",
+	     Int.toString (sub (m3, 4, 4))];
+     PolyML.quit()
+  end
+end
+
+val _ = PolyML.print_depth 0;
+val _ = PolyML.error_depth 0;
+val _ = PolyML.onEntry(fn() => Test.main("matrix", CommandLine.arguments()));
+val _ = PolyML.commit();
+
+(* -*- mode: sml -*-
+ * $Id: nestedloop.poly,v 1.2 2005-05-13 16:24:18 igouy-guest Exp $
+ * http://shootout.alioth.debian.org/ 
+ *)
+
+structure Test : sig
+    val main : (string * string list) -> {}
+end = struct
+
+fun loopF 0 x = x
+  | loopF n x = loopF (n-1) (x+1)
+
+fun loopE 0 m x = x
+  | loopE n m x = loopE (n-1) m (loopF m x);
+
+fun loopD 0 m x = x
+  | loopD n m x = loopD (n-1) m (loopE m m x);
+
+fun loopC 0 m x = x
+  | loopC n m x = loopC (n-1) m (loopD m m x);
+
+fun loopB 0 m x = x
+  | loopB n m x = loopB (n-1) m (loopC m m x);
+
+fun loopA 0 m x = x
+  | loopA n m x = loopA (n-1) m (loopB m m x);
+
+
+fun atoi s = case Int.fromString s of SOME num => num | NONE => 0;
+
+fun main(name, args) = 
+  let
+    val arg = hd(args @ ["1"]);
+    val num = atoi arg;
+    val result = loopA num num 0
+  in
+      print (Int.toString result); print "\n";
+      PolyML.quit()
+  end
+end
+
+val _ = PolyML.print_depth 0;
+val _ = PolyML.error_depth 0;
+val _ = PolyML.onEntry(fn() => Test.main("nestedloop", CommandLine.arguments()));
+val _ = PolyML.commit();
+
+(* -*- mode: sml -*-
+ * $Id: random.poly,v 1.1 2004-10-15 07:31:44 bfulgham Exp $
+ * http://shootout.alioth.debian.org/
+ *)
+
+structure Test : sig
+    val main : (string * string list) -> {}
+end = struct
+
+val im : int = 139968;
+val ia : int = 3877;
+val ic : int = 29573;
+
+fun randloop 0 seed rand max = rand
+  | randloop n seed rand max = 
+    let
+	val newseed : int = (seed * ia + ic) mod im;
+	val newrand : real = max * (Real.fromInt newseed) / (Real.fromInt im);
+    in
+        randloop (n-1) newseed newrand max
+    end;
+
+
+fun atoi s = case Int.fromString s of SOME num => num | NONE => 0;
+
+fun main(name, args) = 
+  let
+    val arg = hd(args @ ["1"]);
+    val num = atoi arg;
+    val result = randloop num 42 0.0 100.0;
+  in
+      print (Real.fmt (StringCvt.FIX (SOME 9)) result); print "\n";
+      PolyML.quit()
+  end
+end
+
+val _ = PolyML.print_depth 0;
+val _ = PolyML.error_depth 0;
+val _ = PolyML.onEntry(fn() => Test.main("random", CommandLine.arguments()));
+val _ = PolyML.commit();
+(* -*- mode: sml -*-
+ * $Id: sieve.poly,v 1.2 2005-05-13 16:24:19 igouy-guest Exp $
+ * http://shootout.alioth.debian.org/ 
+ *)
+
+structure Test : sig
+    val main : (string * string list) -> {}
+end = struct
+
+structure WA = Word8Array
+val flags  = WA.array (8193, 0w0)
+
+fun init() = let
+  fun loop i =
+    if i < 8193 then (WA.update(flags,i,0w1);loop(i+1))
+    else ()
+in loop 2
+end
+
+fun do_elts(i,count) =
+  if i < 8193 then
+    if WA.sub(flags,i) = 0w1 then let
+      fun loop k = 
+	if k < 8193 then (WA.update(flags,k,0w0);loop(k+i))
+	else ()
+    in loop (i + i) ; do_elts(i + 1,count + 1)
+    end
+    else do_elts(i + 1, count)
+  else count
+
+fun repeat 0 = (init (); do_elts(2,0))
+  | repeat n = (init (); do_elts(2,0);repeat(n-1))
+
+fun printl [] = print "\n" | printl(h::t) = ( print h ; printl t )
+fun atoi s = case Int.fromString s of SOME num => num | NONE => 0
+
+fun main(name, param_list) =  let
+	val arg = hd(param_list @ ["1"]);
+	val num = atoi arg
+	val count = repeat num 
+    in  printl ["Count: ", Int.toString count];
+	PolyML.quit()
+    end
+end
+
+val _ = PolyML.print_depth 0;
+val _ = PolyML.error_depth 0;
+val _ = PolyML.onEntry(fn() => Test.main("sieve", CommandLine.arguments()));
+val _ = PolyML.commit();
+(* -*- mode: sml -*-
+ * $Id: strcat.poly,v 1.2 2005-05-13 16:24:19 igouy-guest Exp $
+ * http://shootout.alioth.debian.org/ 
+ * from Stephen Weeks
+ * Modified by Daniel Wang
+ *)
+
+structure Test : sig
+    val main : (string * string list) -> {}
+end = struct
+
+fun for (start, stop, f) =
+   let
+      fun loop i =
+	 if i > stop
+	    then ()
+	 else (f i; loop (i + 1))
+   in
+      loop start
+   end
+
+fun atoi s = case Int.fromString s of SOME num => num | NONE => 0
+fun printl [] = print "\n" | printl(h::t) = ( print h ; printl t )
+
+val stuff = "hello\n"
+
+structure Buffer:
+   sig
+      type 'a t
+
+      val add: 'a t * 'a array -> unit
+      val length: 'a t -> int
+      val new: 'a -> 'a t
+   end =
+   struct
+      datatype 'a t = T of {dummy: 'a,
+			    length: int ref,
+			    elts: 'a array ref}
+
+      fun add (T {dummy, elts, length}, a) =
+	 let
+	    val l = !length
+	    val e = !elts
+	    val en = Array.length e
+	    val an = Array.length a
+	    val e =
+	       if l + an >= en then	
+		 let val e' = Array.array(2 * en,dummy)
+		   val _ = Array.copy {src = e, si = 0,len = SOME en,
+				       dst = e',di = 0}
+		   val _ = elts := e'
+		 in e'
+		 end
+	       else e
+	    val _ =
+	       Array.copy {src = a, si = 0, len = NONE,
+			   dst = e, di = l}
+	    val _ = length := l + an
+	 in ()
+	 end
+
+      fun new (dummy: 'a) = T {dummy = dummy,
+			       length = ref 0,
+			       elts = ref (Array.array (32, dummy))}
+
+      fun length (T {length, ...}) = !length
+   end
+
+fun main (name, args) =
+   let
+       val stuff =
+	   Array.tabulate (String.size stuff, fn i => String.sub (stuff, i))
+       val n = atoi (hd (args @ ["1"]))
+       val b = Buffer.new #"\000"
+       val _ = for (1, n, fn _ => Buffer.add (b, stuff))
+       val _ = printl [Int.toString (Buffer.length b)]
+   in
+       PolyML.quit()
+   end
+end
+
+val _ = PolyML.print_depth 0;
+val _ = PolyML.error_depth 0;
+val _ = PolyML.onEntry(fn() => Test.main("strcat", CommandLine.arguments()));
+val _ = PolyML.commit();
+
+(* -*- mode: sml -*-
+ * $Id: wc.poly,v 1.1 2004-10-18 07:15:13 bfulgham Exp $
+ * http://shootout.alioth.debian.org/
+ * from Stephen Weeks
+ *)
+(* Translated from wc.ocaml. *)
+
+structure Test : sig
+    val main : (string * string list) -> {}
+end = struct
+
+fun incr r = r := !r + 1
+   
+val nl = ref 0
+val nw = ref 0
+val nc = ref 0
+val max = 4096
+val buf = Word8Array.array (max, 0w0)
+val sub = Word8Array.sub
+
+fun readblock scanfun =
+   let
+      val nread = Posix.IO.readArr (Posix.FileSys.stdin,
+				    {buf = buf, i =  0, sz = NONE})
+   in
+      if nread = 0
+	 then ()
+      else (nc := !nc + nread;
+	    scanfun (0, nread))
+   end
+
+val c2b = Byte.charToByte
+val newline = c2b #"\n"
+val space = c2b #" "
+val tab = c2b #"\t"
+
+fun scan_out_of_word (i, n) =
+   if i < n
+      then
+	 let
+	    val c = sub (buf, i)
+	 in
+	    if c = newline
+	       then (incr nl; scan_out_of_word (i + 1, n))
+	    else if c = space orelse c = tab
+		    then scan_out_of_word (i + 1, n)
+		 else (incr nw; scan_in_word (i + 1, n))
+	 end
+   else readblock scan_out_of_word
+
+and scan_in_word (i, n) =
+  if i < n then
+     let
+	val c = sub (buf, i)
+     in
+	if c = newline
+	   then (incr nl; scan_out_of_word (i + 1, n))
+	else if c = space orelse c = tab
+		then scan_out_of_word (i + 1, n)
+	     else scan_in_word (i + 1, n)
+     end
+  else readblock scan_in_word
+
+fun printl [] = print "\n" | printl(h::t) = ( print h ; printl t )
+   
+fun main (name, args) =
+  let
+    val _ =
+        (scan_out_of_word (0, 0);
+	printl [Int.toString (!nl), " ", Int.toString (!nw), " ", Int.toString (!nc)])
+  in
+    PolyML.quit()
+  end
+end
+
+val _ = PolyML.print_depth 0;
+val _ = PolyML.error_depth 0;
+val _ = PolyML.onEntry(fn() => Test.main("wc", CommandLine.arguments()));
+val _ = PolyML.commit();
+
+(* -*- mode: sml -*-
+ * $Id: wordfreq.poly,v 1.1 2004-10-18 07:15:16 bfulgham Exp $
+ * http://www.bagley.org/~doug/shootout/
+ * from Stephen Weeks
+ *)
+
+fun for (start, stop, f) =
+   let
+      fun loop i =
+	 if i > stop
+	    then ()
+	 else (f i; loop (i + 1))
+   in
+      loop start
+   end
+fun incr r = r := 1 + !r
+val sub = Array.sub
+val update = Array.update
+   
+signature HASH_SET =
+   sig
+      type 'a t
+
+      val foreach: 'a t * ('a -> unit) -> unit
+      (* lookupOrInsert (s, h, p, f)  looks in the set s for an entry with hash h
+       * satisfying predicate p.  If the entry is there, it is returned.
+       * Otherwise, the function f is called to create a new entry, which is
+       * inserted and returned.
+       *)
+      val lookupOrInsert: 'a t * word * ('a -> bool) * (unit -> 'a) -> 'a
+      val new: {hash: 'a -> word} -> 'a t
+      val size: 'a t -> int
+   end
+
+structure HashSet: HASH_SET =
+struct
+
+datatype 'a t =
+   T of {buckets: 'a list array ref,
+	 hash: 'a -> word,
+	 mask: word ref,
+	 numItems: int ref}
+
+val initialSize: int = 65536
+val initialMask: word = Word.fromInt initialSize - 0w1
+
+fun 'a new {hash}: 'a t =
+   T {buckets = ref (Array.array (initialSize, [])),
+      hash = hash,
+      numItems = ref 0,
+      mask = ref initialMask}
+
+fun size (T {numItems, ...}) = !numItems
+fun numBuckets (T {buckets, ...}) = Array.length (!buckets)
+
+fun index (w: word, mask: word): int =
+   Word.toInt (Word.andb (w, mask))
+   
+fun resize (T {buckets, hash, mask, ...}, size: int, newMask: word): unit =
+   let
+      val newBuckets = Array.array (size, [])
+   in Array.app (fn r =>
+		 List.app (fn a =>
+			       let val j = index (hash a, newMask)
+			       in Array.update
+				  (newBuckets, j,
+				   a :: Array.sub (newBuckets, j))
+			       end) r) (!buckets)
+      ; buckets := newBuckets
+      ; mask := newMask
+   end
+   	       
+fun maybeGrow (s as T {buckets, mask, numItems, ...}): unit =
+   let
+      val n = Array.length (!buckets)
+   in if !numItems * 4 > n
+	 then resize (s,
+		      n * 2,
+		      (* The new mask depends on growFactor being 2. *)
+		      Word.orb (0w1, Word.<< (!mask, 0w1)))
+      else ()
+   end
+
+fun peekGen (T {buckets = ref buckets, mask, ...}, w, p, no, yes) =
+   let
+      val j = index (w, !mask)
+      val b = Array.sub (buckets, j)
+   in case List.find p b of
+      NONE => no (j, b)
+    | SOME a => yes a
+   end
+
+fun lookupOrInsert (table as T {buckets, numItems, ...}, w, p, f) =
+   let
+      fun no (j, b) =
+	 let val a = f ()
+	    val _ = incr numItems
+	    val _ = Array.update (!buckets, j, a :: b)
+	    val _ = maybeGrow table
+	 in a
+	 end
+   in peekGen (table, w, p, no, fn x => x)
+   end
+
+fun foreach (T {buckets, ...}, f) =
+   Array.app (fn r => List.app f r) (!buckets)
+
+end
+
+structure Buffer:
+   sig
+      type t
+
+      val add: t * Word8.word -> unit
+      val clear: t -> unit
+      val contents: t -> string
+      val new: int -> t
+   end =
+   struct
+      datatype t = T of {elts: Word8Array.array ref,
+			 size: int ref}
+
+      fun contents (T {elts, size, ...}) =
+	 Byte.bytesToString (Word8Array.extract (!elts, 0, SOME (!size)))
+
+      fun clear (T {size, ...}) = size := 0
+
+      fun new (bufSize) =
+	 T {elts = ref (Word8Array.array (bufSize, 0w0)),
+	    size = ref 0}
+
+      fun add (T {elts, size}, x) =
+	 let
+	    val s = !size
+	    val _ = size := s + 1
+	    val a = !elts
+	    val n = Word8Array.length a
+	 in
+	    if s = n
+	       then
+		  let
+		     val a' =
+			Word8Array.tabulate
+			(2 * n, fn i =>
+			 if i < n then Word8Array.sub (a, i) else 0w0)
+		     val _ = elts := a'
+		     val _ = Word8Array.update (a', s, x)
+		  in ()
+		  end
+	    else Word8Array.update (a, s, x)
+	 end
+   end
+
+structure Quicksort:
+   sig
+      val quicksort: 'a array * ('a * 'a -> bool) -> unit
+   end =
+   struct
+      fun assert (s, f: unit -> bool) =
+	 if true orelse f ()
+	    then ()
+	 else raise Fail (concat ["assert: ", s])
+
+      fun forall (low, high, f) =
+	 let
+	    fun loop i = i > high orelse (f i andalso loop (i + 1))
+	 in
+	    loop low
+	 end
+
+      fun fold (l, u, state, f) =
+	 let
+	    fun loop (i, state) =
+	       if i > u
+		  then state
+	       else loop (i + 1, f (i, state))
+	 in
+	    loop (l, state)
+	 end
+
+      (* Check if entries in a[lo ... hi] are sorted. *)
+      fun 'a isSorted (a: 'a array,
+		       lo: int,
+		       hi: int,
+		       op <= : 'a * 'a -> bool) =
+	 let
+	    fun loop (i, x) =
+	       i > hi
+	       orelse let
+			 val y = sub (a, i)
+		      in
+			 x <= y andalso loop (i + 1, y)
+		      end
+	 in
+	    lo >= hi orelse loop (lo + 1, sub (a, lo))
+	 end
+
+      (* From page 284 of Numerical Recipes in C. *)
+      local
+	 open Word
+	 val seed = ref 0w13
+      in
+	 fun rand () =
+	    let
+	       val res = 0w1664525 * !seed + 0w1013904223
+	       val _ = seed := res
+	    in
+	       toIntX res
+	    end
+      end
+
+      fun randInt (lo, hi) = lo + Int.mod (rand(), hi - lo + 1)
+
+      (* insertion sort based on page 108 of Programming Pearls, by Bentley. *)
+      fun insertionSort (a: 'a array, op <= : 'a * 'a -> bool): unit =
+	 let
+	    fun x i = sub (a, i)
+	 in
+	    for (1, Array.length a - 1, fn i =>
+		 let
+		    val _ =
+		       assert ("insertionSort1", fn () =>
+			       isSorted (a, 0, i - 1, op <=))
+		    val t = x i
+		    fun sift (j: int) =
+		       (assert ("insertionSort2", fn () =>
+				isSorted (a, 0, j - 1, op <=)
+				andalso isSorted (a, j + 1, i, op <=)
+				andalso forall (j + 1, i, fn k => t <= x k))
+			; if j > 0
+			     then
+				let
+				   val j' = j - 1
+				   val z = x j'
+				in if t <= z
+				      then (update (a, j, z);
+					    sift j')
+				   else j
+				end
+			  else j)
+		    val _ = update (a, sift i, t)
+		 in ()
+		 end)
+	 end
+
+      (* quicksort based on page 112 of Programming Pearls, by Bentley. *)
+      fun 'a quicksort (a: 'a array, op <= : 'a * 'a -> bool): unit =
+	 let
+	    fun x i = Array.sub (a, i)
+	    fun swap (i, j) =
+	       let
+		  val t = x i
+		  val _ = update (a, i, x j)
+		  val _ = update (a, j, t)
+	       in ()
+	       end
+	    val cutoff = 20
+	    fun qsort (l: int, u: int): unit =
+	       if u - l > cutoff
+		  then
+		     let
+			val _ = swap (l, randInt (l, u))
+			val t = x l
+			val m =
+			   fold
+			   (l + 1, u, l, fn (i, m) =>
+			    (assert
+			     ("qsort", fn () =>
+			      forall (l + 1, m, fn k => x k <= t)
+			      andalso forall (m + 1, i - 1, fn k => not (x k <= t)))
+			     ; if x i <= t
+				  then (swap (m + 1, i)
+					; m + 1)
+			       else m))
+			val _ = swap (l, m)
+			val _ = qsort (l, m - 1)
+			val _ = qsort (m + 1, u)
+		     in ()
+		     end
+	       else ()
+	    val max = Array.length a - 1
+	    val _ = qsort (0, max)
+	    val _ = insertionSort (a, op <=)  
+	 in
+	    ()
+	 end
+   end
+
+structure Test : sig
+    val main : (string * string list) -> {}
+end = struct
+
+(* This hash function is taken from pages 56-57 of
+ * The Practice of Programming by Kernighan and Pike.
+ *)
+fun hash (s: string): word =
+   let
+      val n = String.size s
+      fun loop (i, w) =
+	 if i = n
+	    then w
+	 else Word.fromInt (Char.ord (String.sub (s, i))) + Word.* (w, 0w31)
+   in
+      loop (0, 0w0)
+   end
+
+fun hash (s: string): word =
+   let
+      val n = String.size s
+      fun loop (i, w) =
+	 if i = n
+	    then w
+	 else loop (i + 1,
+		    Word.fromInt (Char.ord (String.sub (s, i)))
+		       + Word.* (w, 0w31))
+   in
+      loop (0, 0w0)
+   end
+
+(* Based on wordfreq.ocaml. *)
+
+val max = 4096
+val buf = Word8Array.array (max, 0w0)
+val count: {hash: word,
+	    word: string,
+	    count: int ref} HashSet.t = HashSet.new {hash = #hash}
+val wbuf = Buffer.new 64
+
+val c2b = Byte.charToByte
+fun scan_words (i, n, inword) =
+  if i < n
+     then
+	let
+	   val c = Word8Array.sub (buf, i)
+	in
+	   if c2b #"a" <= c andalso c <= c2b #"z"
+	      then (Buffer.add (wbuf, c);
+		    scan_words (i + 1, n, true))
+	   else
+	      if c2b #"A" <= c andalso c <= c2b #"Z"
+		 then
+		    (Buffer.add (wbuf, c + 0w32);
+		     scan_words (i + 1, n, true))
+	      else
+		 if inword
+		    then 
+		       let
+			  val w = Buffer.contents wbuf
+			  val h = hash w
+		       in
+			  incr (#count
+				(HashSet.lookupOrInsert
+				 (count, h,
+				  fn {hash, word, ...} =>
+				  hash = h andalso word = w,
+				  fn () => {hash = h, word = w, count = ref 0})));
+			  Buffer.clear wbuf;
+			  scan_words (i + 1, n, false)
+		       end
+		 else scan_words (i + 1, n, false)
+	end
+  else
+     let
+	val nread =
+	   Posix.IO.readArr (Posix.FileSys.stdin,
+			     {buf = buf, i =  0, sz = NONE})
+     in
+	if nread = 0
+	   then ()
+	else scan_words (0, nread, inword)
+     end
+
+fun printl [] = print "\n" | printl(h::t) = ( print h ; printl t )
+
+fun rightJustify (s: string, width: int) =
+   let
+      val n = String.size s
+   in concat [CharVector.tabulate (width - n, fn _ => #" "), s]
+   end
+
+fun main (name, args) =
+   let
+	val _ = scan_words (0, 0, false)
+	val a = Array.array (HashSet.size count, (0, ""))
+	val i = ref 0
+	val _ = HashSet.foreach (count, fn {word, count, ...} =>
+			 (Array.update (a, !i, (!count, word)); incr i))
+	val _ = Quicksort.quicksort (a, fn ((c, w), (c', w')) =>
+			     c > c' orelse c = c' andalso w >= w')
+	val _ = Array.app (fn (c, w) =>
+		   printl [rightJustify (Int.toString c, 7), " ", w]) a
+   in
+      PolyML.quit()
+   end
+end
+
+val _ = PolyML.print_depth 0;
+val _ = PolyML.error_depth 0;
+val _ = PolyML.onEntry(fn() => Test.main("wordfreq", CommandLine.arguments()));
+val _ = PolyML.commit();
+

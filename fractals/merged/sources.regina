@@ -1,0 +1,2132 @@
+/* ------------------------------------------------------------------ */
+/* The Great Computer Language Shootout                               */
+/* http://shootout.alioth.debian.org/                                 */
+/*                                                                    */
+/* Contributed by Anthony Borla                                       */
+/* ------------------------------------------------------------------ */
+
+N = ARG(1) ; if DATATYPE(N) \= 'NUM' | N < 1 then ; N = 1 
+
+say "Ack(3," || N || "):" ack(3, N) 
+
+exit 0
+
+/* ----------------------------- */
+
+ack :
+  if ARG(1) == 0 then ; return ARG(2) + 1
+  if ARG(2) == 0 then ; return ack(ARG(1) - 1, 1)
+  return ack(ARG(1) - 1, ack(ARG(1), ARG(2) - 1))
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   Contributed by Dennis Decker Jensen
+*/
+
+arg n . ; if n = "" then n = 1
+
+do i = 1 for n
+	x.i = i
+	y.i = 0
+end
+
+do 1000
+	do j = n to 1 by -1
+		y.j = y.j + x.j
+	end
+end
+
+say y.1 y.n
+
+/* The Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   Contributed by Dennis Decker Jensen
+*/
+
+parse arg num .
+check = 0
+maxflips = 0
+f.0 = num; p.0 = num
+do i = 1 for num; p.i = i; end;
+
+call pfannkuch_permutations num
+say "Pfannkuchen(" || num || ") = " || maxflips
+exit(0)
+
+pfannkuch_permutations: procedure expose f. p. maxflips check
+arg n
+if n = 1 then do
+	/* write the first 30 permutations */
+	if check < 30 then do
+		do i = 1 for p.0; call charout , p.i; end
+		say
+		check = check + 1
+	end	
+
+	f.0 = p.0
+	do i = 1 for p.0; f.i = p.i; end
+	maxflips = max(nflips(), maxflips)
+end
+else do
+	do i = 1 for n
+		call pfannkuch_permutations n-1
+		m = p.1		/* roll */
+		do j = 1 for n
+			k = j + 1
+			p.j = p.k
+		end
+		p.n = m
+	end
+end
+return maxflips
+
+nflips: procedure expose f.
+n = 0
+do while f.1 \= 1
+	call reverse f.1
+	n = n + 1
+end
+return n
+
+reverse: procedure expose f.
+arg n
+k = n % 2
+do i = 1 for k
+	parse value f.i f.n with f.n f.i
+	n = n - 1
+end
+return
+
+/* ------------------------------------------------------------------ */
+/* The Great Computer Language Shootout                               */
+/* http://shootout.alioth.debian.org/                                 */
+/*                                                                    */
+/* Contributed by Anthony Borla                                       */
+/* ------------------------------------------------------------------ */
+
+NULL = "" ; IA = 3877 ; IC = 29573 ; IM = 139968 ; LAST = 42 ; LINELENGTH = 60
+
+ALU = "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG"||,
+      "GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA"||,
+      "CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT"||,
+      "ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA"||,
+      "GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG"||,
+      "AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC"||,
+      "AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA"
+
+
+IUB = "a 0.27 c 0.12 g 0.12 t 0.27",
+      "B 0.02 D 0.02 H 0.02 K 0.02",
+      "M 0.02 N 0.02 R 0.02 S 0.02",
+      "V 0.02 W 0.02 Y 0.02"
+
+HOMOSAPIENS = "a 0.3029549426680",
+              "c 0.1979883004921",
+              "g 0.1975473066391",
+              "t 0.3015094502008"
+
+N = ARG(1) ; if DATATYPE(N) \= 'NUM' | N < 1 then ; N = 1000
+
+call make_repeat_fasta "ONE", "Homo sapiens alu", N * 2
+call make_random_fasta "TWO", "IUB ambiguity codes", N * 3, make_cumulative(IUB) 
+call make_random_fasta "THREE", "Homo sapiens frequency", N * 5, make_cumulative(HOMOSAPIENS) 
+
+exit 0
+
+/* ----------------------------- */
+
+gen_random : procedure expose IA IC IM LAST
+  LAST = (LAST * IA + IC) // IM
+  return ARG(1) * LAST / IM
+
+/* ----------------------------- */
+
+select_random : procedure expose IA IC IM LAST NULL
+  ctbl = ARG(1) ; rvalue = gen_random(1.0)
+
+  if rvalue \< 1.0 then ; return WORD(ctbl, 1)
+
+  do while ctbl <> NULL
+    parse var ctbl key value ctbl
+    if rvalue < value then ; return key
+  end
+
+/* ----------------------------- */
+
+make_cumulative : procedure expose NULL
+  ptbl = ARG(1) ; cp = 0.0 ; ctbl = NULL
+
+  do while ptbl <> NULL
+    parse var ptbl key value ptbl
+    cp = cp + value
+    ctbl = ctbl key cp
+  end
+
+  return STRIP(ctbl)
+
+/* ----------------------------- */
+
+make_repeat_fasta : procedure expose LINELENGTH ALU NULL
+  id = ARG(1) ; desc = ARG(2) ; n = ARG(3)
+
+  alulen = LENGTH(ALU) ; lines =  n % LINELENGTH
+  ALT = ALU||SUBSTR(ALU, 1, LINELENGTH)
+
+  say ">"||id desc
+
+  do i = 0 for lines
+    p = i * LINELENGTH + 1 ; q = p // alulen
+    if q = 0 then ; q = 1
+    say SUBSTR(ALT, q, LINELENGTH)
+  end 
+
+  p = lines * LINELENGTH + 1 ; q = p // alulen
+  if q = 0 then ; q = 1
+  say SUBSTR(ALU, q, n // LINELENGTH)
+
+  return
+
+/* ----------------------------- */
+
+make_random_fasta : procedure expose IA IC IM LAST LINELENGTH NULL
+  id = ARG(1) ; desc = ARG(2) ; n = ARG(3) ; ctbl = ARG(4)
+
+  lines = n % LINELENGTH ; LASTLINELEN = n // LINELENGTH ; lineout = NULL
+
+  say ">"||id desc
+
+  do i = 0 for lines
+    do j = 1 for LINELENGTH
+      lineout = lineout || select_random(ctbl)
+    end
+    say lineout ; lineout = NULL
+  end 
+
+  if LASTLINELEN = 0 then ; return
+
+  do j = 1 for LASTLINELEN
+    lineout = lineout || select_random(ctbl)
+  end
+  say lineout
+
+  return
+/* ------------------------------------------------------------------ */
+/* The Great Computer Language Shootout                               */
+/* http://shootout.alioth.debian.org/                                 */
+/*                                                                    */
+/* Contributed by Anthony Borla                                       */
+/* ------------------------------------------------------------------ */
+
+numeric digits 11 ; NULL = "" ; LAST = 42 ; LINELENGTH = 60
+
+ALU = "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG"||,
+      "GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA"||,
+      "CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT"||,
+      "ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA"||,
+      "GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG"||,
+      "AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC"||,
+      "AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA "
+
+
+IUB = "a 0.27 c 0.12 g 0.12 t 0.27",
+      "B 0.02 D 0.02 H 0.02 K 0.02",
+      "M 0.02 N 0.02 R 0.02 S 0.02",
+      "V 0.02 W 0.02 Y 0.02"
+
+HOMOSAPIENS = "a 0.3029549426680",
+              "c 0.1979883004921",
+              "g 0.1975473066391",
+              "t 0.3015094502008"
+
+N = ARG(1) ; if DATATYPE(N) \= 'NUM' | N < 1 then ; N = 1000
+
+call repeat_fasta "ONE", "Homo sapiens alu", N * 2
+call random_fasta "TWO", "IUB ambiguity codes", N * 3, make_cumulative(IUB) 
+call random_fasta "THREE", "Homo sapiens frequency", N * 5, make_cumulative(HOMOSAPIENS) 
+
+exit 0
+
+/* ----------------------------- */
+
+gen_random :
+  LAST = (LAST * 3877 + 29573) // 139968
+  return ARG(1) * LAST / 139968
+
+/* ----------------------------- */
+
+select_random :
+  ctbl_ = ARG(1) ; rvalue_ = gen_random(1.0)
+
+  if rvalue_ \< 1.0 then ; return WORD(ctbl_, 1)
+
+  do while ctbl_ <> NULL
+    parse var ctbl_ key_ value_ ctbl_
+    if rvalue_ < value_ then ; return key_
+  end
+
+/* ----------------------------- */
+
+make_cumulative : procedure expose NULL
+  ptbl = ARG(1) ; cp = 0.0 ; ctbl = NULL
+
+  do while ptbl <> NULL
+    parse var ptbl key value ptbl
+    cp = cp + value ; ctbl = ctbl key cp
+  end
+
+  return STRIP(ctbl)
+
+/* ----------------------------- */
+
+repeat_fasta : procedure expose LINELENGTH ALU
+  id = ARG(1) ; desc = ARG(2) ; n = ARG(3)
+
+  say ">"||id desc
+
+  q = 1 ; linelen = LINELENGTH ; ALULEN = LENGTH(ALU)
+
+  do while n > 0
+
+    if n < linelen then ; linelen = n
+
+    if linelen + q < ALULEN then do
+
+      say SUBSTR(ALU, q, linelen)
+      q = linelen + q
+
+    end ; else do
+
+      prefix = SUBSTR(ALU, q, ALULEN - q)
+      q = 1 + linelen - LENGTH(prefix)
+      say prefix || SUBSTR(ALU, 1, q - 1)
+
+    end
+
+    n = n - linelen
+  end
+
+  return
+
+/* ----------------------------- */
+
+random_fasta :
+  id = ARG(1) ; desc = ARG(2) ; n_ = ARG(3) ; ctbl = ARG(4)
+
+  say ">"||id desc
+
+  linelen = LINELENGTH ; lineout = NULL
+
+  do while n_ > 0
+    if n_ < linelen then ; linelen = n_
+
+    do j = 1 for linelen
+      lineout = lineout || select_random(ctbl)
+    end
+
+    say lineout ; lineout = NULL ; n_ = n_ - linelen
+  end
+
+  return
+
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   Contributed by Dennis Decker Jensen
+*/
+
+arg n . ; if n = "" then n = 1
+
+say fib(n)
+exit
+
+fib: procedure
+arg n .
+if n < 2
+	then return 1
+	else return fib(n - 2) + fib(n - 1)
+
+/* ------------------------------------------------------------------ */
+/* The Great Computer Language Shootout                               */
+/* http://shootout.alioth.debian.org/                                 */
+/*                                                                    */
+/* Contributed by Anthony Borla                                       */
+/* ------------------------------------------------------------------ */
+
+N = ARG(1) ; if DATATYPE(N) \= 'NUM' | N < 1 then ; N = 1
+
+say fib(N)
+
+exit 0
+
+/* ----------------------------- */
+
+fib :
+  if ARG(1) < 2 then ; return 1
+  return fib(ARG(1) - 2) + fib(ARG(1) - 1)
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   Contributed by Dennis Decker Jensen 
+
+*/
+
+NUMERIC DIGITS 15
+sum = 0.0
+DO i = 1 FOR ARG(1)
+	sum = sum + 1/i
+END
+SAY FORMAT(sum,  , 9)
+
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   Contributed by Dennis Decker Jensen
+*/
+
+arg n .
+TRUE = 1; count = 0
+
+do i = 1 for n
+	hex = d2x(i)
+	table.hex = TRUE
+end
+
+do i = 1 for n
+	if table.i = TRUE then count = count + 1
+end
+
+say count
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   Contributed by Dennis Decker Jensen
+*/
+
+arg n .
+
+do i = 0 to 9999
+	idx = 'foo_' || i
+	table1.idx = i
+end
+
+table2. = 0
+do n
+	do i = 0 to 9999
+		idx = 'foo_' || i
+		table2.idx = table2.idx + table1.idx
+	end
+end
+
+idx1 = "foo_1"; idx2 = "foo_9999"
+say table1.idx1 table1.idx2 table2.idx1 table2.idx2
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   Contributed by Dennis Decker Jensen
+*/
+
+numeric digits 11 /* 15 digits precision not needed here */
+IM = 139968; IA = 3877; IC = 29573; LAST = 42
+
+arg n . ; if n = '' then n = 1
+
+do i = 1 for n
+	ary.i = gen_random(1)
+end
+
+call heapsort n
+
+say format(ary.n, , 10)
+exit(0)
+
+gen_random: procedure expose IM IA IC LAST
+LAST = (LAST * IA + IC) // IM
+return arg(1) * LAST / IM
+
+heapsort: procedure expose ary.
+arg n .
+ir = n
+l = trunc(0.5 + n % 2) + 1
+
+do forever
+	if l > 1 then do
+		l = l - 1
+		rra = ary.l
+	end
+	else do
+		rra = ary.ir
+		ary.ir = ary.1
+		ir = ir - 1
+		if ir = 1 then do
+			ary.1 = rra
+			return
+		end
+	end
+	i = l
+	j = l * 2
+	do while j <= ir
+		k = j + 1
+		if j < ir & ary.j < ary.k then j = k
+		if rra < ary.j then do
+			ary.i = ary.j
+			i = j
+			j = j + j
+		end
+		else j = ir + 1
+	end
+	ary.i = rra
+end
+
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   Contributed by Dennis Decker Jensen 
+
+*/
+
+say 'hello world'
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   Contributed by Dennis Decker Jensen
+*/
+
+segment = ""
+do until segment = ">THREE"
+	parse upper linein =1 segment +6
+end
+
+sequence = ""
+parse upper linein line
+do while line \= ""
+	if verify(line, ">;", "Match") then leave
+	sequence = sequence || line 
+	parse upper linein line
+end
+
+call kfrequency sequence, 1
+call kfrequency sequence, 2
+
+say countdna("GGT", sequence)
+say countdna("GGTA", sequence)
+say countdna("GGTATT", sequence)
+say countdna("GGTATTTTAATT", sequence)
+say countdna("GGTATTTTAATTTATAGT", sequence)
+
+exit 0
+
+countdna: procedure
+parse arg nucleotide, sequence
+return countstr(nucleotide, sequence) || d2c(9) || nucleotide
+
+kfrequency: procedure
+parse arg sequence, sublen .
+
+len = length(sequence) - sublen
+table. = 0
+table.subs = ""
+do i = 1 for sublen
+	do j = i to len by sublen
+		sub = substr(sequence, j, sublen)
+		table.sub = table.sub + 1
+		if pos(sub, table.subs) = 0 then
+			table.subs = table.subs sub
+	end
+end
+table.0 = words(table.subs)
+
+do i = 1 for table.0
+	sub = word(table.subs, i)
+	seqs.i = sub
+	counts.i = table.sub
+end
+call qsort 1, table.0
+
+do i = 1 for table.0
+	say seqs.i format(counts.i*100/len, , 3)
+end
+say
+return
+
+qsort: procedure expose seqs. counts.
+arg l, r
+if r - l <= 1 then return      /* nothing to do */
+i = random(l, r)               /* pick a random pivot */
+parse value seqs.l seqs.i with seqs.i seqs.l /* swap pivot to start */
+parse value counts.l counts.i with counts.i counts.l
+last = l
+do i = l+1 to r                /* partition */
+	if counts.i > counts.l | ,
+	   counts.i = counts.l & seqs.i < seqs.l then do
+		last = last + 1
+		parse value seqs.last seqs.i ,
+		       with seqs.i seqs.last
+		parse value counts.last counts.i ,
+		       with counts.i counts.last
+	end
+end
+parse value seqs.l seqs.last , /* restore pivot */
+       with seqs.last seqs.l
+parse value counts.l counts.last ,
+       with counts.last counts.l
+call qsort l, last             /* recurse */
+call qsort last+1, r
+return
+
+/* ------------------------------------------------------------------ */
+/* The Great Computer Language Shootout                               */
+/* http://shootout.alioth.debian.org/                                 */
+/*                                                                    */
+/* Contributed by Anthony Borla                                       */
+/* ------------------------------------------------------------------ */
+
+numeric digits 6
+
+KNUCFRM1 = "A T C G"
+KNUCFRM2 = "AA AT TT TA CA CT AC TC AG GA TG GT CC GC CG GG"
+KNUCFRMX = "GGT GGTA GGTATT GGTATTTTAATT GGTATTTTAATTTATAGT"
+
+THRESHOLD = 32 ; NULL = "" ; SPACE = " " ; TAB = D2C(9) ; FSEP = ":"
+DESCENDING = "DSC"
+
+seq = NULL ; lineno = 0 ; knucfrm. = 0
+
+/* Skip irrelevant input data */
+do while LINES() > 0 & SUBSTR(LINEIN(), 1, 6) \= ">THREE"
+  nop
+end
+
+/* Assemble 'seq' string in <2K pieces for table loading */ 
+do while LINES() > 0
+  lineno = lineno + 1 ; line = TRANSLATE(LINEIN()) ; if line == NULL then ; leave
+  seq = seq || line
+
+  if lineno == THRESHOLD then do
+    call update_knucfrm_count (KNUCFRM1 KNUCFRM2 KNUCFRMX)
+    lineno = 0 ; seq = NULL
+  end
+end
+
+call update_knucfrm_count KNUCFRM1 KNUCFRM2 KNUCFRMX
+
+/* Generate correctly-formatted output strings */
+cbexpr = "FORMAT(ARG(1) * 100 / " || compute_knucfrm_total(KNUCFRM1) || ",,3)"
+frm1_freq = extract_knucfrm_data(KNUCFRM1, DESCENDING, "VK", "KV", cbexpr)
+
+cbexpr = "FORMAT(ARG(1) * 100 / " || compute_knucfrm_total(KNUCFRM2) || ",,3)"
+frm2_freq = extract_knucfrm_data(KNUCFRM2, DESCENDING, "VK", "KV", cbexpr)
+
+frmx_count = extract_knucfrm_data(KNUCFRMX,, "VK", "VK")
+
+/* Output data */
+call print_knucfrm_data frm1_freq, SPACE ; say NULL
+call print_knucfrm_data frm2_freq, SPACE ; say NULL
+call print_knucfrm_data frmx_count, TAB
+
+drop knucfrm. ; exit 0
+
+/* ----------------------------- */
+
+update_knucfrm_count : procedure expose seq knucfrm. NULL
+  knuctbl_ = ARG(1)
+
+  do while knuctbl_ <> NULL
+    parse var knuctbl_ knuc knuctbl_
+
+    /*
+       Use efficient 'COUNTSTR' BIF where possible, but use custom
+       [and much slower], 'COUNTSTRDUP', to count occurrences of
+       single-letter-only name [e.g. AA, GG] values
+    */
+
+    if knuc \= COPIES(SUBSTR(knuc, 1, 1), LENGTH(knuc)) then 
+      knucfrm.knuc = knucfrm.knuc + COUNTSTR(knuc, seq)
+    else
+      knucfrm.knuc = knucfrm.knuc + countstrdup(knuc, seq)
+  end
+
+  return
+
+/* ----------------------------- */
+
+compute_knucfrm_total : procedure expose knucfrm. NULL
+  knuctbl_ = ARG(1) ; total = 0
+
+  do while knuctbl_ <> NULL
+    parse var knuctbl_ knuc knuctbl_
+    total = total + knucfrm.knuc
+  end
+
+  return total
+
+/* ----------- */
+
+knucfrm_callback : procedure
+  interpret "value =" ARG(2) ; return value
+
+/* ----------- */
+
+extract_knucfrm_data : procedure expose knucfrm. NULL FSEP
+  knuctbl_ = ARG(1)
+
+  if ARG(2) == NULL then ; unordered = 1
+  else do
+    unordered = 0 ; ascending = (ARG(2) == "ASC")
+  end
+
+  kforder = (ARG(3) == "KV") ; kfout = (ARG(4) == "KV")
+
+  callback = (ARG(5) \= NULL) ; cbarg = ARG(5)
+
+  knucout = NULL
+
+  do while knuctbl_ <> NULL
+    parse var knuctbl_ knuc knuctbl_
+
+    if \callback then ; value = knucfrm.knuc
+    else ; value = knucfrm_callback(knucfrm.knuc, cbarg)
+
+    if kforder then
+      field = knuc || FSEP || value
+    else
+      field = value || FSEP || knuc
+
+    if unordered then ; knucout = knucout field
+    else ; knucout = insertWord(field, knucout, ascending)
+  end
+
+  if kforder & \kfout | \kforder & kfout then do
+    return swapfields(STRIP(knucout))
+  end
+
+  return STRIP(knucout)
+
+/* ----------- */
+
+swapfields : procedure expose NULL FSEP
+  datatbl_ = ARG(1) ; revtbl = NULL
+
+  do while datatbl_ <> NULL
+    parse var datatbl_ f1 (FSEP) f2 datatbl_
+    revtbl = revtbl f2 || FSEP || f1
+  end
+
+  return STRIP(revtbl)
+
+/* ----------------------------- */
+
+print_knucfrm_data : procedure expose NULL FSEP
+  datatbl_ = ARG(1) ; sep = ARG(2)
+
+  do while datatbl_ <> NULL
+    parse var datatbl_ f1 (FSEP) f2 datatbl_
+    say f1 || sep || f2
+  end
+
+  return
+
+/* ----------------------------- */
+
+countstrdup : procedure
+  needle = ARG(1) ; haystack = ARG(2)
+
+  nlen = LENGTH(needle) ; hlen = LENGTH(haystack) ; occurs = 0
+
+  do i = 1 for nlen
+    do j = i to hlen by nlen
+      if SUBSTR(haystack, j, nlen) == needle then ; occurs = occurs + 1
+    end
+  end
+
+  return occurs
+
+/* ----------------------------- */
+
+compare : procedure
+  if ARG(1) then ; return ARG(2) < ARG(3)
+  return ARG(2) > ARG(3)
+
+/* ----------- */
+
+insertWord : procedure
+  V = ARG(1) ; S = STRIP(ARG(2)) ; ascending = ARG(3)
+  R = WORDS(S) ; if R < 1 then ; return V
+
+  L = 1
+
+  do while L <= R
+    M = (L + R) % 2 ; W = WORD(S, M)
+    if V = W then ; return S
+    if compare(ascending, V, W) then ; R = M - 1 ; else L = M + 1
+  end
+
+  /* insert [after] item here */
+  select
+    when R < 1 then ; insertAfter = 0
+    when L > WORDS(S) then ; insertAfter = LENGTH(S) + 1
+    otherwise
+      if M = R then ; insertAfter = WORDINDEX(S, M + 1) - 1
+      else ; insertAfter = WORDINDEX(S, M) - 1
+  end
+
+  return INSERT(V, S, insertAfter, LENGTH(V) + 1)
+
+/* ------------------------------------------------------------------ */
+/* The Computer Language Shootout                               */
+/* http://shootout.alioth.debian.org/                                 */
+/*                                                                    */
+/* Uses compound variables [i.e. native associative arrays], and REXX */
+/* idiom of maintaining data structure size in the 0th element.       */
+/*                                                                    */
+/* Current file contains kludges so as to properly run on Debian      */
+/* platform:                                                          */
+/*                                                                    */
+/* * 'nop' instructions near 'N'                                      */
+/* * 'do i_ = 1 for N' instead of: 'do N'                             */
+/*                                                                    */
+/* Contributed by Anthony Borla                                       */
+/* ------------------------------------------------------------------ */
+
+nop ; N = ARG(1) ; if DATATYPE(N) \= 'NUM' | N < 1 then ; N = 1
+
+call main N, 10000
+
+exit 0
+
+/* ----------------------------- */
+
+main : procedure
+  nop ; N = ARG(1) ; SIZE = ARG(2)
+
+  do i_ = 1 for N
+    L1.0 = 0 ; do i = 1 for SIZE ; L1.i = i ; L1.0 = L1.0 + 1 ; end  
+    L2.0 = 0 ; do i = 1 for SIZE ; L2.i = L1.i ; L2.0 = L2.0 + 1 ; end
+
+    L3.0 = 0 ; j = SIZE ; do i = 1 to SIZE
+      L3.j = L2.i ; L3.0 = L3.0 + 1 ; drop L2.i ; L2.0 = L2.0 - 1 ; j = j - 1
+    end
+
+    do i = SIZE to 1 by -1
+      L2.i = L3.i ; L2.0 = L2.0 + 1 ; drop L3.i ; L3.0 = L3.0 - 1
+    end
+
+    k = SIZE % 2 ; j = SIZE ; do i = 1 to k
+      tmp = L1.j ; L1.j = L1.i ; L1.i = tmp ; j = j - 1
+    end
+
+    if L1.1 \= SIZE then do ; say "L1 <=> SIZE comparison error" ; exit 1 ; end
+
+    if L1.0 \= L2.0 then do ; say "L1 L2 sizes differ" ; exit 1 ; end
+
+    do i = 1 to SIZE
+      if L1.i \= L2.i then do ; say "Corresponding L1 L2 elements unequal" ; exit 1 ; end
+    end
+  end
+
+  say L1.0
+
+  return
+  
+/* ------------------------------------------------------------------ */
+/* The Great Computer Language Shootout                               */
+/* http://shootout.alioth.debian.org/                                 */
+/*                                                                    */
+/* Contributed by Anthony Borla                                       */
+/* ------------------------------------------------------------------ */
+
+width = ARG(1) ; if DATATYPE(width) \= 'NUM' | width < 1 then ; width = 600
+height = width ; byte_acc = 0 ; bit_num = 0 ; output = 0
+
+call LINEOUT , "P4" ; call LINEOUT , width height
+
+do y = 0 to height - 1
+
+  do x = 0 to width - 1
+
+    limitAdjustment = 1
+
+    Zr = 0 ; Zi = 0
+    Cr = (2 * x / width - 1.5) ; Ci = (2 * y / height - 1)
+
+    do 50
+      Tr = Zr * Zr - Zi * Zi + Cr
+      Ti = 2 * Zr * Zi + Ci
+      Zr = Tr ; Zi = Ti
+      if (Zr * Zr + Zi * Zi) > 4.0 then do ; limitAdjustment = 0 ; leave ; end 
+    end
+
+    bit_num = bit_num + 1 ; if bit_num == 8 then ; output = 1
+
+    byte_acc = byte_acc * 2 + limitAdjustment
+
+    if x == width - 1 & bit_num \= 8 then do
+      byte_acc = byte_acc * 2 ** (8 - width // 8) ; output = 1
+    end
+
+    if output then do
+      call CHAROUT , D2C(byte_acc)
+      byte_acc = 0 ; bit_num = 0 ; output = 0
+    end
+
+  end
+
+end
+
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   Contributed by Dennis Decker Jensen
+*/
+
+arg n . ; if n = '' | n < 1 then n = 1
+size = 30
+m1.0.0 = 0
+m2.0.0 = 0
+call mkmatrix 'm1.', size, size
+call mkmatrix 'm2.', size, size
+mm.0.0 = 0
+
+do i = 0 for n
+	call mmult size, size, 'm1.', 'm2.', 'mm.'
+end
+say mm.0.0 mm.2.3 mm.3.2 mm.4.4
+exit
+
+mkmatrix:
+parse arg mx, rows, cols
+procedure expose (mx) rows cols
+count = 1
+do i = 0 for rows
+	do j = 0 for cols
+		call value mx||i||'.'||j, count
+		count = count + 1
+	end j
+end i
+return
+
+mmult:
+parse arg rows, cols, m1, m2, m3
+procedure expose (m1) (m2) (m3) rows cols
+do i = 0 for rows
+	do j = 0 for cols
+		val = 0
+		do k = 0 for cols
+			val = val + value(m1||i||'.'||k) ,
+					* value(m2||k||'.'||j)
+		end k
+		call value m3||i||'.'||j, val
+	end j
+end i
+return
+/* ------------------------------------------------------------------ */
+/* The Great Computer Language Shootout                               */
+/* http://shootout.alioth.debian.org/                                 */
+/*                                                                    */
+/* Contributed by Dennis Decker Jensen                                */
+/*                                                                    */
+/* Modified by Anthony Borla. Changes include:                        */
+/*                                                                    */
+/* * Iterative version of 'qsort' replacing slower recursive version  */
+/* * Use of C library sqrt', replacing native code implementation     */
+/* * Altered code style to conform with my other REXX contributions   */
+/* ------------------------------------------------------------------ */
+
+numeric digits 11
+
+/* ----------------------------- */
+
+call initSqrt
+
+/* ----------------------------- */
+
+sum = 0
+
+do n = 1 by 1 while LINES() > 0
+  line = LINEIN() ; if line == "" then ; leave
+  sum = sum + line
+  nums.n = line
+end
+
+n = n - 1 ; nums.0 = n ; mean = sum / n
+
+parse value 0 0 0 0 with average_deviation variance skew kurtosis
+
+do i = 1 for n
+  deviation = nums.i - mean
+  average_deviation = average_deviation + abs(deviation)
+  variance = variance + deviation ** 2
+  skew = skew + deviation ** 3
+  kurtosis = kurtosis + deviation ** 4
+end
+
+average_deviation = average_deviation / n
+variance = variance / (n - 1)
+standard_deviation = sqrt(variance)
+
+if variance > 0 then do
+  skew = skew / (n * variance * standard_deviation)
+  kurtosis = kurtosis / (n * variance * variance) - 3.0
+end
+
+call qsort 1, nums.0
+mid = TRUNC(n / 2) ; k = mid + 1
+
+if n // 2 = 1 then
+  median = nums.k
+else
+  median = (nums.mid + nums.k) / 2
+
+say "n:                 " n
+say "median:            " FORMAT(median,, 6)
+say "mean:              " FORMAT(mean,, 6)
+say "average_deviation: " FORMAT(average_deviation,, 6)
+say "standard_deviation:" FORMAT(standard_deviation,, 6)
+say "variance:          " FORMAT(variance,, 6)
+say "skew:              " FORMAT(skew,, 6)
+say "kurtosis:          " FORMAT(kurtosis,, 6)
+
+exit 0
+
+/* ----------------------------- */
+
+initSqrt : procedure
+  sqrt.calltype = 'cdecl as function with parameters'
+  sqrt.return.type = 'float64'
+  sqrt.return.name = 'return value'
+
+  sqrt.0 = 1
+
+  sqrt.1.type = 'float64'
+  sqrt.1.name = 'number'
+
+  err = rxFuncDefine('sqrt', 'libm.so.6', 'sqrt', 'sqrt.')
+
+  if err \= 0 then
+    say "Error registering function 'sqrt'"
+
+  return
+
+/* ----------------------------- */
+
+qsort : procedure expose nums. 
+  push ARG(1) ARG(2) 
+
+  do while QUEUED() > 0 
+    parse pull l r 
+
+    if l < r then do
+
+      i = RANDOM(l, r)
+      parse value nums.l nums.i with nums.i nums.l
+      last = l
+      do i = l + 1 to r
+        if nums.i < nums.l then do
+          last = last + 1
+          parse value nums.last nums.i with nums.i nums.last
+        end
+      end
+      parse value nums.l nums.last with nums.last nums.l
+
+      push l last ; push (last + 1) r
+    end 
+  end 
+
+  return 
+/* ------------------------------------------------------------------ */
+/* The Great Computer Language Shootout                               */
+/* http://shootout.alioth.debian.org/                                 */
+/*                                                                    */
+/* This version uses the CRT's 'sqrt' function rather than a native   */
+/* REXX 'sqrt' subroutine with a consequent performance improvement   */
+/* of about 50%.                                                      */
+/*                                                                    */
+/* Contributed by Anthony Borla                                       */
+/* ------------------------------------------------------------------ */
+
+numeric digits 14
+
+NULL = ""
+PI = 3.141592653589793 ; SOLAR_MASS = 4 * PI * PI ; DAYS_PER_YEAR = 365.24
+
+constants = "NULL PI SOLAR_MASS DAYS_PER_YEAR"
+
+BODIES.list = "SUN JUPITER SATURN URANUS NEPTUNE"
+
+BODIES.sun.x = 0.0
+BODIES.sun.y = 0.0
+BODIES.sun.z = 0.0
+BODIES.sun.vx = 0.0
+BODIES.sun.vy = 0.0
+BODIES.sun.vz = 0.0
+BODIES.sun.mass = SOLAR_MASS
+
+BODIES.jupiter.x = 4.84143144246472090e+00
+BODIES.jupiter.y = -1.16032004402742839e+00
+BODIES.jupiter.z = -1.03622044471123109e-01
+BODIES.jupiter.vx = 1.66007664274403694e-03 * DAYS_PER_YEAR
+BODIES.jupiter.vy = 7.69901118419740425e-03 * DAYS_PER_YEAR
+BODIES.jupiter.vz = -6.90460016972063023e-05 * DAYS_PER_YEAR
+BODIES.jupiter.mass = 9.54791938424326609e-04 * SOLAR_MASS
+
+BODIES.saturn.x = 8.34336671824457987e+00
+BODIES.saturn.y = 4.12479856412430479e+00
+BODIES.saturn.z = -4.03523417114321381e-01
+BODIES.saturn.vx = -2.76742510726862411e-03 * DAYS_PER_YEAR
+BODIES.saturn.vy = 4.99852801234917238e-03 * DAYS_PER_YEAR
+BODIES.saturn.vz = 2.30417297573763929e-05 * DAYS_PER_YEAR
+BODIES.saturn.mass = 2.85885980666130812e-04 * SOLAR_MASS
+
+BODIES.uranus.x = 1.28943695621391310e+01
+BODIES.uranus.y = -1.51111514016986312e+01
+BODIES.uranus.z = -2.23307578892655734e-01
+BODIES.uranus.vx = 2.96460137564761618e-03 * DAYS_PER_YEAR
+BODIES.uranus.vy = 2.37847173959480950e-03 * DAYS_PER_YEAR
+BODIES.uranus.vz = -2.96589568540237556e-05 * DAYS_PER_YEAR
+BODIES.uranus.mass = 4.36624404335156298e-05 * SOLAR_MASS
+  
+BODIES.neptune.x = 1.53796971148509165e+01
+BODIES.neptune.y = -2.59193146099879641e+01
+BODIES.neptune.z = 1.79258772950371181e-01
+BODIES.neptune.vx = 2.68067772490389322e-03 * DAYS_PER_YEAR
+BODIES.neptune.vy = 1.62824170038242295e-03 * DAYS_PER_YEAR
+BODIES.neptune.vz = -9.51592254519715870e-05 * DAYS_PER_YEAR
+BODIES.neptune.mass = 5.15138902046611451e-05 * SOLAR_MASS
+
+/* ----------------------------- */
+
+call initSqrt
+
+/* ----------------------------- */
+
+N = ARG(1) ; if DATATYPE(N) \= 'NUM' | N < 1 then ; N = 1000
+
+call offsetMomentum
+
+say FORMAT(energy(),,9)
+
+do N ; call advance 0.01 ; end
+
+say FORMAT(energy(),,9)
+
+exit 0
+
+/* ----------------------------- */
+
+advance : procedure expose (constants) BODIES. 
+  bodylist = BODIES.list ; dt = ARG(1)
+
+  do while bodylist <> NULL
+    parse var bodylist body bodylist
+    nextbodylist = bodylist
+
+    do while nextbodylist <> NULL
+      parse var nextbodylist nextbody nextbodylist
+
+      dx = BODIES.body.x - BODIES.nextbody.x
+      dy = BODIES.body.y - BODIES.nextbody.y
+      dz = BODIES.body.z - BODIES.nextbody.z
+
+      distance = sqrt(dx * dx + dy * dy + dz * dz)
+      mag = dt / (distance * distance * distance)
+
+      BODIES.body.vx = BODIES.body.vx - dx * BODIES.nextbody.mass * mag
+      BODIES.body.vy = BODIES.body.vy - dy * BODIES.nextbody.mass * mag
+      BODIES.body.vz = BODIES.body.vz - dz * BODIES.nextbody.mass * mag
+
+      BODIES.nextbody.vx = BODIES.nextbody.vx + dx * BODIES.body.mass * mag
+      BODIES.nextbody.vy = BODIES.nextbody.vy + dy * BODIES.body.mass * mag
+      BODIES.nextbody.vz = BODIES.nextbody.vz + dz * BODIES.body.mass * mag
+    end
+  end
+
+  bodylist = BODIES.list
+
+  do while bodylist <> NULL
+    parse var bodylist body bodylist
+    BODIES.body.x = BODIES.body.x + dt * BODIES.body.vx
+    BODIES.body.y = BODIES.body.y + dt * BODIES.body.vy
+    BODIES.body.z = BODIES.body.z + dt * BODIES.body.vz
+  end
+
+  return
+
+/* ----------------------------- */
+
+energy : procedure expose (constants) BODIES.
+  e = 0.0 ; bodylist = BODIES.list
+
+  do while bodylist <> NULL
+    parse var bodylist body bodylist
+    e = e + 0.5 * BODIES.body.mass * (BODIES.body.vx * BODIES.body.vx + BODIES.body.vy * BODIES.body.vy + BODIES.body.vz * BODIES.body.vz)
+    nextbodylist = bodylist
+
+    do while nextbodylist <> NULL
+      parse var nextbodylist nextbody nextbodylist
+      dx = BODIES.body.x - BODIES.nextbody.x
+      dy = BODIES.body.y - BODIES.nextbody.y
+      dz = BODIES.body.z - BODIES.nextbody.z
+      distance = sqrt(dx * dx + dy * dy + dz * dz)
+      e = e - (BODIES.body.mass * BODIES.nextbody.mass) / distance
+    end
+  end
+
+  return e
+
+/* ----------------------------- */
+
+offsetMomentum : procedure expose (constants) BODIES.
+  px = 0.0 ; py = 0.0 ; pz = 0.0 ; bodylist = BODIES.list
+
+  do while bodylist <> NULL
+    parse var bodylist body bodylist
+    px = px + BODIES.body.vx * BODIES.body.mass
+    py = py + BODIES.body.vy * BODIES.body.mass
+    pz = pz + BODIES.body.vz * BODIES.body.mass
+  end
+
+  BODIES.sun.vx = -(px / SOLAR_MASS)
+  BODIES.sun.vy = -(py / SOLAR_MASS)
+  BODIES.sun.vz = -(pz / SOLAR_MASS)
+
+  return
+
+/* ----------------------------- */
+
+initSqrt : procedure
+  sqrt.calltype = 'cdecl as function with parameters'
+  sqrt.return.type = 'float64'
+  sqrt.return.name = 'return value'
+
+  sqrt.0 = 1
+
+  sqrt.1.type = 'float64'
+  sqrt.1.name = 'number'
+
+  err = rxFuncDefine('sqrt', 'libm.so.6', 'sqrt', 'sqrt.')
+
+  if err \= 0 then
+    say "Error registering function 'sqrt'"
+
+  return
+/* ------------------------------------------------------------------ */
+/* The Great Computer Language Shootout                               */
+/* http://shootout.alioth.debian.org/                                 */
+/*                                                                    */
+/* Contributed by Anthony Borla                                       */
+/* ------------------------------------------------------------------ */
+
+n = ARG(1) ; if DATATYPE(n) \= 'NUM' | n < 1 then ; n = 1
+a = n ; x = 0
+
+do while a > 0
+  b = n ; a = a - 1
+  do while b > 0
+    c = n ; b = b - 1
+    do while c > 0
+      d = n ; c = c - 1
+      do while d > 0
+        e = n ; d = d - 1
+        do while e > 0
+          f = n ; e = e - 1
+          do while f > 0
+            x = x + 1 ; f = f - 1    
+          end
+        end
+      end
+    end
+  end  
+end
+
+say x
+/* ------------------------------------------------------------------ */
+/* The Great Computer Language Shootout                               */
+/* http://shootout.alioth.debian.org/                                 */
+/*                                                                    */
+/* Contributed by Anthony Borla                                       */
+/* ------------------------------------------------------------------ */
+
+numeric digits 9
+
+N = ARG(1) ; if DATATYPE(N) \= 'NUM' | N < 1 then ; N = 1
+
+call nsieveResults 2 ** N * 10000
+call nsieveResults 2 ** (N - 1) * 10000
+call nsieveResults 2 ** (N - 2) * 10000
+
+exit 0
+
+/* ----------------------------- */
+
+nsieveResults : procedure
+  N = ARG(1) ; TAB = COPIES(" ", 4)
+  say "Primes up to" || TAB || N || TAB || nsieve(N)
+  return
+
+/* ----------------------------- */
+
+nsieve : procedure
+  M = ARG(1) ; count = -1 ; A. = 1
+
+  do i = 2 to M
+    if A.i then do
+      do j = i + i by i while j < M ; A.j = 0 ; end 
+      A.i = 0 ; count = count + 1
+    end
+  end
+
+  return count
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   Contributed by Dennis Decker Jensen
+*/
+
+arg n .
+if n >= 0 then call test n
+if n >= 1 then call test n-1
+if n >= 2 then call test n-2
+exit
+
+test: procedure
+arg n
+m = 10000 * 2**n
+say "Primes up to" right(m, 8) right(nsievebits(m), 7)
+return
+
+nsievebits: procedure
+arg m
+count = 0
+bits. = 1 /* bit array */
+do i = 2 to m - 1
+	if bits.i == 1 then do
+		count = count + 1
+		do j = i + i to m - 1 by i
+			bits.j = 0
+		end j
+	end
+end i
+return count
+/* ------------------------------------------------------------------ */
+/* The Great Computer Language Shootout                               */
+/* http://shootout.alioth.debian.org/                                 */
+/*                                                                    */
+/* Based on D language implementation by Dave Fladebo                 */
+/*                                                                    */
+/* Use of C library routines [requires interpreter GCI activation else*/
+/* runtime error occurs]                                              */
+/*                                                                    */
+/* Contributed by Anthony Borla                                       */
+/* ------------------------------------------------------------------ */
+
+numeric digits 18
+
+/* ----------------------------- */
+
+call initSqrt ; call initSin ; call initCos
+
+/* ----------------------------- */
+
+N = ARG(1) ; if DATATYPE(N) \= 'NUM' | N < 1 then ; N = 1
+
+SPACE = " " ; SUM. = 0.0 ; SUM.0 = 9 ; ALT = 1
+
+do D = 1 for N
+  D2 = D * D ; D3 = D2 * D ; DS = SIN(D) ; DC = COS(D)
+
+  SUM.1 = SUM.1 + (2 / 3) ** (D - 1)
+  SUM.2 = SUM.2 + 1 / SQRT(D)
+  SUM.3 = SUM.3 + 1 / (D * (D + 1))
+  SUM.4 = SUM.4 + 1 / (D3 * DS * DS)
+  SUM.5 = SUM.5 + 1 / (D3 * DC * DC)
+  SUM.6 = SUM.6 + 1 / D
+  SUM.7 = SUM.7 + 1 / D2
+  SUM.8 = SUM.8 + ALT / D
+  SUM.9 = SUM.9 + ALT / (2 * D - 1)
+
+  ALT = -ALT
+end
+
+say LEFT(FORMAT(SUM.1,, 9), 16, SPACE) || "(2/3)^k"
+say LEFT(FORMAT(SUM.2,, 9), 16, SPACE) || "k^-0.5"
+say LEFT(FORMAT(SUM.3,, 9), 16, SPACE) || "1/k(k+1)"
+say LEFT(FORMAT(SUM.4,, 9), 16, SPACE) || "Flint Hills"
+say LEFT(FORMAT(SUM.5,, 9), 16, SPACE) || "Cookson Hills"
+say LEFT(FORMAT(SUM.6,, 9), 16, SPACE) || "Harmonic"
+say LEFT(FORMAT(SUM.7,, 9), 16, SPACE) || "Riemann Zeta"
+say LEFT(FORMAT(SUM.8,, 9), 16, SPACE) || "Alternating Harmonic"
+say LEFT(FORMAT(SUM.9,, 9), 16, SPACE) || "Gregory"
+
+exit 0
+
+/* ----------------------------- */
+
+initSqrt : procedure
+  sqrt.calltype = 'cdecl as function with parameters'
+  sqrt.return.type = 'float64'
+  sqrt.return.name = 'return value'
+
+  sqrt.0 = 1
+
+  sqrt.1.type = 'float64'
+  sqrt.1.name = 'number'
+
+  LIBRARY = 'libm.so.6' ; parse source SYSTEM . .
+  if SYSTEM == "WIN32" then ; LIBRARY = 'msvcrt' 
+
+  err = rxFuncDefine('sqrt', LIBRARY, 'sqrt', 'sqrt.')
+
+  if err \= 0 then
+    say "Error registering function 'sqrt'"
+
+  return
+
+/* ----------------------------- */
+
+initSin : procedure
+  sin.calltype = 'cdecl as function with parameters'
+  sin.return.type = 'float64'
+  sin.return.name = 'return value'
+
+  sin.0 = 1
+
+  sin.1.type = 'float64'
+  sin.1.name = 'number'
+
+  LIBRARY = 'libm.so.6' ; parse source SYSTEM . .
+  if SYSTEM == "WIN32" then ; LIBRARY = 'msvcrt' 
+
+  err = rxFuncDefine('sin', LIBRARY, 'sin', 'sin.')
+
+  if err \= 0 then
+    say "Error registering function 'sin'"
+
+  return
+
+/* ----------------------------- */
+    
+initCos : procedure
+  cos.calltype = 'cdecl as function with parameters'
+  cos.return.type = 'float64'
+  cos.return.name = 'return value'
+
+  cos.0 = 1
+
+  cos.1.type = 'float64'
+  cos.1.name = 'number'
+
+  LIBRARY = 'libm.so.6' ; parse source SYSTEM . .
+  if SYSTEM == "WIN32" then ; LIBRARY = 'msvcrt' 
+
+  err = rxFuncDefine('cos', LIBRARY, 'cos', 'cos.')
+
+  if err \= 0 then
+    say "Error registering function 'cos'"
+
+  return
+
+/* ------------------------------------------------------------------ */
+/* The Great Computer Language Shootout                               */
+/* http://shootout.alioth.debian.org/                                 */
+/*                                                                    */
+/* Use of C library routines [requires interpreter GCI activation else*/
+/* runtime error occurs]                                              */
+/*                                                                    */
+/* Contributed by Anthony Borla                                       */
+/* ------------------------------------------------------------------ */
+
+numeric digits 18
+
+/* ----------------------------- */
+
+call initSqrt ; call initSin ; call initCos
+
+/* ----------------------------- */
+
+N = ARG(1) ; if DATATYPE(N) \= 'NUM' | N < 1 then ; N = 1
+
+NULL = "" ; ITEMS = "(2/3)^k k^-0.5 1/k(k+1) Flint_Hills Cookson_Hills Harmonic Riemann_Zeta Alternating_Harmonic Gregory"
+
+ALT = 1 ; QUEUE_SIZE = WORDS(ITEMS)
+
+do QUEUE_SIZE ; queue 0.0 ; end
+
+do D = 1 for N
+  D2 = D * D ; D3 = D2 * D ; DS = SIN(D) ; DC = COS(D)
+
+  call update (2 / 3) ** (D - 1)
+  call update 1 / SQRT(D)
+  call update 1 / (D * (D + 1))
+  call update 1 / (D3 * DS * DS)
+  call update 1 / (D3 * DC * DC)
+  call update 1 / D
+  call update 1 / D2
+  call update ALT / D
+  call update ALT / (2 * D - 1)
+
+  ALT = -ALT
+end
+
+do while ITEMS <> NULL
+  parse var ITEMS CURRENT ITEMS ; parse pull V
+  call print CURRENT, V
+end
+
+exit 0
+
+/* ----------------------------- */
+
+update : procedure
+  parse pull V ; V = V + ARG(1) ; queue V
+  return
+
+/* ----------- */
+
+print : procedure
+  say LEFT(FORMAT(ARG(2),, 9), 16, " ") || CHANGESTR("_", ARG(1), " ")
+  return
+
+/* ----------------------------- */
+
+initSqrt : procedure
+  sqrt.calltype = 'cdecl as function with parameters'
+  sqrt.return.type = 'float64'
+  sqrt.return.name = 'return value'
+
+  sqrt.0 = 1
+
+  sqrt.1.type = 'float64'
+  sqrt.1.name = 'number'
+
+  LIBRARY = 'libm.so.6' ; parse source SYSTEM . .
+  if SYSTEM == "WIN32" then ; LIBRARY = 'msvcrt' 
+
+  err = rxFuncDefine('sqrt', LIBRARY, 'sqrt', 'sqrt.')
+
+  if err \= 0 then
+    say "Error registering function 'sqrt'"
+
+  return
+
+/* ----------------------------- */
+
+initSin : procedure
+  sin.calltype = 'cdecl as function with parameters'
+  sin.return.type = 'float64'
+  sin.return.name = 'return value'
+
+  sin.0 = 1
+
+  sin.1.type = 'float64'
+  sin.1.name = 'number'
+
+  LIBRARY = 'libm.so.6' ; parse source SYSTEM . .
+  if SYSTEM == "WIN32" then ; LIBRARY = 'msvcrt' 
+
+  err = rxFuncDefine('sin', LIBRARY, 'sin', 'sin.')
+
+  if err \= 0 then
+    say "Error registering function 'sin'"
+
+  return
+
+/* ----------------------------- */
+    
+initCos : procedure
+  cos.calltype = 'cdecl as function with parameters'
+  cos.return.type = 'float64'
+  cos.return.name = 'return value'
+
+  cos.0 = 1
+
+  cos.1.type = 'float64'
+  cos.1.name = 'number'
+
+  LIBRARY = 'libm.so.6' ; parse source SYSTEM . .
+  if SYSTEM == "WIN32" then ; LIBRARY = 'msvcrt' 
+
+  err = rxFuncDefine('cos', LIBRARY, 'cos', 'cos.')
+
+  if err \= 0 then
+    say "Error registering function 'cos'"
+
+  return
+
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   Contributed by Dennis Decker Jensen,
+*/
+
+/* Tried with word arrays, but was too slow. */
+/* It is still slow due to decimal arithmetic precision, */
+/* so if this can be reduced somehow it will speedup tremendously! */
+
+k = 0; TAB = x2c('09')
+parse value 1 0 0 1 with z1 z2 z3 z4
+parse arg n .
+numeric digits n /* Decimal arithmetic! Optimizations? */
+
+do i = 10 by 10 while i <= n
+	say pidigits(10) || TAB || " :" || i
+end
+i = i - 10
+if i < n then say left(pidigits(n-i), 10) || TAB || " :" || n
+exit
+
+pidigits: procedure expose k z1 z2 z3 z4
+arg count
+r = ''
+do i = 1 for count
+	y = extract(z1, z2, z3, z4, 3)
+	do while y <> extract(z1, z2, z3, z4, 4)
+		k = k + 1
+		parse value compose(z1, z2, z3, z4, k, 4*k+2, 0, 2*k+1) ,
+				with z1 z2 z3 z4
+		y = extract(z1, z2, z3, z4, 3)
+	end
+	parse value compose(10, -10*y, 0, 1, z1, z2, z3, z4) ,
+			with z1 z2 z3 z4
+	r = r y
+end
+return space(r, 0)
+
+compose: procedure
+arg a1, a2, a3, a4, b1, b2, b3, b4 .
+return a1*b1 a1*b2+a2*b4 a3*b1+a4*b3 a3*b2+a4*b4
+
+extract: procedure
+parse arg a1, a2, a3, a4, j .
+return (a1*j+a2) % (a3*j+a4)
+
+/* ------------------------------------------------------------------ */
+/* The Great Computer Language Shootout                               */
+/* http://shootout.alioth.debian.org/                                 */
+/*                                                                    */
+/* Contributed by Anthony Borla                                       */
+/* ------------------------------------------------------------------ */
+
+numeric digits 11 ; LAST = 42
+
+N = ARG(1) ; if DATATYPE(N) \= 'NUM' | N < 1 then ; N = 1
+
+N = N - 1 ; do N ; call gen_random 100.0 ; end
+
+say FORMAT(gen_random(100.0),, 9)
+
+exit 0
+
+/* ----------------------------- */
+
+gen_random :
+  LAST = (LAST * 3877 + 29573) // 139968
+  return ARG(1) * LAST / 139968
+
+/* ------------------------------------------------------------------ */
+/* The Great Computer Language Shootout                               */
+/* http://shootout.alioth.debian.org/                                 */
+/*                                                                    */
+/* Code based on / inspired by existing, relevant Shootout submissions*/
+/*                                                                    */
+/* Contributed by Anthony Borla                                       */
+/* ------------------------------------------------------------------ */
+
+N = ARG(1) ; if DATATYPE(N) \= 'NUM' | N < 1 then ; N = 1
+
+say "Ack(3," || N || "):" FORMAT(ack(3, N),, 0)
+say "Fib(" || 27.0 + N || "):" FORMAT(fib(27.0 + N),, 1)
+
+N = N - 1
+say "Tak(" || N * 3 || "," || N * 2 || "," || N || "):" FORMAT(tak(N * 3, N * 2, N),, 0)
+
+say "Fib(3):" FORMAT(fib(3),, 0)
+say "Tak(3.0,2.0,1.0):" FORMAT(tak(3.0, 2.0, 1.0),, 1)
+
+exit 0
+
+/* ----------------------------- */
+
+ack :
+  if ARG(1) == 0 then ; return ARG(2) + 1
+  if ARG(2) == 0 then ; return ack(ARG(1) - 1, 1)
+  return ack(ARG(1) - 1, ack(ARG(1), ARG(2) - 1))
+
+/* ----------- */
+
+fib :
+  if ARG(1) < 2 then ; return 1
+  return fib(ARG(1) - 2) + fib(ARG(1) - 1)
+
+/* ----------- */
+
+tak :
+  if ARG(2) >= ARG(1) then ; return ARG(3)
+  return tak(tak(ARG(1) - 1.0, ARG(2), ARG(3)), tak(ARG(2) - 1.0, ARG(3), ARG(1)), tak(ARG(3) - 1.0, ARG(1), ARG(2)))
+
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   Contributed by Dennis Decker Jensen
+*/
+
+seq = ""
+parse linein line
+do while line <> ""
+	if verify(line, ">;", "Match") then do
+		call show
+		say line
+		seq = ""
+	end
+	else seq = seq || line
+	parse linein line
+end
+call show
+exit
+
+show: procedure expose seq
+seq = translate(seq, "TGVHCDMKNSYAAWBRTGVHCDMKNSYAAWBR", , /* out */
+                     "ACBDGHKMNSRUTWVYacbdghkmnsrutwvy") /* in */
+seq = reverse(seq) 
+len = length(seq)               
+do i = 1 to len by 60 
+	say strip(substr(seq, i, 60), "Trailing")
+end
+return
+ 
+/* ------------------------------------------------------------------ */
+/* The Great Computer Language Shootout                               */
+/* http://shootout.alioth.debian.org/                                 */
+/*                                                                    */
+/* Contributed by Anthony Borla                                       */
+/* ------------------------------------------------------------------ */
+
+INTBL = "wsatugcyrkmbdhvnATUGCYRKMBDHVN"
+OUTBL = "WSTAACGRYMKVHDBNTAACGRYMKVHDBN"
+
+THRESHOLD = 32 ; LINELENGTH = 60 ; NULL = "" ; HEAD = "head" ; DATA = "data"
+
+okToDump = 0
+
+call makeQueues
+
+do while LINES() > 0
+  line = LINEIN() ; if line == NULL then ; leave
+
+  if SUBSTR(line, 1, 1) == ">" then do
+
+    call queueHeader line
+    if \okToDump then do ; okToDump = 1 ; iterate ; end
+
+    call dumpSegment
+
+  end ; else do
+
+    call queueData line
+
+  end
+end
+
+call dumpSegment
+
+call dropQueues ; exit 0
+
+/* ----------------------------- */
+
+makeQueues : ; call RXQUEUE 'C', HEAD ; call RXQUEUE 'C', DATA ; return
+
+/* ----------- */
+
+dropQueues : ; call RXQUEUE 'D', HEAD ; call RXQUEUE 'D', DATA ; return
+
+/* ----------------------------- */
+
+queueHeader : ; call RXQUEUE 'S', HEAD ; queue ARG(1) ; call RXQUEUE 'S', DATA ; return
+
+/* ----------- */
+
+queueData : ; push REVERSE(TRANSLATE(ARG(1), OUTBL, INTBL)) ; return
+
+/* ----------------------------- */
+
+dumpSegment : procedure expose HEADER DATA THRESHOLD LINELENGTH NULL
+  FORCEOUTPUT = 1 ; output = NULL ; lineno = 0
+
+  call RXQUEUE 'S', HEAD ; parse pull header ; say header ; call RXQUEUE 'S', DATA
+
+  do while QUEUED() > 0
+    lineno = lineno + 1 ; parse pull line ; output = output || line
+
+    if lineno == THRESHOLD then do
+      output = dumpSegmentLines(output) ; lineno = 0
+    end
+  end
+
+  call dumpSegmentLines output, FORCEOUTPUT ; return
+ 
+/* ----------- */
+
+dumpSegmentLines : procedure expose LINELENGTH NULL
+  s = ARG(1) ; slen = LENGTH(s) ; stop = slen % LINELENGTH ; remaining = slen // LINELENGTH
+
+  do i = 0 while i < stop
+    start = LINELENGTH * i + 1 ; say SUBSTR(s, start, LINELENGTH)
+  end
+
+  r = NULL
+  
+  if remaining > 0 then do
+    r = SUBSTR(s, start + LINELENGTH, remaining) ; if \ARG(2, 'O') then ; say r
+  end
+
+  return r
+/* ------------------------------------------------------------------ */
+/* The Great Computer Language Shootout                               */
+/* http://shootout.alioth.debian.org/                                 */
+/*                                                                    */
+/* Contributed by Anthony Borla                                       */
+/* ------------------------------------------------------------------ */
+
+do while LINES() > 0
+  line = LINEIN() ; if line \= "" then ; push line
+end
+
+do while QUEUED() > 0 ; parse pull line ; say line ; end
+/* ------------------------------------------------------------------ */
+/* The Great Computer Language Shootout                               */
+/* http://shootout.alioth.debian.org/                                 */
+/*                                                                    */
+/* Contributed by Anthony Borla                                       */
+/* ------------------------------------------------------------------ */
+
+N = ARG(1) ; if DATATYPE(N) \= 'NUM' | N < 1 then ; N = 1
+
+do while N > 0
+  count = 0
+
+  do i = 2 while i <= 8192 ; flags.i = 1 ; end
+
+  do i = 2 while i <= 8192
+    if flags.i then do
+      do k = i + i by i while k <= 8192 ; flags.k = 0 ; end
+      flags.i = 0 ; count = count + 1
+    end
+  end 
+
+  N = N - 1
+end
+
+say "Count:" count
+/* ------------------------------------------------------------------ */
+/* The Great Computer Language Shootout                               */
+/* http://shootout.alioth.debian.org/                                 */
+/*                                                                    */
+/* Modified by Anthony Borla based on code originally submitted by    */
+/* Dennis Decker Jensen. Modifications include:                       */
+/*                                                                    */
+/* * Use of C library sqrt', replacing native code implementation     */
+/* * Altered code style to conform with my other REXX contributions   */
+/* ------------------------------------------------------------------ */
+
+numeric digits 12
+
+/* ----------------------------- */
+
+call initSqrt
+
+/* ----------------------------- */
+
+N = ARG(1)
+
+parse value 0.0 0.0 N N with vBv vv u.0 v.0
+
+do i = 1 for u.0 ; u.i = 1.0 ; end
+
+do 10
+  call mulAtAv 'u.', 'v.' ; call mulAtAv 'v.', 'u.'
+end
+
+do i = 1 for u.0
+  vBv = vBv + u.i * v.i ; vv = vv + v.i * v.i
+end
+
+say FORMAT(sqrt(vBv / vv),, 9)
+
+exit 0
+
+/* ----------------------------- */
+
+A : procedure
+  parse value ARG(1) - 1 ARG(2) - 1 with i j
+  return 1 / ((i + j) *( i + j + 1) / 2 + i + 1)
+
+/* ----------- */
+
+mulAv :
+  parse arg v, Av ; procedure expose (v) (Av)
+
+  call VALUE Av||0, VALUE(v||0)
+
+  do i = 1 for VALUE(Av||0)
+    call VALUE Av||i, 0.0
+    do j = 1 for VALUE(v||0)
+      call VALUE Av||i, VALUE(Av||i) + A(i, j) * VALUE(v||j)
+    end
+  end
+
+  return
+
+/* ----------- */
+
+mulAtv :
+  parse arg v, Atv ; procedure expose (v) (Atv)
+
+  call VALUE Atv||0, VALUE(v||0)
+
+  do i = 1 for VALUE(Atv||0)
+    call VALUE Atv||i, 0.0
+    do j = 1 for VALUE(v||0)
+      call VALUE Atv||i, VALUE(Atv||i) + A(j, i) * VALUE(v||j)
+    end
+  end
+
+  return
+
+/* ----------- */
+
+mulAtAv:
+  parse arg v, AtAv ; procedure expose (v) (AtAv)
+
+  call mulAv v, 'tmp.'
+  call mulAtv 'tmp.', AtAv
+
+  return
+
+/* ----------------------------- */
+
+initSqrt : procedure
+  sqrt.calltype = 'cdecl as function with parameters'
+  sqrt.return.type = 'float64'
+  sqrt.return.name = 'return value'
+
+  sqrt.0 = 1
+
+  sqrt.1.type = 'float64'
+  sqrt.1.name = 'number'
+
+  LIBRARY = 'libm.so.6' ; parse source SYSTEM . .
+  if SYSTEM == "WIN32" then ; LIBRARY = 'msvcrt' 
+
+  err = rxFuncDefine('sqrt', LIBRARY, 'sqrt', 'sqrt.')
+
+  if err \= 0 then
+    say "Error registering function 'sqrt'"
+
+  return
+
+/* ------------------------------------------------------------------ */
+/* The Great Computer Language Shootout                               */
+/* http://shootout.alioth.debian.org/                                 */
+/*                                                                    */
+/* % regina -v                                                        */
+/* REXX-Regina_3.3(MT) 5.00 25 Apr 2004                               */
+/* % uname -orvmp                                                     */
+/* 2.6.5-1.358 #1 Wed Oct 13 17:49:34 EST 2004 i686 i686 GNU/Linux    */
+/*                                                                    */
+/* Contributed by Anthony Borla                                       */
+/* ------------------------------------------------------------------ */
+ 
+TRUE = 1 ; NULL = "" ; DICTIONARY = "Usr.Dict.Words"
+
+parse value LINEIN(DICTIONARY) with word
+do while word <> NULL
+  dict.word = TRUE
+  parse value LINEIN(DICTIONARY) with word
+end
+
+parse value LINEIN() with word
+do while word <> NULL
+  if SYMBOL('dict.word') \= 'VAR' then ; say word
+  parse value LINEIN() with word
+end
+/* ------------------------------------------------------------------ */
+/* The Great Computer Language Shootout                               */
+/* http://shootout.alioth.debian.org/                                 */
+/*                                                                    */
+/* Contributed by Anthony Borla                                       */
+/* ------------------------------------------------------------------ */
+
+N = ARG(1) ; if DATATYPE(N) \= 'NUM' | N < 1 then ; N = 1
+
+hello = "hello" || '0A'X ; str = ""
+
+do N ; str = str || hello ; end
+
+say LENGTH(str)
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   contributed by Dennis Decker Jensen 
+*/
+
+sum = 0
+num = linein()
+do while num \= ''
+	sum = sum + num
+	num = linein()
+end
+
+say sum
+exit(0)
+
+/* ------------------------------------------------------------------ */
+/* The Great Computer Language Shootout                               */
+/* http://shootout.alioth.debian.org/                                 */
+/*                                                                    */
+/* Contributed by Anthony Borla                                       */
+/* ------------------------------------------------------------------ */
+
+N = ARG(1) ; if DATATYPE(N) \= 'NUM' | N < 1 then ; N = 1
+
+say tak(N * 3.0, N * 2.0, N * 1.0)
+
+exit 0
+
+/* ----------------------------- */
+
+tak :
+  if ARG(2) >= ARG(1) then ; return ARG(3)
+  return tak(tak(ARG(1) - 1.0, ARG(2), ARG(3)), tak(ARG(2) - 1.0, ARG(3), ARG(1)), tak(ARG(3) - 1.0, ARG(1), ARG(2)))
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   Contributed by Dennis Decker Jensen
+*/
+
+arg n .
+if n = '' then n = 1
+
+say format(tak(n*3.0, n*2.0, n*1.0),  , 1) 
+exit
+
+tak: procedure
+arg x, y, z
+if y >= x then return z
+return tak( tak(x-1, y, z), tak(y-1, z, x), tak(z-1, x, y) )
+
+/* ------------------------------------------------------------------ */
+/* The Great Computer Language Shootout                               */
+/* http://shootout.alioth.debian.org/                                 */
+/*                                                                    */
+/* Contributed by Anthony Borla                                       */
+/* ------------------------------------------------------------------ */
+
+PADDING = 2 ; lines = -1 ; words = 0 ; chars = -2
+
+do while LINES() > 0
+  line = LINEIN()
+  parse value (lines + 1) (words + WORDS(line)),
+              (chars + LENGTH(line) + PADDING),
+        with  lines words chars
+end
+
+say lines words chars
+/* ------------------------------------------------------------------ */
+/* The Great Computer Language Shootout                               */
+/* http://shootout.alioth.debian.org/                                 */
+/*                                                                    */
+/* Contributed by Anthony Borla                                       */
+/* ------------------------------------------------------------------ */
+
+PADDING = 1 ; lines = -1 ; words = 0 ; chars = -1
+
+do while LINES() > 0
+  line = LINEIN()
+  parse value (lines + 1) (words + WORDS(line)),
+              (chars + LENGTH(line) + PADDING),
+        with  lines words chars
+end
+
+say lines words chars
+/* ------------------------------------------------------------------ */
+/* The Great Computer Language Shootout                               */
+/* http://shootout.alioth.debian.org/                                 */
+/*                                                                    */
+/* Contributed by Anthony Borla                                       */
+/* ------------------------------------------------------------------ */
+
+NULL = ""
+
+TBLIN = "!""#$%&`'()*+,-./0123456789:;<=>?@"||,
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_{|}~"
+
+TBLOUT = "                                 "||,
+         "abcdefghijklmnopqrstuvwxyz         "
+
+N = ARG(1) ; if DATATYPE(N) \= 'NUM' | N < 1 then ; N = 1
+
+/* Build table of word frequencies from file data */
+D.0 = 0
+
+do while LINES() > 0
+  line = TRANSLATE(LINEIN(), TBLOUT, TBLIN)
+
+  do while line <> NULL
+    parse var line token line
+
+    /* Update entry if it exists */
+    if SYMBOL('N.token') == 'VAR' then do 
+      i = N.token ; D.i.!v = D.i.!v + 1
+      iterate
+    end
+
+    /* otherwise add a new entry */
+    D.0 = D.0 + 1 ; i = D.0 ; D.i.!k = token ; D.i.!v = 1
+    N.token = i
+  end
+
+end
+
+drop N. ; WF.0 = 0
+
+/* Build count -> word mapping table */
+do i = 1 for D.0
+  v = D.i.!v ; if v > WF.0 then ; WF.0 = v
+  if SYMBOL('WF.v') == 'VAR' then
+    WF.v = insertWordDescending(D.i.!k, WF.v)
+  else
+    WF.v = D.i.!k
+end
+
+/* Print word count [descending] -> word [descending] */
+do i = WF.0 to 1 by -1
+  if SYMBOL('WF.i') \= 'VAR' then ; iterate
+  nwords = WORDS(WF.i)
+  do j = 1 for nwords ; say FORMAT(i, 7, 0) WORD(WF.i, j) ; end
+end
+
+drop WF. D. ; exit 0
+
+/* ----------------------------- */
+
+insertWordDescending : procedure
+  V = ARG(1) ; S = STRIP(ARG(2))
+  R = WORDS(S) ; if R < 1 then ; return V
+
+  L = 1
+
+  do while L <= R 
+    M = (L + R) % 2 ; W = WORD(S, M)
+    if V = W then ; return S
+    if V > W then ; R = M - 1 ; else L = M + 1 
+  end
+
+  /* insert [after] item here */
+  select
+    when R < 1 then ; insertAfter = 0
+    when L > WORDS(S) then ; insertAfter = LENGTH(S) + 1
+    otherwise 
+      if M = R then ; insertAfter = WORDINDEX(S, M + 1) - 1
+      else ; insertAfter = WORDINDEX(S, M) - 1
+  end
+
+  return INSERT(V, S, insertAfter, LENGTH(V) + 1)

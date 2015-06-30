@@ -1,0 +1,1875 @@
+module: ackermann
+
+begin
+  local method ackermann (M :: <integer>, N :: <integer>)
+          case
+            M = 0     => N + 1;
+            N = 0     => ackermann(M - 1, 1);
+            otherwise => ackermann(M - 1, ackermann(M, N - 1));
+          end;
+        end;
+
+  let arg = string-to-integer(element(application-arguments(), 0, default: "1"));
+  format-out("Ack(3,%d): %d\n", arg, ackermann(3, arg));
+end;
+module: ary
+
+define constant <integer-vector> = limited(<vector>, of: <integer>);
+
+define function main (arguments)
+  let n = string-to-integer(element(arguments, 0, default: "1"));
+
+  let x = make(<integer-vector>, size: n, fill: 0);
+  let y = make(<integer-vector>, size: n, fill: 0);
+
+  for (i from 0 below x.size)
+    x[i] := i + 1;
+  end for;
+  
+  for (k from 0 below 1000)
+    for (i from n - 1 to 0 by -1)
+      y[i] := y[i] + x[i];
+    end for;
+  end for;
+
+  format-out("%d %d\n", y[0], y[y.size - 1]);
+end function main;
+
+main(application-arguments());
+module: binarytrees
+
+define constant <tree> = type-union(<integer>, <node>);
+
+define class <node> (<object>)
+  slot left :: <tree>, required-init-keyword: left:;
+  slot item :: <integer>, required-init-keyword: item:;
+  slot right :: <tree>, required-init-keyword: right:;
+end;
+
+define sealed domain make(singleton(<node>));
+define sealed domain initialize(<node>);
+
+define function build(n :: <integer>, d :: <integer>) => (res :: <tree>)
+  if (d == 0)
+    n;
+  else
+    make(<node>, item: n, left: build(2 * n - 1, d - 1), right: build(2 * n, d - 1));
+  end;
+end;
+
+define function check(tree :: <tree>) => (res :: <integer>);
+  select (tree by instance?)
+    <integer> => tree;
+    <node> => tree.item + tree.left.check - tree.right.check;
+  end;
+end;
+
+begin
+  let min-depth = 4;
+  let max-depth = max(min-depth + 2, application-arguments()[0].string-to-integer);
+  let stretch-depth = max-depth + 1;
+
+  format-out("stretch tree of depth %d\t check: %d\n",
+             stretch-depth, build(0, stretch-depth).check);
+
+  let long-lived-tree = build(0, max-depth);
+
+  for (d from min-depth to max-depth by 2)
+    let iterations = ash(1, max-depth - d + min-depth);
+    for (i from 1 to iterations,
+         c = 0 then c + build(i, d).check + build(-i, d).check)
+    finally
+      format-out("%d\t trees of depth %d\t check: %d\n", 2 * iterations, d, c);
+    end for;
+  end for;
+
+  format-out("long lived tree of depth %d\t check: %d\n",
+             max-depth, long-lived-tree.check);
+end;
+module:     except
+synopsis:   implementation of "Exception Handling" benchmark
+author:     Peter Hinely
+copyright:  public domain
+
+
+define variable hi :: <integer> = 0;
+define variable lo  :: <integer> = 0;
+
+
+define sealed domain make (subclass(<hi-exception>));
+define sealed domain initialize (<hi-exception>);
+
+
+define class <hi-exception> (<error>)
+  slot number :: <integer>, required-init-keyword: number:; // not really used for anything
+end;
+
+
+define class <lo-exception> (<hi-exception>)
+end;
+
+
+define function some-function (num :: <integer>) => ()
+  block ()
+    hi-function(num);
+  exception (err :: <error>)
+    error("We shouldn't have got here.");
+  end;
+end function;
+
+
+define function hi-function (num :: <integer>) => ()
+  block ()
+    lo-function(num);
+  exception (err :: <hi-exception>)
+    hi := hi + 1;
+  end;
+end function;
+
+
+define function lo-function (num :: <integer>) => ()
+  block ()
+    blowup(num);
+  exception (err :: <lo-exception>)
+    lo := lo + 1;
+  end;
+end function;
+
+
+define function blowup (num :: <integer>) => ()
+  if (odd?(num))
+    signal(make(<lo-exception>, number: num));
+  else
+    signal(make(<hi-exception>, number: num));
+  end;
+end function;
+
+
+define function main () => ()
+  let arg = string-to-integer(element(application-arguments(), 0, default: "1"));
+
+  for (i from arg to 1 by -1)
+    some-function(i);
+  end;
+
+  format-out("Exceptions: HI=%d / LO=%d\n", hi, lo);
+end function;
+
+
+main();
+module: fasta
+use-libraries: common-dylan, io
+use-modules: common-dylan, standard-io, streams, format-out
+
+define constant $alu :: <byte-string> =
+  "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG"
+  "GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA"
+  "CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT"
+  "ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA"
+  "GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG"
+  "AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC"
+  "AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA";
+
+define sealed class <frequency> (<object>)
+  slot p :: <double-float>, required-init-keyword: p:;
+  constant slot c :: <byte-character>, required-init-keyword: c:;
+end class <frequency>;
+
+define constant $null-frequency :: <frequency> = make(<frequency>,c: '\<0>', p: 0.0d0);
+
+define constant <frequency-vector> = <simple-object-vector>;
+
+define constant $iub :: <frequency-vector> = make(<frequency-vector>,size: 15,fill: $null-frequency);
+$iub[0] := make(<frequency>,c: 'a',p: 0.27d0);
+$iub[1] := make(<frequency>,c: 'c',p: 0.12d0);
+$iub[2] := make(<frequency>,c: 'g',p: 0.12d0);
+$iub[3] := make(<frequency>,c: 't',p: 0.27d0);
+$iub[4] := make(<frequency>,c: 'B',p: 0.02d0);
+$iub[5] := make(<frequency>,c: 'D',p: 0.02d0);
+$iub[6] := make(<frequency>,c: 'H',p: 0.02d0);
+$iub[7] := make(<frequency>,c: 'K',p: 0.02d0);
+$iub[8] := make(<frequency>,c: 'M',p: 0.02d0);
+$iub[9] := make(<frequency>,c: 'N',p: 0.02d0);
+$iub[10] := make(<frequency>,c: 'R',p: 0.02d0);
+$iub[11] := make(<frequency>,c: 'S',p: 0.02d0);
+$iub[12] := make(<frequency>,c: 'V',p: 0.02d0);
+$iub[13] := make(<frequency>,c: 'W',p: 0.02d0);
+$iub[14] := make(<frequency>,c: 'Y',p: 0.02d0);
+
+define constant $homosapiens :: <frequency-vector> = make(<frequency-vector>,size: 4,fill: $null-frequency);
+$homosapiens[0] := make(<frequency>,c: 'a',p: 0.3029549426680d0);
+$homosapiens[1] := make(<frequency>,c: 'c',p: 0.1979883004921d0);
+$homosapiens[2] := make(<frequency>,c: 'g',p: 0.1975473066391d0);
+$homosapiens[3] := make(<frequency>,c: 't',p: 0.3015094502008d0);
+
+define constant $ia = 3877;
+define constant $ic = 29573;
+define constant $im = 139968;
+define variable *last* :: <double-float> = 42.0d0;
+
+define function gen-random(max-value :: <double-float>)
+ => result :: <double-float>;
+  *last* := modulo((*last* * $ia + $ic), $im);
+  (max-value * *last*) / $im;
+end function gen-random;
+
+define function make-cumulative(tbl :: <frequency-vector>)
+  let cp :: <double-float> = 0.0d0;
+  for (i from 0 below size(tbl))
+    let frequency :: <frequency> = tbl[i];
+    cp := cp + frequency.p;
+    frequency.p := cp;
+  end for;
+end function make-cumulative;
+
+define function make-repeat-fasta
+    (id :: <string>, desc :: <string>, src :: <byte-string>, n :: <integer>)
+  format-out(">%s %s\n", id, desc);
+  let width = 60;
+  let length :: <integer> =  size(src);
+  let count :: <integer> = 0;
+  let k :: <integer> = 0;
+  let buffer = make(<byte-string>, size: width + 1);
+  while (n > 0)
+    count := min(n, width);
+    for (i from 0 below count)
+      if (k == length)
+        k := 0;
+      end if;
+      buffer[i] := src[k];
+      k := k + 1;
+    end for;
+    buffer[count] := '\n';
+    write(*standard-output*, buffer, end: count + 1);
+    n := n - width;
+  end while;
+end function make-repeat-fasta;
+
+define function select-random-char (tbl :: <frequency-vector>, last-index :: <integer>)
+ => result :: <byte-character>;
+  let rnd = gen-random(1.0d0);
+  let result =
+    block(break)
+      for (i from 0 below last-index)
+        let frequency :: <frequency> = tbl[i];
+        if (rnd < frequency.p)
+          break(frequency.c);
+        end if;
+      end for;
+      tbl[last-index].c;
+    end block;
+  result;
+end function select-random-char;
+
+define function make-random-fasta
+    (id :: <string>, desc :: <string>, tbl :: <frequency-vector>, n :: <integer>)
+  format-out(">%s %s\n", id, desc);
+  let width = 60;
+  let m = 0;
+  let sz = size(tbl) - 1;
+  let buffer = make(<byte-string>, size: width + 1);
+  while (n > 0)
+    m := min(n, width);
+    for (i from 0 below m)
+      buffer[i] := select-random-char(tbl, sz);
+    end for;
+    buffer[m] := '\n';
+    write(*standard-output*, buffer, end: m + 1);
+    n := n - width;
+  end while;
+end function make-random-fasta;
+
+begin
+  let n = application-arguments()[0].string-to-integer;
+  make-cumulative($iub);
+  make-cumulative($homosapiens);
+  
+  make-repeat-fasta("ONE", "Homo sapiens alu", $alu, n * 2);
+  make-random-fasta("TWO", "IUB ambiguity codes", $iub, n * 3);
+  make-random-fasta("THREE", "Homo sapiens frequency", $homosapiens, n * 5);
+end;
+module: fibo
+
+define function fibo(M :: <integer>)
+ => result :: <integer>;
+  case 
+    M < 2     => 1;
+    otherwise => fibo (M - 2) + fibo (M - 1);
+  end case;
+end function fibo;
+
+begin
+  let arg = application-arguments()[0].string-to-integer;
+  format-out("%d\n", fibo(arg));
+end;
+
+module: harmonic
+
+begin
+  for (n from application-arguments()[0].string-to-integer above 0 by -1,
+       i from 1.0 by 1.0,
+       sum = 0.0 then sum + 1.0 / i)
+  finally format-out("%.9f\n", sum);
+  end for;
+end;
+module:         hash
+synopsis:       implementation of "Hash (Associative Arrays) Access" benchmark
+author:         Peter Hinely
+copyright:      public domain
+use-libraries:  common-dylan, table-extensions, io
+use-modules:    common-dylan, table-extensions, format-out
+
+
+define function main () => ()
+  let arg = string-to-integer(element(application-arguments(), 0, default: "1"));
+
+  let c = 0;
+  let table = make(<byte-string-table>);
+
+  for (i from 1 to arg)
+    table[integer-to-string(i, base: 16)] := i;
+  end;
+
+  for (i from arg to 1 by -1)
+    if (element(table, integer-to-string(i), default: #f))
+      c := c + 1;
+    end;
+  end;
+
+  format-out("%d\n", c);
+end function;
+
+
+main();
+module:         hash2
+synopsis:       implementation of "Hashes, Part II" benchmark
+author:         Peter Hinely
+copyright:      public domain
+use-libraries:  common-dylan, table-extensions, io
+use-modules:    common-dylan, table-extensions, format-out
+
+
+define function main () => ()
+  let arg = string-to-integer(element(application-arguments(), 0, default: "1"));
+
+  let table1 = make(<byte-string-table>);
+  let table2 = make(<byte-string-table>);
+
+  for (i from 0 below 10000)
+    let key :: <byte-string> = concatenate-as(<byte-string>, "foo_", integer-to-string(i));
+    table1[key] := i;
+  end;
+
+  for (i from 0 below arg)
+    for (value :: <integer> keyed-by key :: <byte-string> in table1)
+      let found :: <integer> = element(table2, key, default: 0);
+      table2[key] := found + value;
+    end;
+  end;
+
+  format-out("%d %d %d %d\n", table1["foo_1"], table1["foo_9999"], table2["foo_1"], table2["foo_9999"]);
+end function;
+
+
+main();
+module:    heapsort
+synopsis:  implementation of "Heapsort" benchmark
+author:    Peter Hinely
+copyright: public domain
+
+
+define constant $IM = 139968;
+define constant $IA = 3877;
+define constant $IC = 29573;
+
+
+// utilize Dylan's cool closure functionality to keep the state of the "last" variable
+define function random-generator (seed :: <integer>) => random-generator :: <method>;
+  let last = seed;
+
+  method (maximum :: <double-float>) => result :: <double-float>;
+    last := modulo((last * $IA + $IC), $IM);
+    maximum * last / $IM;
+  end;
+end;
+
+
+define constant <vector-of-doubles> = limited(<simple-vector>, of: <double-float>);
+
+
+define function heapsort (n :: <integer>, ra :: <vector-of-doubles>) => ()
+  block (return)
+    let i = 0;
+    let ir = n;
+    let j = 0;
+    let l = ash(n, -1) + 1;
+    let rra = 0.0;
+    
+    while (#t)
+      if (l > 1)
+        l := l - 1;
+        rra := ra[l];
+      else
+        rra := ra[ir];
+        ra[ir] := ra[1];
+        ir := ir - 1;
+        if (ir == 1)
+          ra[1] := rra;
+          return();
+        end if;
+      end if;
+      i := l;
+      j := ash(l, 1);
+      while (j <= ir)
+        if ((j < ir) & (ra[j] < ra[j + 1]))
+          j := j + 1;
+        end if;
+        if (rra < ra[j])
+          ra[i] := ra[j];
+          i := j;
+          j := j + i;
+        else
+          j := ir + 1;
+        end if;
+      end while;
+      ra[i] := rra;
+    end while;
+  end block;
+end function heapsort;
+
+
+define function main ()
+  let N = string-to-integer(element(application-arguments(), 0, default: "2"));
+
+  let array = make(<vector-of-doubles>, size: N + 1);
+  let generate-random = random-generator(42);
+
+  for (i from 1 to N)
+    array[i] := generate-random(1.0d0);
+  end;
+
+  heapsort(N, array);
+
+  // this is truly horrid.  Sorry.
+  let (int, frac) = truncate(array[N]);
+  format-out("%d.", int);
+  for (i from 1 below 10)
+    let (int, frac2) = truncate(frac * 10);
+    frac := frac2;
+    format-out("%d", int);
+  end;
+  format-out("%d\n", round(frac * 10));
+end function main;
+
+
+main();
+module: hello
+
+format-out("hello world\n");
+
+module: knucleotide
+use-libraries: common-dylan, io, table-extensions
+use-modules: common-dylan, standard-io, streams, format-out, table-extensions
+
+define sealed class <key-value-pair> (<object>)
+  constant slot key :: <byte-string>, required-init-keyword: key:;
+  slot val :: <integer>, required-init-keyword: value:;
+end class <key-value-pair>;
+
+define sealed domain make(singleton(<key-value-pair>));
+define sealed domain initialize(<key-value-pair>);
+
+
+define function kfrequency
+    (sequence :: <byte-string>,
+     freq :: <byte-string-table>,
+     k :: <integer>,
+     frame :: <integer>) => ();
+  for (i from frame below sequence.size - k + 1 by k)
+    let sub = make(<byte-string>, size: k);
+    for (offset from 0 below k) sub[offset] := sequence[i + offset] end;
+    let record = element(freq, sub, default: #f);
+    if (record)
+      record.val := record.val + 1;
+    else
+      freq[sub] := make(<key-value-pair>, key: sub, value: 1);
+    end if;
+  end for;
+end function kfrequency;
+
+
+define function frequency(sequence :: <byte-string>, k :: <integer>)
+  let freq = make(<byte-string-table>);
+  for (i from 0 below k)
+    kfrequency(sequence, freq, k, i);
+  end for;
+
+  let sorted = sort(as(<vector>, freq),
+                    test: method (a :: <key-value-pair>,
+                                  b :: <key-value-pair>) b.val < a.val end);
+  let sum = reduce(\+, 0, map(val, sorted));
+
+  for (kvp in sorted)
+    format-out("%s %.3f\n", kvp.key, kvp.val * 100.0d0 / sum);
+  end for;
+  format-out("\n");
+end function frequency;
+
+
+define function count (sequence :: <byte-string>, fragment :: <byte-string>)
+  let freq = make(<byte-string-table>);
+  for (i from 0 below fragment.size)
+    kfrequency(sequence, freq, fragment.size, i);
+  end for;
+  let record = element(freq, fragment, default: #f);
+  format-out("%d\t%s\n", record & record.val | 0, fragment);
+end function count;
+
+
+begin
+  let chars = make(<stretchy-object-vector>);
+
+  block ()
+    for (line :: <byte-string> = read-line(*standard-input*),
+         until: line[0] == '>' & copy-sequence(line,start: 1, end: 6) = "THREE")
+    end;
+    for (line :: <byte-string> = read-line(*standard-input*),
+         until: line[0] == '>')
+      if (line[0] ~== ';')
+        let old-size = chars.size;
+        chars.size := old-size + line.size;
+        for (ch in line, i from old-size)
+          chars[i] := as-uppercase(ch);
+        end;
+      end if;
+    end for;
+  exception (e :: <end-of-stream-error>)
+  end;
+
+  let sequence = as(<byte-string>, chars);
+  
+  frequency(sequence, 1);
+  frequency(sequence, 2);
+
+  count(sequence, "GGT");
+  count(sequence, "GGTA");
+  count(sequence, "GGTATT");
+  count(sequence, "GGTATTTTAATT");
+  count(sequence, "GGTATTTTAATTTATAGT");
+end;
+module:        lists
+synopsis:      implementation of "List Processing" benchmark
+author:        Peter Hinely
+copyright:     public domain
+use-libraries:  common-dylan, table-extensions, io
+use-modules:    common-dylan, table-extensions, format-out
+
+define constant deques = make(<deque>);
+
+define inline function new-deque() => (deque :: <object-deque>);
+  (deques.empty? & make(<deque>)) | deques.pop
+end;
+
+define inline function save-deques(#rest args)
+  for (dq in args) 
+    dq.size := 0;
+    push(deques, dq);
+  end;
+end;
+
+
+define function test-lists (items :: <integer>)
+  let L1 = new-deque();
+  for (i from 1 to items)
+    push-last(L1, i)
+  end;
+
+  let L2 = new-deque();
+  for (elt in L1)
+    push-last(L2, elt);
+  end;
+
+  let L3 = new-deque();
+  until (L2.empty?)
+    push-last(L3, L2.pop);
+  end;
+
+  until (L3.empty?)
+    push-last(L2, L3.pop-last);
+  end;
+
+  L1 := reverse!(L1);
+
+  let result = L1[0] == items
+    & every?(method(a :: <integer>, b :: <integer>) a == b end, L1, L2)
+    & L1.size;
+
+  save-deques(L1, L2, L3);
+  result;
+end;
+
+
+define function main ()
+  let iters = string-to-integer(element(application-arguments(), 0, default: "1"));
+  let result = #f;
+  for (i from 1 to iters)
+    result := test-lists(10000)
+  end;
+  format-out("%=\n", result);
+end;
+
+
+main();
+module: mandelbrot
+use-libraries: common-dylan, io
+use-modules: common-dylan, standard-io, streams, format-out
+
+begin
+  let w = application-arguments()[0].string-to-integer;
+  let h = w;
+  let bit-num = 0;
+  let byte-acc = 0;
+  let limit2 = 4.0;
+  let Zr = 0.0;
+  let Zi = 0.0;
+  let Cr = 0.0;
+  let Ci = 0.0;
+  let Tr = 0.0;
+  let Ti = 0.0;
+  let tmp = 0.0;
+  
+  format-out("P4\n%d %d\n",w,h);
+
+  for (y :: <double-float> from 0.0d0 below h)
+    for (x :: <double-float> from 0.0d0 below w)
+      Zr := (Zi := 0.0);
+      Cr := (2 * x / as(<double-float>,w) - 1.5);
+      Ci := (2 * y / as(<double-float>,h) - 1);
+      byte-acc := ash(byte-acc,1);
+      bit-num := bit-num + 1;
+      block (done)
+        for (i from 0 below 50)
+          Tr := Zr * Zr - Zi * Zi + Cr;
+          Ti := 2 * Zr * Zi + Ci;
+          Zr := Tr;
+          Zi := Ti;
+          tmp := Zr * Zr + Zi * Zi;
+          if (tmp > limit2)
+            done();
+          end if;
+        end for;
+      end block;
+      if (tmp < limit2)
+        byte-acc := byte-acc + 1;
+      end if;
+      if (bit-num = 8)
+        write-element(*standard-output*,as(<byte-character>,byte-acc));
+        bit-num := (byte-acc := 0);
+      elseif (x = w - 1)
+        byte-acc := ash(byte-acc, (8 - modulo(w,8)));
+        write-element(*standard-output*,as(<byte-character>,byte-acc));
+        bit-num := (byte-acc := 0);
+      end if;
+    end for;
+  end for;
+end;
+module:     matrix
+synopsis:   implementation of "Matrix Multiplication" benchmark
+author:     Peter Hinely
+copyright:  public domain
+
+
+define constant <vector-of-integers> = limited(<simple-vector>, of: <integer>);
+
+define constant $empty-vector-of-integers = make(<vector-of-integers>);
+
+define class <matrix> (<object>)
+  constant slot rows :: <integer>, required-init-keyword: rows:;
+  constant slot columns :: <integer>, required-init-keyword: columns:;
+  slot elements :: <vector-of-integers>, init-value: $empty-vector-of-integers;
+end class;
+
+define sealed domain make (singleton(<matrix>));
+
+define sealed method initialize (matrix :: <matrix>, #key rows :: <integer>, columns :: <integer>) => ()
+  matrix.elements := make(<vector-of-integers>, size: (rows * columns), fill: 0);
+end method;
+
+define inline function ele (matrix :: <matrix>, row :: <integer>, column :: <integer>) => value :: <integer>;
+  matrix.elements[(row * matrix.columns) + column];
+end function;
+
+define inline function ele-setter (new-value :: <integer>, matrix :: <matrix>, row :: <integer>, column :: <integer>) => new-value :: <integer>;
+  matrix.elements[(row * matrix.columns) + column] := new-value;
+end function;
+
+define function create-matrix (rows :: <integer>, columns :: <integer>) => m :: <matrix>;
+  let m = make(<matrix>, rows: rows, columns: columns);
+  for (i from 0 below m.elements.size)
+    m.elements[i] := i + 1;
+  end for;
+  m;
+end function;
+
+define sealed method \* (m1 :: <matrix>, m2 :: <matrix>) => m :: <matrix>;
+  unless (m1.columns == m2.rows)
+    error("the number of columns of %= must equals the number of rows of %m=", m1, m2);
+  end;
+
+  let rows = m1.rows;
+  let columns = m2.columns;
+  let m3 = make(<matrix>, rows: rows, columns: columns);
+
+  for (i from 0 below rows)
+    for (j from 0 below columns)
+      let value = 0;
+      for (k from 0 below columns)
+        value := value + ele(m1, i, k) * ele(m2, k, j);
+      end;
+      ele(m3, i, j) := value;
+    end for;
+  end for;
+  m3;
+end method;
+
+define function main () => ()
+  let arg = string-to-integer(element(application-arguments(), 0, default: "1"));
+
+  let size = 30;
+  let m1 = create-matrix(size, size);
+  let m2 = create-matrix(size, size);
+
+  let mm = #f;
+  for (i from 1 to arg)
+    mm := m1 * m2;
+  end;
+  format-out("%= %= %= %=\n", ele(mm, 0, 0), ele(mm, 2, 3), ele(mm, 3, 2), ele(mm, 4, 4));
+end function;
+
+main();
+module:     methcall
+synopsis:   implementation of "Method Calls" benchmark
+author:     Peter Hinely 
+copyright:  public domain
+
+
+define sealed domain make (subclass(<toggle>));
+define sealed domain initialize (<toggle>);
+
+
+define class <toggle> (<object>)
+  slot value :: <boolean>, required-init-keyword: start-state:;
+end class;
+
+
+define class <nth-toggle> (<toggle>)
+  slot counter :: <integer> = 0;
+  slot counter-maxiumum :: <integer>, required-init-keyword: counter-maxiumum:;
+end class;
+
+
+define inline method activate (t :: <toggle>) => t :: <toggle>;
+  t.value := ~t.value;
+  t;
+end method;
+
+
+define inline method activate (t :: <nth-toggle>) => t :: <nth-toggle>;
+  t.counter := t.counter + 1;
+  if (t.counter >= t.counter-maxiumum)
+    t.value := ~t.value;
+    t.counter := 0;
+  end;
+  t;
+end method;
+
+
+begin
+  let arg = string-to-integer(element(application-arguments(), 0, default: "1"));
+
+  let val = #t;
+  let toggle = make(<toggle>, start-state: val);
+    
+  for (i from 1 to arg)
+    val := toggle.activate.value;
+  end;
+
+  format-out("%s\n", if (val) "true" else "false" end);
+     
+  val := #t;
+  let nth-toggle = make(<nth-toggle>, start-state: val, counter-maxiumum: 3);
+  
+  for (i from 1 to arg)
+    val := nth-toggle.activate.value;
+  end;
+
+  format-out("%s\n", if (val) "true" else "false" end);
+end
+module:    moments
+synopsis:  implementation of "Statistical Moments" benchmark
+author:    Peter Hinely
+           Anthony Borla [added kludge to correct output format] 
+copyright: public domain
+use-libraries: common-dylan, io, transcendental
+use-modules: common-dylan, standard-io, streams, format-out, transcendental
+
+
+define constant <vector-of-doubles> = limited(<simple-vector>, of: <double-float>);
+
+
+define function kth-smallest (a :: <vector-of-doubles>, k :: <integer>) => kth-smallest :: <double-float>;
+  let L = 0;
+  let R = A.size - 1;
+  while (L < R)
+     let X = A[K];
+     let I = L;
+     let J = R;
+     until ((J < K) | (K < I))
+       while (A[I] < X) I := I + 1; end;
+       while (X < A[J]) J := J - 1; end;
+       let W = A[I]; A[I] := A[J]; A[J] := W;
+       I := I + 1; J := J - 1;
+     end;
+     if (J < K) L := I; end;
+     if (K < I) R := J; end;
+  end;
+  a[k];
+end;
+
+
+define function maximum (vec :: <vector-of-doubles>, limit :: <integer>) => res :: <double-float>;
+  let current-max = vec[0];
+  for (i from 1 below limit)
+    if (vec[i] > current-max)
+       current-max := vec[i];
+    end;
+  end;
+  current-max;
+end;
+
+
+define function main () => ();
+  let lines = make(<stretchy-vector>);
+
+  let line = #f;
+  while (line := read-line(*standard-input*, on-end-of-stream: #f))
+    add!(lines, line);
+  end;
+
+  let nums = make(<vector-of-doubles>, size: lines.size, fill: 0.0);
+  map-into(nums, string-to-float, lines);
+
+  let sum = 0.0;
+
+  // use a for loop instead of "reduce1" so "+" can be resolved.
+  // To-do: test that this is really necessary after we fix all the other gf_calls
+  for (num in nums)
+    sum := sum + num;
+  end;
+
+  let n = nums.size;
+  let mean = sum / n;
+  let average-deviation = 0.0;
+  let variance = 0.0;
+  let skew = 0.0;
+  let kurtosis = 0.0;
+
+  for (num in nums)
+    let deviation = num - mean;
+    average-deviation := average-deviation + abs(deviation);
+    variance := variance + (deviation ^ 2);
+    skew := skew + (deviation ^ 3);
+    kurtosis := kurtosis + (deviation ^ 4);
+  end;
+
+  average-deviation := average-deviation / n;
+  variance := variance / (n - 1);
+  let standard-deviation = sqrt(variance);
+
+  if (variance > 0.0)
+    skew := skew / (n * variance * standard-deviation);
+    kurtosis := (kurtosis / (n * variance * variance)) - 3.0;
+  end;
+
+  let mid = floor/(n, 2);
+
+  kth-smallest(nums, mid);
+
+  let median = if (even?(n))
+                 floor/(nums[mid] + maximum(nums, mid), 2);
+               else
+                 nums[mid];
+               end;
+
+
+  local method padr(s :: <string>, padlen :: <integer>, c :: <character>) => (<string>);
+    let reqlen = size(s) - padlen;
+    if (reqlen < 0)
+      s := concatenate(s, make(<string>, size: abs(reqlen), fill: c));
+    end if;
+    s;
+  end method padr;
+
+
+  format-out("n:                  %d\n", n);
+  format-out("median:             %s\n", padr(format-to-string("%.6f", median), 6, '0'));
+  format-out("mean:               %s\n", padr(format-to-string("%.6f", mean), 6, '0'));
+  format-out("average_deviation:  %s\n", padr(format-to-string("%.6f", average-deviation), 6, '0'));
+  format-out("standard_deviation: %s\n", padr(format-to-string("%.6f", standard-deviation), 6, '0'));
+  format-out("variance:           %s\n", padr(format-to-string("%.6f", variance), 6, '0'));
+  format-out("skew:               %s\n", padr(format-to-string("%.6f", skew), 6, '0'));
+  format-out("kurtosis:           %s\n", padr(format-to-string("%.6f", kurtosis), 6, '0'));
+end function;
+
+
+main();
+
+module: nbody
+use-libraries: common-dylan, io, transcendental
+use-modules: common-dylan, format-out, transcendental
+
+define sealed class <planet> (<object>)
+  slot x :: <double-float>, required-init-keyword: x:;
+  slot y :: <double-float>, required-init-keyword: y:;
+  slot z :: <double-float>, required-init-keyword: z:;
+  slot vx :: <double-float>, required-init-keyword: vx:;
+  slot vy :: <double-float>, required-init-keyword: vy:;
+  slot vz :: <double-float>, required-init-keyword: vz:;
+  constant slot mass :: <double-float>, required-init-keyword: mass:;
+end class <planet>;
+
+define sealed inline method make(class == <planet>, #rest all-keys, #key)
+ => (object)
+  next-method();
+end method make;
+
+define constant <planet-vector> = <list>;
+define constant $pi = $double-pi;
+define constant $solar-mass = 4 * $pi * $pi;
+define constant $days-per-year = 365.24;
+
+define constant $bodies :: <planet-vector> = make(<planet-vector>, size: 5);
+$bodies[0] := make (<planet>,
+                    x: 0.0d0, y: 0.0d0, z: 0.0d0,
+                    vx: 0.0d0, vy: 0.0d0, vz: 0.0d0,
+                    mass: $solar-mass);
+$bodies[1] := make (<planet>,
+                    x: 4.84143144246472090e+00,
+                    y: -1.16032004402742839e+00,
+                    z: -1.03622044471123109e-01,
+                    vx: 1.66007664274403694e-03 * $days-per-year,
+                    vy: 7.69901118419740425e-03 * $days-per-year,
+                    vz: -6.90460016972063023e-05 * $days-per-year,
+                    mass: 9.54791938424326609e-04 * $solar-mass);
+$bodies[2] := make (<planet>,
+                    x: 8.34336671824457987e+00,
+                    y: 4.12479856412430479e+00,
+                    z: -4.03523417114321381e-01,
+                    vx: -2.76742510726862411e-03 * $days-per-year,
+                    vy: 4.99852801234917238e-03 * $days-per-year,
+                    vz: 2.30417297573763929e-05 * $days-per-year,
+                    mass: 2.85885980666130812e-04 * $solar-mass);
+$bodies[3] := make (<planet>,
+                    x: 1.28943695621391310e+01,
+                    y: -1.51111514016986312e+01,
+                    z: -2.23307578892655734e-01,
+                    vx: 2.96460137564761618e-03 * $days-per-year,
+                    vy: 2.37847173959480950e-03 * $days-per-year,
+                    vz: -2.96589568540237556e-05 * $days-per-year,
+                    mass: 4.36624404335156298e-05 * $solar-mass);
+$bodies[4] := make (<planet>,
+                    x: 1.53796971148509165e+01,
+                    y: -2.59193146099879641e+01,
+                    z: 1.79258772950371181e-01,
+                    vx: 2.68067772490389322e-03 * $days-per-year,
+                    vy: 1.62824170038242295e-03 * $days-per-year,
+                    vz: -9.51592254519715870e-05 * $days-per-year,
+                    mass: 5.15138902046611451e-05 * $solar-mass);
+
+define function advance(planets :: <planet-vector>, dt :: <double-float>)
+  local method advance-recursive
+            (planets :: <planet-vector>, dt :: <double-float>)
+          let b :: <planet> = head(planets);
+          let rest :: <list> = tail(planets);
+          for (b2 :: <planet> in rest)
+            let dx = b.x - b2.x;
+            let dy = b.y - b2.y;
+            let dz = b.z - b2.z;
+            let distance = sqrt(dx * dx + dy * dy + dz * dz);
+            let mag = dt / (distance * distance * distance);
+            
+            let tmp :: <double-float> = b2.mass * mag;
+            b.vx := b.vx - dx * tmp;
+            b.vy := b.vy - dy * tmp;
+            b.vz := b.vz - dz * tmp;
+            
+            tmp := b.mass * mag;
+            b2.vx := b2.vx + dx * tmp;
+            b2.vy := b2.vy + dy * tmp;
+            b2.vz := b2.vz + dz * tmp;
+          end for;
+          if (rest ~= #())
+            advance-recursive(rest,dt);
+          end if;
+        end method advance-recursive;
+  advance-recursive(planets,dt);
+  for (b :: <planet> in planets)
+    b.x := b.x + dt * b.vx;
+    b.y := b.y + dt * b.vy;
+    b.z := b.z + dt * b.vz;
+  end for;
+end function advance;
+
+define function energy(planets :: <planet-vector>, e :: <double-float>)
+ => (result :: <double-float>)
+  let b :: <planet> = head(planets);
+  let rest = tail(planets);
+  e := e + 0.5 * b.mass * (b.vx * b.vx + b.vy * b.vy + b.vz * b.vz);
+  for(b2 :: <planet> in rest)
+    let dx = b.x - b2.x;
+    let dy = b.y - b2.y;
+    let dz = b.z - b2.z;
+    let distance = sqrt(dx * dx + dy * dy + dz * dz);
+    e := e - (b.mass * b2.mass) / distance;
+  end for;
+  if(rest ~= #())
+    e := energy(rest,e);
+  end if;
+  e;
+end function energy;
+
+define function offset-momentum(planets :: <planet-vector>)
+  let px = 0.0d0;
+  let py = 0.0d0;
+  let pz = 0.0d0;
+  for (b :: <planet> in planets)
+    px := px + b.vx * b.mass;
+    py := py + b.vy * b.mass;
+    pz := pz + b.vz * b.mass;
+  end for;
+  let b = planets[0];
+  b.vx := -px / $solar-mass;
+  b.vy := -py / $solar-mass;
+  b.vz := -pz / $solar-mass;
+end function offset-momentum;
+
+begin
+  let n = application-arguments()[0].string-to-integer;
+  
+  offset-momentum($bodies);
+  format-out("%.9f\n", energy($bodies,0.0));
+  for (i from 1 to n)
+    advance($bodies,0.01d0);
+  end for;
+  format-out("%.9f\n", energy($bodies,0.0));
+end;
+module: n-body
+use-libraries: common-dylan, io, transcendental
+use-modules: common-dylan, format-out, transcendental
+
+define sealed class <planet> (<object>)
+  slot x :: <double-float>, required-init-keyword: x:;
+  slot y :: <double-float>, required-init-keyword: y:;
+  slot z :: <double-float>, required-init-keyword: z:;
+  slot vx :: <double-float>, required-init-keyword: vx:;
+  slot vy :: <double-float>, required-init-keyword: vy:;
+  slot vz :: <double-float>, required-init-keyword: vz:;
+  constant slot mass :: <double-float>, required-init-keyword: mass:;
+end class <planet>;
+
+define sealed inline method make(class == <planet>, #rest all-keys, #key)
+ => (object)
+  next-method();
+end method make;
+
+define constant <planet-vector> = <list>;
+define constant $pi = $double-pi;
+define constant $solar-mass = 4 * $pi * $pi;
+define constant $days-per-year = 365.24;
+
+define constant $bodies :: <planet-vector> = make(<planet-vector>, size: 5);
+$bodies[0] := make (<planet>,
+                    x: 0.0d0, y: 0.0d0, z: 0.0d0,
+                    vx: 0.0d0, vy: 0.0d0, vz: 0.0d0,
+                    mass: $solar-mass);
+$bodies[1] := make (<planet>,
+                    x: 4.84143144246472090e+00,
+                    y: -1.16032004402742839e+00,
+                    z: -1.03622044471123109e-01,
+                    vx: 1.66007664274403694e-03 * $days-per-year,
+                    vy: 7.69901118419740425e-03 * $days-per-year,
+                    vz: -6.90460016972063023e-05 * $days-per-year,
+                    mass: 9.54791938424326609e-04 * $solar-mass);
+$bodies[2] := make (<planet>,
+                    x: 8.34336671824457987e+00,
+                    y: 4.12479856412430479e+00,
+                    z: -4.03523417114321381e-01,
+                    vx: -2.76742510726862411e-03 * $days-per-year,
+                    vy: 4.99852801234917238e-03 * $days-per-year,
+                    vz: 2.30417297573763929e-05 * $days-per-year,
+                    mass: 2.85885980666130812e-04 * $solar-mass);
+$bodies[3] := make (<planet>,
+                    x: 1.28943695621391310e+01,
+                    y: -1.51111514016986312e+01,
+                    z: -2.23307578892655734e-01,
+                    vx: 2.96460137564761618e-03 * $days-per-year,
+                    vy: 2.37847173959480950e-03 * $days-per-year,
+                    vz: -2.96589568540237556e-05 * $days-per-year,
+                    mass: 4.36624404335156298e-05 * $solar-mass);
+$bodies[4] := make (<planet>,
+                    x: 1.53796971148509165e+01,
+                    y: -2.59193146099879641e+01,
+                    z: 1.79258772950371181e-01,
+                    vx: 2.68067772490389322e-03 * $days-per-year,
+                    vy: 1.62824170038242295e-03 * $days-per-year,
+                    vz: -9.51592254519715870e-05 * $days-per-year,
+                    mass: 5.15138902046611451e-05 * $solar-mass);
+
+define function advance(planets :: <planet-vector>, dt :: <double-float>)
+  local method advance-recursive
+            (planets :: <planet-vector>, dt :: <double-float>)
+          let b :: <planet> = head(planets);
+          let rest :: <list> = tail(planets);
+          for (b2 :: <planet> in rest)
+            let dx = b.x - b2.x;
+            let dy = b.y - b2.y;
+            let dz = b.z - b2.z;
+            let distance = sqrt(dx * dx + dy * dy + dz * dz);
+            let mag = dt / (distance * distance * distance);
+            
+            let tmp :: <double-float> = b2.mass * mag;
+            b.vx := b.vx - dx * tmp;
+            b.vy := b.vy - dy * tmp;
+            b.vz := b.vz - dz * tmp;
+            
+            tmp := b.mass * mag;
+            b2.vx := b2.vx + dx * tmp;
+            b2.vy := b2.vy + dy * tmp;
+            b2.vz := b2.vz + dz * tmp;
+          end for;
+          if (rest ~= #())
+            advance-recursive(rest,dt);
+          end if;
+        end method advance-recursive;
+  advance-recursive(planets,dt);
+  for (b :: <planet> in planets)
+    b.x := b.x + dt * b.vx;
+    b.y := b.y + dt * b.vy;
+    b.z := b.z + dt * b.vz;
+  end for;
+end function advance;
+
+define function energy(planets :: <planet-vector>, e :: <double-float>)
+ => (result :: <double-float>)
+  let b :: <planet> = head(planets);
+  let rest = tail(planets);
+  e := e + 0.5 * b.mass * (b.vx * b.vx + b.vy * b.vy + b.vz * b.vz);
+  for(b2 :: <planet> in rest)
+    let dx = b.x - b2.x;
+    let dy = b.y - b2.y;
+    let dz = b.z - b2.z;
+    let distance = sqrt(dx * dx + dy * dy + dz * dz);
+    e := e - (b.mass * b2.mass) / distance;
+  end for;
+  if(rest ~= #())
+    e := energy(rest,e);
+  end if;
+  e;
+end function energy;
+
+define function offset-momentum(planets :: <planet-vector>)
+  let px = 0.0d0;
+  let py = 0.0d0;
+  let pz = 0.0d0;
+  for (b :: <planet> in planets)
+    px := px + b.vx * b.mass;
+    py := py + b.vy * b.mass;
+    pz := pz + b.vz * b.mass;
+  end for;
+  let b = planets[0];
+  b.vx := -px / $solar-mass;
+  b.vy := -py / $solar-mass;
+  b.vz := -pz / $solar-mass;
+end function offset-momentum;
+
+begin
+  let n = application-arguments()[0].string-to-integer;
+  
+  offset-momentum($bodies);
+  format-out("%.9f\n", energy($bodies,0.0));
+  for (i from 1 to n)
+    advance($bodies,0.01d0);
+  end for;
+  format-out("%.9f\n", energy($bodies,0.0));
+end;
+module: nestedloop
+
+begin
+  let arg = application-arguments()[0].string-to-integer;
+  let x :: <integer> = 0;
+
+  for (a from 0 below arg)
+    for (b from 0 below arg)
+      for (c from 0 below arg)
+        for (d from 0 below arg)
+	  for (e from 0 below arg)
+	    for (f from 0 below arg)
+	      x := x + 1;
+	    end for;
+	  end for;
+	end for;
+      end for;
+    end for;
+  end for;
+  
+  format-out("%=\n", x);
+end;
+
+module: nsieve
+author: Eric Kidd <eric.kidd@pobox.com>
+
+define function nsieve(limit :: <integer>) => result :: <integer>;
+   let flags = make(<byte-vector>, size: limit + 1, fill: 1);
+   let count = 0;
+
+   for (i from 2 below limit )
+      if ( flags[i] > 0)
+         for (k from (i * 2) below limit by i)
+	     flags[k] := 0;
+         end for;
+         count := count + 1;
+      end if;
+   end for;
+
+   count;
+end function nsieve;
+
+begin
+   let n = string-to-integer(element(application-arguments(), 0, default: "1"));
+
+   let m = (2 ^ n) * 10000;
+   format-out("Primes up to %8d %8d\n", m, nsieve(m));
+
+   m := (2 ^ (n - 1)) * 10000;
+   format-out("Primes up to %8d %8d\n", m, nsieve(m));
+
+   m := (2 ^ (n - 2)) * 10000;
+   format-out("Primes up to %8d %8d\n", m, nsieve(m));
+end;
+module: nsievebits
+author: Eric Kidd <eric.kidd@pobox.com>
+use-libraries: common-dylan, io, collections
+use-modules:   common-dylan, standard-io, format-out, bit-vector
+
+define function nsieve(limit :: <integer>) => result :: <integer>;
+   let flags = make(<bit-vector>, size: limit + 1, fill: 1);
+   let count = 0;
+
+   for (i from 2 below limit )
+      if ( flags[i] > 0)
+         for (k from (i * 2) below limit by i)
+	     flags[k] := 0;
+         end for;
+         count := count + 1;
+      end if;
+   end for;
+
+   count;
+end function nsieve;
+
+begin
+   let n = string-to-integer(element(application-arguments(), 0, default: "1"));
+
+   let m = (2 ^ n) * 10000;
+   format-out("Primes up to %8d %8d\n", m, nsieve(m));
+
+   m := (2 ^ (n - 1)) * 10000;
+   format-out("Primes up to %8d %8d\n", m, nsieve(m));
+
+   m := (2 ^ (n - 2)) * 10000;
+   format-out("Primes up to %8d %8d\n", m, nsieve(m));
+end;
+
+module:     objinst
+synopsis:   implementation of "Object Instantiation" benchmark
+author:     Peter Hinely
+copyright:  public domain 
+
+
+define sealed domain make (subclass(<toggle>));
+define sealed domain initialize (<toggle>);
+
+
+define class <toggle> (<object>)
+  slot value :: <boolean>, required-init-keyword: start-state:;
+end class;
+
+
+define class <nth-toggle> (<toggle>)
+  slot counter :: <integer> = 0;
+  slot counter-maxiumum :: <integer>, required-init-keyword: counter-maxiumum:;
+end class;
+
+
+define method activate (t :: <toggle>) => t :: <toggle>;
+  t.value := ~t.value;
+  t;
+end method;
+
+
+define method activate (t :: <nth-toggle>) => t :: <toggle>;
+  t.counter := t.counter + 1;
+  if (t.counter >= t.counter-maxiumum)
+    t.value := ~t.value;
+    t.counter := 0;
+  end;
+  t;
+end method;
+
+    
+define function main ()
+  let arg = string-to-integer(element(application-arguments(), 0, default: "1"));
+
+  let toggle = make(<toggle>, start-state: #t);
+
+  for (i from 1 to 5)
+    format-out("%s\n", if (activate(toggle).value) "true" else "false" end);
+  end;
+
+  for (i from 1 to arg)
+    toggle := make(<toggle>, start-state: #t);
+  end;
+
+  format-out("\n");
+
+  let nth-toggle = make(<nth-toggle>, start-state: #t, counter-maxiumum: 3);
+
+  for (i from 1 to 8)
+    format-out("%s\n", if (activate(nth-toggle).value) "true" else "false" end);
+  end;
+
+  for (i from 1 to arg)
+    nth-toggle := make(<nth-toggle>, start-state: #t, counter-maxiumum: 3);
+  end;
+end function main;
+
+
+main();
+module:    partialsums
+author:    Anthony Borla
+synopsis:  partialsums benchmark
+           The Great Computer Language Shootout
+           http://shootout.alioth.debian.org/
+           Based on D language implementation by D. Fladebo
+copyright: public domain
+use-libraries: common-dylan, io, transcendental
+use-modules: common-dylan, format-out, transcendental
+
+// --------------------------------
+
+define function main() => ();
+  let n = application-arguments()[0].string-to-integer;
+
+  let s0 = 0.0d0; let s1 = 0.0d0; let s2 = 0.0d0; let s3 = 0.0d0;
+  let s4 = 0.0d0; let s5 = 0.0d0; let s6 = 0.0d0; let s7 = 0.0d0;
+  let s8 = 0.0d0; let d = 0.0d0; let alt = 1.0d0; let d = 1.0d0;
+
+  while (d <= n)
+    let d2 = d * d; let d3 = d2 * d; let ds = sin(d); let dc = cos(d);
+
+    s0 := s0 + (2.0d0 / 3.0d0) ^ (d - 1.0d0);
+    s1 := s1 + 1.0d0 / sqrt(d);
+    s2 := s2 + 1.0d0 / (d * (d + 1.0d0));
+    s3 := s3 + 1.0d0 / (d3 * ds * ds);
+    s4 := s4 + 1.0d0 / (d3 * dc * dc);
+    s5 := s5 + 1.0d0 / d;
+    s6 := s6 + 1.0d0 / d2;
+    s7 := s7 + alt / d;
+    s8 := s8 + alt / (2.0d0 * d - 1.0d0);
+
+    alt := -alt; d := d + 1.0d0;
+  end while;
+
+  local method padr(s :: <string>, padlen :: <integer>, c :: <character>) => (<string>);
+    let reqlen = size(s) - padlen;
+    if (reqlen < 0)
+      s := concatenate(s, make(<string>, size: abs(reqlen), fill: c));
+    end if;
+    s;
+  end method padr;
+
+  format-out("%s\t(2/3)^k\n", padr(format-to-string("%.9f", s0), 9, '0'));
+  format-out("%s\tk^-0.5\n", padr(format-to-string("%.9f", s1), 9, '0'));
+  format-out("%s\t1/k(k+1)\n", padr(format-to-string("%.9f", s2), 9, '0'));
+  format-out("%s\tFlint Hills\n", padr(format-to-string("%.9f", s3), 9, '0'));
+  format-out("%s\tCookson Hills\n", padr(format-to-string("%.9f", s4), 9, '0'));
+  format-out("%s\tHarmonic\n", padr(format-to-string("%.9f", s5), 9, '0'));
+  format-out("%s\tRiemann Zeta\n", padr(format-to-string("%.9f", s6), 9, '0'));
+  format-out("%s\tAlternating Harmonic\n", padr(format-to-string("%.9f", s7), 9, '0'));
+  format-out("%s\tGregory\n", padr(format-to-string("%.9f", s8), 9, '0'));
+end function main;
+
+// --------------------------------
+
+main();
+
+module:  pidigits
+use-libraries: common-dylan, io, transcendental, dylan
+use-modules: common-dylan, standard-io, streams, format-out, extensions
+
+/*
+ *  Based on Christopher Neufeld's  <shootout0000@cneufeld.ca>
+ *  SBCL implementation.
+ */
+
+define constant $digits-per-line = 10;
+
+define function compose-val (a1, a2)
+  vector( 
+          ( a1[0] * a2[0] ) + ( a1[1] * a2[2] ),
+          ( a1[0] * a2[1] ) + ( a1[1] * a2[3] ),
+          ( a1[2] * a2[0] ) + ( a1[3] * a2[2] ),
+          ( a1[2] * a2[1] ) + ( a1[3] * a2[3] ) );
+end function compose-val;
+
+define function compute-pi ( *stop-digits*)
+  let z = vector(#e1, #e0, #e0, #e1);
+  let $curstate = vector( #e0, #e2, #e0, #e1 );
+
+  local method extract-digit (state, x :: <integer> ) => result :: <extended-integer>;
+        let factor :: <extended-integer> = as(<extended-integer>, x);
+        let numerator :: <extended-integer> = factor * state[0] + state[1];
+        let denominator :: <extended-integer> = factor * state[2] + state[3];
+        floor/ ( numerator, denominator );
+      end method extract-digit;
+
+  local method safe?( val, n ) => result :: <boolean>;
+        n = extract-digit(val, 4);
+      end method safe?;
+
+  local method produce (val, n)
+        compose-val( vector( 10, (n * -10), 0, 1 ), val );
+      end method produce;
+
+  local method next-digit (val)
+        extract-digit( val, 3 );
+      end method next-digit;
+
+  local method consume (val, val-prime)
+        compose-val(val, val-prime);
+      end method consume;
+
+  local method next-state () 
+/*
+      $curstate[0] := ( $curstate[0] + 1 );
+      $curstate[1] := ( $curstate[1] + 4 );
+      $curstate[3] := ( $curstate[3] + 2 );  
+*/
+      $curstate[0] := ( $curstate[0] + 1 );
+      $curstate[1] := ( $curstate[0] * 4 ) + 2;
+      $curstate[3] := ( $curstate[0] * 2 ) + 1;  
+      $curstate;
+    end method next-state;
+
+  let digits-out = 0;
+
+  while ( digits-out < *stop-digits* )
+    let y = next-digit( z );
+
+    if ( safe?(z, y) )
+      begin
+        format-out( "%d", y );
+        digits-out := digits-out + 1;
+        if ( zero?( modulo( digits-out, $digits-per-line ) ) )
+          format-out( "\t:%d\n", digits-out );
+        end if;
+        z := produce( z, y );
+      end;
+    else
+        z := consume( z, next-state() );
+    end if;
+  end while;
+end function compute-pi;
+        
+begin
+  let *stop-digits* = 
+    string-to-integer( element( application-arguments(), 0, default: "300"));
+
+  compute-pi( *stop-digits* );
+end;
+
+module:     randum
+synopsis:   implementation of "Random Number Generator" benchmark
+author:     Andreas Bogk
+copyright:  public domain
+
+
+define constant $IM = 139968;
+define constant $IA = 3877;
+define constant $IC = 29573;
+define variable $LAST :: <integer> = 42;
+
+define method generate-random (max :: <double-float>) => (m :: <double-float>);
+  $LAST := modulo($LAST * $IA + $IC, $IM);
+  max * $LAST / $IM;
+end method;
+
+begin
+  let arg = string-to-integer(element(application-arguments(), 0, default: "1")) - 1;
+
+  for (i from 1 to arg)
+    generate-random(100.0d0);
+  end;
+
+  format-out("%.9f\n", generate-random(100.0d0));
+end;
+module:    recursive
+author:    Anthony Borla
+synopsis:  recursive benchmark
+           The Great Computer Language Shootout
+           http://shootout.alioth.debian.org/
+           Based on several existing Shootout submissions
+copyright: public domain
+use-libraries: common-dylan, io
+use-modules: common-dylan, format-out
+
+// --------------------------------
+
+define method ack(x :: <integer>, y :: <integer>) => (<integer>);
+  if (x == 0)
+    y + 1;
+  elseif (y == 0)
+    ack(x - 1, 1);
+  else
+    ack(x - 1, ack(x, y - 1));
+  end if;
+end method ack;
+
+// --------------
+
+define method fib(n :: <integer>) => (<integer>); 
+  if (n < 2)
+    1;
+  else
+    fib(n - 2) + fib(n - 1);
+  end if;
+end method fib;
+
+define method fib(n :: <double-float>) => (<double-float>); 
+  if (n < 2.0d0)
+    1.0d0;
+  else
+    fib(n - 2.0d0) + fib(n - 1.0d0);
+  end if;
+end method fib;
+
+// --------------
+
+define method tak(x :: <integer>, y :: <integer>, z :: <integer>) => (<integer>);
+  if (y < x)
+    tak(tak(x - 1, y, z), tak(y - 1, z, x), tak(z - 1, x, y));
+  else
+    z;
+  end if;
+end method tak;
+
+define method tak(x :: <double-float>, y :: <double-float>, z :: <double-float>) => (<double-float>);
+  if (y < x)
+    tak(tak(x - 1.0d0, y, z), tak(y - 1.0d0, z, x), tak(z - 1.0d0, x, y));
+  else
+    z;
+  end if;
+end method tak;
+
+// --------------
+
+define function main() => ();
+  let n = application-arguments()[0].string-to-integer;
+
+  format-out("Ack(3,%d): %d\n", n, ack(3, n));
+  format-out("Fib(%.1f): %.1f\n", 27.0d0 + n, fib(27.0d0 + n));
+
+  n := n - 1;
+  format-out("Tak(%d,%d,%d): %d\n", n * 3, n * 2, n, tak(n * 3, n * 2, n));
+
+  format-out("Fib(3): %d\n", fib(3));
+  format-out("Tak(3.0,2.0,1.0): %.1f\n", tak(3.0d0, 2.0d0, 1.0d0));
+end function main;
+
+// --------------------------------
+
+main();
+
+module:         reversefile
+synopsis:       implementation of "Reverse A File" benchmark
+author:         Andreas Bogk
+copyright:      public domain
+use-libraries:  common-dylan, io
+use-modules:    common-dylan, standard-io, streams
+
+begin
+  let lines = #();
+  let line = #f;
+  while (line := read-line(*standard-input*, on-end-of-stream: #f))
+    lines := add!(lines, line); // utilize the fact that lists are automatically built reversed
+  end while;
+  do(curry(write-line, *standard-output*), lines);
+end;
+module:    sieve
+synopsis:  implementation of "Sieve of Eratosthenes" benchmark
+author:    Eric Kidd <eric.kidd@pobox.com>
+copyright: public domain
+
+define function sieve (limit :: <integer>) => result :: <integer>;
+  let flags = make(<byte-vector>, size: limit + 1, fill: 1);
+
+  // We know 1 isn't prime.
+  flags[0] := 0;
+  flags[1] := 0;
+  let count = 0;
+
+  // Sieve for the rest.
+  for (flag keyed-by i in flags)
+    if (flag > 0)
+      for (k from (i * 2) below flags.size by i)
+        flags[k] := 0;
+      end for;
+      count := count + 1;
+    end if;
+  end for;
+
+  // Return our findings.
+  count;
+end function sieve;
+
+
+begin
+  let arg = string-to-integer(element(application-arguments(), 0, default: "1"));
+  let prime-count = 0;
+  for (num from 1 to arg)
+    prime-count := sieve(8192);
+  end for;
+  format-out("Count: %d\n", prime-count);
+end
+module:    spectralnorm
+synopsis:  implementation of "spectral-norm" benchmark
+author:    Bruce Mitchener <bruce@cubik.org>
+copyright: public domain
+use-libraries:  common-dylan, dylan, io
+use-modules:    common-dylan, transcendentals, format-out, extensions
+
+limited-vector-class(<double-vector>, <double-float>, 0.0d0);
+
+define function eval-A (i :: <integer>, j :: <integer>) => result :: <double-float>;
+  1.0d0 / (truncate/((i + j) * (i + j + 1), 2) + i + 1);
+end function eval-A;
+
+define function eval-A-times-u (u :: <double-vector>, Au :: <double-vector>);
+  for (i from 0 below u.size)
+    Au[i] := 0.0d0;
+    for (j from 0 below u.size)
+      Au[i] := Au[i] + eval-A(i, j) * u[j];
+    end for;
+  end for;
+end function eval-A-times-u;
+
+define function eval-At-times-u (u :: <double-vector>, Au :: <double-vector>);
+  for (i from 0 below u.size)
+    Au[i] := 0.0d0;
+    for (j from 0 below u.size)
+      Au[i] := Au[i] + eval-A(j, i) * u[j];
+    end for;
+  end for;
+end function eval-At-times-u;
+
+define function eval-AtA-times-u (u :: <double-vector>, AtAu :: <double-vector>);
+  let v = make(<double-vector>, size: u.size);
+  eval-A-times-u(u, v);
+  eval-At-times-u(v, AtAu);
+end function eval-AtA-times-u;
+
+begin
+  let N = application-arguments()[0].string-to-integer;
+  let u = make(<double-vector>, size: N, fill: 1.0d0);
+  let v = make(<double-vector>, size: N, fill: 1.0d0);
+  for (i from 0 below 10)
+    eval-AtA-times-u(u, v);
+    eval-AtA-times-u(v, u);
+  end for;
+  let vBv :: <double-float> = 0.0d0;
+  let vv :: <double-float> = 0.0d0;
+  for (i from 0 below N)
+    let u-i = u[i];
+    let v-i = v[i];
+    vBv := vBv + u-i * v-i;
+    vv := vv + v-i * v-i;
+  end for;
+  format-out("%0.9f\n", sqrt(vBv / vv));
+end
+
+module:         spellcheck 
+synopsis:       implementation of "Spell Checker" benchmark
+author:         Peter Hinely
+copyright:      public domain
+use-libraries:  common-dylan, io, table-extensions, format-out
+use-modules:    common-dylan, standard-io, streams, table-extensions, format-out
+
+
+define function spellcheck () => ()
+  let dictionary = make(<case-insensitive-string-table>);
+  
+  with-open-file (file = "Usr.Dict.Words")
+    let line = #f;
+    while (line := read-line(file, on-end-of-stream: #f))
+      dictionary[line] := #t;
+    end while;
+  end with-open-file;
+  
+  let word-to-check = #f;
+
+  while (word-to-check := read-line(*standard-input*, on-end-of-stream: #f))
+    unless (element(dictionary, word-to-check, default: #f))
+      format-out("%s\n", word-to-check);
+    end;
+  end while;
+end function;
+
+
+spellcheck();
+module: strcat
+
+begin
+  let s = make(<stretchy-vector>);
+  for(i from 0 below string-to-integer(application-arguments()[0]))
+    do(curry(add!, s), "hello\n");
+  end for;
+  format-out("%=\n", s.size);
+end;
+module: sumcol
+use-libraries: common-dylan, io
+use-modules: common-dylan, standard-io, streams, format-out
+
+begin
+  let sum :: <integer> = 0;
+  block ()
+    while(#t)
+      sum := sum + string-to-integer(read-line(*standard-input*));
+    end while;
+  exception (e :: <end-of-stream-error>)
+  end;
+  format-out("%=\n", sum);
+end;
+module: takfp
+use-libraries: common-dylan, io
+use-modules: common-dylan, format-out
+
+define function takn (n :: <integer>) => result :: <single-float>;
+  local method tak(X :: <single-float>, Y :: <single-float>, Z :: <single-float>)
+         => result :: <single-float>;
+          if (y >= x)
+            z;
+          else
+            tak (tak((x - 1.0s0), y, z),
+                 tak((y - 1.0s0), z, x),
+                 tak((z - 1.0s0), x, y));
+          end if;
+        end method tak;
+
+  tak(3.0s0 * n, 2.0s0 * n, 1.0s0 * n);
+end function takn;
+
+begin
+  let n = application-arguments()[0].string-to-integer;
+  format-out("%.1f\n", takn(n));
+end;
+
+module:         wc
+synopsis:       implementation of "Count Lines/Words/Chars" benchmark
+author:         Peter Hinely
+copyright:      public domain
+use-libraries:  common-dylan, io
+use-modules:    common-dylan, standard-io, streams, format-out
+
+define function count () => ()
+  let number-of-lines = 0;
+  let number-of-words = 0;
+  let number-of-characters = 0;
+  let in-word = #f;
+  
+  let chunk-size = 4096;
+  let buffer = make(<byte-string>, size: chunk-size);
+  let bytes-read :: <integer> = 0;
+
+  while ((bytes-read := read-into!(*standard-input*, chunk-size, buffer, on-end-of-stream: 0)) > 0)
+    number-of-characters := number-of-characters + bytes-read;
+    for (c keyed-by i in buffer, while: i < bytes-read)
+      if (c == '\n')
+        number-of-lines := number-of-lines + 1;
+      end;
+      select (c)
+        ' ', '\n', '\t' => in-word := #f;
+        otherwise       => if (~in-word)
+                             number-of-words := number-of-words + 1;
+                             in-word := #t;
+                           end if;
+      end select;
+    end for;
+  end while;
+  
+  format-out("%d %d %d\n", number-of-lines, number-of-words, number-of-characters);
+end function;
+
+count();
+module:    wordfreq
+author:    unknown
+           Anthony Borla [modified stream reading, regexp-based conversion, output format]
+synopsis:  "word frequency" benchmark
+           The Great Computer Language Shootout
+           http://shootout.alioth.debian.org/
+copyright: public domain
+use-libraries: dylan, io, table-extensions, string-extensions, regular-expressions
+use-modules: dylan, standard-io, streams, format, table-extensions, string-conversions, regular-expressions
+
+// --------------------------------
+
+define constant $exclude-chars = "\042!#$%&`'()*+,-./0123456789:;<=>?@[\\]^_{|}~";
+define constant $delimiter-pattern = "\\s";
+define constant $blank-char = " ";
+
+// --------------
+
+define function main() => ();
+  let words = make(<string-table>); let line = "";
+
+  local method add-to-tbl(word)
+    let count = element(words, word, default: 0);
+    words[word] := count + 1;
+  end method;
+
+  while ((line := read-line(*standard-input*, on-end-of-stream: #f)))
+    let (#rest words) = split($delimiter-pattern, as-lowercase(translate(line, $exclude-chars, $blank-char)));
+    do(add-to-tbl, words); 
+  end while;
+
+  let results = make(<stretchy-vector>);
+
+  for(w keyed-by k in words)
+    add!(results, pair(k, w));
+  end for;
+
+  do(method(x)
+       format(*standard-output*, "%7d %s\n", x.tail, x.head)
+     end method,
+     sort(results, test: method(x, y)
+                           if (x.tail == y.tail)
+                             x.head > y.head
+                           else
+                             x.tail > y.tail
+                           end if;
+                         end method));
+end function main;
+
+// --------------------------------
+
+main();
+

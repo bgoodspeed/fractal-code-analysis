@@ -1,0 +1,621 @@
+(* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org
+
+   contributed by Isaac Gouy (Oberon-2 novice)
+*)
+
+<* MAIN+ *>
+MODULE ackermann;
+IMPORT Out, Shootout;
+
+VAR n: LONGINT;
+
+PROCEDURE Ack (m, n: LONGINT): LONGINT;
+BEGIN
+   IF m=0 THEN RETURN n+1; END;
+   IF n=0 THEN RETURN Ack(m-1, 1); END;
+   RETURN Ack(m-1, Ack(m, n-1));
+END Ack;
+
+BEGIN
+   n := Shootout.Argi();
+   Out.String("Ack(3," ); Out.Int(n,1); Out.String("): ");
+   Out.Int( Ack(3,n), 1); Out.Ln
+END ackermann.
+(* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org
+   
+   Unoptimised reference implementation
+
+   contributed by Isaac Gouy (Oberon-2 novice)   
+*)
+
+
+<* MAIN+ *>
+MODULE binarytrees;
+IMPORT Shootout, Out;
+
+CONST
+   minDepth = 4;
+
+TYPE
+   TreeNode = POINTER TO TreeNodeDesc;
+   TreeNodeDesc = RECORD
+      left, right: TreeNode;
+      item: LONGINT;
+   END;
+
+VAR
+   n, maxDepth, stretchDepth, depth, iterations, check, i: LONGINT;
+   stretchTree, longLivedTree, tempTree: TreeNode;
+
+
+PROCEDURE NewTreeNode(item: LONGINT): TreeNode;
+VAR t: TreeNode;
+BEGIN
+   NEW(t); t.item := item;
+   RETURN t;
+END NewTreeNode;
+
+
+PROCEDURE NewTree(left, right: TreeNode; item: LONGINT): TreeNode;
+VAR t: TreeNode;
+BEGIN
+   NEW(t); t.item := item; t.left := left; t.right := right;
+   RETURN t;
+END NewTree;
+
+
+PROCEDURE BottomUpTree(item, depth: LONGINT): TreeNode;
+BEGIN
+   IF depth > 0 THEN
+      RETURN NewTree(
+          BottomUpTree(2*item-1,depth-1)
+         ,BottomUpTree(2*item,depth-1)
+         ,item
+      );
+   ELSE
+      RETURN NewTreeNode(item);
+   END;
+END BottomUpTree;
+
+
+PROCEDURE (t:TreeNode) ItemCheck(): LONGINT;
+BEGIN
+   IF t.left = NIL THEN RETURN t.item;
+   ELSE RETURN t.item + t.left.ItemCheck() - t.right.ItemCheck();
+   END;
+END ItemCheck;
+
+
+PROCEDURE ShowCheck(i,depth,check: LONGINT);
+BEGIN
+   Out.Int(i,1); Out.Char(9X); Out.String(" trees of depth ");
+   Out.Int(depth,1); Out.Char(9X); Out.String(" check: ");
+   Out.Int(check,1);  Out.Ln;
+END ShowCheck;
+
+
+PROCEDURE ShowItemCheck(depth: LONGINT; t: TreeNode; s: ARRAY OF CHAR);
+BEGIN
+   Out.String(s); Out.Int(depth,1); Out.Char(9X);  Out.String(" check: "); 
+   Out.Int(t.ItemCheck(),1);  Out.Ln;
+END ShowItemCheck;
+
+
+BEGIN
+   n := Shootout.Argi();
+
+   IF minDepth+2 > n THEN maxDepth := minDepth+2; ELSE maxDepth := n; END;
+   stretchDepth := maxDepth + 1;
+
+   stretchTree := BottomUpTree(0,stretchDepth);
+   ShowItemCheck(stretchDepth, stretchTree, "stretch tree of depth ");   
+   stretchTree := NIL;
+
+   longLivedTree := BottomUpTree(0,maxDepth);
+
+   FOR depth:=minDepth TO maxDepth BY 2 DO
+      iterations := ASH(1, maxDepth-depth+minDepth);
+      check := 0;
+      FOR i:=1 TO iterations DO
+         tempTree := BottomUpTree(i,depth);
+         INC(check, tempTree.ItemCheck());
+         tempTree := NIL;   
+         
+         tempTree := BottomUpTree(-i,depth);
+         INC(check, tempTree.ItemCheck());
+         tempTree := NIL;               
+      END;
+      ShowCheck(iterations*2,depth,check);
+   END;
+
+   ShowItemCheck(maxDepth, longLivedTree, "long lived tree of depth ");
+END binarytrees.
+(* The Great Computer Language Shootout 
+   http://shootout.alioth.debian.org
+
+   contributed by Isaac Gouy (Oberon-2 novice) 
+
+   To run:   harmonic 1000000
+*)
+
+<* MAIN+ *>
+MODULE harmonic;
+IMPORT SLongIO, Out, Shootout;
+
+VAR
+   i, n: LONGINT;
+   partialSum, d: LONGREAL;
+
+BEGIN
+   n := Shootout.Argi();
+
+   WHILE i < n DO
+      d := d + 1.0D+00;
+      partialSum := partialSum + (1.0D+00/d);
+      INC(i);
+   END;
+
+   SLongIO.WriteFixed(partialSum, 9,1); Out.Ln;
+END harmonic.
+(* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org
+
+   contributed by Isaac Gouy (Oberon-2 novice)
+*)
+
+<* MAIN+ *>
+MODULE hello; IMPORT Out; BEGIN Out.String("hello world"); Out.Ln; END hello.
+(* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org
+
+   contributed by Isaac Gouy (Oberon-2 novice)
+*)
+
+MODULE Shootout;
+
+IMPORT WholeStr, ProgEnv;
+
+PROCEDURE Argi* (): LONGINT;
+VAR 
+   arg: ARRAY 32 OF CHAR; 
+   value: LONGINT; 
+   result: WholeStr.ConvResults;
+BEGIN
+   ProgEnv.GetArg(0, arg);
+   WholeStr.StrToInt(arg, value, result);
+   IF result = WholeStr.strAllRight THEN
+      IF value > 0 THEN RETURN value; ELSE RETURN 1; END;
+   ELSE
+      RETURN 1;
+   END;
+END Argi;
+
+
+PROCEDURE QuicksortL* (n: LONGINT; VAR a: ARRAY OF REAL);
+
+PROCEDURE Swap(i, j: LONGINT);
+VAR t: REAL;
+BEGIN
+   t := a[i]; a[i] := a[j]; a[j] := t;
+END Swap;
+
+PROCEDURE Sort(l, r: LONGINT);
+VAR
+   i, j: LONGINT;
+   pivot: REAL;
+BEGIN
+   i := l;
+   j := r;
+   pivot := a[(l+r) DIV 2];
+   REPEAT
+      WHILE a[i] < pivot DO INC(i); END;
+      WHILE a[j] > pivot DO DEC(j); END;
+      IF i <= j THEN Swap(i, j); INC(i); DEC(j); END;
+   UNTIL i > j;
+   IF l < j THEN Sort(l, j); END;
+   IF r > i THEN Sort(i, r); END;
+END Sort;
+
+BEGIN
+   Sort(0, n-1);
+END QuicksortL;
+
+
+END Shootout.
+(* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org
+
+   contributed by Isaac Gouy (Oberon-2 novice)
+*)
+
+<* MAIN + *>
+MODULE mandelbrot;
+IMPORT Out;
+
+CONST
+   m = 50;
+   limit2 = 4.0;
+
+VAR
+   width, height, y, x, i, bits, bitnum: LONGINT;
+   isOverLimit: BOOLEAN;
+   Zr, Zi, Cr, Ci, Tr, Ti: REAL;
+
+BEGIN
+   width := 1000; (* Shootout.Argi(); *)
+   height := width;
+
+   Out.String("P4"); Out.Ln;
+   Out.Int(width,0); Out.Char(20X); Out.Int(width,0); Out.Ln;
+
+   FOR y := 0 TO height-1 DO
+      FOR x := 0 TO width-1 DO
+
+         Zr := 0.0; Zi := 0.0;
+         Cr := 2.0 * x / width - 1.5;
+	 Ci := 2.0 * y / height - 1.0;
+
+         i := 0;
+         REPEAT
+            Tr := Zr*Zr - Zi*Zi + Cr;
+            Ti := 2*Zr*Zi + Ci;
+            Zr := Tr; Zi := Ti;
+	    INC(i);
+	    isOverLimit := Zr*Zr + Zi*Zi > limit2;
+         UNTIL isOverLimit OR (i = m);
+	
+	 bits := ASH(bits,1);
+	 IF ~isOverLimit THEN INC(bits); END;
+	 INC(bitnum);
+	
+	 IF x = width - 1 THEN
+	    bits := ASH(bits,8-bitnum); bitnum := 8;	
+	 END;
+	
+	 IF bitnum = 8 THEN
+	    Out.Char(CHR(bits)); bits := 0; bitnum := 0;	
+	 END;	
+	
+      END;
+   END;
+END mandelbrot.
+(* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org
+
+   contributed by Isaac Gouy (Oberon-2 novice) 
+*)
+
+<* MAIN+ *>
+MODULE nbody;
+IMPORT Shootout, SLongIO, MathL, Out;
+
+CONST
+   PI = 3.141592653589793D+00;
+   SOLAR_MASS = 4.0D+00 * PI * PI;
+   DAYS_PER_YEAR = 365.24D+00;
+
+TYPE
+   Body = RECORD x, y, z, vx, vy, vz, mass: LONGREAL; END;
+
+VAR
+   i, n: LONGINT;
+   sun, jupiter, saturn, uranus, neptune: Body;
+   bodies: ARRAY 5 OF Body;
+
+PROCEDURE Advance(VAR bodies: ARRAY OF Body; dt: LONGREAL);
+VAR
+   dx, dy, dz, distance, mag: LONGREAL;
+   i, j, n: LONGINT;
+BEGIN
+   n := LEN(bodies) - 1;
+   FOR i := 0 TO n DO
+      FOR j := i+1 TO n DO
+         dx := bodies[i].x - bodies[j].x;
+         dy := bodies[i].y - bodies[j].y;
+         dz := bodies[i].z - bodies[j].z;
+
+         distance := MathL.sqrt(dx*dx + dy*dy + dz*dz);
+         mag := dt / (distance * distance * distance);
+
+         bodies[i].vx := bodies[i].vx - (dx * bodies[j].mass * mag);
+         bodies[i].vy := bodies[i].vy - (dy * bodies[j].mass * mag);
+         bodies[i].vz := bodies[i].vz - (dz * bodies[j].mass * mag);
+
+         bodies[j].vx := bodies[j].vx + (dx * bodies[i].mass * mag);
+         bodies[j].vy := bodies[j].vy + (dy * bodies[i].mass * mag);
+         bodies[j].vz := bodies[j].vz + (dz * bodies[i].mass * mag);
+      END;
+   END;
+
+   FOR i := 0 TO n DO
+      bodies[i].x := bodies[i].x + (dt * bodies[i].vx);
+      bodies[i].y := bodies[i].y + (dt * bodies[i].vy);
+      bodies[i].z := bodies[i].z + (dt * bodies[i].vz);
+   END;
+END Advance;
+
+
+PROCEDURE Energy(VAR bodies: ARRAY OF Body): LONGREAL;
+VAR
+   e, dx, dy, dz, distance: LONGREAL;
+   i, j, n: LONGINT;
+BEGIN
+   e := 0.0D+00;
+   n := LEN(bodies) - 1;
+   FOR i := 0 TO n DO
+      e := e + (0.5D+00 * bodies[i].mass *
+         ( bodies[i].vx * bodies[i].vx
+         + bodies[i].vy * bodies[i].vy
+         + bodies[i].vz * bodies[i].vz ));
+	 	 	
+      FOR j := i+1 TO n DO
+         dx := bodies[i].x - bodies[j].x;
+         dy := bodies[i].y - bodies[j].y;
+         dz := bodies[i].z - bodies[j].z;
+
+         distance := MathL.sqrt(dx*dx + dy*dy + dz*dz);	
+         e := e - (bodies[i].mass * bodies[j].mass / distance);	
+      END;
+   END;
+   RETURN e;
+END Energy;
+
+
+PROCEDURE OffsetMomentum(VAR bodies: ARRAY OF Body);
+VAR
+   px, py, pz: LONGREAL;
+   i: LONGINT;
+BEGIN
+   px := 0.0D+00; py := 0.0D+00; pz := 0.0D+00;
+   FOR i := 0 TO LEN(bodies)-1 DO
+      px := px + (bodies[i].vx * bodies[i].mass);
+      py := py + (bodies[i].vy * bodies[i].mass);
+      pz := pz + (bodies[i].vz * bodies[i].mass);
+   END;
+   bodies[0].vx := -px / SOLAR_MASS;
+   bodies[0].vy := -py / SOLAR_MASS;
+   bodies[0].vz := -pz / SOLAR_MASS;
+END OffsetMomentum;
+
+
+BEGIN
+   n := Shootout.Argi();
+
+   (* define planetary masses, initial positions, velocities *)
+
+   jupiter.x := 4.84143144246472090D+00;
+   jupiter.y := -1.16032004402742839D+00;
+   jupiter.z := -1.03622044471123109D-01;
+   jupiter.vx := 1.66007664274403694D-03 * DAYS_PER_YEAR;
+   jupiter.vy := 7.69901118419740425D-03 * DAYS_PER_YEAR;
+   jupiter.vz := -6.90460016972063023D-05 * DAYS_PER_YEAR;
+   jupiter.mass := 9.54791938424326609D-04 * SOLAR_MASS;
+
+   saturn.x := 8.34336671824457987D+00;
+   saturn.y := 4.12479856412430479D+00;
+   saturn.z := -4.03523417114321381D-01;
+   saturn.vx := -2.76742510726862411D-03 * DAYS_PER_YEAR;
+   saturn.vy := 4.99852801234917238D-03 * DAYS_PER_YEAR;
+   saturn.vz := 2.30417297573763929D-05 * DAYS_PER_YEAR;
+   saturn.mass := 2.85885980666130812D-04 * SOLAR_MASS;
+
+   uranus.x := 1.28943695621391310D+01;
+   uranus.y := -1.51111514016986312D+01;
+   uranus.z := -2.23307578892655734D-01;
+   uranus.vx := 2.96460137564761618D-03 * DAYS_PER_YEAR;
+   uranus.vy := 2.37847173959480950D-03 * DAYS_PER_YEAR;
+   uranus.vz := -2.96589568540237556D-05 * DAYS_PER_YEAR;
+   uranus.mass := 4.36624404335156298D-05 * SOLAR_MASS;
+
+   neptune.x := 1.53796971148509165D+01;
+   neptune.y := -2.59193146099879641D+01;
+   neptune.z := 1.79258772950371181D-01;
+   neptune.vx := 2.68067772490389322D-03 * DAYS_PER_YEAR;
+   neptune.vy := 1.62824170038242295D-03 * DAYS_PER_YEAR;
+   neptune.vz := -9.51592254519715870D-05 * DAYS_PER_YEAR;
+   neptune.mass := 5.15138902046611451D-05 * SOLAR_MASS;
+
+   sun.x := 0.0; sun.y := 0.0; sun.z := 0.0;
+   sun.vx := 0.0; sun.vy := 0.0; sun.vz := 0.0; sun.mass := SOLAR_MASS;
+
+   bodies[0] := sun;
+   bodies[1] := jupiter; bodies[2] := saturn;
+   bodies[3] := uranus; bodies[4] := neptune;
+
+   OffsetMomentum(bodies);
+
+   SLongIO.WriteFixed( Energy(bodies), 9, 1); Out.Ln;
+   FOR i := 1 TO n DO Advance(bodies,0.01D+00); END;
+   SLongIO.WriteFixed( Energy(bodies), 9, 1); Out.Ln;
+END nbody.
+(* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org
+
+   contributed by Isaac Gouy (Oberon-2 novice)
+*)
+
+<* MAIN+ *>
+MODULE nsieve;
+IMPORT Shootout,Out;
+
+TYPE
+   FlagsType = ARRAY OF BOOLEAN;
+
+VAR
+   n, m: LONGINT;
+   flags: POINTER TO FlagsType;
+
+
+PROCEDURE NSieve(m: LONGINT; VAR isPrime: FlagsType): LONGINT;
+VAR
+   count, i, k: LONGINT;
+BEGIN
+   FOR i := 2 TO m DO isPrime[i] := TRUE; END;
+
+   count := 0;
+   FOR i := 2 TO m DO
+      IF isPrime[i] THEN
+	 INC(count);
+         k := i+i;
+         WHILE k <= m DO
+            isPrime[k] := FALSE;
+	    INC(k, i);
+         END;
+      END;
+   END;
+   RETURN count;
+END NSieve;
+
+BEGIN
+   n := Shootout.Argi();
+   IF n < 2 THEN n := 2; END;                    
+    
+   m := 10000 * ASH(1,n);
+   NEW(flags, m+1);
+   Out.String("Primes up to "); Out.Int(m,8); Out.Int(NSieve(m,flags^),8); Out.Ln;
+    
+   m := 10000 * ASH(1,n-1);
+   Out.String("Primes up to "); Out.Int(m,8); Out.Int(NSieve(m,flags^),8); Out.Ln;
+    
+   m := 10000 * ASH(1,n-2);
+   Out.String("Primes up to "); Out.Int(m,8); Out.Int(NSieve(m,flags^),8); Out.Ln;         
+END nsieve.
+(* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org
+
+   contributed by Isaac Gouy (Oberon-2 novice)
+*)
+
+
+<* MAIN+ *>
+MODULE spectralnorm;
+IMPORT Shootout, SLongIO, MathL, Out;
+
+TYPE Vector = POINTER TO ARRAY OF LONGREAL;
+VAR
+   i, n: LONGINT;
+   u, v: Vector;
+   vBv, vv: LONGREAL;
+
+
+(* return element i,j of infinite matrix A *)
+PROCEDURE A(i,j: LONGINT): LONGREAL;
+BEGIN RETURN 1.0 / ((i+j)*(i+j+1) /2 +i+1); END A;
+
+
+(* multiply vector v by matrix A *)
+PROCEDURE MultiplyAv(v, Av: Vector);
+VAR
+   i,j: LONGINT;
+BEGIN
+   FOR i := 0 TO n-1 DO
+      Av[i] := 0.0;
+      FOR j := 0 TO n-1 DO Av[i] := Av[i] + A(i,j) * v[j]; END;
+   END;
+END MultiplyAv;
+
+
+(* multiply vector v by matrix A transposed *)
+PROCEDURE MultiplyAtv(v, Atv: Vector);
+VAR
+   i,j: LONGINT;
+BEGIN
+   FOR i := 0 TO n-1 DO
+      Atv[i] := 0.0;
+      FOR j := 0 TO n-1 DO Atv[i] := Atv[i] + A(j,i) * v[j]; END;
+   END;
+END MultiplyAtv;
+
+
+(* multiply vector v by matrix A and then by matrix A transposed *)
+PROCEDURE MultiplyAtAv(v, AtAv: Vector);
+VAR
+   u: Vector;
+BEGIN
+   NEW(u, n);    
+   MultiplyAv(v, u);
+   MultiplyAtv(u, AtAv);
+END MultiplyAtAv;
+
+
+BEGIN
+   n := Shootout.Argi();
+
+   (* create unit vector *)
+   NEW(u, n);
+   FOR i := 0 TO n-1 DO u[i] := 1.0; END;   
+
+   (* 20 steps of the power method *)
+   NEW(v, n);
+   FOR i := 0 TO n-1 DO v[i] := 0.0; END;
+
+   FOR i := 1 TO 10 DO
+      MultiplyAtAv(u, v);
+      MultiplyAtAv(v, u);
+   END;
+
+   FOR i := 0 TO n-1 DO
+      vBv := vBv + u[i]*v[i];
+      vv := vv + v[i]*v[i];
+   END;
+
+   SLongIO.WriteFixed( MathL.sqrt(vBv/vv), 9,1); Out.Ln;
+END spectralnorm.
+(* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org
+
+   contributed by Isaac Gouy (Oberon-2 novice)
+   Unbuffered char by char read!
+*)
+
+<* MAIN + *>
+MODULE sumcol;
+IMPORT In, Out;
+
+VAR 
+   sum, v: LONGINT;
+   c: CHAR;
+BEGIN
+   In.Open;
+   sum := 0;
+   LOOP
+      In.LongInt(v);
+      IF In.Done THEN 
+         INC(sum,v); 
+      ELSE 
+         In.Open;
+         In.Char(c);
+         IF ~In.Done THEN EXIT; END;
+         IF c = '-' THEN 
+            In.LongInt(v);
+            DEC(sum,v);
+         END; 
+      END;
+   END;
+   Out.Int(sum, 0); Out.Ln;
+END sumcol.
+(*
+   The Great Computer Language Shootout
+   http://shootout.alioth.debian.org
+
+   contributed by Isaac Gouy
+ *)
+
+<* MAIN+ *>
+MODULE takfp;
+IMPORT Shootout, SLongIO, Out;
+
+VAR n: LONGINT;
+
+PROCEDURE Tak (x,y,z: REAL) : REAL;
+BEGIN
+   IF (y >= x) THEN RETURN z; END;
+   RETURN Tak(Tak(x-1,y,z), Tak(y-1,z,x), Tak(z-1,x,y));
+END Tak;
+
+BEGIN
+   n := Shootout.Argi();
+   SLongIO.WriteFixed( Tak( n*3.0, n*2.0, n*1.0), 1,1); Out.Ln;
+END takfp.

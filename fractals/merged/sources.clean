@@ -1,0 +1,3719 @@
+//
+// File:     Ackermann 
+// Language: Concurrent Clean 2.0 
+// Author:   Michael Neumann (neumann@s-direktnet.de)
+// Date:     23 March 2002
+//
+
+module ackermann
+import StdEnv, ArgEnv
+
+Ack 0 n = n+1
+Ack m 0 = Ack (m-1) 1
+Ack m n = Ack (m-1) (Ack m (n-1))
+
+argi = if (argAsInt <= 0) 1 argAsInt
+   where
+   argv = getCommandLine
+   argAsInt = if (size argv == 2) (toInt argv.[1]) 1
+   
+Start = "Ack(3," +++ toString argi +++ "): " +++ toString (Ack 3 argi) +++ "\n"
+/* The Great Computer Language Shootout 
+   contributed by Isaac Gouy (Clean novice)
+   Updated by John van Groningen
+ 
+   http://shootout.alioth.debian.org/
+*/
+
+module ary
+import StdEnv, StdArray, StdArrayExtensions, LanguageShootout
+
+Start = toString y`.[0] +++ " " +++ toString y`.[n-1] +++ "\n"
+   where
+   y` = loop x y (n-1) 1000
+   n = argi
+   x = createX n
+   y = createUnboxedIntArr n 0
+
+   loop :: !{#Int} !*{#Int} !Int !Int -> .{#Int}   
+   loop x y n rep
+      | rep==0   = y
+                 = loop x (inc x y n) n (rep-1)
+
+   inc x y j
+      | j >= 0  #! yj = y.[j]
+                = inc x {y & [j] = yj + x.[j]} (j-1)
+		= y
+
+createX :: !Int -> {#Int}
+createX n = {i \\ i <- [1..n]}
+
+/* The Computer Language Shootout
+   http://shootout.alioth.debian.org/ 
+ 
+   contributed by Isaac Gouy (Clean novice)
+   corrected by John van Groningen
+*/
+
+module binarytrees
+import StdEnv, LanguageShootout
+
+Start world
+   # max`          = max (min`+2) argi
+   # stretch`      = max` + 1
+   # (io,world)    = stdio world
+   #! io           = showItemCheck stretch` (bottomup 0 stretch`) "stretch tree of depth " io
+   #! longLived    = bottomup 0 max`
+   #! io           = depthloop min` max` io
+   #! io           = showItemCheck max` longLived "long lived tree of depth " io		
+   # (error,world) = fclose io world
+   = world		
+
+min` = 4	
+	
+showItemCheck d a s io
+   = io <<< s <<< toString (d) <<<
+      "\t check: " <<< toString (itemcheck a) <<< "\n"	
+		
+showCheck i d check io
+   = io <<< toString (2*i) <<< "\t trees of depth " <<< 
+      toString (d) <<< "\t check: " <<< toString (check) <<< "\n"						
+				
+depthloop d m io
+   | d > m  = io
+            = depthloop (d+2) m (showCheck n d check io)	
+   where 
+   n = 1 << (m - d + min`)
+   check = sumloop n d 0	
+
+sumloop :: !Int !Int !Int -> Int	
+sumloop n d sum
+   | n > 0	= sumloop (n-1) d (sum + check + check`)	
+            = sum
+   where 
+   check = itemcheck (bottomup n d)
+   check` = itemcheck (bottomup (-1*n) d)	   
+
+
+:: Tree = TreeNode !Int Tree Tree | Nil
+
+bottomup :: !Int !Int -> Tree
+bottomup i d
+   | d == 0 = TreeNode i Nil Nil
+            = TreeNode i (bottomup (2*i-1)(d-1)) (bottomup (2*i)(d-1))
+
+itemcheck Nil = 0
+itemcheck (TreeNode a left right) = a + itemcheck(left) - itemcheck(right)					
+/* The Computer Language Shootout
+   http://shootout.alioth.debian.org/ 
+ 
+   contributed by Isaac Gouy (Clean novice)
+   corrected by John van Groningen
+*/
+
+module binarytrees
+import StdEnv, LanguageShootout
+
+Start world
+   # max`          = max (min`+2) argi
+   # stretch`      = max` + 1
+   # (io,world)    = stdio world
+   #! io           = showItemCheck stretch` (bottomup 0 stretch`) "stretch tree of depth " io
+   #! longLived    = bottomup 0 max`
+   #! io           = depthloop min` max` io
+   #! io           = showItemCheck max` longLived "long lived tree of depth " io		
+   # (error,world) = fclose io world
+   = world		
+
+min` = 4	
+	
+showItemCheck d a s io
+   = io <<< s <<< toString (d) <<<
+      "\t check: " <<< toString (itemcheck a) <<< "\n"	
+		
+showCheck i d check io
+   = io <<< toString (2*i) <<< "\t trees of depth " <<< 
+      toString (d) <<< "\t check: " <<< toString (check) <<< "\n"						
+				
+depthloop d m io
+   | d > m  = io
+            = depthloop (d+2) m (showCheck n d check io)	
+   where 
+   n = 1 << (m - d + min`)
+   check = sumloop n d 0	
+
+sumloop :: !Int !Int !Int -> Int	
+sumloop n d sum
+   | n > 0	= sumloop (n-1) d (sum + check + check`)	
+            = sum
+   where 
+   check = itemcheck (bottomup n d)
+   check` = itemcheck (bottomup (-1*n) d)	   
+
+
+:: Tree = TreeNode !Int !Tree !Tree | Nil
+
+bottomup :: !Int !Int -> Tree
+bottomup i d
+   | d == 0 = TreeNode i Nil Nil
+            = TreeNode i (bottomup (2*i-1)(d-1)) (bottomup (2*i)(d-1))
+
+itemcheck Nil = 0
+itemcheck (TreeNode a left right) = a + itemcheck(left) - itemcheck(right)					
+/* The Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   contributed by Tim Hochberg, loosely based on Tobias Polzin's Python version
+*/
+module chameneos
+
+import StdEnv, LanguageShootout
+
+:: Color = Red | Blue | Yellow | Nil
+
+:: GlobalState = {n :: !Int, 
+				  waiter1 :: !Color,
+				  waiter2 :: !Color}
+				  
+:: LocalState = {color :: !Color,
+				 met :: !Int,
+				 iswaiter1 :: !Bool}
+
+
+Start world
+	= toString (schedule (LS Blue) (LS Red) (LS Yellow) ((LS Blue), gs)) +++ "\n"
+where 
+	gs = {n=argi, waiter1=Nil, waiter2=Nil}
+	LS c = {color=c, met=0, iswaiter1=False}
+
+
+:: LS :== LocalState
+// Trivial round-robin scheduler.
+schedule :: !*LS !*LS !*LS (!*LS, !*GlobalState) -> Int
+schedule {color=Nil, met=m0} {color=Nil, met=m1} {color=Nil, met=m2} ({color=Nil, met=m3}, _)
+	= m0 + m1 + m2 + m3
+schedule s0 s1 s2 (s3, gs) 
+	= schedule s1 s2 s3 (creature s0 gs)
+
+
+// A social creature
+creature :: !*LocalState !*GlobalState -> (*LocalState, *GlobalState)
+creature ls gs=:{waiter1=Nil, waiter2=Nil}
+	= ({ls & iswaiter1=True}, {gs & waiter1=ls.color})
+creature ls gs=:{waiter2=Nil}
+	| gs.n <= 0	
+		= ({ls & color=Nil}, gs)   
+	| otherwise 
+		= ({ls & color=c, met=inc ls.met}, 
+		   {gs & waiter2=c, n=dec gs.n})
+		  with c = (complement ls.color gs.waiter1)
+creature ls gs
+	| ls.iswaiter1	
+		= ({ls & iswaiter1=False, color=gs.waiter2, met=inc ls.met},
+		   {gs & waiter1=Nil, waiter2=Nil})
+	| otherwise
+		= (ls, gs)
+			
+allfaded :: [LocalState] -> Bool
+allfaded [{color=Nil}:rest] = allfaded rest
+allfaded []					= True
+allfaded _					= False	
+
+
+complement :: !Color !Color -> Color
+complement Red Yellow    = Blue
+complement Red Blue      = Yellow
+complement Red Red       = Red
+complement Yellow Blue   = Red
+complement Yellow Red    = Blue
+complement Yellow Yellow = Yellow
+complement Blue Red      = Yellow
+complement Blue Yellow   = Red
+complement Blue Blue     = Blue
+complement _	_		 = Nil
+/*
+	The Computer Language Shootout
+	http://shootout.alioth.debian.org/
+	contributed by John van Groningen
+*/
+
+module fannkuch
+
+import StdEnv,LanguageShootout
+
+count_flips :: !Int !*{#Int} !*{#Int} -> (!Int,!*{#Int},!*{#Int})
+count_flips n1 a a2
+	#! k=a.[0]
+	| k==0 || a.[n1]==n1
+		= (0,a,a2)
+		# (a,a2) = copy2 0 n1 a a2
+		  (n,a2) = count_flips2 k 0 a2
+		= (n,a,a2)
+
+//copy2 :: !Int !Int !*{#Int} !*{#Int} -> (!*{#Int},!*{#Int})
+copy2 i n1 a a2
+	| i<=n1
+		#! e=a.[i]
+		= copy2 (i+1) n1 a {a2 & [i] = e}
+		= (a,a2)
+
+xchg i j a :== let (ai,a1)=a![i]; (aj1,a2)=a1![j] in {a2 & [i]=aj1,[j]=ai}
+
+count_flips2 :: !Int !Int !*{#Int} -> (!Int,!*{#Int})
+count_flips2 k n_flips a
+	| k<>0
+		# (ak,a) = a![k]
+		  a = {a & [k]=k}
+		| k>2
+			= flip_p 4 k ak n_flips a
+			= count_flips2 ak (n_flips+1) a
+		= (n_flips,a)
+
+//flip_p :: !Int !Int !Int !Int !*{#Int} -> (!Int,!*{#Int})
+flip_p i j ak n_flips a
+	#! a=xchg (i-3) (j-1) a
+	| i<j	= flip_p (i+1) (j-1) ak n_flips a
+			= count_flips2 ak (n_flips+1) a
+
+rotate i n a
+	# (ai1,a)=a![i]
+	#! a={a & [i-1]=ai1}
+	| i<n	= rotate (i+1) n a
+			= a
+
+next_permutation :: !*{#Int} !*{#Int} !Int !Int -> (!*{#Int},!*{#Int},!Int)
+next_permutation perm count count_i n1
+	#! p0 = perm.[0]
+	# perm = rotate 1 count_i perm
+	# perm = {perm & [count_i]=p0}
+	# (counti,count) = count![count_i]
+	| counti>0
+		= (perm,{count & [count_i]=counti-1},count_i)
+	# count = {count & [count_i]=count_i}
+	# count_i = count_i+1
+	| count_i<=n1
+		= next_permutation perm count count_i n1
+		= (perm,count,count_i)
+
+copy :: !{#Int} -> *{#Int}
+copy a = {e \\ e<-:a}
+
+print_permutations :: !*{#Int} !*{#Int} !*{#Int} !Int !Int !Int !*File -> *File
+print_permutations perm count perm_copy n1 perm_n max_flips file
+	| perm_n<30
+		#! perm2 = copy perm
+		# file = foldl (<<<) file [e+1\\e<-:perm2] <<< '\n'
+		  (n_flips,perm,perm_copy) = count_flips n1 perm perm_copy
+		  max_flips = if (n_flips>max_flips) n_flips max_flips
+		  (perm,count,count_i) = next_permutation perm count 1 n1
+		| count_i<=n1
+			= print_permutations perm count perm_copy n1 (perm_n+1) max_flips file
+			= file <<< "Pfannkuchen(" <<< (n1+1) <<< ") = " <<< max_flips <<< '\n'
+		# max_flips=compute_max_flips perm count perm_copy n1 max_flips
+		= file <<< "Pfannkuchen(" <<< (n1+1) <<< ") = " <<< max_flips <<< '\n'
+
+compute_max_flips :: !*{#Int} !*{#Int} !*{#Int} !Int !Int -> Int
+compute_max_flips perm count perm_copy n1 max_flips
+	# (n_flips,perm,perm_copy) = count_flips n1 perm perm_copy
+	| n_flips<=max_flips
+		# (perm,count,count_i) = next_permutation perm count 1 n1
+		| count_i<=n1
+			= compute_max_flips perm count perm_copy n1 max_flips
+			= max_flips
+		# (perm,count,count_i) = next_permutation perm count 1 n1
+		| count_i<=n1
+			= compute_max_flips perm count perm_copy n1 n_flips
+			= n_flips
+
+Start world
+	# n=argi
+	  perm = {i\\i<-[0..n-1]}
+	  count = {i\\i<-[0..n-1]}
+	  (file,world) = stdio world
+	  file = print_permutations perm count (createArray n 0) (n-1) 0 0 file
+	= fclose file world
+/* The Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   contributed by Isaac Gouy
+   transliterated from Miha Vučkovič's Haskell program
+*/
+
+module fannkuchredux
+
+import StdEnv,LanguageShootout
+
+flop [2,x1:t] = [x1,2:t]
+flop [3,x1,x2:t] = [x2,x1,3:t]
+flop [4,x1,x2,x3:t] = [x3,x2,x1,4:t]
+flop [5,x1,x2,x3,x4:t] = [x4,x3,x2,x1,5:t]
+flop [6,x1,x2,x3,x4,x5:t] = [x5,x4,x3,x2,x1,6:t]
+flop [7,x1,x2,x3,x4,x5,x6:t] = [x6,x5,x4,x3,x2,x1,7:t]
+
+flop lst=:[h:_] = r where
+   (t, r) = flop2 h (lst, t)
+   flop2 0 (t, r) = (t, r)
+   flop2 n ([h:t], r) = flop2 (n-1) (t, [h:r])
+	
+flopS [1:_] = 0
+flopS lst = 1 + flopS (flop lst)	
+
+rotate n [h:t] = rotate2 (n-1) t where
+   rotate2 0 l = [h:l]
+   rotate2 n [f:t] = [f:(rotate2 (n-1) t)]
+	
+checksum i f
+   | i rem 2 == 0 = f
+                  = ~f    
+                                 
+pfold r [] = r
+pfold (ac, af) [(c, f):t]
+   #! sc = ac+c
+   #! sf = max af f  
+   = pfold (sc, sf) t 
+	                                  
+permut n = foldr perm [[1..n]] [2..n] where
+   perm x lst = flatten [take x (iterate (rotate x) l) \\ l <- lst]   
+		
+Start world
+   # n = argi 
+     (chksm, mflops) = pfold (0,0) (map 
+        (\(i, p) = let flops = flopS p in (checksum i flops, flops)) 
+           (zip2 [0..] (permut n)) )  
+               
+   = toString chksm +++ "\n" +++ 
+     "Pfannkuchen(" +++ toString n +++ ") = " +++ toString mflops +++ "\n"	  
+
+/* The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+   
+   swap and copy2 contributed by John van Groningen
+   contributed by Isaac Gouy (Clean novice) 
+   based on the Lua program by Mike Pall
+*/
+
+module fannkuchredux
+
+import StdEnv,LanguageShootout
+		
+swap i j a :== let (ai,a1)=a![i]; (aj1,a2)=a1![j] in {a2 & [i]=aj1,[j]=ai}		
+
+flop p=:{[0]=q0} q n sign chksum maxflips      // Cache 0th element
+   | q0 == 0
+      = (p,q,chksum,maxflips)
+      # (p,q) = copy2 1 n p q                  // Work on a copy
+      = count p q0 q 1
+      
+   where
+      
+   copy2 i n a a2
+      | i < n
+         #! e = a.[i]
+         = copy2 (i+1) n a {a2 & [i] = e}
+         = (a,a2)
+            
+   count p q0 q=:{[q0]=qq} flips
+      | qq == 0                                // ... until 0th element is 0
+         | flips > maxflips                    // New maximum?
+            = (p ,q ,chksum` ,flips) 
+            = (p ,q ,chksum` ,maxflips)
+      # q = {q & [q0] = q0}
+        q = if (q0 >= 3) (flop2 1 (q0-1) q) q
+      = count p qq q (flips+1)
+      
+      where
+      
+      chksum` = chksum + (sign * flips)
+            
+   flop2 i j a
+      | i < j
+         = flop2 (i+1) (j-1) (swap i j a)
+         = a         
+      			
+permute :: !*{#Int} !*{#Int} !Int -> (!*{#Int},!*{#Int},!Int)
+permute p s sign 
+   | sign == 1
+      = ((swap 0 1 p), s, -1)                 // Rotate 0<-1
+      = perm (swap 1 2 p) 2 s 1               // Rotate 0<-1 and 0<-1<-2  
+          
+   where 
+   
+   perm p=:{[0]=t} i s=:{[i]=sx} sign
+      | sx <> 0 
+         = (p, {s&[i]=sx-1}, sign)            // Next permutation
+         = perm (rotate 0 i p t) (i+1) {s&[i]=i} sign
+
+   rotate j i p t
+      # (pj1,p) = p![j+1]
+      #! p = {p & [j]=pj1}
+      | j < i   = rotate (j+1) i p t
+                = {p & [i+1]=t}                     
+
+pfannkuchen :: !Int !*{#Int} !*{#Int} !*{#Int} !Int !Int !Int !Int -> (!Int,!Int)       
+pfannkuchen i p q s n sign chksum maxflips 
+   # (p,q,chksum,maxflips) = flop p q n sign chksum maxflips 
+   | i > 0           
+      # (p,s,sign) = permute p s sign         
+      = pfannkuchen (i-1) p q s n sign chksum maxflips	   
+      = (chksum,maxflips)
+		
+		
+Start world
+   # (chksum,maxflips) = pfannkuchen ((fac n)-1) p q s n 1 0 0
+
+   = toString chksum +++ "\n" +++ 
+     "Pfannkuchen(" +++ toString n +++ ") = " +++ toString maxflips +++ "\n"	  	
+
+   where
+   
+   n = argi
+   fac n = prod [1..n]
+   p = {i\\i<-[0..n-1]}; q = {i\\i<-[0..n-1]}; s = {i\\i<-[0..n-1]} 	
+// The Great Computer Language Shootout
+// http://shootout.alioth.debian.org/ 
+//
+// contributed by Diederik van Arkel
+
+module fasta
+
+import StdEnv, LanguageShootout, StdStrictLists, StdOverloadedList
+
+Start world
+	# n				= argi
+	# (io,world)	= stdio world
+	# rng			= makeRandomGenerator 42
+	# io			= makeRepeatFasta "ONE" "Homo sapiens alu" (n*2) io
+	# (rng,io)		= makeRandomFasta "TWO" "IUB ambiguity codes" iub (n*3) rng io
+	# (rng,io)		= makeRandomFasta "THREE" "Homo sapiens frequency" homosapiens (n*5) rng io
+	# (err,world)	= fclose io world
+	= world
+
+alu =:
+	"GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG" +++.
+	"GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA" +++.
+	"CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT" +++.
+	"ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA" +++.
+	"GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG" +++.
+	"AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC" +++.
+	"AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA"
+
+:: IUB =
+	{ c		:: !Char
+	, p		:: !Real
+	}
+
+:: Table	:== {!IUB}
+
+makeCumulative :: !*Table -> .Table
+makeCumulative table
+	#! maxi	= size table
+	= update_c 0.0 0 maxi table
+where
+	update_c prob i maxi table
+		| i >= maxi
+			= table
+		#! tbl		= table.[i]
+		#! prob		= prob + tbl.p
+		#! table	= {table & [i] = {tbl & p = prob}}
+		= update_c prob (i+1) maxi table
+
+iub =
+	{{ c = 'a', p = 0.27 }
+	,{ c = 'c', p = 0.12 }
+	,{ c = 'g', p = 0.12 }
+	,{ c = 't', p = 0.27 }
+	,{ c = 'B', p = 0.02 }
+	,{ c = 'D', p = 0.02 }
+	,{ c = 'H', p = 0.02 }
+	,{ c = 'K', p = 0.02 }
+	,{ c = 'M', p = 0.02 }
+	,{ c = 'N', p = 0.02 }
+	,{ c = 'R', p = 0.02 }
+	,{ c = 'S', p = 0.02 }
+	,{ c = 'V', p = 0.02 }
+	,{ c = 'W', p = 0.02 }
+	,{ c = 'Y', p = 0.02 }
+	}
+
+homosapiens =
+	{{ c = 'a', p = 0.3029549426680 }
+	,{ c = 'c', p = 0.1979883004921 }
+	,{ c = 'g', p = 0.1975473066391 }
+	,{ c = 't', p = 0.3015094502008 }
+	}
+
+makeRepeatFasta :: !String !String !Int !*File -> *File
+makeRepeatFasta id desc n io
+	# io	= io <<< ">" <<< id <<< " " <<< desc <<< "\n"
+	= repeat n 0 io
+where
+	length	= 60
+	kn		= size alu
+
+	repeat :: !Int !Int !*File -> *File
+	repeat todo k io
+		| todo <= 0
+			= io
+		# m			= min todo length
+		# (k,io)	= write 0 k m io
+		= repeat (todo - length) k io
+	
+	write :: !Int !Int !Int !*File -> (!Int,!*File)
+	write j k m io
+		| j >= m
+			= (k,io <<< "\n")
+		| k >= kn
+			= write j 0 m io
+		# io	= io <<< alu.[k]
+		= write (j+1) (k+1) m io
+
+makeRandomFasta :: !String !String !*Table !Int !RNG !*File -> (!RNG,!*File)
+makeRandomFasta id desc table n rng io
+	# io	= io <<< ">" <<< id <<< " " <<< desc <<< "\n"
+	# table	= makeCumulative table
+	= repeat n table rng io
+where
+	length	= 60
+
+	repeat :: !Int !Table !RNG !*File -> (!RNG,!*File)
+	repeat todo table rng io
+		| todo <= 0
+			= (rng,io)
+		# m					= min todo length
+		# (rng,s)			= write 0 m rng [!!]
+		# io				= io <<< s
+		= repeat (todo - length) table rng io
+	where
+		write :: !Int !Int !RNG ![!Char!] -> (!RNG,!String)
+		write j m rng s
+			| j >= m
+				= (rng,revlist2string [!'\n':s!])
+			# (rval,rng)	= genRandom 1.0 rng
+			# c				= find 0 rval
+			= write (j+1) m rng [!c:s!]
+
+		find :: !Int !Real -> Char
+		find k rval
+			# iub	= table.[k]
+			| iub.p < rval
+				= find (k+1) rval
+			= iub.c
+
+toArray :: ![!Char!] -> String
+toArray l
+	= {c \\ c <|- l}
+
+revlist2string :: ![!Char!] -> .String
+revlist2string l
+	# s	= length l
+	# a = createArray s '@'
+	= fillArray (s-1) l a
+where
+	fillArray :: !Int ![!Char!] !*String -> .String
+	fillArray i [!!] a
+		= a
+	fillArray i [!c:l!] a
+		= fillArray (i-1) l {a & [i] = c}
+
+// adapted from 'random' shootout
+
+:: RNG	:== Int
+
+makeRandomGenerator :: !Int -> RNG
+makeRandomGenerator seed
+	= seed
+
+genRandom :: !Real !RNG -> (!Real,!RNG)
+genRandom max seed
+	= (newran,newseed)
+where
+	newseed = (seed * ia + ic) rem im
+	newran =  max * toReal newseed / imd
+
+im :== 139968
+ia :== 3877
+ic :== 29573
+imd :== toReal im
+/* The Great Computer Language Shootout 
+   contributed by Isaac Gouy (Clean novice)
+*/
+
+module fibo
+import StdEnv, LanguageShootout
+
+fib n
+   | n<2 = 1
+   = fib (n-1) + fib (n-2) 
+
+Start = toString (fib argi) +++ "\n"
+/* The Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   transliterated Mirko Rahns GHC program
+   contributed by Isaac Gouy (Clean novice)
+*/
+
+module harmonic
+import StdEnv, LanguageShootout
+
+Start = toStringWith 9 (loop (toReal argi) 0.0) +++ "\n"
+
+loop d sum
+  | d > 0.0     = loop (d-1.0) (sum + (1.0/d))
+  | otherwise   = sum
+/* The Great Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+ 
+   contributed by Isaac Gouy (Clean novice)
+*/
+
+module hash
+import StdEnv, StdOverloadedList, LanguageShootout 
+
+Start = toString(hashOps argi) +++ "\n"
+
+hashOps n
+   # hashtable = htNew n
+   # hashtable = addHexKeys n newHexConverter hashtable
+   =  countDecimalKeys n hashtable 0 
+   where
+
+   addHexKeys i hc ht
+      | i==0 = ht
+      # hc = append i hc
+      #! s = toHexString hc
+      = addHexKeys (i-1) hc (htAdd s i ht) 
+
+   countDecimalKeys i ht count 
+      | i == 0    = count   
+      = if (htHasKey (toString i) ht) 
+         (countDecimalKeys (i-1) ht (count+1)) 
+         (countDecimalKeys (i-1) ht count)   
+
+:: HexConverter = Hc !Int !Int !.String   
+newHexConverter :: *HexConverter   
+newHexConverter = Hc 31 32 {' ' \\ i<-[1..32]}
+
+append n hc=:(Hc _ last _)
+   = append_ n last hc
+   where
+
+   append_ n i (Hc first last s) 
+      | n==0 = (Hc i last s)
+      # i = i-1
+      # s = update s i hexchars.[n bitand 15]      
+      = append_ (n>>4) i (Hc i last s)
+
+   hexchars = "0123456789abcdef"
+
+toHexString (Hc first last s) = s%(first,last)      
+
+
+// SimpleHash implementation would normally be imported
+
+primes =: [
+   53,         97,         193,       389,       769,
+   1543,       3079,       6151,      12289,     24593,
+   49157,      98317,      196613,    93241,     786433,
+   1572869,    3145739,    6291469,   12582917,  25165843,
+   50331653,   100663319,  201326611, 402653189, 805306457
+   ]
+
+:: Item a = { key::!String
+            , val::a 
+            }
+
+:: HashTable a = { nBuckets::Int
+                 , table::!.{![!Item a!]}
+                 }
+
+hash :: !{#.Char} !(HashTable .a) -> Int
+hash key ht=:{nBuckets}
+   = (abs (loop key (size key - 1) 0)) rem nBuckets  
+   where
+
+   loop k n h
+      | n>(-1) = loop k (n-1) (11*h + toInt k.[n])       
+               = h
+
+htNew n = { nBuckets = nprime
+        , table = {[|] \\ i <- [0..nprime-1]}
+        }
+   where   
+   nprime = hd (dropWhile (\x = x < n) primes)        
+
+htHasKey :: !{#.Char} !.(HashTable a) -> .Bool             
+htHasKey k ht=:{table}= findIn k table.[hash k ht]   
+
+htAdd k v ht=:{table}
+   #! i = hash k ht
+   #! (b,table) = uselect table i
+   = if (findIn k b)
+      {ht & table = update ht.table i (addItem k v b [|])}
+      {ht & table = update ht.table i [|{key=k,val=v}:b]}
+
+findIn k [|] = False
+findIn k [|item:ls] = item.key == k || findIn k ls  
+
+addItem k v [|] ls` = ls`
+addItem k v [|item:ls] ls`
+    | item.key == k  
+        = [|{item & val=v}:ls++|ls`]
+        = addItem k v ls [|item:ls`] 
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   by John van Groningen
+*/
+
+module hash2
+
+import StdEnv, LanguageShootout
+import StdOverloadedList
+
+Start = hashOps argi
+
+hashOps n
+   # hashtable1 = htNew 10000
+   # hashtable2 = htNew 10000
+   # hashtable1 = addKeys 0 hashtable1
+   # (hashtable1,hashtable2) = repeat_inserts n hashtable1 hashtable2
+   # (foo_1_1,hashtable1) = htFind "foo_1" hashtable1
+   # (foo_9999_1,hashtable1) = htFind "foo_9999" hashtable1
+   # (foo_1_2,hashtable2) = htFind "foo_1" hashtable2
+   # (foo_9999_2,hashtable2) = htFind "foo_9999" hashtable2
+   =    toString foo_1_1.val+++" "+++
+        toString foo_9999_1.val+++" "+++
+        toString foo_1_2.val+++" "+++
+        toString foo_9999_2.val+++"\n"
+  where
+    addKeys i ht
+         | i>9999
+             = ht
+             = addKeys (i+1) (htAdd ("foo_"+++toString i) i ht)
+
+    repeat_inserts :: !Int (HashTable Int) (HashTable Int) -> (HashTable Int,!HashTable Int)
+    repeat_inserts n hashtable1 hashtable2
+        | n>0
+            # (hashtable1,hashtable2) = htFold add_val hashtable1 hashtable2
+            = repeat_inserts (n-1) hashtable1 hashtable2
+            = (hashtable1,hashtable2)
+
+    add_val {key,val=val1} hashtable2
+        = htUpdate (\ item=:{val} = {item & val=val+val1}) key 0 hashtable2
+
+// SimpleHash implementation would normally be imported
+  
+primes =: [
+   53,         97,         193,       389,       769,
+   1543,       3079,       6151,      12289,     24593,
+   49157,      98317,      196613,    93241,     786433,
+   1572869,    3145739,    6291469,   12582917,  25165843,
+   50331653,   100663319,  201326611, 402653189, 805306457
+   ]
+
+:: Item a = { key::!String
+            , val::!a
+            }
+
+:: SHashTable a = { nBuckets::!Int
+                 , table::!.{!.[!Item a!]}
+                 }
+
+:: *HashTable a :== SHashTable a
+
+hash :: !{#.Char} !Int -> Int
+hash key nBuckets
+   = (abs (loop key (size key - 1) 0)) rem nBuckets  
+   where
+   loop :: !{#Char} !Int !Int -> Int
+   loop k n h
+      | n>=0
+          = loop k (n-1) (11*h + toInt k.[n])       
+          = h
+
+htNew n = { nBuckets = nprime
+        , table = {[|] \\ i <- [0..nprime-1]}
+        }
+   where   
+   nprime = hd (dropWhile (\x = x < n) primes)        
+
+htFind :: !{#.Char} !(HashTable a) -> (!Item a,HashTable a)              
+htFind k ht=:{table,nBuckets}
+    # (list,table) = table![hash k nBuckets]
+    = (find k list,{ht & table=table})
+    where
+        find k [|item:ls]
+            | item.key == k
+                   = item
+                   = find k ls
+
+htUpdate :: ((Item a) -> Item a) !{#.Char} a !*(HashTable a) -> *HashTable a
+htUpdate f k v ht=:{table,nBuckets}
+    #! i = hash k nBuckets
+    #! (b,table) = replace table i [|]
+    # b = updateItem k v b f
+    = {ht & table = {table & [i] = b}}
+where
+    updateItem :: !{#.Char} a !*[!(Item a)!] ((Item a) -> Item a) -> *[!(Item a)!]
+    updateItem k v [|item:ls] f
+       | item.key <> k
+               = [|item : updateItem k v ls f]
+               = [|f item:ls]
+    updateItem k v [|] f
+        = [|f {key=k,val=v}]
+
+htAdd :: !{#.Char} !a !*(HashTable a) -> *HashTable a
+htAdd k v ht=:{table,nBuckets}
+    #! i = hash k nBuckets
+    #! (b,table) = replace table i [|]
+    # b = addItem k v b
+    = {ht & table = {table & [i] = b}}
+where
+    addItem :: !{#.Char} .a !*[!u:(Item .a)!] -> *[!v:(Item .a)!], [u<=v]
+    addItem k v [|item:ls]
+       | item.key <> k
+               = [|item : addItem k v ls]
+               = [|{item & val=v}:ls]
+    addItem k v [|]
+        = [|{key=k,val=v}]
+
+htFold :: ((Item a) -> .(.b -> .b)) !(HashTable a) .b -> (!HashTable a,!.b)
+htFold f ht=:{nBuckets,table} s
+    # (table,s) = ht_fold 0 nBuckets table s
+    = ({ht & table=table},s)
+    where
+        ht_fold i n table s
+            | i<n
+                # (list,table) = table![i]
+                #! s=ht_fold_list list s
+                = ht_fold (i+1) n table s
+                = (table,s)
+
+        ht_fold_list [|e:l] s
+            #! s = f e s
+            = ht_fold_list l s
+        ht_fold_list [|] s
+            = s
+
+
+/* The Great Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+ 
+   contributed by Isaac Gouy (Clean novice)
+*/
+
+module heapsort
+import StdEnv, StdArrayExtensions, ArgEnv, LanguageShootout
+
+Start = (toStringWith 10 sortedValues.[n-1]) +++ "\n"
+   where
+      n = argi
+      randomValues = nran (n-1) 1.0 42 (createUnboxedRealArr n 0.0)
+      sortedValues = heapsort randomValues
+
+// Heapsort implementation adapted from:
+//
+// "The Implementation and Efficiency of Arrays in Clean 1.1"
+// John H. G. van Groningen
+// volume 1268 of Lecture Notes in Computer Science, 
+// pages 105--124. Springer-Verlag, 1997
+// http://www.cs.kun.nl/~clean/publications.html#1997
+
+:: SortElement :== Real
+:: SortArray :== {#SortElement}
+
+heapsort :: !*SortArray -> .SortArray
+heapsort a0
+   | n<2 = a
+   = sort_heap (n-1) (mkheap (n>>1) (n-1) a)
+
+   where
+   (n,a) = usize a0
+
+   mkheap (-1) m a = a
+   mkheap i m a=:{[i]=ai} 
+      = mkheap (i-1) m (add_to_heap i ((i<<1)+1) m ai a)
+
+   sort_heap i a=:{[i]=ai, [0]=a0}
+      | i==1 = {a & [0]=ai, [i]=a0}
+      # b = (add_to_heap 0 1 deci ai {a & [i]=a0})
+      = sort_heap deci ( b)
+      with deci = i-1
+
+   add_to_heap i j m ai a
+      | j >= m 
+         = if (j>m)
+            {a & [i] = ai}
+            (if (ai<aj)
+               {a` & [i] = aj, [j]=ai}
+               {a` & [i] = ai}
+            )
+      with (aj, a`) = uselect a j
+
+   add_to_heap i j m ai a=:{[j]=aj}
+      # j1 = j+1
+      #! aj1 = a.[j1]
+      | aj<aj1
+         = if (ai<aj1)
+            (add_to_heap j1 ((j1<<1)+1) m ai {a & [i]=aj1})
+            {a & [i]=ai}
+      = if (ai<aj)
+         (add_to_heap j ((j<<1)+1) m ai {a & [i]=aj})
+         {a & [i]=ai}   
+
+// Random number generator         
+im :== 139968
+ia :== 3877
+ic :== 29573
+imd :== toReal im
+
+nran :: !Int !Real !Int !*{#u:Real} -> {#v:Real}, [u <= v]
+nran i max seed numbers
+   | i<0   = numbers
+   = nran (i-1) max newseed {numbers & [i] = newran}
+   where
+      newseed = (seed * ia + ic) rem im
+      newran =  max * toReal newseed / imd 
+/*
+ *  http://shootout.alioth.debian.org/
+ * 
+ */
+
+module hello
+import StdEnv
+
+Start = "hello world\n"
+/*
+	The Computer Language Shootout
+	http://shootout.alioth.debian.org/
+	the hash function is ported from "simple_hash.h", available from
+	http://cvs.alioth.debian.org/cgi-bin/cvsweb.cgi/shootout/bench/Include/?cvsroot=shootout
+	the hashtable functions are based on code written by Isaac Gouy
+	contributed by John van Groningen
+*/
+
+module knucleotide
+
+import StdEnv,StdOverloadedList,LanguageShootout
+
+Start world
+	# (file,world) = stdio world
+	  lines = read_lines (find_three file)
+	
+	  n_chars = foldl (\n s=n+size s-1) 0 lines
+	  dna = fill_sequence lines 0 (createArray n_chars '?')
+
+	 = ( [([key+++" "+++toStringWith 3 (100.0*toReal val/toReal (n_chars+1-l))+++"\n"
+			\\ {key,val} <- sort (htItems (frequencies l dna))],'\n') \\ l<-[1..2]],
+
+	 	[toString ((htFind s (frequencies (size s) dna)).val)+++"\t"+++s+++"\n"
+			\\ s <- [ "GGT","GGTA","GGTATT","GGTATTTTAATT","GGTATTTTAATTTATAGT"] ])
+
+find_three file
+	# (line,file) = freadline file
+	| line.[0]=='>' && line%(1,5)=="THREE"
+		= file
+		= find_three file
+
+read_lines file
+	# (line,file) = freadline file
+	| size line==0  = []
+	| line.[0]==';' = read_lines file
+	| line.[0]=='>' = []
+	| line.[size line-1]=='\n'
+		= [line : read_lines file]
+		= [line+++"\n" : read_lines file]
+
+fill_sequence [] i a = a
+fill_sequence [l:ls] i a
+	# n = size l-1
+	= fill_sequence ls (i+n) (copy (n-1) i a l) where
+
+	copy :: !Int !Int !*{#Char} !{#Char} -> *{#Char}
+	copy j i a l
+		| j>=0	= copy (j-1) i {a & [i+j]=toUpper l.[j]} l
+				= a
+
+instance < Item where (<) i1 i2 = if (i1.val<>i2.val) (i1.val>i2.val) (i1.key<i2.key)
+
+frequencies l s
+	# htSize1 = 25<<(l+l)
+	  htSize = if (l<=13 && htSize1<size s) htSize1 (size s)
+	= add_sub_strings 0 (l-1) (htNew htSize) where
+
+	add_sub_strings i l ht
+		# e=i+l
+		| e>=size s = ht
+		= add_sub_strings (i+1) l (htAddOrUpdate (s % (i,e)) 1 (\x->x+1) ht)
+
+// hash table
+
+//hash :: !{#Char} !Int -> Int
+hash key nBuckets
+	# h = loop key (size key-1) 0;
+	| h>=0
+		= if (h<nBuckets) h (h rem nBuckets)
+		= ~(h rem nBuckets) where
+
+	loop :: !{#Char} !Int !Int -> Int
+	loop k n h = if (n>=0) (loop k (n-1) (5*h + toInt k.[n])) h
+
+:: Item = { key :: !String, val :: !Int }
+
+:: HashTable = { table::!.{!Buckets} }
+
+:: Buckets = EmptyBucket | Bucket !Item | Buckets ![!Item!]
+
+htNew :: !Int -> *HashTable
+htNew n = { table = createArray nprime EmptyBucket } where
+
+   nprime = hd (dropWhile (\x -> x < n) primes)
+
+primes =: [ 53,       97,        193,       389,       769,
+            1543,     3079,      6151,      12289,     24593,
+            49157,    98317,     196613,    93241,     786433,
+            1572869,  3145739,   6291469,   12582917,  25165843,
+            50331653, 100663319, 201326611, 402653189, 805306457 ]
+
+//htFind :: !{#Char} !HashTable -> Item 
+htFind k {table} = (find k table.[hash k (size table)]) where
+
+	find k (Bucket item) = if (item.key==k) item {key=k,val=0}
+	find k (Buckets l) = find_l k l
+	find k EmptyBucket = {key=k,val=0}
+
+	find_l k [|item:ls] = if (item.key==k) item (find_l k ls)
+	find_l k [|] = {key=k,val=0}
+
+htAddOrUpdate k v f ht=:{table}
+	# (nBuckets,table) = usize table
+	  i = hash k nBuckets
+ 	  (b,table) = table![i]
+	:== {ht & table = {table & [i] = addOrUpdateItem b k}} where
+
+//	addOrUpdateItem :: !Buckets !{#Char} -> Buckets
+	addOrUpdateItem EmptyBucket k = Bucket {key=k,val=v}
+	addOrUpdateItem (Bucket item=:{key,val}) k
+	   | key==k	= Bucket {item & val=f val}
+	   			= Buckets [|item , {key=k,val=v}]
+	addOrUpdateItem (Buckets b) k = Buckets (addOrUpdateItemL b k)
+
+//	addOrUpdateItemL :: ![!Item!] !{#Char} -> [!Item!]
+	addOrUpdateItemL [|item=:{key,val}:ls] k
+	   | key==k	= [|{item & val=f val}:ls]
+	   			= [|item : addOrUpdateItemL ls k]
+	addOrUpdateItemL [|] k = [|{key=k,val=v}]
+
+//htItems :: !HashTable -> [Item]
+htItems ht=:{table} = ht_items 0 table where
+
+	ht_items i table | i>=size table = []
+					 = ht_items_bucket table.[i] (i+1) table
+
+	ht_items_bucket EmptyBucket i table = ht_items i table
+	ht_items_bucket (Bucket e)  i table = [e:ht_items i table]
+	ht_items_bucket (Buckets b) i table = ht_items_list b i table 
+
+	ht_items_list [|e:l] i table = [e:ht_items_list l i table]
+	ht_items_list [|]    i table = ht_items i table
+/* The Great Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+ 
+   contributed by Isaac Gouy (Clean novice)
+   and optimized by John van Groningen
+*/
+
+module lists
+import StdEnv, LanguageShootout
+
+Start = toString (iter argi listOps 10000) +++ "\n"
+listOps size
+    # d1 = iota size
+    # (d2,d1) = copy d1
+    # d3 = empty size
+    # (d2,d3) = headToTailLoop d2 d3
+    # (d3,d2) = tailToTailLoop d3 d2
+    # d1 = reverseDq d1
+    | firstDq d1==size && equal d1 d2
+        = lengthDq d1
+        = abort "Test Failed!"
+  where
+    headToTailLoop :: !*(Deque a) !*(Deque a) -> (!*Deque a,!*Deque a)
+    headToTailLoop x y
+        | emptyDq x   = (x,y)
+                      # (z,x) = popFirst x
+                      # y = addLast z y
+                      = headToTailLoop x y
+
+    tailToTailLoop :: !*(Deque a) !*(Deque a) -> (!*Deque a,!*Deque a)
+    tailToTailLoop x y
+        | emptyDq x = (x,y)
+                    # (z,x) = popLast x
+                    # y = addLast z y
+                    = tailToTailLoop x y
+
+:: Deque a = { first ::!Int, last ::!Int, size :: !Int, a :: !.{!a} }
+
+empty :: !Int -> *Deque Int
+empty n
+    # n=inc n
+    = { first=0, last=0, size=n,a = createArray n 0 }
+
+iota :: !Int -> *Deque Int
+iota n
+    #! size=inc n
+    = { first=1, last=0, size=size, a = {i \\ i<-[0..n]} }
+
+emptyDq :: !(Deque a) -> Bool
+emptyDq {first,last,size} = first==last
+
+lengthDq :: !(Deque a) -> Int
+lengthDq {first,last,size} = up (last-first) size
+
+up n s :== n+((n>>31) bitand s) // if (n < 0) (n + s) n
+
+popFirst :: !*(Deque a) -> (!a,!*Deque a)
+popFirst {first,last,size,a}
+    | first <> last
+        #! e = a.[first]
+        # first=first+1
+        | first<>size
+            = (e,{first=first,last=last,size=size,a=a})
+            = (e,{first=0,last=last,size=size,a=a})
+        = abort "popFirst: empty"
+
+popLast :: !*(Deque a) -> (!a,!*Deque a)
+popLast {first,last,size,a}
+    | first <> last
+        | last>0
+            # last = last-1
+            #! e = a.[last]
+            = (e,{first=first,last=last,size=size,a=a})
+            # last = size-1
+            #! e = a.[last]
+            = (e,{first=first,last=last,size=size,a=a})
+        = abort "popLast: empty"
+
+addLast :: !a !*(Deque a) -> *Deque a
+addLast elem {first,last,size,a}
+    # last`=last+1
+    | last` <> size
+        | last` <> first
+                = {first=first,last=last`,size=size,a={a & [last]=elem}}
+                = abort "addLast : Full"
+        | 0 <> first
+                = {first=first,last=0,size=size,a={a & [last]=elem}}
+                = abort "addLast : Full"
+
+firstDq :: !(Deque a) -> a
+firstDq {first,last,size,a}
+    | first <> last
+        = a.[first]
+        = abort "popFirst: empty"
+
+copy :: *(Deque a) -> (!*Deque a,!*Deque a)
+copy {first,last,size,a}
+    | size==0
+        = ({first=first,last=last,size=size,a={}},{first=first,last=last,size=size,a=a})
+    #! e=a.[0]
+    # (a1,a2) = copy_array 0 size (createArray size e) a
+    = ({first=first,last=last,size=size,a=a1},{first=first,last=last,size=size,a=a2})
+  where
+    copy_array :: !Int !.Int !*{!a} !u:{!a} -> (!.{!a},!v:{!a}), [u <= v]
+    copy_array i s a1 a2
+        | i<s
+            #! e=a2.[i]
+            = copy_array (i+1) s {a1 & [i]=e} a2
+            = (a1,a2)
+
+reverseDq :: *(Deque a) -> *Deque a
+reverseDq {first,last,size,a}
+    #! w=up (last-first) size // length
+    # a = reverse_a ((w>>1)+1) first (up (last-1) size) size a
+    = {first=first,last=last,size=size,a=a}
+    where
+        reverse_a :: !Int !Int !Int !Int !*{!a} -> *{!a}
+        reverse_a n i1 i2 size a
+            | n==0
+                = a
+            #! m=min (size-i1) n
+            #! m=min (i2+1) m
+            # a = reverse_a2 i1 i2 m a
+              i1=i1+m
+              i2=i2-m
+              i1=if (i1>=size) (i1-size) i1
+              i2=if (i2<0) (i2+size) i2
+            = reverse_a (n-m) i1 i2 size a
+
+        reverse_a2 :: !Int !Int !Int !*{!a} -> *{!a}
+        reverse_a2 i1 i2 e1 a
+            | i1<e1
+                # (v1,a) = a![i1]
+                # (v2,a) = a![i2]
+                = reverse_a2 (i1+1) (i2-1) e1 {a & [i1]=v2,[i2]=v1}
+                = a
+
+equal :: !.(Deque a) !.(Deque a) -> .Bool | == a
+equal {first=first1,last=last1,size=size1,a=a1} {first=first2,last=last2,size=size2,a=a2}
+    #! len1=up (last1-first1) size1 // length
+    #! len2=up (last2-first2) size2 // length
+    = len1==len2 && equal_a len1 first1 first2 size1 size2 a1 a2
+where
+    equal_a :: !Int !Int !Int !Int !Int !.{!a} !.{!a} -> .Bool | == a
+    equal_a n i1 i2 s1 s2 a1 a2
+        | n==0
+            = True
+        #! m=min (s1-i1) n
+        #! m=min (s2-i2) m
+        | equal_a2 i1 i2 (i1+m) a1 a2
+            # i1=i1+m
+              i2=i2+m
+              i1=if (i1>=s1) (i1-s1) i1
+              i2=if (i2>=s2) (i2-s2) i2
+            = equal_a (n-m) i1 i2 s1 s2 a1 a2
+            = False
+
+    equal_a2 :: !Int !Int !Int !.{!a} !.{!a} -> .Bool | == a
+    equal_a2 i1 i2 e1 a1 a2
+        | i1<e1
+            = a1.[i1]==a2.[i2] && equal_a2 (i1+1) (i2+1) e1 a1 a2
+            = True
+/*
+	The Great Computer Language Shootout
+	http://shootout.alioth.debian.org/
+	Based on the SML version, written by Matthias Blume,
+	and the Clean program, written by Diederik van Arkel.
+	Contributed by John van Groningen
+*/
+
+module mandelbrot
+
+import StdEnv,LanguageShootout
+
+Start world
+	# (console, world)	= stdio world
+	  width				= argi
+	  console			= console <<< "P4\n" <<< width <<< " " <<< width <<< "\n"
+	  console			= loop_y 0 console width width
+	= snd (fclose console world)
+
+max_iter :== 50
+
+loop_y :: !Int !*File !Int !Int -> *File
+loop_y y file width height
+	| y<width
+		= loop_y (y+1) (loop_x 0 y 0 8 file width height) width height
+		= file
+
+loop_x :: !Int !Int !Int !Int !*File !Int !Int -> *File
+loop_x x y bits bit_shift file width height
+	| x<height
+		| bit_shift==0
+			= loop_x x y 0 8 (fwritec (toChar bits) file) width height
+			# (w,h) = (toReal width,toReal height)
+			  c = (2.0*toReal x/w - 1.5, 2.0*toReal y/h - 1.0)
+			  point = fractal (0.0,0.0) max_iter c
+			= loop_x (x+1) y (bits+bits+point) (bit_shift-1) file width height
+		| bit_shift<8
+			= fwritec (toChar (bits<<bit_shift)) file
+			= file
+
+fractal :: !(!Real,!Real) !Int !(!Real,!Real) -> Int
+fractal (r,i) iter c=:(cr,ci)
+	# (r2,i2) = (r*r,i*i)
+	| r2 + i2 <= 4.0
+		| iter > 0	= let pri=r*i in fractal (r2-i2+cr,pri+pri+ci) (iter-1) c
+					= 1
+		= 0
+/* The Great Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+ 
+   contributed by Isaac Gouy (Clean novice)
+*/
+
+module matrix
+import StdEnv, LanguageShootout
+
+SIZE :== 30
+
+Start = resultString (mmultLoop argi SIZE SIZE a b c)
+   where
+      a = initm (mkm SIZE SIZE) 0 1 SIZE SIZE
+      b = initm (mkm SIZE SIZE) 0 1 SIZE SIZE      
+      c = mkm SIZE SIZE
+
+      mkm :: Int Int -> {#.{#Int}}   
+      mkm nrows ncols = {createArray ncols 0 \\ i<-[0..nrows-1]} 
+
+      initm m i count nrows ncols
+         | i<nrows = initm {m&[i,j]=count+j \\ j<-[0..ncols-1]} 
+            (i+1) (count+ncols) nrows ncols 
+         = m
+
+      resultString a =
+         toString(a.[0,0]) +++ " " +++
+         toString(a.[2,3]) +++ " " +++
+         toString(a.[3,2]) +++ " " +++
+         toString(a.[4,4]) +++ "\n"
+
+mmultLoop n nrows ncols a b c
+   | n==0 = c
+   = mmultLoop (n-1) nrows ncols a b 
+      (mmult nrows ncols a (transpose ncols nrows b) c)
+
+mmult nrows ncols a bt c
+   = {c&[i,j]= rmult 0 ncols 0 a.[i] bt.[j] \\ i<-[0..nrows-1], j<-[0..nrows-1]}
+   where
+      rmult :: !Int !.Int !Int !{#Int} !{#Int} -> Int
+      rmult k n v a b
+         | k<n = rmult (k+1) n (v + a.[k]*b.[k]) a b
+         = v
+
+transpose :: !Int !Int !{#.{#Int}} -> {#.{#Int}}
+transpose nrows ncols m = { {m.[i,j] \\ i<-[0..nrows-1]} \\ j<-[0..ncols-1]} 
+
+/* The Computer Language Shootout
+   http://shootout.alioth.debian.org/
+ 
+   contributed by Tim Hochberg
+*/
+
+module message
+
+import StdEnv, StdLib, LanguageShootout
+
+
+Start world = toString (sum values) +++ "\n"
+where
+	values = fst (maplSt call (repeatn argi 0) state)
+
+
+:: *Thread = IncrementAndPass .Thread
+		   | Increment
+
+state :: Thread
+state = foldl (\l _ -> IncrementAndPass l) 
+		Increment 
+		[2..500]
+
+call :: !Int !Thread -> (!Int, !Thread)
+call i t=:Increment 		
+	= (i+1, t)
+call i (IncrementAndPass next)
+	# (i, next) = call (i + 1) next
+	= (i, IncrementAndPass next)
+
+
+
+
+/* The Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   Contributed by Tim Hochberg.
+   
+   Some ideas taken from Olof Kraigher's Python and GHC implementations
+   and Ben St. John's GCC implementation.
+*/
+
+
+module meteor
+
+import StdEnv, LanguageShootout, StdLib, StdStrictLists
+
+
+Start 
+    = toString (length solns) +++ " solutions found\n\n"
+    +++ format (hd solns) +++ "\n"
+    +++ format (last solns) +++ "\n"
+where
+    solns =  (sort (take argi [x \\ x <|- solutions]))
+     
+
+// --- Generate the solutions --- 
+
+firstZero :: {#Int}
+firstZero =: {0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,5}
+
+solutions =: solveCell 0 [#c \\ c <- COLORS!] 0 [#!] [!]
+  where
+    solveCell ::  !Int [#Int!] !Int !Solution *[!String] -> *[!String]
+    solveCell _  [#!]  _  soln results
+        = [!s, revString s:results] with s = toString soln
+    solveCell row todo board soln results
+        #! top = board bitand M_TOP
+        | top == M_TOP
+            = solveCell (row+1) todo (board >> N_COL) soln results 
+        #! col = firstZero.[top]
+        #! masks = masksAtCell.[row].[col]
+        | otherwise
+            = foldr solveMask results [m \\ c <|- todo, m  <|- masks.[c] | board bitand m == 0]
+      where
+        solveMask :: !Int *[!String] -> *[!String]
+        solveMask m results 
+            = solveCell row (remove (tagof m) todo) ((untag m) bitor board) [#m:soln!] results
+    remove:: Int !u:[#Int!] -> u:[#Int!]
+    remove e [#a:as!]
+        | a==e		= as
+                    = [#a:remove e as!]
+    remove e [#!] = [#!]
+              
+
+
+// --- Formatting ---
+    
+:: Solution :== [#Int!]
+    
+format :: String -> String
+format raw = format_ [c \\ c <-: raw] False
+  where
+    format_ :: [Char] Bool -> String 
+    format_ [] _ = ""
+    format_ chars isodd
+        # (cur, rest) = splitAt 5 chars
+        # spaced = flatten [[c, ' '] \\ c <- cur]
+        # str = {c \\ c <- spaced} +++ "\n" +++ format_ rest (not isodd)
+        = (if isodd " " "") +++ str
+
+instance toString Solution
+  where
+    toString :: Solution -> {#Char}
+    toString masks = {color n \\ n <- CELLS} where
+        color n = "0123456789.".[if (isNothing x) 10 ((tagof o snd o fromJust) x)] where
+            x =  find matches masksWithRows
+            matches (r, m)
+                # n` = n - N_COL * r
+                | n` < 0     = False
+                | n` > 30    = False
+                | otherwise = (untag m) bitand (1 << n`) <> 0  
+        // The row associated with each mask is implicit in the order that appears
+        masksWithRows = withRows 0 0 (reverse  [m \\ m<|-masks])                
+        withRows _ _ [] = []
+        withRows board r [m:rest]
+            # delta = first0 board / N_COL
+            # board = (board >>  (delta * N_COL)) bitor (untag m)
+            # r = r+delta 
+            = [(r, m):withRows board r rest]
+     
+revString :: u:{#Char} -> u:{#Char}
+revString a 
+    # (n, a) = usize a
+    = {createArray n ' ' & [i]=c \\ c <-: a & i <- [n-1,n-2..0]}
+
+
+// --- The Board ---
+N_ELEM :== 5
+N_COL :== 5
+N_ROW :== 10
+M_TOP :== 0x1F
+CELLS =: [0..49]
+COLORS =: [0..9] 
+
+cellAt x y :== x + N_COL*y 
+coordOf i :== (i rem N_COL, i / N_COL)
+isValid x y :== 0 <= x && x < N_COL && 0 <= y && y < N_ROW
+
+
+// --- Piece Operations ---
+
+:: Dir = E | NE | NW | W | SW | SE
+DIRECTIONS =: [E, NE, NW, W, SW, SE]
+
+:: Piece :== [Dir]
+
+pieces :: {Piece}
+pieces =: { [E, E, E, SE]
+          , [SE, SW, W, SW]
+          , [W, W, SW, SE]
+          , [E , E, SW, SE]
+          , [NW, W, NW, SE, SW]
+          , [E, E, NE, W]
+          , [NW, NE, NE, W]
+          , [NE, SE, E, NE]
+          , [SE, SE, E, SE]
+          , [E, NW, NW, NW]
+          }
+
+permutations p = take 12 (perms p) 
+  where
+    perms p = [p, (flip p): perms (rotate p)] 
+    rotate piece = map r piece
+      where r E  = NE
+            r NE = NW
+            r NW = W
+            r W  = SW
+            r SW = SE
+            r SE = E
+    flip piece = map f piece
+      where f E  = W
+            f NE = NW
+            f NW = NE
+            f W  = E
+            f SW = SE
+            f SE = SW
+
+
+// --- Mask Operations ----
+
+// Most of the time we only use 25 bits of a mask
+// so we store info in a 5 bit tag.
+set   mask n :== mask bitor (1 << n)
+test1 mask n :== mask bitand (1 << n) <> 0
+test0 mask n :== mask bitand (1 << n) == 0
+retag mask n :== (mask bitand 0x1ffffff) bitor n << 25
+tagof mask   :==  (mask >> 25)
+tag   mask n :== mask bitor (n << 25)
+untag mask   :== (mask bitand 0x1ffffff) 
+
+count1s :: !Int -> Int
+count1s 0 = 0
+count1s i = (if (i bitand 1 == 1) 1 0) + count1s (i >> 1)
+
+first0 :: !Int -> Int
+first0 i = if (i bitand 1 == 0) 0 (1 + first0 (i >> 1))
+
+
+// --- Making the Bitmasks --- 
+    
+instance mod Int
+  where mod a b = if (r < 0) (r + b) r with r = a rem b
+        
+move :: !Dir (!Int, !Int) -> (!Int, !Int)
+move E  (x, y) = (x+1, y)
+move W  (x, y) = (x-1, y)
+move NE (x, y) = (x+(y mod 2), y-1)
+move NW (x, y) = (x+(y mod 2)-1, y-1)
+move SE (x, y) = (x+(y mod 2), y+1)
+move SW (x, y) = (x+(y mod 2)-1, y+1)
+
+packSize a b :== a*5+b
+unpackSize n :== (n/5, n rem 5)
+
+
+pieceBounds piece isodd :== bounds piece 0 y0 0 y0 0 y0 with y0 = (if isodd 1 0)
+  where
+    bounds [] _ _ xmin ymin xmax ymax = (xmin, ymin, xmax, ymax) 
+    bounds [d:rest] x y xmin ymin xmax ymax
+        # (x, y) = move d (x, y)
+        = bounds rest x y (min x xmin) (min y ymin) (max x xmax) (max y ymax)
+
+
+pieceMask piece 
+    # (xmin, ymin, xmax, ymax) = pieceBounds piece False
+    # (x1, y1) = (~xmin, ~ymin)
+    # swap = y1 rem 2 <> 0
+    # w1 = xmax - xmin
+    # h1 = ymax - ymin
+    # (xmin, ymin, xmax, ymax) = pieceBounds piece True
+    # (x2, y2) = (~xmin, ~ymin+1)
+    # w2 = xmax - xmin
+    # h2 = ymax - ymin
+    | swap      = (tag (mask piece x2 y2 0) (packSize w2 h2), tag (mask piece x1 (y1+1) 0 >> N_COL) (packSize w1 h1)) 
+    | otherwise = (tag (mask piece x1 y1 0) (packSize w1 h1), tag (mask piece x2 (y2+1) 0 >> N_COL) (packSize w2 h2)) 
+  where
+    mask [] x y m = m bitor (1 << cellAt x y)
+    mask [d:rest] x y m  
+        = mask rest x` y` (m bitor (1 << cellAt x y))
+                           with (x`, y`) = move d (x, y)
+
+
+templatesForColor c = (unzip o map pieceMask) perms
+    where perms = if (c == 5) (take 6 ps) ps
+          ps = permutations pieces.[c]
+    
+    
+masksForColor :: !Int -> [(!Int, !Int)]
+masksForColor c = flatten [atCell n \\ n <- CELLS] 
+  where
+    (even, odd) = templatesForColor c
+    atCell n
+        # (x, y) = coordOf n
+        | isEven y = [(y, retag (m << x) c) \\ m <- even | isok m x y]
+        | isOdd y  = [(y, retag (m << x) c) \\ m <- odd  | isok m x y]
+    isok mask x y 
+        # (width, height) = unpackSize (tagof mask) 
+        # mask = untag mask << x 
+        =    isValid (x+width) (y+height)
+          && case (y == 0, y+height==9) of
+                (False, False) = noLeftIslands mask && noRightIslands mask
+                (True, False)  = noIslands mask
+                (False, True)  = noIslands (mask << (N_COL*(y - 4)))
+
+
+:: MaskData :== {!{!{![#Int!]}}} 
+          
+masksAtCell :: MaskData
+masksAtCell =: transpose {let mc = masksForColor c in {m \\ m <- masksAt mc CELLS} \\ c <- COLORS} 
+  where
+    masksAt :: ![(Int, Int)] ![Int] -> [[#Int!]]
+    masksAt masks [] = []
+    masksAt masks [n:ns] = [[#snd x \\ x <- t!]:masksAt f ns] 
+      where 
+        (t, f) = partition test masks  
+        test (r, m) = n` >= 0 && n` < 25 && (untag m) bitand (1 << n`) <> 0
+                    with n` = n - N_COL * r
+    transpose ::{{[#Int!]}} -> MaskData                    
+    transpose a = {copy.[y] \\ y <- [1,0,1,0,1,2,3,4,5,6]}
+      where
+        copy :: MaskData
+        copy = {{{[#x \\ x <|- a.[i].[cellAt x y]!] \\ i <- COLORS} \\ x <- [0..N_COL-1]} \\ y <- [1,2,5,6,7,8,9]}
+
+    
+
+// --- Looking for Islands ---
+    
+noLineIslands mask start stop step
+    # n = find test1 start step mask 
+    # n = find test0 n     step mask
+    # n = find test1 n     step mask
+    | n > stop  = True
+    | otherwise = False
+  where
+    find test n dn mask
+        | n >= 25       = 25
+        | test mask n   = n
+        | otherwise     = find test (n+dn) dn mask    
+noLeftIslands mask   :== noLineIslands mask 0  20 5
+noRightIslands mask  :== noLineIslands mask 4  24 5
+    
+noIslands board :== noisles board (count1s board)
+  where  
+    noisles :: !Int !Int  -> Bool
+    noisles _ 30 = True
+    noisles board ones   
+        # board = fill board (coordOf (first0 board))
+        # ones` = count1s board
+        | (ones` - ones) rem N_ELEM <> 0    = False
+        | otherwise                         = noisles board ones` 
+    fill :: !Int !(!Int, !Int) -> Int 
+    fill m (x, y)
+        | x < 0 || x >= N_COL = m
+        | y < 0 || y >= 6     = m
+        # i = cellAt x y
+        | test1 m i			  = m
+        = foldl (\m d -> fill m (move d (x, y))) (set m i) DIRECTIONS
+
+/* The Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   Contributed by Tim Hochberg.
+   
+   Some ideas taken from Olof Kraigher's Python and GHC implementations
+   and Ben St. John's GCC implementation.
+*/
+
+module meteor
+
+import StdEnv, LanguageShootout, StdLib, StdStrictLists
+
+Start 
+    = toString (length solns) +++ " solutions found\n\n"
+    +++ format (hd solns) +++ "\n"
+    +++ format (last solns) +++ "\n"
+where
+    solns =  (sort ([x \\ x <|- solutions argi]))
+     
+
+// --- Generate the solutions --- 
+
+
+:: *State = {results :: !.[!String], left :: !Int}
+
+
+solutions max = (solveCell 0 0 1023 EMPTY_SOLN initialState).results
+  where
+    initialState = {results=[!], left=max}
+    solveCell ::  !Int !Int !Int !Solution !State -> State
+    solveCell _  _  _  _ state=:{left=0}
+        = state
+    solveCell _  _  0 soln state=:{results, left}
+        | left==1 = {state & results=[!toString soln:results], left=0}
+                  = {state & results=[!s, revString s:results], left=left-2}
+                    with s = toString soln
+    solveCell offset board todo soln state
+        | board bitand M_TOP == M_TOP
+            = solveCell (offset+1024) (board >> N_COL) todo soln state
+        | otherwise 
+            = fold c masks.[c] masks state
+              with masks =  masksAtCell.[offset+(board bitand M_TOP2)] 
+                   c = firstOne.[todo]
+      where 
+        fold :: !Int![#Int!] !{![#Int!]} !State-> State
+        fold c [#m:ms!] masks state
+            | board bitand m <> 0 = fold c ms masks state
+            | otherwise           = fold c ms masks (solveCell offset board` todo` soln` state)
+                                    with board` = untag m bitor board
+                                         todo`  = todo bitxor (1 << c)
+                                         soln`  = [#m:soln!]
+        fold c [#!] masks state 
+            #! cm = todo bitand (2046 << c)
+            | cm == 0   = state
+                        = fold c masks.[c] masks state
+                          with c = firstOne.[cm]
+
+
+// --- Formatting ---
+    
+:: Solution :== [#Int!]
+EMPTY_SOLN :== [#!]
+    
+format :: String -> String
+format raw = format_ [c \\ c <-: raw] False
+  where
+    format_ :: [Char] Bool -> String 
+    format_ [] _ = ""
+    format_ chars isodd
+        # (cur, rest) = splitAt 5 chars
+        # spaced = flatten [[c, ' '] \\ c <- cur]
+        # str = {c \\ c <- spaced} +++ "\n" +++ format_ rest (not isodd)
+        = (if isodd " " "") +++ str
+
+PIECE_CHARS =: "0123456789."
+
+instance toString Solution
+  where
+    toString :: !Solution -> {#Char}
+    toString masks = {color n \\ n <|- CELLS} where
+        color n = PIECE_CHARS.[which masksWithRows]
+          where
+            which [] = 10
+            which [(r,m):rest]
+                #! n` = n - N_COL * r
+                | n` < 0 || n` > 30 || (untag m) bitand (1 << n`) == 0
+                    = which rest
+                | otherwise 
+                    = tagof m 
+        // The row associated with each mask is implicit in the order that appears
+        masksWithRows = fst (maprSt addrow  [m \\ m<|-masks] (0, 0))
+          where addrow m (board, r)
+                    # delta = first0 board / N_COL
+                    # board = (board >>  (delta * N_COL)) bitor (untag m)
+                    # r = r+delta 
+                    = ((r, m), (board, r))
+
+     
+revString :: {#Char} -> *{#Char}
+revString a 
+    # (n, a) = usize a
+    = {createArray n ' ' & [i]=c \\ c <-: a & i <- [n-1,n-2..0]}
+
+
+// --- The Board ---
+
+N_ELEM :== 5
+N_COL :== 5
+MAX_COL :== 4
+MAX_ROW :== 9
+N_ROW :== 10
+M_TOP :== 0x1F
+M_TOP2 :== 0x3ff
+CELLS =: [#0..49!]
+COLORS =: [#0..9!] 
+
+cellAt x y :== x + N_COL*y 
+coordOf i :== (i rem N_COL, i / N_COL)
+isValid x y :== 0 <= x && x < N_COL && 0 <= y && y < N_ROW
+
+
+// --- Piece Operations ---
+
+:: Dir = E | NE | NW | W | SW | SE
+DIRECTIONS =: [E, NE, NW, W, SW, SE]
+
+:: Piece :== [Dir]
+
+pieces :: {Piece}
+pieces =: { [E, E, E, SE]
+          , [SE, SW, W, SW]
+          , [W, W, SW, SE]
+          , [E , E, SW, SE]
+          , [NW, W, NW, SE, SW]
+          , [E, E, NE, W]
+          , [NW, NE, NE, W]
+          , [NE, SE, E, NE]
+          , [SE, SE, E, SE]
+          , [E, NW, NW, NW]
+          }
+
+permutations p = take 12 (perms p) 
+  where
+    perms p = [p, (flip p): perms (rotate p)] 
+    rotate piece = map r piece
+      where r E  = NE
+            r NE = NW
+            r NW = W
+            r W  = SW
+            r SW = SE
+            r SE = E
+    flip piece = map f piece
+      where f E  = W
+            f NE = NW
+            f NW = NE
+            f W  = E
+            f SW = SE
+            f SE = SW
+
+
+// --- Mask Operations ----
+
+// Most of the time we only use 25 bits of a mask
+// so we store info in a 5 bit tag.
+set   mask n :== mask bitor (1 << n)
+test1 mask n :== mask bitand (1 << n) <> 0
+test0 mask n :== mask bitand (1 << n) == 0
+retag mask n :== (mask bitand 0x1ffffff) bitor n << 25
+tagof mask   :==  (mask >> 25)
+tag   mask n :== mask bitor (n << 25)
+untag mask   :== (mask bitand 0x1ffffff) 
+
+count1s :: !Int -> Int
+count1s 0 = 0
+count1s i = (i bitand 1) + count1s (i >> 1)
+
+first0 :: !Int -> Int
+first0 i
+    #! i_low = i bitand 31
+    | i_low == 31   = (5 + first0 (i >> 5))  
+                =  firstZero.[i_low]
+     
+
+// --- Making the Bitmasks --- 
+    
+instance mod Int
+  where mod a b = if (r < 0) (r + b) r with r = a rem b
+        
+move :: !Dir (!Int, !Int) -> (!Int, !Int)
+move E  (x, y) = (x+1, y)
+move W  (x, y) = (x-1, y)
+move NE (x, y) = (x+(y mod 2), y-1)
+move NW (x, y) = (x+(y mod 2)-1, y-1)
+move SE (x, y) = (x+(y mod 2), y+1)
+move SW (x, y) = (x+(y mod 2)-1, y+1)
+
+packSize a b :== a*5+b
+unpackSize n :== (n/5, n rem 5)
+
+M_LEFT_ISLE = 0x40
+M_RIGHT_ISLE = 0x80
+
+:: MaskInfo = {mask :: !Int    // the mask itself shifted to the upper right 
+              ,  dx :: !Int    // Width of the mask
+              ,  dy :: !Int    // height of the mask
+              ,  x0 :: !Int    // location of the first 1 in the mask
+              ,  ok :: !Int    // columns where mask is OK: 0-4->standard, 5-9->at top 
+              }
+              
+pieceBounds piece isodd :== bounds piece 0 y0 0 y0 0 y0 with y0 = (if isodd 1 0)
+  where
+    bounds [] _ _ xmin ymin xmax ymax = (xmin, ymin, xmax, ymax) 
+    bounds [d:rest] x y xmin ymin xmax ymax
+        # (x, y) = move d (x, y)
+        = bounds rest x y (min x xmin) (min y ymin) (max x xmax) (max y ymax)
+
+pieceMask piece 
+    # (xmin, ymin, xmax, ymax) = pieceBounds piece False
+    # (x1, y1) = (~xmin, ~ymin)
+    # swap = y1 rem 2 <> 0
+    # w1 = xmax - xmin
+    # h1 = ymax - ymin
+    # (xmin, ymin, xmax, ymax) = pieceBounds piece True
+    # (x2, y2) = (~xmin, ~ymin+1)
+    # w2 = xmax - xmin
+    # h2 = ymax - ymin
+    | swap      = (makeInfo (mask piece x2 y2 0) w2 h2, makeInfo (mask piece x1 (y1+1) 0 >> N_COL) w1 h1)
+    | otherwise = (makeInfo (mask piece x1 y1 0) w1 h1, makeInfo (mask piece x2 (y2+1) 0 >> N_COL) w2 h2)
+  where
+    mask [] x y m = m bitor (1 << cellAt x y)
+    mask [d:rest] x y m  
+        = mask rest x` y` (m bitor (1 << cellAt x y))
+                           with (x`, y`) = move d (x, y)
+    makeInfo mask dx dy = {mask=mask, dx=dx, dy=dy, x0=x0, ok=ok}
+      where
+        x0 = firstOne.[mask bitand 1023]
+        xmax = MAX_COL - dx + x0
+        top_mask = mask << (N_COL*(5 - dy))
+        ok =     sum [1<<x \\ x <- [x0+1..xmax-1]] // all but edges  
+           bitor if (noLeftIslands mask)                    (1<<x0)   0
+           bitor if (noRightIslands (mask << (MAX_COL-dx))) (1<<xmax) 0  
+           bitor sum [1 << (5+i) \\ i <- [x0..xmax] | noIslands (top_mask << (i-x0))]
+           
+templatesForColor c = (unzip o map pieceMask) perms
+    where perms = if (c == 5) (take 6 ps) ps
+          ps = permutations pieces.[c]
+  
+masksForColor :: !Int -> {![#Int!]}
+masksForColor c = {atCell n \\ n <|- CELLS} 
+  where
+    (even, odd) = templatesForColor c
+    atCell n
+        #! (x, y) = coordOf n
+        | isEven y = [#tag (mi.mask << (x-mi.x0)) c \\ mi <- even | isok mi x y!]
+        | isOdd y  = [#tag (mi.mask << (x-mi.x0)) c \\ mi <- odd  | isok mi x y!]
+    isok mi x y  
+        #! ymax = y+mi.dy
+        =    (ymax <  MAX_ROW && test1 mi.ok x)
+         ||  (ymax == MAX_ROW && test1 mi.ok (5+x)) 
+
+                
+:: MaskData :== {!{![#Int!]}}
+
+masksAtCell :: MaskData
+masksAtCell =: transpose {values (masksForColor c) 10 0 (createArray (1024*N_ROW) [#!]) \\ c <|- COLORS} 
+  where
+    values :: !{![#Int!]} !Int !Int !*{![#Int!]} -> {![#Int!]} 
+    values a 0 0 result = result
+    values a y 0 result = values a (dec y) 1024 result
+    values a y n result
+        #! n = dec n
+        =  values a y n {result & [y*1024+n]=[#m \\ m <|- a.[5*y+firstZero.[n bitand 31]] 
+                                  |m bitand n == 0 && noSimpleIslands (m bitor n) (isOdd y)!]}
+    transpose ::{!{![#Int!]}} -> MaskData             
+    transpose a = {{a.[i, j] \\ i <|- COLORS} \\ j <|- [#0..1024*N_ROW-1!]}
+    
+
+// --- Looking for Islands ---
+    
+noLineIslands mask start stop step
+    # n = find test1 start step mask 
+    # n = find test0 n     step mask
+    # n = find test1 n     step mask
+    | n > stop  = True
+    | otherwise = False
+  where
+    find test n dn mask
+        | n >= 25       = 25
+        | test mask n   = n
+        | otherwise     = find test (n+dn) dn mask    
+noLeftIslands mask   :== noLineIslands mask 0  20 5
+noRightIslands mask  :== noLineIslands mask 4  24 5
+    
+noIslands board :== noisles board (count1s board) 
+  where  
+    noisles :: !Int !Int  -> Bool
+    noisles _ 30 = True
+    noisles board ones   
+        # board = fill board (coordOf (first0 board))
+        # ones` = count1s board
+        | (ones` - ones) rem N_ELEM <> 0    = False
+        | otherwise                         = noisles board ones` 
+    fill :: !Int !(!Int, !Int) -> Int 
+    fill m (x, y)
+        | x < 0 || x >= N_COL = m
+        | y < 0 || y >= 6     = m
+        # i = cellAt x y
+        | test1 m i           = m
+        = foldl (\m d -> fill m (move d (x, y))) (set m i) DIRECTIONS
+
+evenShift x :== x bitor (x bitand 30) >> 1
+oddShift x  :== x bitor (x bitand 15) << 1
+    
+noSimpleIslands :: !Int !Bool -> Bool    
+noSimpleIslands board isodd
+    #! todo0 = bitnot board
+    #! todo1 = todo0 >> 5
+    #! fill2 = (todo0 >> 10) bitand M_TOP
+    #! fill1a = expand (if isodd (oddShift fill2) (evenShift fill2) bitand todo1) todo1
+    #! fill0a = expand (if isodd (evenShift fill1a) (oddShift fill1a) bitand todo0) todo0
+    #! fill1b = expand (if isodd (oddShift fill0a) (evenShift fill0a)  bitand todo1) todo1
+    #! fill0b = expand (if isodd (evenShift fill1b) (oddShift fill1b) bitand todo0) todo0
+    #! full = onesCount.[(board bitand M_TOP) bitor fill0a bitor fill0b] 
+            + onesCount.[(board >> 5) bitand M_TOP bitor fill1a bitor fill1b]
+    = (full rem 5 == 0)
+  where  
+    expand :: !Int !Int -> Int
+    expand fill empty
+        #! next = (fill bitor ((fill bitand 15) << 1) bitor fill >> 1) bitand empty
+        | next == fill
+            = fill
+            = expand next empty            
+
+
+// --- Some misc, precomputed data ---
+
+onesCount :: {#Int}
+onesCount =: {0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4, 1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5}
+
+firstZero :: {#Int}
+firstZero =: {0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,0}
+
+firstOne :: {#Int}
+firstOne =: {10,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
+             5,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,6,
+             0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,5,0,
+             1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,7,0,1,
+             0,2,0,1,0,3,0,1,0,2,0,1,0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,5,0,1,0,
+             2,0,1,0,3,0,1,0,2,0,1,0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,6,0,1,0,2,
+             0,1,0,3,0,1,0,2,0,1,0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,5,0,1,0,2,0,
+             1,0,3,0,1,0,2,0,1,0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,8,0,1,0,2,0,1,
+             0,3,0,1,0,2,0,1,0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,5,0,1,0,2,0,1,0,
+             3,0,1,0,2,0,1,0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,6,0,1,0,2,0,1,0,3,
+             0,1,0,2,0,1,0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,5,0,1,0,2,0,1,0,3,0,
+             1,0,2,0,1,0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,7,0,1,0,2,0,1,0,3,0,1,
+             0,2,0,1,0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,5,0,1,0,2,0,1,0,3,0,1,0,
+             2,0,1,0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,6,0,1,0,2,0,1,0,3,0,1,0,2,
+             0,1,0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,5,0,1,0,2,0,1,0,3,0,1,0,2,0,
+             1,0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,9,0,1,0,2,0,1,0,3,0,1,0,2,0,1,
+             0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,5,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
+             4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,6,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,
+             0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,5,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,0,
+             1,0,2,0,1,0,3,0,1,0,2,0,1,0,7,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,0,1,
+             0,2,0,1,0,3,0,1,0,2,0,1,0,5,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,0,1,0,
+             2,0,1,0,3,0,1,0,2,0,1,0,6,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,0,1,0,2,
+             0,1,0,3,0,1,0,2,0,1,0,5,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,0,1,0,2,0,
+             1,0,3,0,1,0,2,0,1,0,8,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,0,1,0,2,0,1,
+             0,3,0,1,0,2,0,1,0,5,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,0,1,0,2,0,1,0,
+             3,0,1,0,2,0,1,0,6,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,0,1,0,2,0,1,0,3,
+             0,1,0,2,0,1,0,5,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,0,1,0,2,0,1,0,3,0,
+             1,0,2,0,1,0,7,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,0,1,0,2,0,1,0,3,0,1,
+             0,2,0,1,0,5,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,0,1,0,2,0,1,0,3,0,1,0,
+             2,0,1,0,6,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,0,1,0,2,0,1,0,3,0,1,0,2,
+             0,1,0,5,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0}
+
+/* The Great Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+ 
+   contributed by Isaac Gouy (Clean novice)
+   updated by John van Groningen (Clean Guru!)
+
+   Clean is a functional programming language. 
+   Existential type variable have some vague similarity
+   so NToggle delegates function calls to Toggle.
+*/
+
+module methcall
+import StdEnv, LanguageShootout
+
+Start
+   # toggle = makeToggle True
+   # toggleValue = loop argi toggle False
+   # ntoggle = makeNToggle True 3
+   # ntoggleValue = loop argi ntoggle False	
+   = toLString toggleValue +++ "\n" +++ 
+      toLString ntoggleValue +++ "\n"
+
+   where 	
+   loop :: !Int !.Toggler !Bool -> Bool
+   loop n t v
+      | n == 0 = v
+      # t = activate t
+      # v = value t
+      = loop (n-1) t v
+
+   toLString b
+      | b = "true"
+      = "false"
+
+:: Toggler = 
+   E.a: { state :: a
+        , activate_ :: ! a -> a
+        , value_ :: ! a -> Bool
+        }
+
+value o=:{state,value_} = value_ state
+activate o=:{state,activate_} = {o & state = activate_ state}
+
+makeToggle b =
+   { state = b
+   , activate_ = \ state -> not state
+   , value_ = \ state -> state
+   }
+
+:: TogglerR = ! { t :: !Toggler, max :: !Int, count :: !Int}
+
+makeNToggle b max =
+  { state = {t = makeToggle b, max=max, count = 0}
+   , activate_ = \ {t, max, count} -> 
+      if (count+1 >= max)
+         {t=activate t, max=max, count=0}
+         {t=t, max=max, count=count+1}
+   , value_ = \ {t} -> value t
+   }
+
+/* The Great Computer Language Shootout 
+   contributed by John van Groningen (Clean Guru!)
+ 
+   http://shootout.alioth.debian.org/
+*/
+
+module moments
+import StdEnv, StdOverloadedList, LanguageShootout, Heapsort
+
+Start world  
+   # (console, world) = stdio world
+   # (a,suma) = sumNumbers console 0.0 [#!]
+   # (median,n,a) = median a   
+   # mean = suma / toReal n      
+   # (adev,var,skew,kurt) = loop a mean 0.0 0.0 0.0 0.0 (n-1)
+   = resultstring (toReal n) mean median adev var skew kurt    
+
+   where         
+   sumNumbers :: !*File !Real .[#Real!] -> *(*{#Real},Real)   
+   sumNumbers f suma a
+      #! (ok,r,f) = freadr f
+      | not ok = (toArray a, suma)
+      = sumNumbers f (suma+r) [# r:a !]
+
+   toArray :: [#Real!] -> *{#Real}
+   toArray a = {x \\ x <|- a}           
+
+   // Use modified Quicksort rather than Wirth's k select       
+   median a
+      # a = find_medians a  
+      # (n,a) = usize a
+      # m = middle a ((n/2)-1) (n/2) n
+      = (m,n,a)
+
+      where 
+      middle a=:{[m0]=am0,[m]=am} m0 m n
+         | isOdd n = am
+                   = (am0 + am) / 2.0
+
+   loop :: !.{#Real} !Real Real Real Real Real Int -> . (!Real,!Real,!Real,!Real) 
+   loop a mean adev var skew kurt i
+      | i<0
+          = (adev,var,skew,kurt)
+	  #! ai=a.[i]
+	  # dev = ai - mean
+	  # dev2 = dev*dev
+	  # dev3 = dev2*dev
+	  = loop a mean (adev + abs dev)(var + dev2)(skew + dev3)(kurt + dev3*dev)(i-1)
+
+find_medians :: *{#Real} -> .{#Real}
+find_medians a0
+    # (n_elements,a) = usize a0
+    # k = (n_elements>>1) + (n_elements bitand 1)
+    = quick_sort1 0 (n_elements-1) k a
+    where
+        quick_sort0 :: !Int !Int !Int !*{#Real} -> *{#Real}
+        quick_sort0 b e k a
+            | k>=b && k<=e+1
+                = quick_sort1 b e k a
+                = a
+
+        quick_sort1 b e k a
+            | b>=e
+                = a
+        quick_sort1 b e k a=:{[b]=ab}
+            # m=(b+e)>>1
+            # (am,a) = a![m]
+            = find_large am (b+1) e e b k {a & [m]=ab}
+        where
+            find_large am l e r b k a
+                | l<=e && a.[l]<=am
+                    = find_large am (l+1) e r b k a
+                    = find_small_or_equal am r b l e k a
+
+            find_small_or_equal am r b l e k a
+                | r>b && a.[r]>am
+                    = find_small_or_equal am (r-1) b l e k a
+                | l<r
+                    # (al,a)=a![l]
+                      (ar,a)=a![r]
+                    = find_large am (l+1) e (r-1) b k {a & [l]=ar,[r]=al}
+           	| b==r
+                    = quick_sort2 (r-1) (r+1) b e k {a & [b]=am}
+                    # (ar,a)=a![r]
+                    = quick_sort2 (r-1) (r+1) b e k {a & [r]=am,[b]=ar}
+
+            quick_sort2 l r b e k a
+                | l-b>=e-r
+                    = quick_sort0 b l k (quick_sort0 r e k a)
+                    = quick_sort0 r e k (quick_sort0 b l k a)   
+
+   resultstring n mean median ad v s k = 
+      "n:                  " +++ (toString n) +++ "\n" +++ 
+      "median:             " +++ (toStringWith 6 median) +++ "\n" +++ 
+      "mean:               " +++ (toStringWith 6 mean) +++ "\n" +++            
+      "average_deviation:  " +++ (toStringWith 6 adev) +++ "\n" +++ 
+      "standard_deviation: " +++ (toStringWith 6 sdev) +++ "\n" +++
+      "variance:           " +++ (toStringWith 6 var) +++ "\n" +++
+      "skew:               " +++ (toStringWith 6 skew) +++ "\n" +++
+      "kurtosis:           " +++ (toStringWith 6 kurt) +++ "\n"
+
+      where                                         
+      adev = ad / n
+      var = v / (n-1.0)
+      sdev = sqrt var
+      skew = s / (n*var*sdev)
+      kurt = k / (n*var*var)-3.0
+
+/*
+   The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   contributed by Diederik van Arkel
+   modified by John van Groningen
+*/
+
+module nbody
+
+import StdEnv,LanguageShootout
+
+Start world
+	# n = argi
+	# (nbodies,bodies) = ini_bodies
+	# bodies = offset_momentum bodies
+	# (io,world) = stdio world
+	#! e = energy nbodies bodies
+	#! io = io <<< toStringWith 9 e <<< "\n"
+	#! e = energy nbodies (advance 0 n nbodies 0.01 bodies)
+	= snd (fclose (io <<< toStringWith 9 e <<< "\n") world)
+
+days_per_year :== 365.24
+pi            :== 3.141592653589793
+solar_mass    =: 4.0 * pi * pi
+
+:: Bodies :== (!.{#Real},!.{#Real},!.{#Real},!.{#Real},!.{#Real},!.{#Real},!.{#Real})
+
+advance :: !Int !Int !Int !Real !*Bodies -> .Bodies
+advance i n nbodies dt bodies
+	| i == n = bodies
+	# bodies = advance1 0 1 dt nbodies bodies
+	# bodies = advance2 0 dt nbodies bodies
+	= advance (i+1) n nbodies dt bodies
+where
+	advance1 :: !Int !Int !Real !Int !*Bodies -> *Bodies
+	advance1 i j dt nbodies (xa,ya,za,vxa,vya,vza,massa)
+		| j==nbodies
+		    # j = i+2
+			| j==nbodies
+				= (xa,ya,za,vxa,vya,vza,massa)
+				= advance1 (i+1) j dt nbodies (xa,ya,za,vxa,vya,vza,massa)
+		#! dx = xa.[i] - xa.[j]
+		   dy = ya.[i] - ya.[j]
+           dz = za.[i] - za.[j]
+		# distance2 = dx * dx + dy * dy + dz * dz
+		  distance = sqrt distance2
+		  mag = dt / (distance * distance2)
+        #! mm2 = massa.[j] * mag
+		   vx1 = vxa.[i]; vy1 = vya.[i]; vz1 = vza.[i]
+		# vxa = {vxa & [i]=vx1-dx*mm2}
+		  vya = {vya & [i]=vy1-dy*mm2}
+		  vza = {vza & [i]=vz1-dz*mm2}
+		#! mm1 = massa.[i] * mag
+		   vx2 = vxa.[j]; vy2 = vya.[j]; vz2 = vza.[j]
+        # vxa = {vxa & [j]=vx2+dx*mm1}
+          vya = {vya & [j]=vy2+dy*mm1}
+          vza = {vza & [j]=vz2+dz*mm1}
+		= advance1 i (j+1) dt nbodies (xa,ya,za,vxa,vya,vza,massa)
+
+	advance2 :: !Int !Real !Int *Bodies ->  *Bodies
+	advance2 i dt nbodies (xa,ya,za,vxa,vya,vza,massa)
+		| i == nbodies = (xa,ya,za,vxa,vya,vza,massa)
+		#! x=xa.[i];   y=ya.[i];   z=za.[i]
+		   vx=vxa.[i]; vy=vya.[i]; vz=vza.[i]
+		#  xa={xa & [i]=x + dt*vx}
+		   ya={ya & [i]=y + dt*vy}
+		   za={za & [i]=z + dt*vz}
+		= advance2 (i+1) dt nbodies (xa,ya,za,vxa,vya,vza,massa)
+
+energy :: !Int !Bodies -> Real
+energy nbodies (xa,ya,za,vxa,vya,vza,massa) = seq [energy1 i nbodies \\ i <- [0..nbodies-1]] 0.0 where
+	energy1 i nbodies e
+		#! e = e + 0.5 * massa.[i] * (vxa.[i]*vxa.[i] + vya.[i]*vya.[i] + vza.[i]*vza.[i])
+		= seq [energy2 i j \\ j <- [i+1..nbodies-1]] e
+
+	energy2 i j e
+	    # dx = xa.[i] - xa.[j]; dy = ya.[i] - ya.[j]; dz = za.[i] - za.[j]
+	      distance  = sqrt (dx * dx + dy * dy + dz * dz)
+	    = e - (massa.[i] * massa.[j]) / distance
+
+offset_momentum (xa,ya,za,vxa,vya,vza,massa)
+	#! px = ~ (sum [vx * mass \\ vx<-:vxa & mass<-:massa] / solar_mass)
+	   py = ~ (sum [vy * mass \\ vy<-:vya & mass<-:massa] / solar_mass)
+	   pz = ~ (sum [vz * mass \\ vz<-:vza & mass<-:massa] / solar_mass)
+	= (	xa,ya,za,{vxa & [0]=px},{vya & [0]=py},{vza & [0]=pz},massa)
+
+ini_bodies :: (!Int,!.Bodies)
+ini_bodies
+	# nbodies=5;
+	  bodies = (a,a,a,a,a,a,a) with a=>createArray nbodies 0.0
+	  bodies = add_body bodies 0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 // sun
+	  bodies = add_body bodies 1
+		 4.84143144246472090E+00 -1.16032004402742839E+00 -1.03622044471123109E-01
+		 1.66007664274403694E-03  7.69901118419740425E-03 -6.90460016972063023E-05
+		 9.54791938424326609E-04 // jupiter
+	  bodies = add_body bodies 2
+		 8.34336671824457987E+00  4.12479856412430479E+00 -4.03523417114321381E-01
+		-2.76742510726862411E-03  4.99852801234917238E-03  2.30417297573763929E-05
+		 2.85885980666130812E-04 // saturn
+	  bodies = add_body bodies 3
+		 1.28943695621391310E+01 -1.51111514016986312E+01 -2.23307578892655734E-01
+		 2.96460137564761618E-03  2.37847173959480950E-03 -2.96589568540237556E-05
+		 4.36624404335156298E-05 // uranus
+	  bodies = add_body bodies 4
+		 1.53796971148509165E+01 -2.59193146099879641E+01  1.79258772950371181E-01
+		 2.68067772490389322E-03  1.62824170038242295E-03 -9.51592254519715870E-05
+		 5.15138902046611451E-05 // neptune
+	= (nbodies,bodies) where
+
+	add_body (xa,ya,za,vxa,vya,vza,massa) i x y z vx vy vz mass
+		= ( {xa & [i]=x}, {ya & [i]=y}, {za & [i]=z},
+			{vxa & [i]=vx * days_per_year}, {vya & [i]=vy * days_per_year},
+			{vza & [i]=vz * days_per_year}, {massa & [i]=mass * solar_mass} )
+ /* The Great Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+ 
+   contributed by Isaac Gouy (Clean novice)
+*/
+
+module nestedloop
+import StdEnv, LanguageShootout
+
+Start = toString (loopA argi argi 0) +++ "\n"
+
+loopA n m x 
+   | n > 0         = loopA (n-1) m (loopB m m x)
+   | otherwise     = x
+
+loopB n m x
+   | n > 0         = loopB (n-1) m (loopC m m x)
+   | otherwise     = x
+
+loopC n m x
+   | n > 0         = loopC (n-1) m (loopD m m x)
+   | otherwise     = x
+
+loopD n m x
+   | n > 0         = loopD (n-1) m (loopE m m x)
+   | otherwise     = x
+
+loopE n m x
+   | n > 0         = loopE (n-1) m (loopF m x)
+   | otherwise     = x
+
+loopF n x
+   | n > 0         = loopF (n-1) (x+1)
+   | otherwise     = x
+// The Computer Language Shootout
+// http://shootout.alioth.debian.org/
+//  
+// contributed by Diederik van Arkel
+
+module nsieve
+
+import StdEnv, LanguageShootout
+
+Start world
+	# n				= argi
+	# (io,world)	= stdio world
+	# io			= sieve n io
+	# io			= sieve (n-1) io
+	# io			= sieve (n-2) io
+	# (err,world)	= fclose io world
+	= world
+
+sieve n io
+	# m		= (1 << n) * 10000
+	  arr	= createArray (m+1) True
+	  c		= loop arr m 2 0
+	= io <<< "Primes up to " <<< fmt 8 m <<< " " <<< fmt 8 c <<< "\n"
+
+fmt width i
+	# is	= toString i
+	= toString (repeatn (width - size is) ' ') +++ is
+
+loop :: !*{#Bool} !Int !Int !Int -> Int
+loop arr m n c
+	| n == m
+		= c
+	# el	= arr.[n]
+	| el
+		# arr	= update` arr (n+n)
+		= loop arr m (n+1) (c+1)
+	= loop arr m (n+1) c
+where
+	update` :: !*{#Bool} !Int -> *{#Bool}
+	update` arr i
+		| i <= m
+			#! arr	= {arr & [i] = False}
+			= update` arr (i+n)
+		= arr
+// The Great Computer Language Shootout
+// http://shootout.alioth.debian.org/
+// 
+// contributed by Diederik van Arkel
+
+module nsievebits
+
+import StdEnv, LanguageShootout
+
+Start world
+	# n				= argi
+	# (io,world)	= stdio world
+	# io			= sieve n io
+	# io			= sieve (n-1) io
+	# io			= sieve (n-2) io
+	# (err,world)	= fclose io world
+	= world
+
+nbits		:== 32
+all_true	:== 0xFFFFFFFF
+
+sieve n io
+	# m		= (1 << n) * 10000
+	  arr	= createArray ((m+1)/nbits + 1) all_true
+	  c		= loop arr m 2 0
+	= io <<< "Primes up to " <<< fmt 8 m <<< " " <<< fmt 8 c <<< "\n"
+
+fmt width i
+	# is	= toString i
+	= toString (repeatn (width - size is) ' ') +++ is
+
+loop :: !*{#Int} !Int !Int !Int -> Int
+loop arr m n c
+	| n == m
+		= c
+	| arr.[n >> 5] bitand (1 << (n bitand 31)) <> 0
+		# arr	= update` arr (n+n)
+		= loop arr m (n+1) (c+1)
+	= loop arr m (n+1) c
+where
+	update` :: !*{#Int} !Int -> *{#Int}
+	update` arr i
+		| i <= m
+			#! inb	= i >> 5
+			   arri	= arr.[inb]
+			   arr	= {arr & [inb] = arri bitand (bitnot (1 << (i bitand 31)))}
+			= update` arr (i+n)
+		= arr
+/* The Great Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+ 
+   contributed by Isaac Gouy (Clean novice)
+
+   Clean is a functional programming language. 
+   Existential type variable have some vague similarity
+   so NToggle delegates function calls to Toggle.
+
+   NOTE The compiler seems to optimize away creation 
+        of identical toggle records... 
+*/
+
+module objinst
+import StdEnv, LanguageShootout
+
+Start
+   # toggle = makeToggleLoop argi (makeToggle True)
+   # lines = printLoop 5 toggle []
+   # lines = ["\n":lines]	
+   # ntoggle = makeNToggleLoop argi (makeNToggle True 3)
+   # lines = printLoop 8 ntoggle lines
+   = reverse lines
+
+   where 
+   makeToggleLoop n t
+      | n == 0 = t
+      = makeToggleLoop (n-1) (makeToggle True)
+
+   makeNToggleLoop n t
+      | n == 0 = t
+      = makeNToggleLoop (n-1) (makeNToggle True 3)
+
+   printLoop n t ls
+      | n == 0 = ls
+      # t = activate t
+      = printLoop (n-1) t [toLString (value t) :ls]
+
+      where 
+      toLString b
+         | b = "true\n"
+         = "false\n"
+
+:: Toggler = E.a: 
+   { state :: a
+   , activate_ :: a -> a
+   , value_ :: a -> Bool
+   }
+
+value o=:{state,value_} = value_ state
+activate o=:{state,activate_} = {o & state = activate_ state}
+
+makeToggle b =
+   { state = b
+   , activate_ = \ state -> not state
+   , value_ = \ state -> state
+   }
+
+makeNToggle b max =
+   { state = (makeToggle(b), max, 0)
+   , activate_ = \ (t, max, count) -> 
+      if (count+1 >= max)
+         (activate t, max, 0) (t, max, count+1)	
+   , value_ = \ (t,_,_) -> value t
+   }
+/* The Computer Language Shootout
+   http://shootout.alioth.debian.org/
+   contributed by Isaac Gouy (Clean novice)
+   modified by Arjen van Weelden */
+   
+module partialsums
+
+import StdEnv, LanguageShootout
+
+Start = foldl pretty "" (sigma 1 argi 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 (2.0 / 3.0))
+
+pretty s (sum, name) = s +++ toStringWith 9 sum +++ "\t" +++ name +++ "\n"
+
+sigma :: !Int !Int !Real !Real !Real !Real !Real !Real !Real !Real !Real !Real !Real -> [(Real, String)]
+sigma i n s1 s2 s3 s4 s5 s6 s7 s8 s9 alt twoByThree
+	| i <= n = sigma (i + 1) n
+				(s1 + twoByThree ^ (k - 1.0))
+				(s2 + 1.0 / (sqrt k))
+				(s3 + 1.0 / (k * (k + 1.0)))
+				(s4 + 1.0 / (k3 * sqr (sin k)))
+				(s5 + 1.0 / (k3 * sqr (cos k)))
+				(s6 + 1.0 / k)
+				(s7 + 1.0 / k2)
+				(s8 + alt / k)
+				(s9 + alt / (2.0 * k - 1.0))
+				(~ alt) twoByThree 
+	| otherwise = [(s1, "(2/3)^k"), (s2, "k^-0.5"), (s3, "1/k(k+1)"), 
+				(s4, "Flint Hills"), (s5, "Cookson Hills"), (s6, "Harmonic"), 
+				(s7, "Riemann Zeta"), (s8, "Alternating Harmonic"), (s9, "Gregory")]
+where
+	k = toReal i
+	k2 = sqr k
+	k3 = k2 * k
+
+sqr x :== x * x
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+ 
+   contributed by Diederik van Arkel
+*/
+ 
+module pidigits
+
+import StdEnv, LanguageShootout, BigInt
+
+Start world
+   # n           = argi
+   # (io,world)  = stdio world
+   # io          = digit 1 (toBigInt 1,toBigInt 0,toBigInt 0,toBigInt 1) n 0 0 io
+   # (err,world) = fclose io world
+   = world
+
+digit :: Int (BigInt,BigInt,BigInt,BigInt) Int Int Int *File -> *File
+digit k z 0 row col io
+   = io <<< toString (repeatn (10-col) ' ') <<< "\t:" <<< (row+col) <<< "\n"
+digit k z n row col io
+   | safe z y
+      | col == 10
+         # row` = row + 10
+         # io   = io <<< "\t:" <<< row` <<< "\n" <<< toString y
+         = digit k (prod z y) (n-1) row` 1 io
+         # io = io <<< toString y
+         = digit k (prod z y) (n-1) row (col+1) io
+      = digit (k+1) (cons z k) n row col io
+where
+   y = next z
+   prod z n = comp (toBigInt 10,toBigInt -10 * n, toBigInt 0, toBigInt 1) z
+
+floor_ev :: (BigInt,BigInt,BigInt,BigInt) BigInt -> BigInt
+floor_ev (q, r, s, t) x = (q*x + r) / (s*x + t)
+comp :: (BigInt,BigInt,BigInt,BigInt) (BigInt,BigInt,BigInt,BigInt) -> (BigInt,BigInt,BigInt,BigInt)
+comp (q,r,s,t) (q`,r`,s`,t`) = (q*q` + r*s`, q*r` + r*t`, s*q` + t*s`, s*r` + t*t`)
+next :: (BigInt,BigInt,BigInt,BigInt) -> BigInt
+next z = floor_ev z (toBigInt 3)
+
+safe z n = n == floor_ev z (toBigInt 4)
+cons z k = let den = 2*k+1 in comp z (toBigInt k, toBigInt (2*den), toBigInt 0, toBigInt den)
+/* The Great Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+ 
+   contributed by Isaac Gouy (Clean novice)
+*/
+
+module pidigits
+import StdEnv,LanguageShootout,BigInt
+
+Start = format 1 1 (stream argi [] unit ts) ""     
+   
+stream n digits z [x:xs] 
+   | n > 0 
+      | isSafe z y 
+         = stream (n-1) (digits ++ [toChar(y + 48)])(produce z y) [x:xs]
+         = stream n digits (consume z x) xs
+   = digits
+   where y = next z   
+
+ts = [T (toBigInt k) (toBigInt(4*k+2)) zero (toBigInt(2*k+1)) \\ k <- [1..]]
+next z = entier (toReal (extract z three))
+isSafe z n = (n == entier (toReal (extract z four)) )
+produce z n = compose (T ten (toBigInt (-10*n)) zero one) z
+consume z z` = compose z z` 
+
+:: Transform = T BigInt BigInt BigInt BigInt
+extract (T q r s t) x = (q * x + r) / (s * x + t)
+unit = T one zero zero one
+compose (T q r s t) (T q` r` s` t`) 
+	= (T (q*q` + r*s`)(q*r` + r*t`)(s*q` + t*s`)(s*r` + t*t`))	
+
+// BigInt constants
+three = toBigInt 3
+four = toBigInt 4
+ten = toBigInt 10	
+
+
+format :: !Int !Int !.[Char] !{#Char} -> {#Char}
+format n i [] s 
+   | n == 1   = s
+   | n < 10   = format (n+1) i [] (s +++ " ")
+              = (s +++ "\t:" +++ toString (i-1) +++ "\n")
+format n i [c:digits] s
+   | n < 10   = format (n+1)(i+1) digits s`
+              = format  1   (i+1) digits (s` +++ "\t:" +++ toString i +++ "\n")
+   where s` = s +++ toString c
+
+
+
+   
+module primes
+import StdEnv, LanguageShootout
+
+Start
+   = lines (10*argi)(50*argi)(10*argi)
+        ("1st prime is " +++ primeString 1 +++ "2nd prime is " +++ primeString 2)
+     
+   where
+   primeString i = toString (prime i) +++ "\n"
+   lines i n j s
+      | i <= n   = lines (i+j) n j 
+         (s +++ (toString i +++ "th prime is " +++ primeString i))
+      = s
+
+isPrime k
+   | k < 2         = False
+   | k < 4         = True
+   | isEven k      = False
+   | isWrongForm   = False
+                   = oddloop 3
+                    
+   where 
+   isWrongForm = (k+1) rem 6 <> 0 && (k-1) rem 6 <> 0
+   limit      = toInt (sqrt (toReal k))
+   oddloop i
+      | k rem i == 0   = False
+      | i <= limit     = oddloop (i+2)
+                       = True
+                          
+                          
+prime n = loop 0 1
+   where
+   loop count k
+      | count < n
+         | isPrime k   = loop (count+1) (k+1)
+                       = loop  count    (k+1)
+      = k-1                  
+/* The Great Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+   
+   contributed by Isaac Gouy (Clean novice)
+*/
+
+module random
+import StdEnv, LanguageShootout
+
+Start = toStringWith 9 (nthran argi 100.0 42 0.0) +++ "\n"
+
+im :== 139968
+ia :== 3877
+ic :== 29573
+imd :== toReal im
+
+nthran :: !Int !Real !Int !Real -> Real
+nthran n max seed r
+   | n>0 = nthran (n-1) max newseed newran
+   = r
+   where
+      newseed = (seed * ia + ic) rem im
+      newran =  max * toReal newseed / imd
+      
+/* The Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+   contributed by Isaac Gouy (Clean novice) */
+  
+module recursive
+import StdEnv, LanguageShootout
+
+Start = 
+   line  "Ack"  [3,n]          (ack 3 n)           toString         +++
+   line  "Fib"  [a]            (fib a)             (toStringWith 1) +++
+   line  "Tak"  [3*m,2*m,m]    (tak (3*m)(2*m) m)  toString         +++
+   line  "Fib"  [3]            (fib 3)             toString         +++
+   line  "Tak"  [3.0,2.0,1.0]  (tak 3.0 2.0 1.0)   (toStringWith 1)  
+
+   where 
+   n = argi
+   m = n-1
+   a = 27.0 + toReal n
+   
+   line pre a r f = pre +++ "(" +++ csv f a "" +++ "): " +++ f r +++ "\n"           
+   csv f [a] s = s +++ f a
+   csv f [a:b] s = s +++ f a +++ "," +++ csv f b s 
+
+
+ack m n
+   | m == 0    = n + 1
+   | n == 0    = ack (m - 1) 1   
+   | otherwise = ack (m - 1) (ack m (n - 1))
+
+fib :: a -> a | + a & - a & one a & < a
+fib n
+   | n < two   = one
+   | otherwise = fib(n-one) + fib(n-two) 
+   where two = one+one
+   
+tak x y z
+   | y < x     = tak (tak (x-one) y z)(tak (y-one) z x)(tak (z-one) x y)
+   | otherwise = z
+/* The Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+   contributed by Isaac Gouy (Clean novice) */
+  
+module recursive
+import StdEnv, LanguageShootout
+
+Start = 
+   line  "Ack"  [3,n]          (ack 3 n)           toString         +++
+   line  "Fib"  [a]            (fibr a)            (toStringWith 1) +++
+   line  "Tak"  [3*m,2*m,m]    (tak (3*m)(2*m) m)  toString         +++
+   line  "Fib"  [3]            (fib 3)             toString         +++
+   line  "Tak"  [3.0,2.0,1.0]  (takr 3.0 2.0 1.0)  (toStringWith 1)  
+
+   where 
+   n = argi
+   m = n-1
+   a = 27.0 + toReal n
+   
+   line pre a r f = pre +++ "(" +++ csv f a "" +++ "): " +++ f r +++ "\n"           
+   csv f [a] s = s +++ f a
+   csv f [a:b] s = s +++ f a +++ "," +++ csv f b s
+
+ack m n
+   | m == 0   = n + 1
+   | n == 0   = ack (m - 1) 1   
+              = ack (m - 1) (ack m (n - 1))
+fib n
+   | n < 2   = 1
+   = fib (n - 1) + fib (n - 2) 
+   
+fibr n
+   | n < 2.0   = 1.0
+   = fibr (n - 1.0) + fibr (n - 2.0) 
+
+   
+tak x y z
+   | y < x   = tak (tak (x-1) y z)(tak (y-1) z x)(tak (z-1) x y)
+             = z   
+             
+takr x y z
+   | y < x   = takr (takr (x-1.0) y z)(takr (y-1.0) z x)(takr (z-1.0) x y)
+             = z
+module regexmatch
+
+import StdEnv,ArgEnv
+argi = if (size cl == 2) (toInt (cl.[1])) 1
+where
+	cl = getCommandLine
+
+Start world
+	# (console, world)	= stdio world
+	# (phones,console)	= readInput [] console
+	# tb			= 0
+	# (errptr,tb)		= malloc 1024 tb
+	# (errhdl,tb)		= malloc 4 tb
+	# tb			= store errhdl errptr tb
+	# (erroffset,tb)	= malloc 4 tb
+	# tb			= store erroffset 0 tb
+//	# (re,tb)		= pcre_compile pattern 0 errhdl erroffset NULL tb
+	# (re,tb)		= pcre_compile pattern` 0 errhdl erroffset NULL tb
+	| re == 0		= abort "pcre_compile failed\n"
+	# (study,tb)		= pcre_study re 0 errhdl tb
+	# (errres,tb)		= load errhdl tb
+	| study == 0 && errres <> 0
+		= abort "pcre_study failed\n"
+	# (nmptr,tb)		= malloc 4 tb
+	# tb			= store nmptr 0 tb
+	# (cnt,tb)		= pcre_fullinfo re NULL PCRE_INFO_CAPTURECOUNT nmptr tb
+	| cnt <> 0		= abort "pcre_fullinfo failed\n"
+	# (nm,tb)		= load nmptr tb
+	# nm			= nm + 1
+	# tb			= store nmptr nm tb
+	# ovecsize		= 4 * nm * 3
+	# (ovec,tb)		= malloc ovecsize tb
+	
+	
+	# (out,tb)		= oloop argi console phones nm ovec ovecsize re study tb
+	# (ok,world)		= fclose out world
+	= world
+
+oloop cnt out phones nm ovec ovecsize re study tb
+	# count		= 1
+//	# num		= createArray 256 '@'
+	# num		= "(@@@) @@@-@@@@"
+	# nb		= nm*2*4
+	# ovecs` 	= createArray nb 0
+	# (count,num,ovecs`,out,tb) = seq [iloop (n==cnt) ovec ovecsize nm nb re study phones \\ n <- [1..cnt]] (count,num,ovecs`,out,tb)
+	= (out,tb)
+
+iloop :: !.Bool !.Int !.Int !.Int !.Int !.Int !.Int ![String] !*(!.Int,!*String,!{#Int},!*File,!*Toolbox) -> (!Int,!*String,!{#Int},!*File,!*Toolbox)
+iloop print ovec ovecsize nm nb  re study [] (count,num,ovecs`,out,tb)
+	= (count,num,ovecs`,out,tb)
+iloop print ovec ovecsize nm nb re study [phones_i:phones] (count,num,ovecs`,out,tb)
+	# (count,num,ovecs`,out,tb) = match print ovec ovecsize nm nb re study phones_i (count,num,ovecs`,out,tb)
+	= iloop print ovec ovecsize nm nb re study phones (count,num,ovecs`,out,tb)
+
+match :: !.Bool !.Int !.Int !.Int !.Int !.Int !.Int !String !*(!.Int,!*String,!{#Int},!*File,!*Toolbox) -> (!Int,!*String,!{#Int},!*File,!*Toolbox)
+match print ovec ovecsize nm nb re study phones_i (count,num,ovecs`,out,tb)
+	# (n,tb)	= pcre_exec re study phones_i (size phones_i) 0 0 ovec ovecsize tb
+	| n <> nm
+		= (count,num,ovecs`,out,tb)
+	# (ovecs`,tb)	= LoadOvec ovecs` ovec nb tb
+	# ss1		= ss phones_i ovecs` 1
+	# ss2		= ss phones_i ovecs` 2
+	# ss3		= ss phones_i ovecs` 3
+	# ss4		= ss phones_i ovecs` 4
+//	# ss5		= ss phones_i ovecs` 5
+//	# ss6		= ss phones_i ovecs` 6
+	# ss0		= ss phones_i ovecs` 0
+//	# area		= if (size ss3 == 0) ss4 ss3
+//	# exch		= ss5
+//	# exts		= ss6
+	# area		= ss2
+	# exch		= ss3
+	# exts		= ss4
+//	# num		= "("+++area+++") "+++exch+++"-"+++exts
+	# num		= ss` phones_i ovecs` 2 num 1
+	# num		= ss` phones_i ovecs` 3 num 6
+	# num		= ss` phones_i ovecs` 4 num 10
+	| not print
+		= (count,num,ovecs`,out,tb)
+	#! out = out <<< count <<< ": " <<< num <<< "\n"
+	= (count+1,num,ovecs`,out,tb)
+
+//
+ss :: !String !{#Int} !.Int -> String
+ss string ovecs i
+	# j		= i * 2
+	# b		= ovecs.[j]
+	# e		= ovecs.[j+1]
+	= string%(b,e-1)
+
+ss` :: !String !{#Int} !.Int !*String !Int -> *String
+ss` string ovecs i res k
+	# j		= i * 2
+	# b		= ovecs.[j]
+	# e		= ovecs.[j+1]
+	# res	= ssloop string k b e res
+	= res
+where
+	ssloop :: !String !Int !Int !.Int !*{#Char} -> *{#Char}
+	ssloop string x y s res
+		| y >= s
+			= res
+		= ssloop string (x+1) (y+1) s {res & [x] = string.[y]}
+
+LoadOvec :: !{#Int} !Int !Int !*Toolbox -> (!{#Int},!*Toolbox)
+LoadOvec a ptr nb tb
+	# tb	= mmove a ptr nb tb
+	= (a,tb)
+	
+readInput acc input
+	# (l,input)	= freadline input
+	| size l == 0
+		= (reverse acc,input)
+	= readInput [l:acc] input
+
+	
+NULL				:== 0
+PCRE_INFO_CAPTURECOUNT		:== 2
+pattern = 
+   "(^|[^0-9\\(]+)" +++				// $1
+   "(" +++					// $2
+   "\\(([0-9][0-9][0-9])\\)" +++		// $3
+   "|" +++
+   "([0-9][0-9][0-9])" +++			// $4
+   ")" +++
+   " " +++
+   "([0-9][0-9][0-9])" +++			// $5
+   "[ -]"  +++
+   "([0-9][0-9][0-9][0-9])" +++			// $6
+   "[^0-9]" +++
+   "\0"
+
+pattern` = 
+   "(?:^|[^\\d\\(])"	+++	/* must be preceeded by non-digit */
+   "(\\()?"		+++	/* match 1: possible initial left paren */
+   "(\\d\\d\\d)"	+++	/* match 2: area code is 3 digits */
+   "(?(1)\\))"		+++	/* if match1 then match right paren */
+   "[ ]"		+++	/* area code followed by one space */
+   "(\\d\\d\\d)"	+++	/* match 3: prefix of 3 digits */
+   "[ -]"		+++	/* separator is either space or dash */
+   "(\\d\\d\\d\\d)"	+++	/* match 4: last 4 digits */
+   "\\D"			/* must be followed by a non-digit */
+
+
+:: MyPtr a	:== Int
+:: PCRE		:== Int
+:: PCREE	:== Int
+pcre_compile :: !String !Int !(MyPtr String) !(MyPtr Int) !Int !*Toolbox -> (!PCRE,!*Toolbox)
+pcre_compile _ _ _ _ _ _ = code {
+	ccall pcre_compile "sIIII:I:I"
+	}
+pcre_study :: !PCRE !Int !(MyPtr String) !*Toolbox -> (!PCREE,!*Toolbox)
+pcre_study _ _ _ _ = code {
+	ccall pcre_study "III:I:I"
+	}
+pcre_fullinfo :: !PCRE !PCREE !Int !Int !*Toolbox -> (!Int,!*Toolbox)
+pcre_fullinfo _ _ _ _ _ = code {
+	ccall pcre_fullinfo "IIII:I:I"
+	}
+pcre_exec :: !PCRE !PCREE !String !Int !Int !Int !(MyPtr Int) !Int !*Toolbox -> (!Int,!*Toolbox)
+pcre_exec _ _ _ _ _ _ _ _ _ = code {
+	ccall pcre_exec "IIsIIIII:I:I"
+	}
+
+// memory access
+:: Ptr		:== Int
+:: Toolbox	:== Int
+// win32
+/*
+import code from library "pcre_library"
+malloc :: !Int !*Toolbox -> (!Ptr,!*Toolbox)
+malloc n tb = (GlobalAlloc GPTR n,tb)
+where
+	GPTR	= 0x0040
+	
+	GlobalAlloc :: !Int !Int -> Ptr
+	GlobalAlloc uFlags dwBytes = code {
+		ccall GlobalAlloc@8 "PII:I"
+		}
+load :: !Ptr !*Toolbox -> (!Int,!*Toolbox)
+load ptr tb = (read4 ptr,tb)
+where
+	read4 :: !Ptr -> Int
+	read4 p = code {
+		instruction 139
+		instruction 0 | mov   eax,dword ptr [eax]
+		}
+store :: !Ptr !Int !*Toolbox -> *Toolbox
+store ptr val tb
+	= write4 ptr val tb
+where
+	write4 :: !Ptr !Int !.env -> .env
+	write4 address value env = code {
+			instruction 137		| movl %eax, (%ebx)
+			instruction 3
+			pop_b	2
+		}
+mmove :: !.{#Int} !Int !Int !*Toolbox -> *Toolbox
+mmove dst src len tb = code {
+	ccall RtlMoveMemory@12 "PAII:V:I"
+	}
+*/
+
+// linux386
+malloc :: !Int !*Toolbox -> (!Ptr,!*Toolbox)
+malloc n tb
+	# (ptr,tb)	= malloc_ n tb
+	| ptr == 0	= abort "malloc failed\n"
+	= (ptr,tb)
+where
+	malloc_ :: !Int !*Toolbox -> (!MyPtr a,!*Toolbox)
+	malloc_ _ _ = code {
+		ccall malloc "I:I:I"
+		}
+load :: !Ptr !*Toolbox -> (!Int,!*Toolbox)
+load ptr tb = (read4 ptr,tb)
+where
+	read4 :: !Ptr -> Int
+	read4 p = code {
+		instruction 139
+		instruction 0 | mov   eax,dword ptr [eax]
+		}
+store :: !Ptr !Int !*Toolbox -> *Toolbox
+store ptr val tb
+	= write4 ptr val tb
+where
+	write4 :: !Ptr !Int !.env -> .env
+	write4 address value env = code {
+			instruction 137		| movl %eax, (%ebx)
+			instruction 3
+			pop_b	2
+		}
+
+mmove :: !.{#Int} !Int !Int !*Toolbox -> *Toolbox
+mmove dst src len tb = code {
+	ccall memmove "AII:V:I"
+	}
+// mosx
+/*
+malloc :: !Int !*Toolbox -> (!Ptr,!*Toolbox)
+malloc n tb
+	# (ptr,tb)	= malloc_ n tb
+	| ptr == 0	= abort "malloc failed\n"
+	= (ptr,tb)
+where
+	malloc_ :: !Int !*Toolbox -> (!MyPtr a,!*Toolbox)
+	malloc_ _ _ = code {
+		ccall malloc "I:I:I"
+		}
+load :: !Ptr !*Toolbox -> (!Int,!*Toolbox)
+load ptr tb
+	= (LoadLong1 ptr, tb)
+where
+	LoadLong1 :: !Ptr -> Int
+	LoadLong1 p = code (p=U)(r=A0){
+		instruction 0x83180000	|	lwz	r24,0(r24)
+		}
+store :: !Ptr !Int !*Toolbox -> *Toolbox
+store ptr val tb
+	= StoreLong1 ptr val
+where
+	StoreLong1 :: !Ptr !Int -> *Ptr
+	StoreLong1 p v = code (p=U,v=U)(q=A0){
+		instruction	0x93190000	|	stw	r24,0(r25)
+		instruction	0x7F38CB78	|	mr	r24,r25
+		}
+*/
+// The Great Computer Language Shootout
+// http://shootout.alioth.debian.org/
+// 
+// contributed by Diederik van Arkel
+
+module revcomp
+
+import StdEnv, LanguageShootout
+
+Start world
+	# (io,world)	= stdio world
+	# io			= process io
+	# (err,world)	= fclose io world
+	= world
+
+process :: !*File -> *File
+process io
+	#! (line, io) = freadline io
+	| size line == 0
+		= io
+	| line.[0] == '>'
+		# io		= io <<< line
+		= extract io []
+	= process io
+
+extract :: !*File ![*String] -> *File
+extract io ls
+	#! (line, io) = freadline io
+	| size line > 0
+		| line.[0] == '>'
+			# io		= write (revcomp ls) io
+			# io		= io <<< line
+			= extract io []
+		| line.[0] == ';'
+			= extract io ls
+		= extract io [line:ls]
+	= write (revcomp ls) io
+
+revcomp l
+	# l = reverse l
+	# s	= concat_strip l
+	= build s
+
+concat_strip :: ![String] -> .String
+concat_strip l
+	# s = sizelist l
+	# a = createArray s ' '
+	= copylist l a 0
+where
+	sizelist [] = 0
+	sizelist [h:t] = size h - 1 + sizelist t
+	
+	copylist :: ![String] !*String !Int -> .String
+	copylist [] a i = a
+	copylist [h:t] a i
+		# (i,a) = scopy (size h - 1) i 0 a h
+		= copylist t a i
+
+scopy ::
+	!Int		// end of copy source index
+	!Int		// current target index
+	!Int		// current source index
+	!*{#Char}	// target string
+	!{#Char}	// source string
+	-> (!Int,!.{#Char})
+scopy n i j s h
+	| j >= n = (i,s)
+	#! s = {s & [i] = h.[j]}
+	= scopy n (i+1) (j+1) s h
+
+
+build :: !*String -> .String
+build iub
+	#! e	= size iub - 1
+	= build iub 0 e complementArray
+where
+	build :: !*String !Int !Int !String -> .String
+	build iub b e complementArray
+		| b >= e
+			= iub
+		#! cb	= iub.[b]
+		   ce	= iub.[e]
+		#  iub	= {iub & [b] = complementArray.[toInt ce]}
+		   iub	= {iub & [e] = complementArray.[toInt cb]}
+		= build iub (b+1) (e-1) complementArray
+/*
+	= build iub 0 e
+where
+	build :: !*String !Int !Int -> .String
+	build iub b e
+		| b >= e
+			= iub
+		#! cb	= iub.[b]
+		   ce	= iub.[e]
+		   iub	= {iub & [b] = complement ce}
+		   iub	= {iub & [e] = complement cb}
+		= build iub (b+1) (e-1)
+
+complement :: !Char -> Char
+complement c
+	= complementArray.[toInt c]
+*/
+complementArray =: buildComplement
+where
+	buildComplement :: String
+	buildComplement
+//		# a	= {c \\ c <- ['\x0'..'\xFF']}
+		# a = {toChar i \\ i <- [0..255]}
+		= build pairs a
+	build [] a = a
+	build [(f,t):ps] a
+		# a = { a & [toInt f] = t
+				  , [toInt t] = f
+				  , [toInt (toLower f)] = t
+				  , [toInt (toLower t)] = f
+			  }
+		= build ps a
+	pairs = [('A','T')
+			,('C','G')
+			,('B','V')
+			,('D','H')
+			,('K','M')
+			,('R','Y')
+			]
+
+write s io
+	= write s 0 io
+where
+	e	= size s
+
+	write :: !String !Int !*File -> *File
+	write s b io
+		| b >= e
+			= io
+		#! io	= io <<< (s%(b,b+59)) <<< '\n'
+//		#! io	= (fwritesubstring b (min (e-b) 60) s io) <<< '\n'
+		= write s (b+60) io
+/* The Great Computer Language Shootout 
+   contributed by John van Groningen (Clean Guru!)
+ 
+   http://shootout.alioth.debian.org/
+*/
+
+module reversefile
+import StdEnv
+
+Start world 
+   # (console, world) = stdio world
+   # (lines,f) =  stacklines_from console []
+   # f = write_lines lines f
+   = fclose f world
+
+stacklines_from f ls
+   # (line, f) = freadline f
+   | size line==0
+      = (ls,f)
+   = stacklines_from f [line:ls]
+
+write_lines [line:lines] f = write_lines lines (fwrites line f)
+write_lines [] f = f
+
+/* The Great Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+   contributed by Isaac Gouy (Clean novice)
+   updated by John van Groningen
+*/
+
+module sieve
+import StdEnv, LanguageShootout
+
+Start = "Count: " +++ toString (sieve primes lBound 0 argi) +++ "\n"
+   where primes = {True \\ i<-[0..uBound]}
+
+lBound :== 2
+uBound :== 8192
+
+sieve :: !*{#.Bool} !Int !Int !Int -> Int
+sieve primes i count rep
+   | i>uBound 
+      | rep==0     = count 
+                   = sieve {primes&[j]=True \\ j<-[0..uBound]} lBound 0 (rep-1)   
+      | primes.[i] = sieve (loop primes i i) (i+1) (count+1) rep 
+                   = sieve primes (i+1) count rep
+
+   where
+   loop primes i ii 
+      | ii<=uBound  = loop {primes&[ii]=False} i (ii+i)
+                    = primes
+/* The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+ 
+   contributed by Diederik van Arkel
+   corrected by John van Groningen
+*/
+
+module spectralnorm
+import StdEnv, StdArrayExtensions,LanguageShootout
+
+Start
+	# n	= argi
+	# u = createUnboxedRealArr n 1.0
+	# v = createUnboxedRealArr n 0.0
+	# r = eigenvalue n (powerMethod 10 n (u,v))
+	= toStringWith 9 r +++ "\n"
+
+
+eigenvalue n (u,v) = sqrt(vBv/vv)
+   where      
+   vBv = asum {a*b \\ a <-: u & b <-: v}   
+   vv = asum {a*a \\ a <-: v}   
+
+asum :: !{#Real} -> Real
+asum a
+	# n	= size a
+	= sum 0.0 0 n a
+where
+	sum acc i n a
+		| i >= n	= acc
+		= sum (acc + a.[i]) (i+1) n a
+
+powerMethod 0 n (u,v) = (u,v)  
+powerMethod step n (u,v) 
+   # (u,v) = AtAv n u v 
+   # (v,u) = AtAv n v u 
+   = powerMethod (step-1) n (u,v)   
+
+A one i j
+//	:== 1.0 / toReal ( (i+j) * (i+j+1) / 2 + i + 1 )
+//	:== 1.0 / toReal ( x * (x+1) / 2 + i + 1 )
+	:== one / toReal ( x * (x+1) / 2 + i + 1 )
+where
+	x = i + j
+
+Av n v a = aloop 1.0 (n-1) (n-1) v a
+	where
+	aloop :: !Real !Int !Int !*{#Real} !*{#Real} -> (!.{#Real},!.{#Real})
+	aloop one n i v a
+	  | i>=0 #! ai = avsum one i n v 0.0
+			 = aloop one n (i-1) v {a&[i] = ai}
+	         = (v,a)
+
+	avsum :: !Real !Int !Int !{#Real} !Real -> Real
+	avsum one i j v x
+	  | j>=0 = avsum one i (j-1) v (x+((A one i j)*v.[j]))
+	         = x
+
+Atv n v a = aloop 1.0 (n-1) (n-1) v a     
+	where
+	aloop :: !Real !Int !Int !{#Real} !*{#Real} -> .{#Real}
+	aloop one n i v a
+	  | i>=0 = aloop one n (i-1) v {a&[i] = atvsum one i n v 0.0}
+	         = a   
+	         
+	atvsum :: !Real !Int !Int !{#Real} !Real -> Real
+	atvsum one i j v x
+	  | j>=0 = atvsum one i (j-1) v (x+((A one j i)*v.[j]))
+	         = x
+
+AtAv n u av
+	# v 		= createUnboxedRealArr n 0.0
+	#! (u,v)	= Av n u v
+	#! av		= Atv n v av
+	= (u,av)
+/* The Great Computer Language Shootout 
+   http://shootout.alioth.debian.org/ 
+   contributed by John van Groningen (Clean Guru!)
+*/
+
+module spellcheck
+import StdEnv, StdStrictLists
+
+Start world 
+	# dictionary = htNew 40000
+	# (dictionary,world) = readUsrDictWords world dictionary
+	= checkInputWords world dictionary 
+
+readUsrDictWords world ht
+	# (openok, file, world) = fopen "Usr.Dict.Words" FReadText world
+	| not openok = abort ("Cannot open Usr.Dict.Words\n")
+	# ht = readWords file ht
+	= (ht,world)
+
+	where
+    readWords f ht
+		# (line, f) = freadline f
+        | size line == 0
+			= ht
+			= readWords f (htAdd line 1 ht)	
+
+checkInputWords world ht 
+   # (console, world) = stdio world
+	= missingWords console ht []	
+
+missingWords f ht missing	
+	#! (line,f) = freadline f
+	# n = size line
+    | n == 0
+		= map withNewline missing
+		| (htHasKey line ht) 
+			= missingWords f ht missing
+			= missingWords f ht [line:missing]	
+	where
+	withNewline s
+		= if (s.[size s - 1] == '\n') s (s+++"\n")
+
+primes =: [
+   53,         97,         193,       389,       769,
+   1543,       3079,       6151,      12289,     24593,
+   49157,      98317,      196613,    93241,     786433,
+   1572869,    3145739,    6291469,   12582917,  25165843,
+   50331653,   100663319,  201326611, 402653189, 805306457
+   ]
+
+:: Item a = { key::!String
+            , val::!a
+            }
+
+:: HashTable a = { nBuckets::!Int
+                 , table::!.{!.[!Item a!]}
+                 }
+
+hash :: !{#.Char} !Int -> Int
+hash key nBuckets
+   = (abs (loop key (size key - 1) 0)) rem nBuckets  
+   where
+   loop k n h
+      | n>=0
+          = loop k (n-1) (5*h + toInt k.[n])        
+          = h
+
+
+htNew n = { nBuckets = nprime
+        , table = {[|] \\ i <- [0..nprime-1]}
+        }
+   where   
+   nprime = hd (dropWhile (\x = x < n) primes)        
+
+
+htHasKey :: !{#.Char} !.(HashTable a) -> .Bool
+htHasKey k ht=:{table,nBuckets}= findIn k table.[hash k nBuckets]
+where
+    findIn k [|item:ls] = item.key == k || findIn k ls
+    findIn k [|] = False
+
+htAdd :: !{#.Char} !a !*(HashTable a) -> *HashTable a
+htAdd k v ht=:{table,nBuckets}
+    #! i = hash k nBuckets
+    #! (b,table) = replace table i [|]
+    # b = addItem k v b
+    = {ht & table = {table & [i] = b}}
+where
+    addItem :: !{#.Char} .a !*[!u:(Item .a)!] -> *[!v:(Item .a)!],[u<=v]
+    addItem k v [|item:ls]
+       | item.key <> k
+               = [|item : addItem k v ls]
+               = [|{item & val=v}:ls]
+    addItem k v [|]
+        = [|{key=k,val=v}]
+        
+/* The Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+   contributed by Isaac Gouy (Clean novice)
+   Updated by John van Groningen
+*/
+
+module strcat
+import StdEnv, LanguageShootout
+
+Start =  toString (sbLength (appendLoop argi sbNew)) +++ "\n"
+
+appendLoop n sb
+   | n>0   = appendLoop (n-1) (sbAppend sb "hello\n")
+   = sb
+
+// To do this in the "same way" we need to define a StringBuffer
+
+:: StringBuffer = Sb !Int !.String
+
+sbNew = Sb 0 (createArray 32 ' ')
+
+sbAppend (Sb n b) s
+   = if (minsize > size b)
+      (Sb minsize (copyTo s n (resize b minsize) ))
+      (Sb minsize (copyTo s n b))
+   where 
+      minsize = n + size s
+
+      copyTo :: !.{#Char} !Int !*{#Char} -> .{#Char}
+      copyTo s n a = {a & [n+i] = s.[i] \\ i <- [0..size s - 1]}
+
+      resize b min
+         = if (newsize < min) 
+            (copyTo b 0 (createArray min ' '))
+            (copyTo b 0 (createArray newsize ' '))   
+
+         where newsize = size b * 2 + 5   
+
+sbLength (Sb n b) = n
+
+/* The Computer Language Shootout 
+   http://shootout.alioth.debian.org
+   contributed by Isaac Gouy (Clean novice)
+*/
+
+module sumcol
+import StdEnv
+
+Start world  
+   # (console, world) = stdio world
+   = toString (sumints console 0) +++ "\n"
+   
+sumints f sumi
+   # (ok,i,f) = freadi f
+   | not ok = sumi
+   = sumints f (sumi+i)
+   
+/* The Great Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+   contributed by Isaac Gouy (Clean novice)
+*/
+
+
+module takfp
+import StdEnv, LanguageShootout
+
+Start = toStringWith 1 (tak (n*3.0) (n*2.0) (n*1.0)) +++ "\n"
+   where n = toReal argi
+
+tak x y z
+   | y < x   = tak (tak (x-1.0) y z)(tak (y-1.0) z x)(tak (z-1.0) x y)
+             = z
+
+/* The Computer Language Shootout  
+   http://shootout.alioth.debian.org/
+   contributed by John van Groningen (Clean Guru!)
+*/
+
+
+module wc
+import StdEnv
+
+Start world
+	# (console, world) = stdio world
+	# (nl, nw, nc) = count_file console 0 0 0 False
+	= toString nl +++ " " +++ toString nw +++ " " +++ toString nc +++ "\n"
+
+count_file :: !*File !Int !Int !Int !Bool -> .(Int,Int,Int)
+count_file f nc nw nl inside
+	# (s,f) = freads f 4096
+	# n=size s
+	| n==0
+		= (nl, nw, nc)
+		# (nw,nl,inside) = if inside
+							(count_sw 0 n nw nl s)
+							(count_s 0 n nw nl s)
+		= count_file f (nc+n) nw nl inside
+
+count_s :: !Int !Int !Int !Int !{#Char} -> (!Int,!Int,!Bool)
+count_s i n nw nl s
+	| i<n
+	    # c=s.[i]
+	    | c==' ' || c=='\t'
+          	= count_s (i+1) n nw nl s
+	    | c=='\n'
+        	= count_s (i+1) n nw (nl+1) s
+          	= count_sw (i+1) n (nw+1) nl s
+		= (nw,nl,False)
+
+count_sw :: !Int !Int !Int !Int !{#Char} -> (!Int,!Int,!Bool)
+count_sw i n nw nl s
+	| i<n
+	    | s.[i]>' '
+          	= count_sw (i+1) n nw nl s
+	    # c=s.[i]
+	    | c==' ' || c=='\t'
+          	= count_s (i+1) n nw nl s
+	    | s.[i]=='\n'
+          	= count_s (i+1) n nw (nl+1) s
+          	= count_sw (i+1) n nw nl s
+		= (nw,nl,True)
+/* The Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+   
+   contributed by ?
+*/
+
+module wordfreq
+import StdEnv,StdStrictLists
+
+Start :: *World -> (!Bool,!*World)
+Start world
+    # (console,world) = stdio world
+    # ht = htNew 2048
+    # (ht,console) = read_words_in_file0 console ht
+    # items = sort (htToList ht)
+    # console = write_items items console
+    = fclose console world
+    
+read_words_in_file0 :: *File !(HashTable Int) -> (!HashTable Int,!*File)
+read_words_in_file0 f ht
+    # (s,f) = freads f 4096
+    | size s==0
+        = (ht,f)
+    # (ia,s) = skip_to_alpha_char 0 s
+    = read_words_in_string1 ia s f ht
+    
+read_words_in_string0 :: Int *{#Char} *File !(HashTable Int) -> (!HashTable Int,!*File)
+read_words_in_string0 i s f ht
+    # (ia,s) = skip_to_alpha_char i s
+    = read_words_in_string1 ia s f ht
+    
+read_words_in_string1 :: Int *{#Char} *File !(HashTable Int) -> (!HashTable Int,!*File)
+read_words_in_string1 ia s f ht
+    # (ina,s) = skip_alpha_chars_and_convert_to_lower_case ia s
+    | ia==ina
+        = read_words_in_file0 f ht
+        
+    #! word = s % (ia,ina-1)
+    | ina<4096
+        # ht = htUpdate (\ item=:{val} = {item & val=val+1}) word 0 ht
+        = read_words_in_string0 ina s f ht
+        = read_words_in_file1 word f ht
+        
+read_words_in_file1 :: {#Char} *File !(HashTable Int) -> (!HashTable Int,!*File)
+read_words_in_file1 word f ht
+    # (s,f) = freads f 4096
+    | size s==0
+        = (htUpdate (\ item=:{val} = {item & val=val+1}) word 0 ht,f)
+    # (ia,s) = skip_to_alpha_char 0 s
+    | ia<>0
+        # ht = htUpdate (\ item=:{val} = {item & val=val+1}) word 0 ht
+        = read_words_in_string1 ia s f ht
+    # (ina,s) = skip_alpha_chars_and_convert_to_lower_case ia s
+    | ina<4096
+        #! rest_of_word = s % (0,ina-1)
+        # ht = htUpdate (\ item=:{val} = {item & val=val+1})(word+++rest_of_word) 0 ht
+        = read_words_in_string0 ina s f ht
+        = read_words_in_file1 (word+++s) f ht
+        
+skip_alpha_chars_and_convert_to_lower_case :: !Int !*{#Char} -> (!Int,!*{#Char})
+skip_alpha_chars_and_convert_to_lower_case i s
+    | i<size s
+        #! c=s.[i]
+        | c>='a' && c<='z'
+            = skip_alpha_chars_and_convert_to_lower_case (i+1) s
+        | c>='A' && c<='Z'
+            = skip_alpha_chars_and_convert_to_lower_case (i+1) {s & [i]=toChar (toInt c+32)}
+            = (i,s)
+        = (i,s)
+        
+skip_to_alpha_char :: !Int !*{#Char} -> (!Int,!*{#Char})
+skip_to_alpha_char i s
+    | i<size s
+        #! c=s.[i]
+        | c<'A' || c>'z' || ( c>'Z' && c<'a')
+            = skip_to_alpha_char (i+1) s
+            = (i,s)
+        = (i,s)
+        
+instance < (Item Int) where
+        (<) {val=v1,key=k1} {val=v2,key=k2}
+            | v1<>v2
+                = v1>v2
+                = k1>k2
+                
+write_items [{key,val}:items] fo
+    # s = toString val
+    # fo = if (size s<7) (fwrites (createArray (7-size s) ' ') fo) fo
+    = write_items items (fo <<< s <<< ' ' <<< key <<< '\n')
+write_items [] fo
+    = fo
+    
+// SimpleHash implementation would normally be imported
+primes =: [
+   53,         97,         193,       389,       769,
+   1543,       3079,       6151,      12289,     24593,
+   49157,      98317,      196613,    93241,     786433,
+   1572869,    3145739,    6291469,   12582917,  25165843,
+   50331653,   100663319,  201326611, 402653189, 805306457
+   ]
+   
+:: Item a = { key::!String
+            , val::!a
+            }
+            
+:: SHashTable a = { nBuckets::!Int
+                 , table::!.{!.[!Item a!]}
+                 }
+
+:: *HashTable a :== SHashTable a
+
+hash :: !{#.Char} !Int -> Int
+hash key nBuckets
+   = (abs (loop key (size key - 1) 0)) rem nBuckets  
+   where
+   loop :: !{#Char} !Int !Int -> Int
+   loop k n h
+      | n>=0
+          = loop k (n-1) (5*h + toInt k.[n])       
+          = h
+          
+htNew n = { nBuckets = nprime
+        , table = {[|] \\ i <- [0..nprime-1]}
+        }
+   where   
+   nprime = hd (dropWhile (\x = x < n) primes)        
+   
+htUpdate :: ((Item a) -> Item a) !{#.Char} !a !*(HashTable a) -> *HashTable a
+htUpdate f k v ht=:{table,nBuckets}
+    #! i = hash k nBuckets
+    #! (b,table) = replace table i [|]
+    # b = updateItem b k v f
+    = {ht & table = {table & [i] = b}}
+where
+    updateItem :: !*[!(Item a)!] !{#.Char} a ((Item a) -> Item a) -> *[!(Item a)!]
+    updateItem [|item:ls] k v f
+       | item.key <> k
+               = [|item : updateItem ls k v f]
+               = [|f item:ls]
+    updateItem [|] k v f
+        = [|f {key=k,val=v}]
+        
+htToList :: !(HashTable a) -> [Item a]
+htToList ht=:{nBuckets,table}
+    = ht_to_list 0 nBuckets table []
+    where
+        ht_to_list i n table l
+            | i<n
+                # (list,table) = table![i]
+                #! l=ht_buckets_to_list list l
+                = ht_to_list (i+1) n table l
+                = l
+                
+        ht_buckets_to_list :: .[!Item a!] [Item a] -> [Item a]
+        ht_buckets_to_list [|i:is] l
+            = ht_buckets_to_list is [i:l]
+        ht_buckets_to_list [|] l
+            = l
+            

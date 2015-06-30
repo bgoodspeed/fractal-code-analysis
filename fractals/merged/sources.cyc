@@ -1,0 +1,2458 @@
+/*
+ * http://shootout.alioth.debian.org/
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+int Ack(int M, int N) { return(M ? (Ack(M-1,N ? Ack(M,(N-1)) : 1)) : N+1); }
+
+int main(int argc, char ??argv) {
+    int n = ((argc == 2) ? atoi(argv[1]) : 1);
+
+    printf("Ack(3,%d): %d\n", n, Ack(3, n));
+    return(0);
+}
+
+/*
+ * http://shootout.alioth.debian.org/
+ *
+ * this program is modified from:
+ *   http://cm.bell-labs.com/cm/cs/who/bwk/interps/pap.html
+ * Timing Trials, or, the Trials of Timing: Experiments with Scripting
+ * and User-Interface Languages</a> by Brian W. Kernighan and
+ * Christopher J. Van Wyk.
+ *
+ * I added free() to deallocate memory.
+ */
+
+#include <core.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <assert.h>
+
+int
+main(int argc, char ??argv) {
+    let n<`n> = ((argc == 2) ? atoi(argv[1]) : 1);
+    int k, @{valueof(`n)} \U  x, @{valueof(`n)} \U y;
+    unsigned int i;
+
+    x = calloc(n,sizeof(int));
+    y = calloc(n,sizeof(int));
+
+    for (i=0; i < n; i++) {
+        x[i] = i + 1;
+    }      
+    for (k=0; k<1000; k++) {
+	for (i = n-1; i < n; i--) {
+	    y[i] += x[i];
+	}
+    }
+
+    if (n > 0) {
+      i = n-1;
+      assert(i < n);
+      fprintf(stdout, "%d %d\n", y[0], y[i]);
+    }
+//     Core::ufree(x);
+//     Core::ufree(y);
+    return(0);
+}
+/* The Computer Language Shootout Benchmarks
+   http://shootout.alioth.debian.org/
+
+   contributed by Kevin Carson, converted to Cyclone by
+                  Brent Fulgham, using help from Greg Morrisett
+		  and the Cyclone 'rewrite' utility.
+*/
+
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+
+typedef struct tn {
+    struct tn?    left;
+    struct tn?    right;
+    long          item;
+} treeNode;
+
+
+treeNode@ NewTreeNode(treeNode* `H left, treeNode* `H right, long item)
+{
+    treeNode@ nw = (treeNode@)malloc(sizeof(treeNode));
+
+    nw->left = left;
+    nw->right = right;
+    nw->item = item;
+
+    return nw;
+} /* NewTreeNode() */
+
+
+long ItemCheck(treeNode@ tree)
+{
+    if (tree->left == NULL)
+        return tree->item;
+    else
+        return tree->item + ItemCheck(tree->left) - ItemCheck(tree->right);
+} /* ItemCheck() */
+
+
+treeNode@ BottomUpTree(long item, unsigned depth)
+{
+    if (depth > 0)
+        return NewTreeNode
+        (
+            BottomUpTree(2 * item - 1, depth - 1),
+            BottomUpTree(2 * item, depth - 1),
+            item
+        );
+    else
+        return NewTreeNode(NULL, NULL, item);
+} /* BottomUpTree() */
+
+
+void DeleteTree(treeNode@ tree)
+{
+    if (tree->left != NULL)
+    {
+        DeleteTree(tree->left);
+        DeleteTree(tree->right);
+    }
+
+    free(tree);
+} /* DeleteTree() */
+
+
+int main(int argc, char ??argv)
+{
+    unsigned   depth, maxDepth;
+    treeNode   *stretchTree, *longLivedTree, *tempTree;
+
+    unsigned N = atol(argv[1]);
+
+    unsigned minDepth = 4;
+
+    if ((minDepth + 2) > N)
+        maxDepth = minDepth + 2;
+    else
+        maxDepth = N;
+
+    unsigned stretchDepth = maxDepth + 1;
+
+    stretchTree = BottomUpTree(0, stretchDepth);
+    printf("stretch tree of depth %u\t check: %li\n",
+           stretchDepth,
+           ItemCheck(stretchTree));
+
+    DeleteTree(stretchTree);
+
+    longLivedTree = BottomUpTree(0, maxDepth);
+
+    for (unsigned depth = minDepth; depth <= maxDepth; depth += 2)
+    {
+        long    i, check;
+
+        long iterations = (long)pow(2, maxDepth - depth + minDepth);
+
+        check = 0;
+
+        for (i = 1; i <= iterations; i++)
+        {
+            tempTree = BottomUpTree(i, depth);
+            check += ItemCheck(tempTree);
+            DeleteTree(tempTree);
+
+            tempTree = BottomUpTree(-i, depth);
+            check += ItemCheck(tempTree);
+            DeleteTree(tempTree);
+        } /* for(i = 1...) */
+
+        printf("%li\t trees of depth %u\t check: %li\n",
+               iterations * 2,
+               depth,
+               check);
+    } /* for(depth = minDepth...) */
+
+    printf("long lived tree of depth %u\t check: %li\n",
+           maxDepth,
+           ItemCheck(longLivedTree));
+
+    return 0;
+} /* main() */
+/* The Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   contributed by Josh Goldfoot
+   use -lpthread in gcc's arguments
+*/
+
+#include <semaphore.h>
+#include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+datatype color { Blue, Red, Yellow, Faded };
+
+sem_t AtMostTwo;
+sem_t Mutex;
+sem_t SemPriv;
+
+int mpStatus = 1;
+color aColor, bColor;
+long meetingsLeft;
+long reports[4];
+
+color complementaryColor (color c1, color c2)
+{
+  if (c2 == Faded) return Faded;
+  if (c1 == c2) return c1;
+  switch (c1)
+    {
+    case Blue:
+      return c2 == Red ? Yellow : Red;
+    case Red:
+      return c2 == Blue ? Yellow : Blue;
+    case Yellow:
+      return c2 == Blue ? Red : Blue;
+    default:
+      return c1;
+    }
+}
+
+color Cooperation (int id, color c)
+{
+  color otherColor;
+
+  sem_wait (&AtMostTwo);
+  sem_wait (&Mutex);
+  switch (mpStatus)
+    {
+    case 1:
+      aColor = c;
+      mpStatus = 2;
+      sem_post (&Mutex);
+      sem_wait (&SemPriv);
+      otherColor = bColor;
+      sem_post (&Mutex);
+      sem_post (&AtMostTwo);
+      sem_post (&AtMostTwo);
+      break;
+    case 2:
+      mpStatus = (--meetingsLeft > 0 ? 1 : 3);
+      bColor = c;
+      otherColor = aColor;
+      sem_post (&SemPriv);
+      break;
+    case 3:
+    default:
+      otherColor = Faded;
+      sem_post (&Mutex);
+      sem_post (&AtMostTwo);
+    }
+  return otherColor;
+}
+
+void chameneosCode (void *args)
+{
+  int myId;
+  long meetings;
+  color myColor, otherColor;
+  sscanf ((char *) args, "%d %d", &myId, &myColor);
+  meetings = 0;
+  while (myColor != Faded)
+    {
+      otherColor = Cooperation (myId, myColor);
+      myColor = complementaryColor (myColor, otherColor);
+      meetings++;
+    }
+  reports[myId] = meetings - 1;
+}
+
+int main (int argc, char ??argv)
+{
+  color tabColor[4] = { Blue, Red, Yellow, Blue };
+  pthread_t tabPid[4];
+  char theArgs[32][4];
+  int i;
+
+  sem_init (&AtMostTwo, 0, 2);
+  sem_init (&Mutex, 0, 1);
+  sem_init (&SemPriv, 0, 0);
+
+  meetingsLeft = (argc > 1) ? atoi (argv[1]) : 1000000;
+
+  for (i = 0; i < 4; i++)
+    {
+      sprintf (theArgs[i], "%d %d", i, tabColor[i]);
+      pthread_create (&tabPid[i], NULL, (void *(*)(void *)) chameneosCode,
+		      theArgs[i]);
+    }
+  for (i = 0; i < 4; i++)
+    pthread_join (tabPid[i], NULL);
+
+  long sum = reports[0];
+  for (i = 1; i < 4; i++)
+    sum += reports[i];
+  printf ("%d\n", sum);
+
+  return 0;
+}
+/* -*- mode: c -*-
+ * echo.gcc
+ * http://www.bagley.org/~doug/shootout/
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <signal.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/wait.h>
+#include <netinet/in.h>
+
+//typedef int (@SOCKACTION_P)(int fd, const xtunion sockaddr addr);
+#define DATA "Hello there sailor\n"
+
+void myabort (const char ?`r m) { fprintf(stderr, "%s\n", m); exit(1); }
+void sysabort (string_t m) { perror(m); exit(1); }
+
+int sigchld = 0;
+void reaper (int sig) { sigchld = 1; }
+
+namespace Cfuns {
+#include <core.h>
+  extern "C" memset(`a::A @,char a,Core::sizeof_t<`a>);
+}
+
+int 
+genericSock(int port, int action<`r::R>(int, ... inject SA<`r>),
+            string_t actionExceptionText) {
+    int ss, optval = 1;
+    struct sockaddr_in sin;    
+    if ((ss = socket(PF_INET, SOCK_STREAM, 0)) == -1)
+      sysabort("socket");
+    if (setsockopt(ss, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) == -1)
+	sysabort("setsockopt");
+    Cfuns::memset(&sin,0,sizeof(sin));
+    sin.sin_family = AF_INET;
+    sin.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    sin.sin_port = port; 
+    if (action(ss, &sin, sizeof(sin)) == -1)
+	sysabort(actionExceptionText);
+
+    return(ss);
+}
+
+int
+server_sock () {
+    int ss = genericSock(0,bind<>,"server/bind");
+    return(listen(ss,2),ss);
+}
+
+int
+client_sock (int port) {
+    return(genericSock(port,connect<>,"client/connect"));
+}
+
+int
+get_port (int sock) {
+    struct sockaddr_in sin;
+    socklen_t slen = sizeof(sin);
+    if (getsockname(sock, &sin, &slen) == -1)
+	sysabort("server/getsockname");
+    return(sin.sin_port);
+}    
+
+void
+echo_client (int n, int port) {
+    int i, sock, olen, len, nwritten, nread;
+    char ? @nozeroterm offset;
+    char obuf[64], ibuf[64];
+    char ? @nozeroterm end = ibuf + sizeof(ibuf);
+
+    sock = client_sock(port);
+    memcpy(obuf, DATA, strlen(DATA));
+    olen = strlen(obuf);
+    for (i=0; i<n; i++) {
+	len = olen;
+	offset = obuf;
+	while (len > 0) {
+	    if ((nwritten = write(sock, offset, len)) == -1)
+		sysabort("client/write");
+	    offset += nwritten;
+	    len -= nwritten;
+	}
+	offset = ibuf;
+	while ((nread = read(sock, offset, (end - offset))) > 0) {
+	    offset += nread;
+	    if (*(offset-1) == '\n') break;
+	}
+	if (nread == -1)
+	    sysabort("client/read");
+	*offset = 0;
+	if ((strcmp(obuf, ibuf)) != 0) {
+	    char mbuf[128];
+	    sprintf(mbuf, "client: \"%s\" ne \"%s\"", obuf, ibuf);
+	    myabort(strdup(mbuf));
+	}
+    }
+    close(sock);
+}
+
+pid_t pid;
+
+void
+echo_server (int n) {
+    int ssock, csock, len, nwritten, total_bytes;
+    char buf[64];
+    char ? @nozeroterm offset;
+    struct sockaddr_in sin;
+    socklen_t slen = sizeof(sin);
+    int status;
+
+    ssock = server_sock();
+    signal(SIGCHLD, reaper);
+    if ((pid = fork()) == -1)
+	sysabort("server/fork");
+    if (pid) {
+	/* parent is server */
+	if ((csock = accept(ssock, &sin, &slen)) == -1)
+	    sysabort("server/accept");
+	total_bytes = 0;
+	while ((len = read(csock, buf, sizeof(buf))) > 0) {
+	    if (sigchld) myabort("server/sigchld");
+	    offset = buf;
+	    total_bytes += len;
+	    while (len > 0) {
+		if ((nwritten = write(csock, offset, len)) == -1)
+		    sysabort("server/write");
+		offset += nwritten;
+		len -= nwritten;
+	    }
+	}
+	if (len == -1)
+	    sysabort("server/read");
+	close(csock);
+	fprintf(stdout, "server processed %d bytes\n", total_bytes);
+    } else {
+	/* child is client */
+	echo_client(n, get_port(ssock));
+    }
+    wait(&status);
+}
+
+int
+main(int argc, char ??argv) {
+    int arg = (argc == 2) ? atoi(argv[1]) : 1;
+    echo_server(arg);
+    return(0);
+}
+/*
+ * The Computer Lannguage Shootout
+ * http://shootout.alioth.debian.org/
+ * Contributed by Heiner Marxen
+ *
+ * "fannkuch"	for C gcc
+ *
+ * $Id: fannkuch.cyc,v 1.1 2006-05-25 04:51:32 bfulgham Exp $
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+
+#define Int	int
+#define Aint	int
+
+    static long
+fannkuch( int n )
+{
+    long	flips;
+    long	flipsMax;
+    Int		r;
+    Int		i;
+    Int		k;
+    Int		didpr;
+    const Int	n1	= n - 1;
+
+    if( n < 1 ) return 0;
+
+    _ perm  = calloc(n, sizeof(Aint));
+    _ perm1 = calloc(n, sizeof(Aint));
+    _ count = calloc(n, sizeof(Aint));
+
+    for( i=0 ; i<n ; ++i ) perm1[i] = i;	/* initial (trivial) permu */
+
+    r = n; didpr = 0; flipsMax = 0;
+    for(;;) {
+	if( didpr < 30 ) {
+	    for( i=0 ; i<n ; ++i ) printf("%d", (int)(1+perm1[i]));
+	    printf("\n");
+	    ++didpr;
+	}
+	for( ; r!=1 ; --r ) {
+	    count[r-1] = r;
+	}
+
+#define XCH(x,y)	{ Aint t_mp; t_mp=(x); (x)=(y); (y)=t_mp; }
+
+	if( ! (perm1[0]==0 || perm1[n1]==n1) ) {
+	    flips = 0;
+	    for( i=1 ; i<n ; ++i ) {	/* perm = perm1 */
+		perm[i] = perm1[i];
+	    }
+	    k = perm1[0];		/* cache perm[0] in k */
+	    do {			/* k!=0 ==> k>0 */
+		Int	j;
+		for( i=1, j=k-1 ; i<j ; ++i, --j ) {
+		    XCH(perm[i], perm[j])
+		}
+		++flips;
+		/*
+		 * Now exchange k (caching perm[0]) and perm[k]... with care!
+		 * XCH(k, perm[k]) does NOT work!
+		 */
+		j=perm[k]; perm[k]=k ; k=j;
+	    }while( k );
+	    if( flipsMax < flips ) {
+		flipsMax = flips;
+	    }
+	}
+
+	for(;;) {
+	    if( r == n ) {
+		return flipsMax;
+	    }
+	    /* rotate down perm[0..r] by one */
+	    {
+		Int	perm0 = perm1[0];
+		i = 0;
+		while( i < r ) {
+		    k = i+1;
+		    perm1[i] = perm1[k];
+		    i = k;
+		}
+		perm1[r] = perm0;
+	    }
+	    if( (count[r] -= 1) > 0 ) {
+		break;
+	    }
+	    ++r;
+	}
+    }
+}
+
+int main( int argc, char ??argv )
+{
+    int	n = (argc>1) ? atoi(argv[1]) : 0;
+
+    printf("Pfannkuchen(%d) = %ld\n", n, fannkuch(n));
+    return 0;
+}
+/* -*- mode: c -*-
+ * $Id: fasta.cyc,v 1.2 2006-05-28 16:36:16 bfulgham Exp $
+ * http://shootout.alioth.debian.org/
+ *
+ * by Paul Hsieh, translated to Cyclone by
+ *    Brent Fulgham (with the help of the
+ *    Cyclone Rewrite utility).
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+
+extern "C" {
+    size_t strlen(const char* s);
+    void* memcpy(void* dest, const void* src, size_t n);
+}
+
+#define IM 139968
+#define IA   3877
+#define IC  29573
+
+double gen_random (double max) {
+    static long last = 42;
+    return max * (last = (last * IA + IC) % IM) / IM;
+}
+
+struct aminoacids {
+    char c;
+    double p;
+};
+
+/* Weighted selection from alphabet */
+
+void makeCumulative (struct aminoacids * genelist, int count) {
+    double cp = 0.0;
+    int i;
+
+    for (i=0; i < count; i++) {
+        cp += genelist[i].p;
+        genelist[i].p = cp;
+    }
+}
+
+char selectRandom (const struct aminoacids * genelist, int count) {
+    double r = gen_random (1);
+    int i, lo, hi;
+
+    if (r < genelist[0].p) return genelist[0].c;
+
+    lo = 0;
+    hi = count-1;
+
+    while (hi > lo+1) {
+        i = (hi + lo) / 2;
+        if (r < genelist[i].p) hi = i; else lo = i;
+    }
+    return genelist[hi].c;
+}
+
+/* Generate and write FASTA format */
+
+#define LINE_LENGTH (60)
+
+void makeRandomFasta (const char * id, const char * desc, const struct 
+aminoacids * genelist, int count, int n) {
+   int todo = n;
+   int i, m;
+
+   printf (">%s %s\n", id, desc);
+
+   for (; todo > 0; todo -= LINE_LENGTH) {
+       char pick[LINE_LENGTH+1];
+       if (todo < LINE_LENGTH) m = todo; else m = LINE_LENGTH;
+       for (i=0; i < m; i++) pick[i] = selectRandom (genelist, count);
+       pick[m] = '\0';
+       puts (pick);
+   }
+}
+
+void makeRepeatFasta (const char * id, const char * desc, const char * 
+s, int n) {
+   char * ss;
+   int todo = n, k = 0, kn = strlen (s);
+   int m;
+
+   ss = (char *) malloc (kn + 1);
+   memcpy (ss, s, kn+1);
+
+   printf (">%s %s\n", id, desc);
+
+   for (; todo > 0; todo -= LINE_LENGTH) {
+       if (todo < LINE_LENGTH) m = todo; else m = LINE_LENGTH;
+
+       while (m >= kn - k) {
+           printf ("%s", s+k);
+           m -= kn - k;
+           k = 0;
+       }
+
+       ss[k + m] = '\0';
+       puts (ss+k);
+       ss[k + m] = s[m+k];
+       k += m;
+   }
+
+   free (ss);
+}
+
+/* Main -- define alphabets, make 3 fragments */
+
+struct aminoacids iub[] = {
+    { 'a', 0.27 },
+    { 'c', 0.12 },
+    { 'g', 0.12 },
+    { 't', 0.27 },
+
+    { 'B', 0.02 },
+    { 'D', 0.02 },
+    { 'H', 0.02 },
+    { 'K', 0.02 },
+    { 'M', 0.02 },
+    { 'N', 0.02 },
+    { 'R', 0.02 },
+    { 'S', 0.02 },
+    { 'V', 0.02 },
+    { 'W', 0.02 },
+    { 'Y', 0.02 }
+};
+
+#define IUB_LEN (sizeof (iub) / sizeof (struct aminoacids))
+
+struct aminoacids homosapiens[] = {
+    { 'a', 0.3029549426680 },
+    { 'c', 0.1979883004921 },
+    { 'g', 0.1975473066391 },
+    { 't', 0.3015094502008 },
+};
+
+#define HOMOSAPIENS_LEN (sizeof (homosapiens) / sizeof (struct aminoacids))
+
+const char* alu =
+   "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG" \
+   "GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA" \
+   "CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT" \
+   "ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA" \
+   "GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG" \
+   "AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC" \
+   "AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA";
+
+int main (int argc, char?? argv) {
+    int n = 1000;
+
+    if (argc > 1) sscanf (argv[1], "%d", &n);
+
+    makeCumulative (iub, IUB_LEN);
+    makeCumulative (homosapiens, HOMOSAPIENS_LEN);
+
+    makeRepeatFasta ("ONE", "Homo sapiens alu", alu, n*2);
+    makeRandomFasta ("TWO", "IUB ambiguity codes", iub, IUB_LEN, n*3);
+    makeRandomFasta ("THREE", "Homo sapiens frequency", homosapiens, 
+HOMOSAPIENS_LEN, n*5);
+
+    return 0;
+}
+/*
+ * http://www.bagley.org/~doug/shootout/
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+
+unsigned long
+fib(unsigned long n) {
+    return( (n < 2) ? 1 : (fib(n-2) + fib(n-1)) );
+}
+
+int
+main(int argc, char ??argv) {
+    int N = ((argc == 2) ? atoi(argv[1]) : 1);
+    printf("%ld\n", fib(N));
+    return(0);
+}
+/*
+ * http://www.bagley.org/~doug/shootout/
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include "cyc-simple_hash_cyc.h"
+
+int main(int argc, char ??argv) {
+    int i, c=0, n = ((argc == 2) ? atoi(argv[1]) : 1);
+    char buf[32]@zeroterm = { for i < 31 : 0};
+    struct ht_ht @ht;
+    ht = ht_create(n);
+    
+    for (i=1; i<=n; i++) {
+	sprintf(buf, "%x", i);
+	(ht_find_new(ht, buf))->val = i;
+    }
+
+    for (i=n; i>0; i--) {
+	sprintf(buf, "%d", i);
+	if (ht_find(ht, buf)) c++;
+    }
+
+    ht_destroy(ht);
+
+    printf("%d\n", c);
+    return(0);
+}
+/*
+ * http://www.bagley.org/~doug/shootout/
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include "cyc-simple_hash_cyc.h"
+
+int main(int argc, char ??argv) {
+    int i, n = ((argc == 2) ? atoi(argv[1]) : 1);
+    char buf[32]@zeroterm = {for i < 31 : 0};
+    struct ht_ht @ht1, @ht2;
+    struct ht_node *node;
+
+    ht1 = ht_create(10000);
+    ht2 = ht_create(10000);
+
+    for (i=0; i<=9999; ++i) {
+	sprintf(buf, "foo_%d", i);
+	ht_find_new(ht1, buf)->val = i;
+    }
+
+    for (i=0; i<n; ++i) {
+	for (node=ht_first(ht1); node; node=ht_next(ht1)) {
+	    ht_find_new(ht2, node->key)->val += node->val;
+	}
+    }
+
+    printf("%d %d %d %d\n",
+	   (ht_find(ht1, "foo_1"))->val,
+	   (ht_find(ht1, "foo_9999"))->val,
+	   (ht_find(ht2, "foo_1"))->val,
+           (ht_find(ht2, "foo_9999"))->val);
+
+    ht_destroy(ht1);
+    ht_destroy(ht2);
+    return(0);
+}
+/*
+ * http://www.bagley.org/~doug/shootout/
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+
+#define IM 139968
+#define IA   3877
+#define IC  29573
+
+double
+gen_random(double max) {
+    static long last = 42;
+    return( max * (last = (last * IA + IC) % IM) / IM );
+}
+
+void
+do_heapsort(int n, double ?ra) {
+    int i, j;
+    int ir = n;
+    int l = (n >> 1) + 1;
+    double rra;
+    double @ra_one = &ra[1];
+
+    for (;;) {
+	if (l > 1) {
+	    rra = ra[--l];
+	} else {
+	    rra = ra[ir];
+	    ra[ir] = *ra_one;
+	    if (--ir == 1) {
+		*ra_one = rra;
+		return;
+	    }
+	}
+	i = l;
+	j = l << 1;
+	while (j <= ir) {
+	    if (j < ir && ra[j] < ra[j+1]) { ++j; }
+            double temp = ra[j];
+	    if (rra < temp) {
+		ra[i] = temp;
+		j += (i = j);
+	    } else {
+		j = ir + 1;
+	    }
+	}
+	ra[i] = rra;
+    }
+}
+
+int
+main(int argc, char ??argv) {
+    int N = ((argc == 2) ? atoi(argv[1]) : 1);
+    unsigned M = N+1;
+    double ?ary;
+    unsigned int i;
+    /* create an array of N random doubles */
+    ary = (double ?)malloc(M * sizeof(double));
+    for (i=1; i < M; i++) {
+        ary[i] = gen_random(1);
+    }
+
+    do_heapsort(N, ary);
+
+    printf("%.10f\n", ary[N]);
+
+    free(ary);
+    return(0);
+}
+
+/* -*- mode: c -*-
+ * $Id: hello.cyc,v 1.1 2006-05-17 04:30:40 bfulgham Exp $
+ * http://shootout.alioth.debian.org/
+ */
+
+#include <stdio.h>
+
+int main()
+{
+    printf("hello world\n");
+    return 0;
+}
+/*
+ * http://shootout.alioth.debian.org/
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+#define SIZE 10000
+
+// a simple Double Linked List
+// the head node is special, it's val is length of list
+typedef struct DLLs<`r::R> {
+    int val;
+    struct DLLs<`r> *`r next;	/* points to next or head (if at tail) */
+    struct DLLs<`r> *`r prev;	/* points to prev or tail (if at head) */
+} DLL<`r>;
+
+inline int list_length(DLL @head) { return(head->val); }
+inline int list_empty(DLL @head) { return(list_length(head) == 0); }
+inline DLL<`r> *`r list_first(DLL<`r> @ head) { return(head->next); }
+inline DLL<`r> *`r list_last(DLL<`r> @ head) { return(head->prev); }
+
+void list_push_tail(DLL<`r> @`r head, DLL<`r> @`r item) {
+    DLL *tail = head->prev;
+    tail->next = item;
+    item->next = head;
+    head->prev = item;
+    item->prev = tail;
+    head->val++;
+}
+
+DLL<`r> *`r list_pop_tail(DLL<`r> @`r head) {
+    DLL *prev, *tail;
+    if (list_empty(head)) return(NULL);
+    tail = head->prev;
+    prev = tail->prev;
+    prev->next = head;
+    head->prev = prev;
+    head->val--;
+    return(tail);
+}
+
+void list_push_head(DLL<`r> @`r head, DLL<`r> @`r item) {
+    DLL *next = head->next;
+    head->next = item;
+    next->prev = item;
+    item->next = next;
+    item->prev = head;
+    head->val++;
+}
+
+DLL<`r> *`r list_pop_head(DLL<`r> @`r head) {
+    DLL *next;
+    if (list_empty(head)) return(NULL);
+    next = head->next;
+    head->next = next->next;
+    next->next->prev = head;
+    head->val--;
+    return(next);
+}
+
+int list_equal(DLL<`r> @`r x, DLL<`r2> @`r2 y) {
+    DLL<`r> *`r xp; DLL<`r2> *`r2 yp;
+    // first val's checked will be list lengths
+    for (xp=x, yp=y; xp->next != x; xp=xp->next, yp=yp->next) {
+	if (xp->val != yp->val) return(0);
+    }
+    if (xp->val != yp->val) return(0);
+    return(yp->next == y);
+}
+
+void list_print(char ?msg, DLL @x) {
+    DLL *xp, *first = x->next;
+    int i = 0;
+    fputs(msg, stdout);
+    printf("length: %d\n", list_length(x));
+    for (xp=x->next; xp->next != first; xp=xp->next) {
+	printf("i:%3d  v:%3d  n:%3d  p:%3d\n", ++i,
+	       xp->val, xp->next->val, xp->prev->val);
+    }
+    printf("[last entry points to list head]\n");
+    printf("[val of next of tail is:  %d]\n", xp->next->val);
+}
+
+DLL @list_new() {
+    DLL *l = (DLL *)malloc(sizeof(DLL));
+    l->next = l;
+    l->prev = l;
+    l->val = 0;
+    return(l);
+}
+
+/* inclusive sequence 'from' <-> 'to' */
+DLL @list_sequence(int from, int to) {
+    int size, tmp, i, j;
+    DLL ?l;
+    if (from > to) {
+	tmp = from; from = to; to = tmp;
+    }
+    size = to - from + 1;
+    l = (DLL ?)malloc((size+1) * sizeof(DLL));
+    from--;
+    for (i=0, j=1; i<size; ++i, ++j) {
+	l[i].next = &l[i+1];
+	l[j].prev = &l[j-1];
+	l[i].val = from++;
+    }
+    l[0].prev = &l[size];
+    l[size].next = &l[0];
+    l[size].prev = &l[size-1];
+    l[size].val = from;
+    l[0].val = size;
+    return(l);
+}
+
+DLL @list_copy(DLL<`r> @`r x) {
+    int i, j, size = list_length(x);
+    DLL *xp, ?l = (DLL ?)malloc((size+1) * sizeof(DLL));
+    for (i=0, j=1, xp=x; i<size; i++, j++, xp=xp->next) {
+	l[i].next = &l[j];
+	l[j].prev = &l[i];
+	l[i].val = xp->val;
+    }
+    l[0].prev = &l[size];
+    l[size].next = &l[0];
+    l[size].val = list_last(x)->val;
+    return(l);
+}
+
+void list_reverse (DLL<`r> @`r head) {
+    DLL *tmp, *p = head;
+    do {
+	tmp = p->next;
+	p->next = p->prev;
+	p->prev = tmp;
+	p = tmp;
+    } while (p != head);
+}
+
+int test_lists() {
+    int len = 0;
+    // create a list of integers (li1) from 1 to SIZE
+    DLL @li1 = list_sequence(1, SIZE);
+    // copy the list to li2
+    DLL @li2 = list_copy(li1);
+    // remove each individual item from left side of li2 and
+    // append to right side of li3 (preserving order)
+    DLL @li3 = list_new();
+    // compare li2 and li1 for equality
+    if (!list_equal(li2, li1)) {
+	fprintf(stderr, "li2 and li1 are not equal\n");
+	exit(1);
+    }
+    while (!list_empty(li2)) {
+	list_push_tail(li3, list_pop_head(li2));
+    }
+    // li2 must now be empty
+    if (!list_empty(li2)) {
+	fprintf(stderr, "li2 should be empty now\n");
+	exit(1);
+    }
+    // remove each individual item from right side of li3 and
+    // append to right side of li2 (reversing list)
+    while (!list_empty(li3)) {
+	list_push_tail(li2, list_pop_tail(li3));
+    }
+    // li3 must now be empty
+    if (!list_empty(li3)) {
+	fprintf(stderr, "li3 should be empty now\n");
+	exit(1);
+    }
+    // reverse li1 in place
+    list_reverse(li1);
+    // check that li1's first item is now SIZE
+    if (list_first(li1)->val != SIZE) {
+	fprintf(stderr, "li1 first value wrong, wanted %d, got %d\n",
+		SIZE, list_first(li1)->val);
+	exit(1);
+    }
+    // check that li1's last item is now 1
+    if (list_last(li1)->val != 1) {
+	fprintf(stderr, "last value wrong, wanted %d, got %d\n",
+		SIZE, list_last(li1)->val);
+	exit(1);
+    }
+    // check that li2's first item is now SIZE
+    if (list_first(li2)->val != SIZE) {
+	fprintf(stderr, "li2 first value wrong, wanted %d, got %d\n",
+		SIZE, list_first(li2)->val);
+	exit(1);
+    }
+    // check that li2's last item is now 1
+    if (list_last(li2)->val != 1) {
+	fprintf(stderr, "last value wrong, wanted %d, got %d\n",
+		SIZE, list_last(li2)->val);
+	exit(1);
+    }
+    // check that li1's length is still SIZE
+    if (list_length(li1) != SIZE) {
+	fprintf(stderr, "li1 size wrong, wanted %d, got %d\n",
+		SIZE, list_length(li1));
+	exit(1);
+    }
+    // compare li1 and li2 for equality
+    if (!list_equal(li1, li2)) {
+	fprintf(stderr, "li1 and li2 are not equal\n");
+	exit(1);
+    }
+    len = list_length(li1);
+    free(li1);
+    free(li2);
+    free(li3);
+    // return the length of the list
+    return(len);
+}
+
+int main(int argc, char ?argv[]) {
+    int n = ((argc == 2) ? atoi(argv[1]) : 1);
+    int result = 0;
+    while(n--) result = test_lists();
+    printf("%d\n", result);
+    return 0;
+}
+/* The Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   contributed by Greg Buchholz
+   converted to Cyclone by Brent Fulgham (with help from the
+                Cyclone Rewrite program.)
+   
+*/
+
+#include<stdio.h>
+
+extern "C" {
+    int atoi(const char* nptr);
+}
+
+int main (int argc, char ??argv)
+{
+    int w, h, bit_num = 0;
+    char byte_acc = 0;
+    int i, iter = 50;
+    double x, y, limit = 2.0;
+    double Zr, Zi, Cr, Ci, Tr, Ti;
+    
+    w = h = atoi(argv[1]);
+
+    printf("P4\n%d %d\n",w,h);
+
+    for(y=0;y<h;++y) 
+    {
+        for(x=0;x<w;++x)
+        {
+            Zr = Zi = Tr = Ti = 0.0;
+            Cr = (2.0*x/w - 1.5); Ci=(2.0*y/h - 1.0);
+        
+            for (i=0;i<iter && (Tr+Ti <= limit*limit);++i)
+            {
+                Zi = 2.0*Zr*Zi + Ci;
+                Zr = Tr - Ti + Cr;
+                Tr = Zr * Zr;
+                Ti = Zi * Zi;
+            }
+       
+            byte_acc <<= 1; 
+            if(Tr+Ti <= limit*limit) byte_acc |= 0x01;
+                
+            ++bit_num; 
+
+            if(bit_num == 8)
+            {
+                putc(byte_acc,stdout);
+                byte_acc = 0;
+                bit_num = 0;
+            }
+            else if(x == w-1)
+            {
+                byte_acc <<= (8-w%8);
+                putc(byte_acc,stdout);
+                byte_acc = 0;
+                bit_num = 0;
+            }
+        }
+    }	
+}
+
+/*
+ * http://shootout.alioth.debian.org/
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+#define SIZE 30
+
+int @{valueof(`cols)}`r @{valueof(`rows)}`r mkmatrix(region_t r,
+                                                     tag_t<`rows> rows, 
+                                                     tag_t<`cols> cols) {
+    int count = 1;
+    int @{valueof(`cols)}@{valueof(`rows)} m = 
+        rnew(r) {for i < rows : rnew(r) {for j < cols : count++}};
+    return(m);
+}
+
+void zeromatrix(tag_t rows, tag_t cols, int @{cols}@{rows} m) {
+    unsigned int i, j;
+    for (i=0; i<rows; i++) {
+        let v = m[i];
+	for (j=0; j<cols; j++) 
+	    v[j] = 0;
+    }
+}
+
+void mmult(tag_t rows,
+           tag_t cols,
+           int @{cols}@{rows} m1,
+           int @{cols}@{cols} m2,
+           int @{cols}@{rows} m3) {
+  unsigned int i, j, k;
+  int val;
+  for (i=0; i<rows; i++) {
+    for (j=0; j<cols; j++) {
+      val = 0;
+      let v1 = m1[i];
+      let v3 = m3[i];
+      for (k=0; @assert(j<cols) && k<cols; k++) {
+        let v2 = m2[k];
+        val += v1[k] * v2[j];
+      }
+      v3[j] = val;
+    }
+  }
+  return;
+}
+
+int main(int argc, char ?argv[]) {
+    int i, n = ((argc == 2) ? atoi(argv[1]) : 1);
+    region r; {
+      int @{SIZE}@{SIZE} m1;
+      int @{SIZE}@{SIZE} m2;
+      int @{SIZE}@{SIZE} mm;
+      m1 = mkmatrix(r, SIZE, SIZE);
+      m2 = mkmatrix(r, SIZE, SIZE);
+      mm = mkmatrix(r, SIZE, SIZE);
+
+      for (i=0; i<n; i++) {
+	mmult(SIZE, SIZE, m1, m2, mm);
+      }
+      printf("%d %d %d %d\n", mm[0][0], mm[2][3], mm[3][2], mm[4][4]);
+    }
+    return(0);
+}
+
+
+/* -*- mode: c -*-
+ * $Id: moments.cyc,v 1.1 2006-05-17 04:30:41 bfulgham Exp $
+ * http://shootout.alioth.debian.org/
+ * from Waldek Hebisch
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+
+double ? doublerealloc(double ?buf, unsigned sz) {
+  double ? res = new { for i < sz : double };
+  unsigned i = numelts(buf);
+  for (unsigned j = 0; j < i; j++)
+    res[j] = buf[j];
+  return res;
+}
+
+#define MAXLINELEN 128
+
+/* kmedian permutes elements of a to get
+   a[i]<=a[k] for i<k
+   a[i]>=a[k] for i>k
+	See. N. Wirth, Algorithms+data structures = Programs
+*/
+
+void kmedian(double ? a, int n, int k) 
+{
+	while (1){
+		int j=random()%n; 
+		double b = a[j];
+		int i=0;
+        	j = n-1;
+        	while(1) {
+        	    while( a[i]<b ) i++;
+        	    while( a[j]>b ) j--;
+        	    if(i<j) {
+                	double tmp=a[i];
+                	a[i]=a[j];
+                	a[j]=tmp;
+                	i++;
+                	j--;
+       		    } else {
+                	if(a[j]<b) j++;
+                	if(a[i]>b) i--;
+			break;
+        	    }
+        	}
+		if(i<k) {
+			k-=i+1;
+			n-=i+1;
+			a+=i+1;
+		} else if (j>k) { 
+			n=j;
+		} else return;
+	}
+}
+
+double max(double ?a, int n)
+{
+	int j;
+	double temp=a[0];
+	for(j=1;j<n;j++) { 
+		if(a[j]>temp) {
+			temp=a[j];
+		}
+	}
+	return temp;
+}
+
+
+int
+main() {
+    char line[MAXLINELEN+1] @zeroterm;
+    int i, n = 0, mid = 0;
+    double sum = 0.0;
+    double mean = 0.0;
+    double average_deviation = 0.0;
+    double standard_deviation = 0.0;
+    double variance = 0.0;
+    double skew = 0.0;
+    double kurtosis = 0.0;
+    double median = 0.0;
+    double deviation = 0.0;
+    int array_size = 4096;
+
+    double ?nums = malloc(array_size * sizeof(double));
+
+    while (fgets(line, MAXLINELEN, stdin)) {
+	sum += (nums[n++] = atof(line));
+	if (n == array_size) {
+	    array_size *= 2;
+	    nums = doublerealloc(nums, array_size);
+	}
+    }
+    mean = sum/n;
+    for (i=0; i<n; i++) {
+	double dev = nums[i] - mean;
+	double dev2=dev*dev;
+	double dev3=dev2*dev;
+	double dev4=dev3*dev;
+	average_deviation += fabs(dev);
+	variance += dev2 /*pow(deviation,2)*/;
+	skew += dev3 /* pow(deviation,3) */;
+	kurtosis += dev4 /* pow(deviation,4) */;
+    }
+    average_deviation /= n;
+    variance /= (n - 1);
+    standard_deviation = sqrt(variance);
+    if ((int)variance) {
+	skew /= (n * variance * standard_deviation);
+	kurtosis = (kurtosis/(n * variance * variance)) - 3.0;
+    }
+    mid = (n/2);
+    kmedian(nums, n, mid); 
+    median = n % 2 ? nums[mid] : (nums[mid] + max(nums,mid))/2;
+    free(nums);
+    printf("n:                  %d\n", n);
+    printf("median:             %f\n", median);
+    printf("mean:               %f\n", mean);
+    printf("average_deviation:  %f\n", average_deviation);
+    printf("standard_deviation: %f\n", standard_deviation);
+    printf("variance:           %f\n", variance);
+    printf("skew:               %f\n", skew);
+    printf("kurtosis:           %f\n", kurtosis);
+
+    return(0);
+}
+/*
+ * http://shootout.alioth.debian.org/
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+int
+main(int argc, char ??argv) {
+    int n = ((argc == 2) ? atoi(argv[1]) : 1);
+    int a, b, c, d, e, f, x=0;
+    for (a=0; a<n; a++)
+	for (b=0; b<n; b++)
+	    for (c=0; c<n; c++)
+		for (d=0; d<n; d++)
+		    for (e=0; e<n; e++)
+			for (f=0; f<n; f++)
+			    x++;
+
+    printf("%d\n", x);
+    return(0);
+}
+// The Computer Language Shootout
+// http://shootout.alioth.debian.org/
+// Precedent C entry modified by bearophile for speed and size, 31 Jan 2006
+// Compile with:  -O3 -s -std=c99 -fomit-frame-pointer
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+typedef unsigned char boolean;
+
+static void nsieve(int m) {
+    unsigned int count = 0, i, j;
+    boolean ?flags = (boolean?) malloc(m * sizeof(boolean));
+    memset(flags, 1, m);
+
+    for (i = 2; i < m; ++i)
+        if (flags[i]) {
+            ++count;
+            for (j = i << 1; j < m; j += i)
+                if (flags[j]) flags[j] = 0;
+    }
+
+    free(flags);
+    printf("Primes up to %8u %8u\n", m, count);
+}
+
+int main(int argc, char ??argv) {
+    int m = atoi(argv[1]);
+    for (int i = 0; i < 3; i++)
+        nsieve(10000 << (m-i));
+    return 0;
+}
+/*
+ * The Great Computer Language Shootout
+ * http://shootout.alioth.debian.org/ 
+ *
+ * Written by Dima Dorfman, 2004
+ * Compile: gcc -std=c99 -O2 -o nsieve_bits_gcc nsieve_bits.c
+ */
+
+#include <limits.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <string.h>
+
+typedef uint_fast8_t bits;
+#define	NBITS	(CHAR_BIT * sizeof(bits))
+
+static uintmax_t
+nsieve(uintmax_t m)
+{
+	uintmax_t count, i, j;
+	bits a[m / NBITS];
+
+	memset(a, (1 << CHAR_BIT) - 1, sizeof(a));
+	count = 0;
+	for (i = 2; i < m; ++i)
+		if (a[i / NBITS] & (1 << i % NBITS)) {
+			for (j = i + i; j < m; j += i)
+				a[j / NBITS] &= ~(1 << j % NBITS);
+			++count;
+		}
+	return (count);
+}
+
+static void test(unsigned long n)
+{
+	uintmax_t count, m;
+
+	m = (1 << n) * 10000;
+	count = nsieve(m);
+	printf("Primes up to %8ju %8ju\n", m, count);
+}
+
+int main(int ac, char ??av)
+{
+	char *cp;
+
+	if (ac < 2) {
+usage:		fprintf(stderr, "usage: nsieve N\n");
+		exit(2);
+	}
+	unsigned long n = strtoul(av[1], &cp, 10);
+	if (*av[1] == '\0' || *cp != '\0' || n == ULONG_MAX)
+		goto usage;
+	test(n);
+	if (n >= 1)
+		test(n - 1);
+	if (n >= 2)
+		test(n - 2);
+	exit(0);
+}
+/*
+** The Great Computer Language Shootout
+** http://shootout.alioth.debian.org/
+** contributed by Mike Pall
+**
+** compile with:
+**   gcc -O3 -fomit-frame-pointer -ffast-math -o partialsums partialsums.c -lm
+**   Adding -march=<yourcpu> may help, too.
+**   On a P4/K8 or later try adding: --march=<yourcpu> -mfpmath=sse -msse2 
+*/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+
+int main(int argc, char ??argv)
+{
+  int k, n = atoi(argv[1]);
+  double sum;
+
+/*
+** Yes, I tried using a double as a primary or secondary loop variable.
+** But the x86 ABI requires a cleared x87 FPU stack before every call
+** (e.g. to sin()) which nullifies any performance gains.
+**
+** Combining all loops does not pay off because the x87 FPU has to shuffle
+** stack slots and/or runs out of registers. This may not be entirely true
+** for SSE2 with fully inlined FPU code (-ffast-math required). Dito for
+** other CPUs with a register-based FPU and a sane FP ABI.
+**
+** Auto vectorization may be a bit easier with separate loops, too.
+*/
+#define kd ((double)k)
+
+  sum = 0.0;
+  for (k = 0; k <= n; k++) {  /* pow(2.0/3.0, kd) inlined */
+    double x = 1.0, q = 2.0/3.0;
+    int j = k;
+    for (;;) { if (j & 1) x *= q; if ((j >>= 1) == 0) break; q = q*q; }
+    sum += x;
+  }
+  printf("%.9f\t(2/3)^k\n", sum);
+
+  sum = 0.0;
+  for (k = 1 ; k <= n; k++) sum += 1/sqrt(kd);  /* aka pow(kd, -0.5) */
+  printf("%.9f\tk^-0.5\n", sum);
+
+  sum = 0.0;
+  for (k = 1; k <= n; k++) sum += 1.0/(kd*(kd+1.0));
+  printf("%.9f\t1/k(k+1)\n", sum);
+
+  sum = 0.0;
+  for (k = 1; k <= n; k++) {
+    double sk = sin(kd);
+    sum += 1.0/(kd*kd*kd*sk*sk);
+  }
+  printf("%.9f\tFlint Hills\n", sum);
+
+  sum = 0.0;
+  for (k = 1; k <= n; k++) {
+    double ck = cos(kd);
+    sum += 1.0/((kd*kd)*kd*ck*ck);
+  }
+  printf("%.9f\tCookson Hills\n", sum);
+
+  sum = 0.0;
+  for (k = 1; k <= n; k++) sum += 1.0/kd;
+  printf("%.9f\tHarmonic\n", sum);
+
+  sum = 0.0;
+  for (k = 1; k <= n; k++) sum += 1.0/(kd*kd);
+  printf("%.9f\tRiemann Zeta\n", sum);
+
+  sum = 0.0;
+  for (k = 1; k <= n-1; k += 2) sum += 1.0/kd;
+  for (k = 2; k <= n; k += 2) sum -= 1.0/kd;
+  printf("%.9f\tAlternating Harmonic\n", sum);
+
+  sum = 0.0;
+  for (k = 1; k <= 2*n-1; k += 4) sum += 1.0/kd;
+  for (k = 3; k <= 2*n; k += 4) sum -= 1.0/kd;
+  printf("%.9f\tGregory\n", sum);
+
+  return 0;
+}
+/* -*- mode: c -*-
+ * prodcons.gcc
+ * http://shootout.alioth.debian.org/
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <signal.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <pthread.h>
+
+pthread_mutex_t mutex;
+pthread_cond_t control;
+int producer(int *arg);
+int consumer(int *arg);
+int count, data, consumed, produced;
+int n;
+
+int
+main(int argc, char ??argv) {
+    n = ((argc == 2) ? atoi(argv[1]) : 1);
+    pthread_t t1, t2;
+
+    count = data = consumed = produced = 0;
+
+    if (pthread_mutex_init(&mutex, NULL)) {
+	perror("pthread_mutex_init");
+	exit(1);
+    }
+    if (pthread_cond_init(&control, NULL)) {
+	perror("pthread_cond_init");
+	exit(1);
+    }
+    if (pthread_create(&t1, (pthread_attr_t *)NULL,
+		       producer, &n)) {
+	perror("pthread_create");
+	exit(1);
+    }
+    if (pthread_create(&t2, (pthread_attr_t *)NULL,
+		       consumer, &n)) {
+	perror("pthread_create");
+	exit(1);
+    }
+  
+    pthread_join(t1, NULL);
+    pthread_join(t2, NULL);
+    fprintf(stdout, "%d %d\n", produced, consumed);
+
+    return(0);
+}
+
+
+int producer(int *arg) {
+    int i, n = *arg;
+    for (i=1; i<=n; i++) {
+	pthread_mutex_lock(&mutex);
+	while (count == 1) {
+	    pthread_cond_wait(&control, &mutex);
+	}
+	data = i;
+	count = 1;
+	pthread_cond_signal(&control);
+	pthread_mutex_unlock(&mutex);
+	produced++;
+    }
+    return 0;
+}
+ 
+
+int consumer(int *arg) {
+    int i = 0, n = *arg;
+    while (1) {
+	pthread_mutex_lock(&mutex);
+	while (count == 0) {
+	    pthread_cond_wait(&control, &mutex);
+	}
+	i = data;
+	count = 0;
+	pthread_cond_signal(&control);
+	pthread_mutex_unlock(&mutex);
+	consumed++;
+	if (i == n) return 0;
+    }
+}
+
+/*
+ * http://www.bagley.org/~doug/shootout/
+ */
+
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+#define IM 139968
+#define IA 3877
+#define IC 29573
+
+inline double gen_random(double max) {
+    static long last = 42;
+    
+    last = (last * IA + IC) % IM;
+    return( max * last / IM );
+}
+
+int main(int argc, char ??argv) {
+    int N = ((argc == 2) ? atoi(argv[1]) : 1);
+    while (N--) {
+	gen_random(100.0);
+    }
+    printf("%.9f\n", gen_random(100.0));
+    return(0);
+}
+// The Computer Language Shootout
+// http://shootout.alioth.debian.org/
+// recursive test, by bearophile, Jan 24 2006
+// Compile with: -O3 -s -fomit-frame-pointer -funroll-loops
+
+#include <stdio.h>
+
+extern "C" int atoi(const char* nptr);
+
+int Ack(int x, int y) {
+    if (x == 0)
+        return y+1;
+    if (y == 0)
+        return Ack(x-1, 1);
+    return Ack(x-1, Ack(x, y-1));
+}
+
+int Fib(int n) {
+    if (n < 2)
+        return 1;
+    return Fib(n-2) + Fib(n-1);
+}
+
+double FibFP(double n) {
+    if (n < 2.0)
+        return 1.0;
+    return FibFP(n-2.0) + FibFP(n-1.0);
+}
+
+int Tak(int x, int y, int z) {
+    if (y < x)
+        return Tak( Tak(x-1, y, z), Tak(y-1, z, x), Tak(z-1, x, y) );
+    return z;
+}
+
+double TakFP(double x, double y, double z) {
+    if (y < x)
+        return TakFP( TakFP(x-1.0, y, z), TakFP(y-1.0, z, x), TakFP(z-1.0, x, y) );
+    return z;
+}
+
+int main(int argc, char ??argv) {
+    int n = atoi(argv[1]) - 1;
+    printf("Ack(3,%d): %d\n", n+1, Ack(3, n+1));
+    printf("Fib(%.1f): %.1f\n", 28.0+n, FibFP(28.0+n));
+    printf("Tak(%d,%d,%d): %d\n", 3*n, 2*n, n, Tak(3*n, 2*n, n));
+    printf("Fib(3): %d\n", Fib(3));
+    printf("Tak(3.0,2.0,1.0): %.1f\n", TakFP(3.0, 2.0, 1.0));
+    return 0;
+}
+/* -*- mode: c -*-
+ * regexmatch.cyc
+ * http://shootout.alioth.debian.org/
+ */
+
+#include <core.h>   /* these includes ensure we get Cyclone's libraries */
+#include <stdio.h>  /* outside of the extern "C include".               */
+#include <string.h>
+#include <stdlib.h>
+#include <assert.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <string.h>
+#include <assert.h>
+
+/* Put the unsafe C interface in a separate namespace. */
+namespace UnsafePcre {
+extern "C include" {  /* tell Cyclone that <pcre.h> is C code */
+#if defined(__CYGWIN__)
+#include <pcre.h>     /* include the pcre C interface */
+#else
+#include "/usr/include/pcre.h"
+#endif
+  extern void *GC_malloc(int);
+  extern void Cyc_Core_ufree(void *);
+  void pcre_init() {
+    pcre_malloc = GC_malloc;
+    pcre_free= Cyc_Core_ufree;
+  }
+} cyclone_override {
+  pcre *`U pcre_compile(const char @pattern, int options,
+			const char *`H *errptr, int *erroffset,
+			const unsigned char *tableptr);
+  int pcre_exec(const pcre @code, const pcre_extra *extra, 
+                const char *subject, int length,
+		int startoffset, int options,
+		int *ovector, int ovecsize);
+  pcre_extra *pcre_study(const pcre @code, int options, const char *`H *errptr);
+  int pcre_fullinfo(const pcre @code, const pcre_extra *extra, int what,
+		    void *where);
+} export { pcre_compile, pcre_study, pcre_fullinfo, pcre_exec, pcre_init, pcre_malloc, pcre_free; }
+}
+
+void dummy_prevent_treeshake(int *\U `H a) __attribute((consume(1))) {
+  Core::ufree(a);
+  UnsafePcre::pcre_malloc = 0;
+  UnsafePcre::pcre_free = 0;
+}
+
+/* Make a nice wrapper for the unsafe C code */
+namespace Pcre {
+  typedef UnsafePcre::pcre pcre;
+  typedef UnsafePcre::pcre_extra pcre_extra;
+
+  /* wrapper for pcre_compile -- doesn't do much */
+  pcre *`U pcre_compile(const char ?pattern, int options, 
+			const char *`H *errptr, int *erroffset,
+			unsigned char ?tableptr) {
+    return UnsafePcre::pcre_compile(pattern, options, errptr, erroffset,
+                                    tableptr);
+  }
+
+  /* wrapper for pcre_exec -- checks that sizes and offsets are in bounds */
+  int pcre_exec(const pcre @code, const pcre_extra *extra, 
+                const char ?subject, int length, int startoffset,
+                int options, int ?ovector, int ovecsize) {
+    assert(length >= 0 && numelts(subject) >= length);
+    assert(startoffset == 0 || (startoffset > 0 && startoffset < length));
+    assert(ovecsize >= 0 && numelts(ovector) >= ovecsize);
+    return UnsafePcre::pcre_exec(code, extra, subject, length, startoffset,
+                                 options, ovector, ovecsize);
+  }
+
+  pcre_extra *pcre_study(const pcre @code, int options, const char*`H *errptr) {
+    return UnsafePcre::pcre_study(code,options,errptr);
+  }
+
+  /* FIX: hack for now; should be a variant */
+  int pcre_fullinfo(const pcre @code, const pcre_extra *extra, int what, int @where) {
+    return UnsafePcre::pcre_fullinfo(code,extra,what,where);
+  }
+}
+
+/* Open up the safe Pcre namespace for the client */
+using Pcre;
+void *(*pcre_malloc)(size_t);  
+void (*pcre_free)(void *);
+
+#define MAXLINES   100
+#define MAXLINELEN 132
+
+const char @pattern = 
+"(?:^|[^\\d\\(])"		/* must be preceeded by non-digit */
+"(\\()?"			/* match 1: possible initial left paren */
+"(\\d\\d\\d)"			/* match 2: area code is 3 digits */
+"(?(1)\\))"			/* if match1 then match right paren */
+"[ ]"				/* area code followed by one space */
+"(\\d\\d\\d)"			/* match 3: prefix of 3 digits */
+"[ -]"				/* separator is either space or dash */
+"(\\d\\d\\d\\d)"		/* match 4: last 4 digits */
+"\\D"				/* must be followed by a non-digit */
+;
+
+
+int
+main(int argc, char ??argv) {
+    int NUM = ((argc == 2) ? atoi(argv[1]) : 1);
+    int count;
+    char ? @nozeroterm cptr = NULL;
+    char ??phones;
+    const pcre *re;
+    int erroffset;
+    const char *errptr = NULL;
+    int n, lines = 0;
+    char num[256];
+    int i, j, k, matchlen;
+    char *matchoffset;
+    int nmatches;
+    int ?ovec, ovecsize;
+    pcre_extra *study;
+
+    UnsafePcre::pcre_init();
+    phones = malloc(MAXLINES * sizeof(char ?));
+    if (!phones) {
+	fprintf(stderr, "malloc for phones array failed\n");
+	exit(1);
+    }
+    lines = 0;
+    do {
+	phones[lines] = malloc(MAXLINELEN+1);
+	if (!phones[lines]) {
+	    fprintf(stderr, "malloc to hold line #%d failed\n", lines);
+	    exit(1);
+	}
+	cptr = fgets(phones[lines], MAXLINELEN, stdin);
+	lines++;
+	if (lines > MAXLINES) {
+	    fprintf(stderr, "MAXLINES is too small\n");
+	    exit(1);
+	}
+    } while (cptr);
+
+    re = pcre_compile(pattern, 0, &errptr, &erroffset, NULL);
+    if (!re) {
+	fprintf(stderr, "can't open compile regexp\n");
+	exit(1);
+    }
+
+    study = pcre_study((const pcre @)re, 0, &errptr);
+
+    if (pcre_fullinfo((const pcre @)re, NULL, PCRE_INFO_CAPTURECOUNT, &nmatches) != 0) {
+	fprintf(stderr, "pcre_fullinfo failed\n");
+	exit(1);
+    }
+    nmatches++;			/* add match of entire pattern */
+
+    ovecsize = nmatches * 3;
+    ovec = malloc(sizeof(int) * ovecsize);
+    if (!ovec) {
+	fprintf(stderr, "malloc for ovec array failed\n");
+	exit(1);
+    }
+
+    count = 0;
+    while (NUM--) {
+	for (i=0; i<lines; i++) {
+	    n = pcre_exec((const pcre @)re, study,
+			  phones[i], strlen(phones[i]), 0,
+			  0, ovec, ovecsize);
+	    if (n == nmatches) {
+		/* stuff the match into the buffer "num" */
+		k = 2*2;	/* initial offset into ovec */
+		/* areacode */
+		j = 0;
+		num[j++] = '(';
+		matchoffset = phones[i] + ovec[k];
+		matchlen = ovec[k+1] - ovec[k];
+		strncpy(num+j, matchoffset, matchlen);
+		j += matchlen; k += 2;
+		num[j++] = ')';
+		/* space separator */
+		num[j++] = ' ';
+		/* exchange */
+		matchoffset = phones[i] + ovec[k];
+		matchlen = ovec[k+1] - ovec[k];
+		strncpy(num+j, matchoffset, matchlen);
+		j += matchlen; k += 2;
+		/* dash */
+		num[j++] = '-';
+		/* last 4 digits */
+		matchoffset = phones[i] + ovec[k];
+		matchlen = ovec[k+1] - ovec[k];
+		strncpy(num+j, matchoffset, matchlen);
+		j += matchlen; k += 2;
+		/* with a cherry on top */
+		num[j] = 0;
+		if (0 == NUM) {
+		    count++;
+		    printf("%d: %s\n", count, num);
+		}
+	    }
+	}
+    }
+
+    for (i=0; i<MAXLINES; i++) {
+	free(phones[i]);
+    }
+    free(phones);
+    free(ovec);
+
+    return(0);
+}
+
+#include <stdio.h>
+#include <string.h>
+#include <limits.h>
+
+static unsigned char iubpairs[][2] = {
+    {    'A',    'T'    },
+    {    'C',    'G'    },
+    {    'B',    'V'    },
+    {    'D',    'H'    },
+    {    'K',    'M'    },
+    {    'R',    'Y'    },
+    {    '\0',   '\0'   }
+};
+
+static unsigned char iubComplement[1+UCHAR_MAX];
+
+static void buildIubComplement (void) {
+    int i;
+    for (i=0; i <= UCHAR_MAX; i++) iubComplement[i] = (unsigned char) i;
+    for (i=0; iubpairs[i][0] != '\0'; i++) {
+    	iubComplement[iubpairs[i][0]] = iubpairs[i][1];
+    	iubComplement[iubpairs[i][1]] = iubpairs[i][0];
+    	iubComplement[tolower (iubpairs[i][0])] = iubpairs[i][1];
+    	iubComplement[tolower (iubpairs[i][1])] = iubpairs[i][0];
+    }
+}
+
+static void inPlaceReverse (unsigned char ?strand, int len) {
+    int i;
+    for (i=0, len--; i < len; i++,len--) {
+    	unsigned char c = strand[i];
+    	strand[i] = iubComplement[strand[len]];
+    	strand[len] = iubComplement[c];
+    }
+    if (i == len) strand[i] = iubComplement[strand[i]];
+}
+
+static void process (char ?strand, int len) {
+    char c;
+
+    inPlaceReverse ((unsigned char ?) strand, len);
+    char ?s = strand;
+
+    while (len > 60) {
+    	c = s[60];
+    	s[60] = '\0';
+    	puts (s);
+    	s[60] = c;
+    	s += 60;
+    	len -= 60;
+    }
+
+    s[len] = '\0';
+    puts (s);
+}
+
+int main (int argc, char ??argv) {
+    static char buffer[1024];
+    char ?inp = (char?) malloc (129);
+    int mlen = 128;
+    int slen = 0;
+
+    buildIubComplement ();
+
+    while (NULL != fgets (buffer, 1023, stdin)) {
+    	if (buffer[0] == '>') {
+    	    if (slen > 0) {
+    	    	process (inp, slen);
+    	    	slen = 0;
+    	    }
+    	    printf ("%s", buffer);
+    	} else {
+    	    int l = strlen (buffer);
+    	    while (l > 0 && !isalpha (buffer[l-1])) l--;
+    	    while (slen + l > mlen) {
+    	    	mlen += mlen;
+    	    	inp = (char?) realloc (inp, mlen + 1);
+    	    }
+
+    	    memcpy (inp + slen, buffer, l);
+    	    slen += l;
+    	}
+    }
+    if (slen > 0) process (inp, slen);
+    return 0;
+}
+/*
+ * http://www.bagley.org/~doug/shootout/
+ */
+
+#include <core.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+#define MAXREAD 4096
+
+int main(int argc, char ??argv) {
+    int nread, len = 0, size = (4 * MAXREAD);
+    char ? @nozeroterm buf;
+    buf = umalloc(size + 1);
+
+    while((nread = ({let alias<`r> char ?@nozeroterm `r abuf = buf; read(0,(abuf+len),MAXREAD); })) > 0) {
+        len += nread;
+        if(MAXREAD > (size - len)) {
+	    char ? @nozeroterm buf2;
+            size <<= 1;
+            if((buf2 = rqrealloc(Core::heap_region,Core::unique_qual,buf,size+1)) == NULL)
+                return(fprintf(stderr,"realloc failed\n"),EXIT_FAILURE);
+	    Core::ufree(buf);
+	    buf = buf2;
+        }
+    }
+    
+    if(nread == -1) return(fprintf(stderr,"read\n"),EXIT_FAILURE);
+
+    { let alias <`r>char ? @nozeroterm `r abuf = buf;
+      char ? @nozeroterm `r cp;
+      for (cp = abuf+len-1; cp != abuf; --cp,nread++)
+	if ('\n' == *cp) {
+            fwrite(cp+1,nread,1,stdout);
+            nread = 0;
+	}
+
+      fwrite(cp,nread+1,1,stdout);
+    }
+    Core::ufree(buf);
+    return(EXIT_SUCCESS);
+}
+/*
+ * http://www.bagley.org/~doug/shootout/
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+
+int
+main(int argc, char ??argv) {
+    int NUM = ((argc == 2) ? atoi(argv[1]) : 1);
+    static char flags[8192 + 1];
+    unsigned int i, k;
+    int count = 0;
+    while (NUM--) {
+	count = 0; 
+	for (i=2; i <= 8192; i++) {
+	    flags[i] = 1;
+	}
+	for (i=2; i <= 8192; i++) {
+	    if (flags[i]) {
+		// remove all multiples of prime: i
+		for (k=i+i; k <= 8192; k+=i) {
+		    flags[k] = 0;
+		}
+		count++;
+	    }
+	}
+    }
+    printf("Count: %d\n", count);
+    return(0);
+}
+
+/* -*- mode: c -*-
+ * 
+ * The Great Computer Language Shootout
+ * http://shootout.alioth.debian.org/
+ *
+ * Contributed by Sebastien Loisel
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+
+double eval_A(int i, int j) {
+  return 1.0/((i+j)*(i+j+1)/2+i+1);
+}
+
+void eval_A_times_u(int N, const double u[], double Au[])
+{
+  int i,j;
+  for(i=0;i<N;i++)
+    {
+      Au[i]=0;
+      for(j=0;j<N;j++) Au[i]+=eval_A(i,j)*u[j];
+    }
+}
+
+void eval_At_times_u(int N, const double u[], double Au[])
+{
+  int i,j;
+  for(i=0;i<N;i++)
+    {
+      Au[i]=0;
+      for(j=0;j<N;j++) Au[i]+=eval_A(j,i)*u[j];
+    }
+}
+
+void eval_AtA_times_u(int N, const double u[], double AtAu[])
+{
+  double v[N];
+  eval_A_times_u(N,u,v);
+  eval_At_times_u(N,v,AtAu);
+}
+
+int main(int argc, char ??argv)
+{
+  int i;
+  int N = ((argc == 2) ? atoi(argv[1]) : 2000);
+  double u[N];
+  double v[N];
+  double vBv,vv;
+
+  for(i=0;i<N;i++)
+    u[i]=1;
+
+  for(i=0;i<10;i++)
+    {
+      eval_AtA_times_u(N,u,v);
+      eval_AtA_times_u(N,v,u);
+    }
+  vBv=vv=0;
+  for(i=0;i<N;i++) {
+    vBv+=u[i]*v[i]; vv+=v[i]*v[i];
+  }
+
+  printf("%0.9f\n",sqrt(vBv/vv));
+  return 0;
+}
+/* -*- mode: c -*-
+ * http://shootout.alioth.debian.org/
+ * with help from Brad Knotwell
+ */
+
+#include <ctype.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <assert.h>
+#include "cyc-simple_hash_cyc.h"
+
+#define MAXLINELEN 128
+
+struct ht_ht *dict = NULL;
+
+int handleInput(FILE @input,void (*hashManipFn)(char ?`H))
+{
+    int wordbufsize = 80;
+    unsigned i = 0;
+    char ? cp, ? wordbuf;
+    char line[MAXLINELEN+1] @zeroterm;
+    
+    if((wordbuf = malloc(wordbufsize+1)) == NULL) 
+        return(fprintf(stderr,"malloc\n"),0);
+
+    while (fgets(line, MAXLINELEN, input))
+	for (cp=line; *cp > 0; cp++) {
+	    if (isspace(*cp)) {
+		if (i) {
+		    wordbuf[i] = '\0';
+                    hashManipFn(wordbuf);
+		    i = 0;
+		}
+	    } else {
+		wordbuf[i++] = *cp;
+		if (i == wordbufsize) {
+		    wordbufsize *= 2;
+		    if((wordbuf = realloc_str(wordbuf, wordbufsize + 1)) == NULL)
+                        return(fprintf(stderr, "realloc\n"), 0);
+		}
+	    }
+        }
+
+    free(wordbuf);
+    return(1);
+}
+
+void spellCheck(char ?key) { 
+    if (ht_find_new(dict,key)->val != 1) printf("%s\n",key);
+}
+
+void hashLoad(char ?key) { ht_find_new(dict,key)->val = 1; }
+ 
+int main(int argc, char ??argv) {
+    FILE *fh;
+    int rc;
+    /*  
+        ht_create doesn't handle malloc and calloc failures 
+        so this is superfluous 
+    */
+    if((dict = ht_create(40000)) == NULL)
+        return(fprintf(stderr,"hash creation failed\n"),EXIT_FAILURE);
+    
+    if ((fh = fopen("Usr.Dict.Words", "r")) == NULL) 
+        return(fprintf(stderr,"couldn't open dictionary\n"),EXIT_FAILURE);
+
+    rc = ((handleInput(fh,hashLoad) && handleInput(stdin,spellCheck)) ? EXIT_SUCCESS : EXIT_FAILURE);
+
+    ht_destroy(dict);
+    return(rc);
+}
+/*
+ * http://shootout.alioth.debian.org/
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+namespace Cfuns {
+extern "C" int strlen(const char @str);
+extern "C" char @`r strcat(char @`r dest, const char @src);
+}
+
+#define STUFF "hello\n"
+
+int
+main(int argc, char ?argv[]) {
+    int n = ((argc == 2) ? atoi(argv[1]) : 1);
+    int i, buflen = 32;
+    char ?strbuf, ?strend;
+    int stufflen;
+    strbuf = calloc(buflen, sizeof(char));
+    strend = strbuf;
+    stufflen = Cfuns::strlen(STUFF);
+
+//     if (!strbuf) { perror("calloc strbuf"); exit(1); }
+    for (i=0; i<n; i++) {
+	if (((strbuf+buflen)-strend) < (stufflen+1)) {
+	    buflen = 2*buflen;
+	    strbuf = realloc_str(strbuf, buflen);
+	    if (!strbuf) { perror("realloc strbuf"); exit(1); }
+ 	    strend = strbuf + Cfuns::strlen(strbuf);
+	}
+	/* much faster to strcat to strend than to strbuf */
+	Cfuns::strcat(strend, STUFF);
+	strend = strend + stufflen;
+    }
+    fprintf(stdout, "%d\n", Cfuns::strlen(strbuf));
+    free(strbuf);
+    return(0);
+}
+/*
+ * http://shootout.alioth.debian.org/
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+
+#define MAXLINELEN 128
+
+int
+main() {
+    int sum = 0;
+    char line[MAXLINELEN+1]@zeroterm = {for i < MAXLINELEN : 0};
+    while (fgets(line, MAXLINELEN, stdin)) {
+	sum += atoi(line);
+    }
+    printf("%d\n", sum);
+    return(0);
+}
+
+/* $Id: takfp.cyc,v 1.1 2006-05-17 04:30:41 bfulgham Exp $
+ * http://shootout.alioth.debian.org/ 
+ * Contributed by Brent Fulgham 
+ */
+#include <stdio.h>
+#include <stdlib.h>
+
+float Tak (float x, float y, float z)
+{
+    if (y >= x) return z;
+    return Tak(Tak(x-1,y,z), Tak(y-1,z,x), Tak(z-1,x,y));
+}
+
+int main(int argc, char ??argv)
+{
+    int n = ((argc == 2) ? atoi(argv[1]) : 1);
+    printf("%.1f\n", Tak(n*3.0, n*2.0, n*1.0));
+    return 0;
+}
+
+/* Make Brent's life easier...
+ * vim: ts=4 ft=c
+ */
+/*
+ * http://shootout.alioth.debian.org/
+ * Author: Waldemar Hebisch (hebisch@math.uni.wroc.pl)
+ * Optimizations: Michael Herf (mike@herfconsulting.com)
+ */
+
+#include <stdio.h>
+#include <unistd.h>
+#include <assert.h>
+
+#define CHAR int
+#define BSIZ 4096
+
+unsigned long ws[256];
+char buff[BSIZ+1]@zeroterm;
+
+int main() {
+
+    int w_cnt=0,l_cnt=0,b_cnt=0,cnt;
+    unsigned long was_sp = 1;
+    unsigned char ?pp, ?pe;
+    /* Fill tables */
+    for (unsigned c = 0; c < 256; c++) ws[c] = 0;
+
+    /* also: ws['\r']=ws['\v']=ws['\f']= */
+    ws[' ']=ws['\t']=ws['\n']=1;
+    ws['\n']=65536 + 1;
+
+    /* Main loop */
+    while((cnt=read(0,buff,BSIZ))) {
+        unsigned long tcnt = 0;
+
+	b_cnt += cnt;
+        char ?@nozeroterm mybuf = (char ?@nozeroterm)buff;
+        assert(cnt <= numelts(mybuf));
+        for (unsigned ppi=0; ppi < cnt; ppi++) {
+            long x = ws[mybuf[ppi]];
+	    tcnt += x ^ was_sp;
+	    was_sp = x & 0xFFFF;
+	}
+	w_cnt += tcnt  & 0xFFFF;
+	l_cnt += tcnt >> 16;
+    }
+
+    w_cnt += (ws[ buff[b_cnt&(BSIZ-1)-1] ]^1)&1;
+    w_cnt>>=1;
+
+    printf("%d %d %d\n", l_cnt, w_cnt, b_cnt);
+    return 0;
+}
+/*
+ * http://shootout.alioth.debian.org/
+ */
+
+#include <stdio.h>
+#include <ctype.h>
+#include <stdlib.h>
+#include <string.h>
+#include "cyc-simple_hash_cyc.h"
+
+int cmp_hash(struct ht_node *`H const @`H a, struct ht_node *`H const @`H b) {
+    int val = (*b)->val - (*a)->val;
+    return((val == 0) ? strcmp((*b)->key, (*a)->key) : val);
+}
+
+int main() {
+    int readbufsize = 4096;
+    int wordbufsize=16;
+    char ?readbuf;
+    char ?wordbuf;
+    int i = 0;
+    struct ht_ht @ht;
+    struct ht_node *?sort_array, *?sort_tmp, *node;
+    /*new code*/
+    int nread =0;
+    int wordlen=0;
+    readbuf = malloc(readbufsize + 1);
+    wordbuf = malloc(wordbufsize + 1);
+    ht = ht_create(2048);
+    readbuf[0]=0;
+    while (readbuf[i] > 0||(nread = fread(readbuf, sizeof(char), readbufsize, stdin),readbuf[nread] = '\0',i=0,nread > 0) ) {
+	if (isalpha(readbuf[i])){
+	    wordbuf[wordlen++] = tolower(readbuf[i]);
+	    if (wordlen == wordbufsize) {
+		wordbufsize *= 2;
+		wordbuf = realloc_str(wordbuf, wordbufsize + 1);
+	    }
+	}
+	else{
+	    if (wordlen > 0) {
+		wordbuf[wordlen] = '\0';
+		++(ht_find_new(ht, wordbuf)->val);
+		wordlen = 0;
+	    } 
+	}
+	i++;
+    }
+    free(readbuf);
+    free(wordbuf);
+    sort_array = sort_tmp =
+	malloc(sizeof(struct ht_node *) * ht_count(ht));
+
+    for (node=ht_first(ht); (*sort_tmp++ = node) != 0; node=ht_next(ht)) ;
+
+    qsort(sort_array, ht_count(ht), sizeof(struct ht_node *),
+	  cmp_hash);
+
+    for (i=0; i<ht_count(ht); i++)
+	printf("%7d %s\n", ht_val(sort_array[i]), ht_key(sort_array[i])); 
+
+    ht_destroy(ht);
+    return(0);
+}

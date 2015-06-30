@@ -1,0 +1,442 @@
+;;; -*- mode: emacs-lisp -*-
+;;; $Id: ackermann.xemacs,v 1.1 2004-05-19 18:09:09 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(setq max-lisp-eval-depth 8000)
+(setq max-specpdl-size 5000)
+
+(defun Ack (M N)
+  (cond ((= M 0) (+ N 1))
+	((= N 0) (Ack (- M 1) 1))
+	(t (Ack (- M 1) (Ack M (- N 1))))))
+
+(defun main ()
+  (let* ((arg (car command-line-args-left))
+	 (num (if arg (string-to-number arg) 1)))
+    (princ (format "Ack(3,%d): %d\n" num (Ack 3 num)))))
+;;; -*- mode: emacs-lisp -*-
+;;; $Id: ary.xemacs,v 1.2 2004-05-22 07:25:00 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(defun main ()
+  (let* ((arg (car command-line-args-left))
+	 (n (if arg (string-to-number arg) 1))
+	 (x (make-vector n 0))
+	 (y (make-vector n 0))
+	 (last (- n 1)))
+    (dotimes (i n)
+      (aset x i (+ i 1)))
+    (dotimes (k 1000)
+      (do ((i last (- i 1)))
+	  ((< i 0))
+	(aset y i (+ (aref x i) (aref y i)))))
+    (princ (format "%d %d\n" (aref y 0) (aref y last)))))
+;;; -*- mode: emacs-lisp -*-
+;;; $Id: except.xemacs,v 1.1 2004-05-19 18:09:43 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(defvar HI 0)
+(defvar LO 0)
+  
+(defun hi_ex (val)
+  (cons 'hi_ex val))
+  
+(defun lo_ex (val)
+  (cons 'lo_ex val))
+  
+(defun some_fun (num)
+  (catch t
+    (hi_fun num)))
+
+(defun hi_fun (num)
+  (let ((val (catch 'Hi_Exception (lo_fun num))))
+    (if (and (consp val)
+	     (eq (car val) 'hi_ex))
+	(setq HI (1+ HI)))))
+
+(defun lo_fun (num)
+  (let ((val (catch 'Lo_Exception (blowup num))))
+    (if (and (consp val)
+	     (eq (car val) 'lo_ex))
+	(setq LO (1+ LO)))))
+
+(defun blowup (num)
+  (if (= 0 (mod num 2))
+      (throw 'Hi_Exception (hi_ex num))
+    (throw 'Lo_Exception (lo_ex num))))
+
+(defun main ()
+  (let* ((arg (car command-line-args-left))
+	 (n (if arg (string-to-number arg) 1)))
+    (while (> n 0)
+      (setq n (1- n))
+      (some_fun n)))
+  (princ (format "Exceptions: HI=%d / LO=%d\n" HI LO)))
+;;; -*- mode: emacs-lisp -*-
+;;; $Id: fibo.xemacs,v 1.3 2005-04-25 19:01:39 igouy-guest Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+;(setq max-lisp-eval-depth 8000)
+;(setq max-specpdl-size 5000)
+
+(defun fib (n)
+  (cond ((< n 2) 1)
+	(t (+ (fib (- n 2)) (fib (- n 1))))))
+
+(defun main ()
+  (let* ((arg (car command-line-args-left))
+	 (num (if arg (string-to-number arg) 1)))
+    (princ (format "%d\n" (fib num)))))
+;;; -*- mode: emacs-lisp -*-
+;;; $Id: hash.xemacs,v 1.1 2004-05-19 18:09:55 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(defun main ()
+  (let* ((arg (car command-line-args-left))
+	 (n (if arg (string-to-number arg) 1))
+	 (last (- n 1))
+	 (c 0)
+	 (x (make-hash-table :test 'equal :size n)))
+    (do ((i 1 (+ i 1)))
+	((> i n))
+      (puthash (format "%x" i) i x))
+    (do ((i last (- i 1)))
+	((< i 0))
+      (if (gethash (format "%d" i) x)
+	  (setq c (+ c 1))))
+    (princ (format "%d\n" c))))
+;;; -*- mode: emacs-lisp -*-
+;;; $Id: hash2.xemacs,v 1.1 2004-05-19 18:10:02 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(defun main ()
+  (let* ((arg (car command-line-args-left))
+	 (n (if arg (string-to-number arg) 1))
+	 (hash1 (make-hash-table :test 'equal :size 10000))
+	 (hash2 (make-hash-table :test 'equal :size 10000)))
+    (do ((i 0 (+ i 1)))
+	((= i 10000))
+      (puthash (format "foo_%d" i) i hash1))
+    (do ((i 0 (+ i 1)))
+	((= i n))
+      (maphash (lambda (k v)
+		 (puthash k (+ (gethash k hash1)
+			       (or (gethash k hash2) 0))
+			  hash2)) hash1))
+    (princ (format "%d %d %d %d\n"
+		   (gethash "foo_1" hash1)
+		   (gethash "foo_9999" hash1)
+		   (gethash "foo_1" hash2)
+		   (gethash "foo_9999" hash2)))))
+;;; -*- mode: emacs-lisp -*-
+;;; $Id: heapsort.xemacs,v 1.1 2004-05-19 18:10:11 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(defconst IM     139968)
+(defconst IA       3877)
+(defconst IC      29573)
+
+(defvar LAST 42)
+
+(defun gen_random (max)
+  (/ (* max (setq LAST (% (+ (* LAST IA) IC) IM))) IM))
+
+(defun heapsort (n ra)
+  (let ((ir n)
+	(l (+ (lsh n -1) 1))
+	(i 0) 
+	(j 0)
+	(rra 0.0))
+    (catch 'return
+      (while t
+	(cond ((> l 1)
+	       (setq rra (aref ra (setq l (- l 1)))))
+	      (t
+	       (setq rra (aref ra ir))
+	       (aset ra ir (aref ra 1))
+	       (setq ir (- ir 1))
+	       (if (= ir 1)
+		   (throw 'return (aset ra 1 rra)))))
+	(setq i l)
+	(setq j (lsh l 1))
+	(while (<= j ir)
+	  (cond ((and (< j ir) (< (aref ra j) (aref ra (+ j 1))))
+		 (setq j (+ j 1))))
+	  (cond ((< rra (aref ra j))
+		 (aset ra i (aref ra j))
+		 (setq j (+ j (setq i j))))
+		(t
+		 (setq j (+ ir 1)))))
+	(aset ra i rra)))))
+
+(defun main ()
+  (let* ((arg (car command-line-args-left))
+	 (n (if arg (string-to-number arg) 1))
+	 (last (+ n 1))
+	 (ary (make-vector last 0)))
+    (dotimes (i last)
+      (aset ary i (gen_random 1.0)))
+    (heapsort n ary)
+    (princ (format "%.10f\n" (aref ary n)))
+  (kill-emacs 0)))
+;;; -*- mode: emacs-lisp -*-
+;;; $Id: hello.xemacs,v 1.1 2004-05-19 18:10:16 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(defun main () (princ "hello world\n"))
+;;; -*- mode: emacs-lisp -*-
+;;; $Id: matrix.xemacs,v 1.1 2004-05-19 18:10:35 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(defvar size 30)
+
+(defun mkmatrix (rows cols)
+  (let ((mx (make-vector rows 0))
+	(count 1))
+    (do ((i 0 (1+ i)))
+	((= i rows))
+      (let ((row (make-vector cols 0)))
+	(do ((j 0 (1+ j)))
+	    ((= j cols))
+	  (aset row j count)
+	  (setq count (+ count 1)))
+	(aset mx i row)))
+    mx))
+
+(defun num-cols (mx)
+  (let ((row (aref mx 0)))
+    (length row)))
+
+(defun num-rows (mx)
+  (length mx))
+
+(defun mmult (rows cols m1 m2)
+  (let ((m3 (make-vector rows 0)))
+    (do ((i 0 (1+ i)))
+	((= i rows))
+      (let ((m1i (aref m1 i))
+	    (row (make-vector cols 0)))
+	(do ((j 0 (1+ j)))
+	    ((= j cols))
+	  (let ((val 0))
+	    (do ((k 0 (1+ k)))
+		((= k cols))
+	      (setq val (+ val (* (aref m1i k)
+				  (aref (aref m2 k) j)))))
+	    (aset row j val)))
+	(aset m3 i row)))
+    m3))
+
+(defun matrix-print (m)
+  (do ((i 0 (1+ i)))
+      ((= i (num-rows m)))
+    (let ((row (aref m i)))
+      (do ((j 0 (1+ j)))
+	  ((= j (num-cols m)))
+	(princ (aref row j))
+	(if (< j (num-cols m))
+	    (princ " ")))
+      (princ "\n"))))
+
+(defun main ()
+  (let* ((arg (car command-line-args-left))
+	 (n (if arg (string-to-number arg) 1)))
+    (let ((mm 0)
+	  (m1 (mkmatrix size size))
+	  (m2 (mkmatrix size size)))
+      (dotimes (i n)
+	(setq mm (mmult size size m1 m2)))
+      (let ((r0 (aref mm 0))
+	    (r2 (aref mm 2))
+	    (r3 (aref mm 3))
+	    (r4 (aref mm 4)))
+	(princ (format "%d %d %d %d\n"
+		       (aref r0 0) (aref r2 3)
+		       (aref r3 2) (aref r4 4)))))))
+
+;;; -*- mode: emacs-lisp -*-
+;;; $Id: methcall.xemacs,v 1.2 2005-05-13 16:24:18 igouy-guest Exp $
+;;; http://www.bagley.org/~doug/shootout/ 
+
+(require 'eieio)
+
+(defun print-bool (b)
+  (if b (princ "true\n") (princ "false\n")))
+
+(defclass toggle ()
+  ((state :initarg state
+	  :initform t)))
+
+(defmethod toggle-value ((this toggle))
+  (oref this state))
+
+(defmethod activate ((this toggle))
+  (oset this state (not (oref this state)))
+  this)
+
+(defclass nth-toggle (toggle)
+    ((count-max :initarg :max-counter
+		:initform 1)
+     (counter :initform 0)))
+
+(defmethod activate ((this nth-toggle))
+  (oset this counter (+ 1 (oref this counter)))
+  (cond ((>= (oref this counter)
+	     (oref this count-max))
+	 (oset this state (not (oref this state)))
+	 (oset this counter 0)))
+  this)
+
+(defun main ()
+  (let* ((arg (car command-line-args-left))
+	 (n (if arg (string-to-number arg) 1)))
+    (let ((tog (toggle "foo"))
+	  (val t))
+      (dotimes (i n)
+	(setq val (toggle-value (activate tog))))
+      (print-bool val)
+
+    (let ((ntog (nth-toggle "bar" :max-counter 3))
+	  (val t))
+      (dotimes (i n)
+	(setq val (toggle-value (activate ntog))))
+      (print-bool val)))))
+
+;;; -*- mode: emacs-lisp -*-
+;;; $Id: nestedloop.xemacs,v 1.1 2004-05-19 18:10:57 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(defun main ()
+  (let* ((arg (car command-line-args-left))
+	 (n (if arg (string-to-number arg) 1))
+	 (x 0))
+    (dotimes (a n)
+      (dotimes (b n)
+	(dotimes (c n)
+	  (dotimes (d n)
+	    (dotimes (e n)
+	      (dotimes (f n)
+		(setq x (+ x 1))))))))
+    (princ (format "%d\n" x))))
+;;; -*- mode: emacs-lisp -*- 
+;;; $Id: objinst.xemacs,v 1.2 2005-05-13 16:24:18 igouy-guest Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(require 'eieio)
+
+(defun print-bool (b)
+  (if b (princ "true\n") (princ "false\n")))
+
+(defclass toggle ()
+  ((state :initarg state
+	  :initform t)))
+
+(defmethod toggle-value ((this toggle))
+  (oref this state))
+
+(defmethod activate ((this toggle))
+  (oset this state (not (oref this state)))
+  this)
+
+(defclass nth-toggle (toggle)
+    ((count-max :initarg :max-counter
+		:initform 1)
+     (counter :initform 0)))
+
+(defmethod activate ((this nth-toggle))
+  (oset this counter (+ 1 (oref this counter)))
+  (cond ((>= (oref this counter)
+	     (oref this count-max))
+	 (oset this state (not (oref this state)))
+	 (oset this counter 0)))
+  this)
+
+(defun main ()
+  (let* ((arg (car command-line-args-left))
+	 (n (if arg (string-to-number arg) 1)))
+    (let ((tog (toggle "foo")))
+      (dotimes (i 5)
+	(print-bool (toggle-value (activate tog)))))
+    (dotimes (i n)
+      (toggle "foo"))
+
+    (princ "\n")
+
+    (let ((ntog (nth-toggle "bar" :max-counter 3)))
+      (dotimes (i 8)
+	(print-bool (toggle-value (activate ntog)))))
+    (dotimes (i n)
+      (nth-toggle "bar" :max-counter 3))))
+
+;;; -*- mode: emacs-lisp -*-
+;;; $Id: random.xemacs,v 1.1 2004-05-19 18:11:17 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(defconst IM     139968)
+(defconst IA       3877)
+(defconst IC      29573)
+
+(defvar LAST 42)
+
+(defun gen_random (max)
+  (/ (* max (setq LAST (% (+ (* LAST IA) IC) IM))) IM))
+
+(defun main ()
+  (let* ((arg (car command-line-args-left))
+	 (num (if arg (string-to-number arg) 1)))
+    (dotimes (i (- num 1))
+      (gen_random 100.0))
+    (princ (format "%.9f\n" (gen_random 100.0))))
+  (kill-emacs 0))
+;;; -*- mode: emacs-lisp -*-
+;;; $Id: reversefile.xemacs,v 1.2 2005-05-13 16:24:19 igouy-guest Exp $
+;;; http://www.bagley.org/~doug/shootout/ 
+
+
+(defun main ()
+  (insert-file-contents-literally (concat "Input." (car command-line-args-left)))
+  (reverse-region (point-min) (point-max))
+  (princ (buffer-string)))
+;;; -*- mode: emacs-lisp -*-
+;;; $Id: sieve.xemacs,v 1.1 2004-05-19 18:12:28 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(defun main ()
+  (let* ((arg (car command-line-args-left))
+	 (num (if arg (string-to-number arg) 1))
+	 (count 0))
+    (dotimes (iter num)
+      (let ((flags (make-vector 8192 t)))
+	(setq count 0)
+	(do ((i 2 (1+ i)))
+	    ((>= i 8192))
+	  (if (aref flags i)
+	      (progn
+		(do ((k (+ i i) (+ k i)))
+		    ((>= k 8192))
+		  (aset flags k nil))
+		(setq count (1+ count)))))))
+    (princ (format "Count: %d\n" count))))
+;;; -*- mode: emacs-lisp -*-
+;;; $Id: strcat.xemacs,v 1.1 2004-05-19 18:13:36 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(defun main ()
+  (let* ((arg (car command-line-args-left))
+	 (num (if arg (string-to-number arg) 1)))
+    (let ((buf (get-buffer-create "mybuf"))
+	  (str ""))
+      (dotimes (iter num)
+	(insert-string "hello\n" buf))
+      (princ (format "%d\n" (length (buffer-substring nil nil buf)))))))
+;;; -*- mode: emacs-lisp -*- 
+;;; $Id: strcat.xemacs-2.xemacs,v 1.2 2005-05-13 16:24:19 igouy-guest Exp $
+;;; http://shootout.alioth.debian.org/
+
+(defun main ()
+  (let* ((arg (car command-line-args-left))
+	 (num (if arg (string-to-number arg) 1)))
+    (let ((str ""))
+      (dotimes (iter num)
+	(setq str (concat str "hello\n")))
+      (princ (format "%d\n" (length str))))))

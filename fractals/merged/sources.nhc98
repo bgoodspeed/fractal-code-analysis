@@ -1,0 +1,267 @@
+-- $Id: ary.nhc98,v 1.3 2005-05-22 23:50:20 bfulgham Exp $
+-- http://shootout.alioth.debian.org
+-- By Simon Marlow, modified by Einar Karttunen
+
+import System
+import Control.Monad.ST
+import Data.Array.Base
+import Data.Array.ST
+
+add_array :: Int -> STUArray s Int Int -> STUArray s Int Int -> ST s ()
+add_array len a b = sequence_ [ add i | i <- [0..len] ]
+  where add i = do ai <- unsafeRead a i
+		   bi <- unsafeRead b i
+	  	   unsafeWrite b i (ai+bi)
+
+ary :: Int -> ST s (Int,Int)
+ary len = do 
+  a <- newListArray (0,len) [1..len+1]
+  b <- newArray (0,len) 0
+  sequence_ (take 1000 (repeat (add_array len a b)))
+  y1 <- unsafeRead b 0
+  yn <- unsafeRead b len
+  return (y1,yn)
+
+main = do
+  ~[n] <- getArgs 
+  let (y1,yn) = runST (ary ((read n)-1))
+  putStr (show y1); putStr " " ; putStrLn (show yn)
+
+
+-- $Id: hash.nhc98,v 1.3 2005-05-22 23:50:20 bfulgham Exp $
+-- http://shootout.alioth.debian.org/ 
+-- from Bryn Keller
+-- modified by JP Bernardy
+-- build with ghc -O2 -fglasgow-exts sourcefile.hs
+
+import System (getArgs)
+import Data.FiniteMap
+import Numeric (showHex)
+
+countKeys tbl n = length [() | i <- [1..n], lookupWithDefaultFM tbl False (show i)]
+
+main = do [number] <- getArgs
+          let num = read number
+              tbl = listToFM [(showHex i "", True) | i <- [(1::Int)..num]]
+          print (countKeys tbl num)
+-- $Id: lists.nhc98,v 1.5 2005-05-22 23:50:21 bfulgham Exp $
+-- http://shootout.alioth.debian.org/
+-- from Aaron Denney
+-- modified by Einar Karttunen
+-- Uses edison library - compile with "-package data"
+
+import System(getArgs)
+import qualified SimpleQueue as L
+
+copy = fmap id
+
+test :: Int -> Int
+test size | isok1 && isok2 = L.size l1'
+          | otherwise = error "not OK"
+                  where l1 = L.fromList [1..size]
+                        l2 = copy l1
+                        l3 = L.foldl (L.snoc) L.empty l2
+                        l2' = L.foldr (flip L.snoc) L.empty l3
+                        l1' = L.reverse l1
+                        isok1 = L.lhead l1' == size
+                        isok2 = l1' == l2'
+
+for n = foldl (\p _ -> if test p == p then p else 0) 10000 [1..n]
+main  = getArgs >>= print . for . read . head
+-- $Id: methcall.nhc98,v 1.3 2005-05-22 23:50:21 bfulgham Exp $
+-- http://shootout.alioth.debian.org/
+-- Author: Einar Karttunen
+
+import Control.Monad
+import Data.IORef
+import System
+
+class Toggle a where
+    activate :: a -> IO ()
+    value :: a -> IO Bool
+
+newtype ToggleC    = ToggleC (IORef Bool)
+newtype NthToggleC = NthToggleC (IORef (Bool, Int, Int))
+
+modr r x = do { v <- readIORef r; writeIORef r $! x v }
+
+newToggle s = newIORef s >>= return . ToggleC
+newNthToggle s m = newIORef (s,0,m) >>= return . NthToggleC
+
+instance Toggle ToggleC where 
+    activate (ToggleC t) = modr t not
+    value (ToggleC t)    = readIORef t
+
+instance Toggle NthToggleC where
+    activate (NthToggleC t) = modr t (\x@(s,v,m) -> x `seq` if v+1 == m then (not s,0,m) else (s,v+1,m))
+    value    (NthToggleC t) = do { ~(s,_,_) <- readIORef t; s `seq` return s }
+
+out b = putStrLn (if b then "true" else "false")
+
+main = do [num] <- getArgs
+	  toggle<- newToggle True
+	  replicateM_ (read num) (activate toggle >> value toggle)
+	  value toggle>>= out
+	  ntoggle<- newNthToggle True 3
+	  replicateM_ (read num) (activate ntoggle >> value ntoggle)
+	  value ntoggle>>= out
+-- $Id: sumcol.nhc98,v 1.3 2005-05-22 23:50:21 bfulgham Exp $
+-- http://shootout.alioth.debian.org 
+-- compile with : ghc -O2 -o sum_col sum_col.hs
+-- To get better performance set default heap size to 10MB
+-- i.e. invoke as : ./sum_col +RTS -H10M <input_file.txt
+-- Contributed by Greg Buchholz
+
+import Char( ord )
+
+main = getContents >>= print . acc 0 False 0
+
+acc run False init  []       =      run+init
+acc run True  init  []       =      run-init
+acc run False init ('\n':xs) = acc (run+init) False 0    xs
+acc run True  init ('\n':xs) = acc (run-init) False 0    xs
+acc run _     init ('-' :xs) = acc  run       True  init xs
+acc run sign  init (x:xs)    = acc  run sign (init*10+ord(x)-ord('0')) xs
+
+-- Implementation for 'wc' benchmark optimised for time and memory
+-- Author: Tomasz Zielonka <t.zielonka@students.mimuw.edu.pl>
+-- http://shootout.alioth.debian.org/
+-- compile with: ghc -O2 -o wc wc.hs
+
+import System.IO
+import Data.Array.IO
+import Data.Array.Base (unsafeRead)
+import Data.Word
+import List
+
+isspace :: Char -> Bool
+isspace ' '  = True
+isspace '\n' = True
+isspace '\t' = True
+isspace  _   = False
+
+wc :: Handle -> IO (Int, Int, Int)
+wc h = do
+    buf <- newArray_ (0, bufSize - 1) :: IO (IOUArray Int Word8)
+    let
+        wcLoop :: Int -> Int -> Int -> Int -> Int -> Int -> IO (Int, Int, Int)
+        wcLoop prevIsSpace nl nw nc i n 
+            | prevIsSpace `seq` nl `seq` nw `seq` nc `seq` i `seq` n `seq` False =
+                undefined
+            | i == n =
+                do  n' <- hGetArray h buf bufSize
+                    if n' == 0
+                        then return (nl, nw, nc)
+                        else wcLoop prevIsSpace nl nw nc 0 n'
+            | otherwise =
+                do  c <- fmap (toEnum . fromEnum) (unsafeRead buf i)
+                    -- Watch out, unsafeRead used here. This gives about
+                    -- 1.6x times speedup.
+
+                    let cIsSpace = oneIf (isspace c)
+                    wcLoop
+                        cIsSpace
+                        (incIf nl (c == '\n'))
+                        (incIf nw (prevIsSpace > cIsSpace))
+                        (nc + 1)
+                        (i + 1)
+                        n
+    wcLoop 1 0 0 0 0 0
+  where
+    bufSize :: Int
+    bufSize = 4096
+
+    oneIf c = if c then 1 else 0
+    incIf n c = if c then n + 1 else n
+
+main :: IO ()
+main = do
+    (nl, nw, nc) <- wc stdin    
+    putStrLn $ concat $ intersperse " " $ map show [nl, nw, nc]
+
+
+-- Implementation of 'wordfreq' benchmark optimised for time and memory
+-- $Id: wordfreq.nhc98,v 1.3 2005-05-22 23:50:21 bfulgham Exp $
+-- http://shootout.alioth.debian.org/
+-- Author: Tomasz Zielonka <t.zielonka@students.mimuw.edu.pl>
+-- compile with: ghc -O2 -o wordfreq wordfreq.hs 
+
+import System.IO
+import Data.Array.IO
+import Data.Array.Base
+import Data.Word
+import Data.Int
+import Data.HashTable as HashTable
+import Data.IORef
+import List
+import Char
+
+myHashString :: String -> Int32
+myHashString = fromIntegral . foldr f 0
+  where f c m = ord c + (m * 67)
+
+main :: IO ()
+main = do
+    ht <- HashTable.new (==) myHashString
+
+    let handleReversedWord rw = do
+            l1 <- HashTable.lookup ht rw
+            case l1 of
+                Just ref -> incr ref
+                Nothing -> do
+                    ref <- newIORef (1 :: Int)
+                    HashTable.insert ht rw ref
+    
+    iterateOnReversedWords stdin handleReversedWord
+
+    l <- HashTable.toList ht
+    l <- mapM (\(rw, ref) -> do n <- readIORef ref; return (n, reverse rw)) l
+
+    mapM_ (putStrLn . pretty) (sortBy (flip compare) l)
+
+  where
+    pretty (n,w) = pad 7 (show n) ++ " " ++ w
+    pad n s = replicate (n - length s) ' ' ++ s
+    incr ref = do
+        x <- readIORef ref
+        writeIORef ref $! (x + 1)
+
+------------------------------------------------------------------
+
+iterateOnReversedWords :: Handle -> (String -> IO ()) -> IO ()
+iterateOnReversedWords h f = do
+    cs <- fileIterate h "" aux
+    aux cs ' '
+    return ()
+  where
+    aux cs c
+        | isAlpha c = do 
+            let c' = toLower c
+            return (c' : cs)
+        | not (null cs) = do
+            f cs
+            return []
+        | otherwise = return []
+
+{-# INLINE fileIterate #-}
+
+fileIterate :: Handle -> a -> (a -> Char -> IO a) -> IO a
+fileIterate h a0 f = do
+    buf <- newArray_ (0, bufSize - 1) :: IO (IOUArray Int Word8)
+    let loop i n a
+            | i == n =
+                do  n' <- hGetArray h buf bufSize
+                    if n' == 0
+                        then return a
+                        else loop 0 n' a
+            | otherwise =
+                do  c <- fmap (toEnum . fromEnum) (readArray buf i)
+
+                    a' <- f a c
+
+                    loop (i + 1) n a'
+    loop 0 0 a0
+  where
+    bufSize :: Int
+    bufSize = 4096
+

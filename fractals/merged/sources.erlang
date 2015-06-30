@@ -1,0 +1,3787 @@
+%%% $Id: ackermann.erlang,v 1.3 2005-03-23 06:56:16 bfulgham Exp $
+%%% http://shootout.alioth.debian.org/
+-module(ackermann).
+-export([main/1]).
+
+main([Arg]) ->
+    Num = list_to_integer(Arg),
+    io:fwrite("Ack(3,~w): ~w\n", [Num, ack(3, Num)]),
+    halt(0).
+
+ack(0, N) -> N+1;
+ack(M, 0) -> ack(M-1, 1);
+ack(M, N) -> ack(M-1, ack(M, N-1)).
+%%%  The Great Computer Language Shootout 
+%%%  http://shootout.alioth.debian.org/
+%%% 
+%%%  contributed by James Hague 
+%%%  modified by Isaac Gouy
+
+-module(ary).
+-export([main/0, main/1]).
+
+main() -> main(["1"]).
+main([Arg]) ->
+   Num = list_to_integer(Arg),
+   ets:new(y, [set, private, named_table]),
+   clear_y_array(Num),
+   X = list_to_tuple(lists:seq(1, Num)),
+   repeat(X, Num, 1000),
+   [{_,First}] = ets:lookup(y, 1),
+   [{_,Last}]  = ets:lookup(y, Num),
+   io:fwrite("~w ~w~n", [First, Last]),
+   ets:delete(y),
+   halt(0).
+
+clear_y_array(0) -> ok;
+clear_y_array(I) ->
+   ets:insert(y, {I,0}),
+   clear_y_array(I - 1).
+
+repeat(X, N, 0) -> ok;
+repeat(X, N, K) ->
+   calc(X, N),
+   repeat(X, N, K - 1).
+
+calc(X, 0) -> ok;
+calc(X, N) ->
+   ets:update_counter(y, N, element(N, X)),
+   calc(X, N - 1).
+% The Computer Language Shootout
+% http://shootout.alioth.debian.org/
+%
+% contributed by Isaac Gouy (Erlang novice)
+
+-module(binarytrees). 
+-export([main/1]). 
+
+-define(Min,4).
+
+main([Arg]) ->
+   N = list_to_integer(Arg),
+   Max = lists:max([?Min+2,N]),
+
+   Stretch = Max + 1,
+   io:fwrite("stretch tree of depth ~w\t check: ~w~n", 
+      [ Stretch, itemCheck(bottomUp(0,Stretch)) ]),
+
+   LongLivedTree = bottomUp(0,Max),
+   depthLoop(?Min,Max),
+
+   io:fwrite("long lived tree of depth ~w\t check: ~w~n", 
+      [ Max, itemCheck(LongLivedTree) ]),
+
+   halt(0).
+
+
+depthLoop(D,M) when D > M -> ok;
+depthLoop(D,M) -> 
+   N = 1 bsl (M-D + ?Min),
+   io:fwrite("~w\t trees of depth ~w\t check: ~w~n", 
+      [ 2*N, D, sumLoop(N,D,0) ]),
+   depthLoop (D+2,M).
+
+sumLoop(0,_,Sum) -> Sum;
+sumLoop(N,D,Sum) -> 
+   sumLoop(N-1,D, Sum + itemCheck(bottomUp(N,D)) + itemCheck(bottomUp(-1*N,D))).
+
+bottomUp(I,0) -> {I, nil, nil};
+bottomUp(I,D) -> {I, bottomUp(2*I-1,D-1), bottomUp(2*I,D-1)}.
+
+itemCheck(nil) -> 0;
+itemCheck({I,Left,Right}) -> 
+   I + itemCheck(Left) - itemCheck(Right).
+% The Computer Language Benchmarks Game
+% http://shootout.alioth.debian.org/
+%
+% contributed by Isaac Gouy (Erlang novice)
+% parallelized by Kevin Scaldeferri
+
+-module(binarytrees).
+-export([main/1]).
+-export([depth/2]).
+
+-define(Min,4).
+
+main([Arg]) ->
+   N = list_to_integer(Arg),
+   Max = lists:max([?Min+2,N]),
+
+   Stretch = Max + 1,
+   io:fwrite("stretch tree of depth ~w\t check: ~w~n",
+      [ Stretch, itemCheck(bottomUp(0,Stretch)) ]),
+
+   LongLivedTree = bottomUp(0,Max),
+   depthLoop(?Min,Max),
+
+   io:fwrite("long lived tree of depth ~w\t check: ~w~n",
+      [ Max, itemCheck(LongLivedTree) ]),
+
+   halt(0).
+
+
+depthLoop(D,M) ->
+    Results = rpc:pmap({?MODULE, depth}, [M], lists:seq(D, M, 2)),
+    lists:foreach(fun(Result) ->
+                          io:fwrite("~w\t trees of depth ~w\t check: ~w~n", Result)
+                  end,
+                  Results).
+
+depth(D,M) ->
+    N = 1 bsl (M-D + ?Min),
+    [ 2*N, D, sumLoop(N,D,0) ].
+
+sumLoop(0,_,Sum) -> Sum;
+sumLoop(N,D,Sum) ->
+   sumLoop(N-1,D, Sum + itemCheck(bottomUp(N,D)) + itemCheck(bottomUp(-1*N,D))).
+
+bottomUp(I,0) -> {I, nil, nil};
+bottomUp(I,D) -> {I, bottomUp(2*I-1,D-1), bottomUp(2*I,D-1)}.
+
+itemCheck(nil) -> 0;
+itemCheck({I,Left,Right}) ->
+   I + itemCheck(Left) - itemCheck(Right).
+%%% The Great Computer Language Shootout
+%%% http://shootout.alioth.debian.org/
+%%% 
+%%% contributed by Isaac Gouy (Erlang novice)
+
+-module(chameneos). 
+-export([main/1,complement/2,creature/4,meetingPlace/3]). 
+
+
+meetingPlace(N, Creature, Colour) -> 
+    receive                                              
+        {SomeCreature, SomeColour} ->   
+            case Creature of
+               first ->   
+                  case N of
+                     0 -> 
+                        SomeCreature ! faded,
+                        meetingPlace(N, first, first);
+                     _ -> 
+                        meetingPlace(N-1, SomeCreature, SomeColour) 
+                  end;
+                                                           
+               _ ->               
+                  Creature ! SomeColour,
+                  SomeCreature ! Colour,
+                  meetingPlace(N, first, first)            
+            end;                       
+            
+        done -> 
+            ok            
+    end.
+
+
+creature(Count, Colour, MeetingPlace, Main) ->      
+   MeetingPlace ! {self(),Colour},
+   receive  
+      faded -> 
+         Main ! {self(),Count};                                                           
+      OtherColour -> 
+         creature(Count+1, complement(Colour,OtherColour), MeetingPlace, Main)
+   end.
+      
+   
+complement(Colour,OtherColour) ->
+   if 
+      Colour == OtherColour -> Colour;
+            
+      true ->       
+         case Colour of 
+            blue -> 
+               case OtherColour of red -> yellow; yellow -> red end;                     
+            red ->
+               case OtherColour of blue -> yellow; yellow -> blue end;                                       
+            yellow ->      
+               case OtherColour of blue -> red; red -> blue end 
+         end                         
+   end.
+
+
+meetingCount([],Meetings) -> Meetings;
+meetingCount(Creatures,Meetings) -> 
+   receive 
+      {Pid,Count} ->    
+         meetingCount(lists:delete(Pid,Creatures), Meetings+Count)
+   end.   
+
+
+main([Arg]) ->
+    N = list_to_integer(Arg), 
+    MeetingPlace = spawn(chameneos, meetingPlace, [N,first,first]),
+    Creatures = lists:map(
+      fun(C) -> spawn(chameneos, creature, [0,C,MeetingPlace,self()]) end,
+      [blue,red,yellow,blue]
+      ),             
+    Meetings = meetingCount(Creatures,0),                        
+    MeetingPlace ! done,                       
+    io:format("~w~n", [Meetings]),
+    halt(0).
+%%% The Computer Language Benchmarks Game
+%%% http://shootout.alioth.debian.org/
+%%% contributed by Christian von Roques
+%%% modified by Jiri Isa
+
+%% Each chameneos is its own process.
+%% A chameneos sends {self(), Color} to the broker to request a
+%% meeting with another chameneos.
+%% The broker replies with {Pid, Color} of the partner met or 'stop'
+%% whereupon the chameneos prints the Meetings and Selfmeetings it had
+%% and replies with the number of Meetings for the broker to sum.
+
+-module(chameneosredux).
+-export([main/1]).
+
+-import(lists, [foreach/2]).
+
+spell(0) -> " zero";
+spell(N) -> spell(N, []).
+
+spell(0, L) -> L;
+spell(N, L) -> spell(N div 10, [element(N rem 10 + 1, {" zero", " one", " two", " three", " four", " five", " six", " seven", " eight", " nine"}) | L]).
+
+
+complement(C, C) -> C;
+complement(blue, red) -> yellow;
+complement(blue, yellow) -> red;
+complement(red, blue) -> yellow;
+complement(red, yellow) -> blue;
+complement(yellow, blue) -> red;
+complement(yellow, red) -> blue.
+
+
+show_complements() ->
+    [ io:fwrite("~p + ~p -> ~p~n", [A, B, complement(A, B)]) ||
+        A <- [blue, red, yellow],
+        B <- [blue, red, yellow]].
+
+
+print_header(L) ->
+    io:fwrite("~n"),
+    foreach(fun(C) -> io:fwrite(" ~p", [C]) end, L),
+    io:fwrite("~n").
+
+
+run(L, N) ->
+    print_header(L),
+    Broker = self(),
+    foreach(fun(Color) -> spawn(fun() -> chameneos(Broker, Color, 0, 0) end) end, L),
+    broker(N),
+    cleanup(length(L), 0).
+
+
+chameneos(Broker, Color, Meetings, MetSelf) ->
+    Broker ! { self(), Color },
+    receive
+        {OPid, OColor} ->
+            chameneos(Broker, complement(Color, OColor), Meetings+1,
+                      if OPid == self() -> MetSelf+1; true -> MetSelf end);
+        stop ->
+            io:fwrite("~w~s\n", [Meetings, spell(MetSelf)]),
+            Broker ! Meetings
+    end.
+
+
+broker(0) -> nil;
+broker(N) ->
+    receive
+        C1 = {Pid1, _} -> nil
+    end,
+    receive
+        C2 = {Pid2, _} ->
+            Pid1 ! C2,
+            Pid2 ! C1,
+            broker(N-1)
+    end.
+
+cleanup(0, M) -> io:fwrite("~s~n", [spell(M)]);
+cleanup(N, M) ->
+    receive
+        {Pid, _Color} ->
+            Pid ! stop,
+            cleanup(N, M);
+        Meetings ->
+            cleanup(N-1, M+Meetings)
+    end.
+
+
+main([Arg]) ->
+    N = list_to_integer(Arg),
+    show_complements(),
+    run([blue, red, yellow], N),
+    run([blue, red, yellow, red, yellow, blue, red, yellow, red, blue], N),
+    io:fwrite("~n"),
+    halt(0).
+
+%%%  The Great Computer Language Shootout 
+%%%  http://shootout.alioth.debian.org/
+%%% 
+%%%  contributed by Sebastian Strollo 
+%%%  modified by Bengt Kleberg
+%%%  modified by Isaac Gouy
+
+-module(echo).
+-export([main/0, main/1]).
+
+-define(DATA, <<"Hello there sailor\n">>).
+
+main() -> main(["1"]).
+main([Arg]) ->
+   N = list_to_integer(Arg),
+   {ok, ServerSock} = gen_tcp:listen(0, [binary]),
+   {ok, Port} = inet:port(ServerSock),
+   erlang:spawn( fun() -> client( N, Port ) end ),
+   server(ServerSock),
+   gen_tcp:close(ServerSock),
+   init:stop().
+
+client(N, ServerPort) ->
+   {ok, Sock} = gen_tcp:connect("localhost", ServerPort, [binary]),
+   client_loop(N, Sock),
+   gen_tcp:close(Sock).
+
+client_loop(0, _Sock) -> ok;
+client_loop(N, Sock) ->
+   ok = gen_tcp:send(Sock, ?DATA),
+   receive
+      {tcp, Sock, ?DATA} -> client_loop(N-1, Sock);
+      {tcp_closed, Sock} -> ok
+   end.
+
+server(LSock) ->
+   {ok, Sock} = gen_tcp:accept(LSock),
+   server_loop(Sock, 0),
+   gen_tcp:close(Sock).
+
+server_loop(Sock, Bytes) ->
+   receive
+      {tcp, Sock, Packet} ->
+         ok = gen_tcp:send(Sock, Packet),
+         server_loop(Sock, Bytes + erlang:size(Packet));
+      {tcp_closed, Sock} -> io:fwrite("server processed ~w bytes~n", [Bytes])
+   end.
+%%% -*- mode: erlang -*-
+%%% $Id: echo.erlang,v 1.1 2004-05-19 18:09:42 bfulgham Exp $
+%%% http://www.bagley.org/~doug/shootout/
+%%% with help from Sebastian Strollo
+
+%%% TBD - need to add check for valid response.
+
+-module(echo).
+-export([main/0, main/1, client/2, server/1]).
+
+-define(DATA, <<"Hello there sailor\n">>).
+
+main() -> main(['1']).
+main([Arg]) ->
+    N = list_to_integer(atom_to_list(Arg)),
+    ServerSock = create_server_sock(),
+    spawn(?MODULE, client, [N, socket_port(ServerSock)]),
+    server(ServerSock),
+    init:stop().
+
+create_server_sock() ->
+    {ok, LSock} = gen_tcp:listen(0, [binary]),
+    LSock.
+
+socket_port(Sock) ->
+    {ok, Port} = inet:port(Sock),
+    Port.
+
+client(N, ServerPort) ->
+    {ok, Sock} = gen_tcp:connect("localhost", ServerPort, [binary]),
+    client_loop(N, Sock),
+    gen_tcp:close(Sock).
+
+client_loop(0, Sock) -> ok;
+client_loop(N, Sock) ->
+    ok = gen_tcp:send(Sock, ?DATA),
+    receive
+	{tcp, Sock, _} -> client_loop(N-1, Sock);
+	{tcp_closed, Sock} -> ok
+    end.
+
+server(LSock) ->
+    {ok, Sock} = gen_tcp:accept(LSock),
+    server_loop(Sock, 0),
+    gen_tcp:close(LSock).
+
+server_loop(Sock, Bytes) ->
+    receive
+	{tcp, Sock, Packet} ->
+	    ok = gen_tcp:send(Sock, Packet),
+	    server_loop(Sock, Bytes + size(Packet));
+	{tcp_closed, Sock} ->
+	    io:format("server processed ~w bytes~n", [Bytes]),
+	    gen_tcp:close(Sock)
+    end.
+%%%  The Great Computer Language Shootout 
+%%%  http://shootout.alioth.debian.org/
+%%% 
+%%%  modified by Isaac Gouy
+
+%%%  Use destructive assignment in the process dictionary 
+%%%  to keep count of handled exceptions.
+
+-module(except). 
+-export([main/0, main/1]).
+
+blowup(N) when N rem 2 == 0 -> throw({lo_exception, N});
+blowup(N) -> throw({hi_exception, N}).
+
+lo_fun(N) ->
+   case catch blowup(N) of
+      {lo_exception, N1} -> put(lo_count, get(lo_count) + 1);
+      {hi_exception, N2} -> throw({hi_exception, N2})
+   end.
+    
+hi_fun(N) -> 
+   case catch lo_fun(N) of
+      {hi_exception, N1} -> put(hi_count, get(hi_count) + 1);
+      _ -> true
+   end.
+    
+some_fun(0) -> true;
+some_fun(N) ->
+   case catch hi_fun(N) of
+      {lo_exception, N1} -> io:fwrite("~s~n", ["lo_exception should not get here."]);
+      {hi_exception, N2} -> io:fwrite("~s~n", ["hi_exception should not get here."]);
+      _ -> true
+   end,
+   some_fun(N - 1).
+    
+main() -> main(["1"]).
+main([Arg]) ->
+   Num = list_to_integer(Arg),
+   put(hi_count, 0),
+   put(lo_count, 0),
+   some_fun(Num),
+   io:fwrite("~s~w ~s~w~n", ["Exceptions: HI=", get(hi_count),"/ LO=", get(lo_count)]),
+   halt(0).
+%   The Computer Language Shootout
+%   http://shootout.alioth.debian.org/
+%
+%   contributed by Hans Svensson
+
+-module(fannkuch).
+-export([main/1]).
+
+main([Arg]) ->
+    N = list_to_integer(Arg),
+    F = main(N),
+    io:fwrite("Pfannkuchen(~p) = ~p~n", [N, F]),
+    erlang:halt(0);
+
+main(N) when N > 0 ->
+    L = lists:seq(1,N),
+    put(pr,30),
+    put(maxflip,0),
+    cP(1,N,L,true),
+    get(maxflip).
+
+cP(1,N,L,_) ->
+    test(L),
+    cP(2,N,L,true);
+cP(B,N,_,_) when B > N ->
+    ok;
+cP(B,N,L,Cont) ->
+    Is = lists:seq(1,B-1),
+    Ls = lists:map(fun(D) -> rotate(D,B,L) end,Is),
+    case length(Ls) of
+	1 ->
+	    test(hd(Ls));
+	_ ->
+	    lists:map(fun(L_) -> test(L_),
+				 lists:map(fun(D) -> cP(D,N,L_,false) end,
+					   lists:seq(2,B-1))
+		      end,Ls)
+    end,
+    case Cont of
+	true ->
+	    cP(B+1,N,L,true);
+	false ->
+	    ok
+    end.
+
+rotate(1,2,[H|[H2|T]]) ->
+    [H2 | [ H | T]];
+rotate(1,J,[H|T]) ->
+    {H2,T2} = lists:split(J-1,T),
+    H2 ++ [H] ++ T2;
+rotate(I,J,L) ->
+    {H,T} = lists:split(J,L),
+    {H1,H2} = lists:split(I,H),
+    H2 ++ H1 ++ T.
+    
+test(L) ->
+    case get(pr) of 
+	0 -> ok;
+	N -> lists:map(fun(I) -> io:format("~p",[I]) end, L),
+	     io:format("\n"),
+	     put(pr,N-1)
+    end,
+    X = flip(L,0),
+    Y = get(maxflip),
+    case X > Y of
+	true -> put(maxflip,X);
+	false -> ok
+    end.
+
+flip([1|_], N) -> N;
+flip([I|_]=L, N) ->
+    {H, T} = lists:split(I, L),
+    flip(lists:reverse(H)++T, N+1).
+%   The Computer Language Benchmarks Game
+%   http://shootout.alioth.debian.org/
+
+%   contributed by Mats Cronqvist
+%   parallelized by Fredrik Svahn
+
+-module(fannkuch).
+
+-export([main/1]).
+% -compile( [ native, { hipe, o3 } ] ).
+
+main([Arg]) ->
+    register(server, self()),
+    N = list_to_integer(Arg),
+    Pids = lists:map( fun(R)-> spawn(fun()-> worker(N, R) end) end, 
+		      lists:seq(0,N-1) ),
+    put(print, 30),
+    Print = fun(Data)-> 
+		      case get(print) of
+			  0 -> throw(done);
+			  P -> flush(Data), put(print,P-1)
+		      end, 
+		      Data
+	      end,
+    catch perm(Print, N, init(N)),
+    AllValues = [ receive Max -> Max end || _Pid <- Pids ],
+    io:fwrite("Pfannkuchen(~p) = ~p~n", [ N, lists:max(AllValues) ]),
+    erlang:halt(0).
+
+worker(N, Rotations)->
+    put(max,0),
+    Kuch = fun(Data) -> 
+		   case get(max) < (K = kuch(Data,0)) of
+		       true -> put(max, K);
+		       false -> ok
+		   end,
+		   Data
+	   end,
+    perm(Kuch, N-1, init(N, Rotations)),
+    server ! get(max).
+
+%% perm and prot generates the permutations in the right order and
+%% calls the supplied fun for each one
+perm(F,1,Data)-> F(Data);
+perm(F,3,Data)-> F(flip(1,F(flip(2,F(flip(1,F(flip(2,F(flip(1,F(Data)))))))))));
+perm(F,N,Data)-> prot(F,N,N,Data).
+
+prot(_F,_N,0,Data) -> Data;
+prot(F,N,M,Data) -> perm(F,N-1,Data), prot(F,N,M-1,rotate(N,Data)).
+
+%% primitives for our data model
+%%
+%% init(Length) - create new struct
+%% init(Length, R) - create new struct, rotated R times
+%% kuch(Data, N) - the actual flipping function. returns number of flips
+%% reverse(N, Data) - reverse first N elements
+%% rotate(N, Data) - rotate first N elements
+%% flip(N, Data) - exchange N:th and N+1:th element
+%% flush(Data) - flush to screen
+
+init(N) -> lists:seq(1,N).
+
+init(N, R) -> init(N, init(N), R).
+init(_N, Data, 0) -> Data;
+init(N, Data, R) -> init(N, rotate(N, Data), R-1).
+
+kuch([1 | _ ], N) -> N;
+kuch([M | _ ] = Data, N) -> kuch(reverse(M,Data),N+1).
+
+reverse(2,[H1,H2|L]) ->
+    [H2,H1|L];
+reverse(3,[H1,H2,H3|L]) ->
+    [H3,H2,H1|L];
+reverse(4,[H1,H2,H3,H4|L]) ->
+    [H4,H3,H2,H1|L];
+reverse(5,[H1,H2,H3,H4,H5|L]) ->
+    [H5,H4,H3,H2,H1|L];
+reverse(6,[H1,H2,H3,H4,H5,H6|L]) ->
+    [H6,H5,H4,H3,H2,H1|L];
+reverse(7,[H1,H2,H3,H4,H5,H6,H7|L]) ->
+    [H7,H6,H5,H4,H3,H2,H1|L];
+reverse(8,[H1,H2,H3,H4,H5,H6,H7,H8|L]) ->
+    [H8,H7,H6,H5,H4,H3,H2,H1|L];
+reverse(9,[H1,H2,H3,H4,H5,H6,H7,H8,H9|L]) ->
+    [H9,H8,H7,H6,H5,H4,H3,H2,H1|L];
+reverse(10,[H1,H2,H3,H4,H5,H6,H7,H8,H9,H0|L]) ->
+    [H0,H9,H8,H7,H6,H5,H4,H3,H2,H1|L];
+reverse(M,L) ->
+    {H,T} = lists:split(M,L),
+    lists:reverse(H)++T.
+
+rotate(0, Data) -> Data;
+rotate(4,[H1,H2,H3,H4|T]) -> [H2,H3,H4,H1|T];
+rotate(5,[H1,H2,H3,H4,H5|T]) -> [H2,H3,H4,H5,H1|T];
+rotate(N,L) -> {[H|Hs],Ts} = lists:split(N,L), Hs++[H|Ts].
+
+flip(1,[H1,H2|T]) -> [H2,H1|T];
+flip(2,[H,H1,H2|T]) -> [H,H2,H1|T].
+
+flush(Data) ->
+    lists:foreach(fun(I)->io:fwrite("~p",[I]) end, Data),
+    io:fwrite("~n").
+
+%% The Computer Language Benchmarks Game
+%% http://shootout.alioth.debian.org/
+%%
+%% Contributed by : Alkis Gotovos and Maria Christakis, 13 Nov 2010
+
+-module(fannkuchredux).
+
+-compile([native, {hipe, [o3]}]).
+
+-export([main/1]).
+
+main([Arg]) ->
+    main(list_to_integer(Arg)),
+    halt(0);
+main(N) when N > 0 ->
+    {MaxFlips, Checksum} = 
+	case N of
+	    1 -> {0, 0};
+	    _Other ->
+		Chunk = fact(N - 1),
+		divide(0, N, lists:seq(1, N), Chunk),
+		join(N, 0, 0)
+	end,
+    io:format("~p~nPfannkuchen(~p) = ~p~n", [Checksum, N, MaxFlips]),
+    {MaxFlips, Checksum}.
+
+divide(N, N, _L, _C) -> ok;
+divide(N, MaxN, [H|T] = List, Chunk) ->
+    Self = self(),
+    Fun = fun() ->
+	      work(N, List, N * Chunk, (N + 1) * Chunk, MaxN, 0, 0, Self)
+	  end,
+    spawn(Fun),
+    divide(N + 1, MaxN, T ++ [H], Chunk).
+
+join(0, MaxFlips, Checksum) -> {MaxFlips, Checksum};
+join(N, MaxFlips, Checksum) ->
+    receive
+	{Flips, Sum} -> join(N - 1, max(MaxFlips, Flips), Checksum + Sum)
+    end.
+
+work(_P, _L, Index, Index, _R, MaxFlips, Checksum, Target) ->
+    Target ! {MaxFlips, Checksum};
+work(Proc, List, Index, MaxIndex, R, MaxFlips, Checksum, Target) ->
+    reset(R),
+    {Flips, Sum} = flip_sum(Index, List),
+    NewFlips = max(Flips, MaxFlips),
+    NewSum = Checksum + Sum,
+    {NewList, NewR} = next(Proc, List, 1),
+    work(Proc, NewList, Index + 1, MaxIndex, NewR, NewFlips, NewSum, Target).
+
+next(Proc, List, R) ->
+    NewList = next_aux(R, List),
+    case put(R, get(R) - 1) of
+	1 -> next(Proc, NewList, R + 1);
+	_Other -> {NewList, R}
+    end.
+
+next_aux(1, [E1, E2|T]) -> [E2, E1|T];
+next_aux(2, [E1, E2, E3|T]) -> [E2, E3, E1|T];
+next_aux(3, [E1, E2, E3, E4|T]) -> [E2, E3, E4, E1|T];
+next_aux(R, [H|T]) ->
+    {Front, Back} = lists:split(R, T),
+    Front ++ [H] ++ Back.    
+
+flip_sum(Index, List) ->
+    Flips = flip(List, 0),
+    Sum = 
+	case Index band 1 of
+	    0 -> Flips;
+	    1 -> -Flips
+	end,
+    {Flips, Sum}.
+
+flip([1|_T], N) ->
+    N;
+flip([2, E1|T], N) ->
+    flip([E1, 2|T], N + 1);
+flip([3, E1, E2|T], N) ->
+    flip([E2, E1, 3|T], N + 1);
+flip([4, E1, E2, E3|T], N) ->
+    flip([E3, E2, E1, 4|T], N + 1);
+flip([5, E1, E2, E3, E4|T], N) ->
+    flip([E4, E3, E2, E1, 5|T], N + 1);
+flip([6, E1, E2, E3, E4, E5|T], N) ->
+    flip([E5, E4, E3, E2, E1, 6|T], N + 1);
+flip([7, E1, E2, E3, E4, E5, E6|T], N) ->
+    flip([E6, E5, E4, E3, E2, E1, 7|T], N + 1);
+flip([8, E1, E2, E3, E4, E5, E6, E7|T], N) ->
+    flip([E7, E6, E5, E4, E3, E2, E1, 8|T], N + 1);
+flip([9, E1, E2, E3, E4, E5, E6, E7, E8|T], N) ->
+    flip([E8, E7, E6, E5, E4, E3, E2, E1, 9|T], N + 1);
+flip([10, E1, E2, E3, E4, E5, E6, E7, E8, E9|T], N) ->
+    flip([E9, E8, E7, E6, E5, E4, E3, E2, E1, 10|T], N + 1);
+flip([11, E1, E2, E3, E4, E5, E6, E7, E8, E9, E10|T], N) ->
+    flip([E10, E9, E8, E7, E6, E5, E4, E3, E2, E1, 11|T], N + 1);
+flip([12, E1, E2, E3, E4, E5, E6, E7, E8, E9, E10, E11|T], N) ->
+    flip([E11, E10, E9, E8, E7, E6, E5, E4, E3, E2, E1, 12|T], N + 1);
+flip([H|_T] = List, N) ->
+    {First, Last} = lists:split(H, List),
+    flip(lists:reverse(First) ++ Last, N + 1).
+
+reset(1) -> ok;    
+reset(N) -> put(N - 1, N), reset(N - 1).
+
+fact(1) -> 1;
+fact(N) -> N * fact(N - 1).
+%  The Computer Language Shootout
+%   http://shootout.alioth.debian.org/
+%
+%   contributed by Alex Peake
+%
+%   erl -noshell -noinput -run fasta main N
+
+-module(fasta).
+
+-export([main/0, main/1]).
+
+-define(IM, 139968).
+-define(IA, 3877).
+-define(IC, 29573).
+
+-define(ALU,"GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGGGAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGACCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAATACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCAGCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGGAGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCCAGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA").
+-define(HS, [{$a, 0.3029549426680}, {$c, 0.1979883004921}, {$g, 0.1975473066391}, {$t, 0.3015094502008}]).
+-define(IUB, [{$a, 0.27}, {$c, 0.12}, {$g, 0.12}, {$t, 0.27}, {$B, 0.02}, {$D, 0.02}, {$H, 0.02}, {$K, 0.02}, {$M, 0.02}, {$N, 0.02}, {$R, 0.02}, {$S, 0.02}, {$V, 0.02}, {$W, 0.02}, {$Y, 0.02}]).
+
+-define(LINE_LENGTH, 60).
+
+main() -> main(["1000"]).
+main([Arg]) ->
+   N = list_to_integer(Arg),
+   Seed = 42,
+   write_fasta_cycle("ONE","Homo sapiens alu", ?ALU, N*2),
+   NewSeed = write_fasta_rand("TWO","IUB ambiguity codes", ?IUB, N*3, Seed),
+   write_fasta_rand("THREE","Homo sapiens frequency", ?HS, N*5, NewSeed),
+   halt(0).
+
+%% Write a sequence in LINE_LENGTH lines
+write_fasta_cycle(Id, Description, Seq, Total) ->
+	io:put_chars(">" ++ Id ++ " " ++ Description ++ "\n"),
+	write_fasta_cycle(Seq, Total).
+write_fasta_cycle(Seq, Total) when Total =< ?LINE_LENGTH ->
+	{Seq1, _Remainder} = seq_len(Seq, Total),
+	io:put_chars(Seq1 ++ "\n");
+write_fasta_cycle(Seq, Total) ->
+	{Seq1, Remainder} = seq_len(Seq, ?LINE_LENGTH),
+	io:put_chars(Seq1 ++ "\n"),
+	write_fasta_cycle(Remainder, Total - ?LINE_LENGTH).
+
+%% Return a Len of a cycle of ALU
+seq_len(Seq, Len) when length(Seq) >= Len ->
+	lists:split(Len, Seq);
+seq_len(Seq, Len) when length(?ALU) < Len - length(Seq) ->
+	seq_len(Seq ++ ?ALU, Len);
+seq_len(Seq, Len) ->
+	{Seq1, Seq2} = lists:split(Len - length(Seq), ?ALU),
+	{Seq ++ Seq1, Seq2}.
+
+%% Write a random sequence in LINE_LENGTH lines
+write_fasta_rand(Id, Description, Freq, Total, Seed) ->
+	io:put_chars(">" ++ Id ++ " " ++ Description ++ "\n"),
+	NewSeed = write_fasta_rand(Freq, Total, Seed),
+	NewSeed.
+write_fasta_rand(Freq, Total, Seed) when Total =< ?LINE_LENGTH ->
+	{RandList, NewSeed} = rand_list(Freq, Total, [], Seed),
+	io:put_chars(RandList),
+	NewSeed;
+write_fasta_rand(Freq, Total, Seed) ->
+	{RandList, NewSeed} = rand_list(Freq, ?LINE_LENGTH, [], Seed),
+	io:put_chars(RandList),
+	write_fasta_rand(Freq, Total - ?LINE_LENGTH, NewSeed).
+
+%% Return a Len of a random list of Freq
+rand_list(_Freq, 0, List, Seed) ->
+	{lists:reverse(["\n" | List]), Seed};
+rand_list(Freq, Len, List, Seed) ->
+	{Rand, NewSeed} = rand(Seed),
+	rand_list(Freq, Len - 1, [choose_base(Freq, Rand) | List], NewSeed).
+
+%% Functional random number generator
+rand(Seed) ->
+   NewSeed = (Seed * ?IA + ?IC) rem ?IM,
+   {NewSeed / ?IM, NewSeed}.
+
+%% Select the Base corresponding to the calculated cumulative Probability
+choose_base([{Base,_}], _)
+	-> Base;
+choose_base([{Base,Freq} | _], Prob) when Prob < Freq -> 
+	Base;
+choose_base([{_Base,Freq} | Bases], Prob) ->
+	choose_base(Bases, Prob - Freq).
+% The Computer Language Benchmarks Game
+% http://shootout.alioth.debian.org/
+% contributed by Fredrik Svahn
+
+-module(fasta).
+-export([main/1]).
+
+-define(LINELEN, 60).
+-define(PREC,10000000).
+
+-define(IM, 139968).
+-define(IC, 29573).
+-define(IA, 3877).
+
+-define(ALU,<<"GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGGGAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGACCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAATACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCAGCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGGAGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCCAGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA">>).
+
+-define(IUB, [{$a, 0.27}, {$c, 0.12}, {$g, 0.12}, {$t, 0.27}, {$B, 0.02}, {$D, 0.02}, {$H, 0.02}, {$K, 0.02}, {$M, 0.02}, {$N, 0.02}, {$R, 0.02}, {$S, 0.02}, {$V, 0.02}, {$W, 0.02}, {$Y, 0.02}]).
+
+-define(HS, [{$a, 0.3029549426680}, {$c, 0.1979883004921}, {$g, 0.1975473066391}, {$t, 0.3015094502008}]).
+
+main([Arg]) ->
+    put(port, open_port({fd,0,1}, [out, binary])),
+
+    Seed = 42,
+    N = list_to_integer(Arg),
+
+    print(<<">ONE Homo sapiens alu\n">>),
+    cycle(?ALU, N*2, [], 0),
+
+    print(<<">TWO IUB ambiguity codes\n">>),
+    NewSeed = rand(mk_list(?IUB), ?LINELEN, N*3, [], Seed, [], 0),
+
+    print(<<">THREE Homo sapiens frequency\n">>),
+    rand(mk_list(?HS), ?LINELEN, N*5, [], NewSeed, [],0),
+    halt(0).
+
+%Newline every LINELEN char, however io is expensive so we want to buffer
+%up a few lines before printing. 16 lines in buffer seem to be fastest.
+cycle(Seq, Total, RowBuf, _) when Total < ?LINELEN ->
+    <<Seq1:Total/binary, _/binary>> = <<Seq/binary, ?ALU/binary>>,
+    reverse_print(RowBuf), 
+    print(<<Seq1/binary, "\n">>);
+
+cycle(Seq, Total, RowBuf, RowBufSize) when RowBufSize == 16 -> 
+    reverse_print(RowBuf), 
+    cycle(Seq, Total, [], 0);
+
+cycle(Seq, Total, RowBuf, RowBufSize ) when size(Seq) < ?LINELEN ->
+    <<Seq1:?LINELEN/binary, Seq2/binary>> = <<Seq/binary, ?ALU/binary>>,
+    cycle(Seq2, Total-?LINELEN, [<<Seq1/binary,"\n">>| RowBuf], RowBufSize+1);
+
+cycle(Seq, Total, RowBuf, RowBufSize) -> 
+    <<Seq1:?LINELEN/binary, Seq2/binary>> = Seq,
+    cycle(Seq2, Total-?LINELEN, [<<Seq1/binary,"\n">>| RowBuf], RowBufSize+1).
+
+rand(_, _, 0, List, Seed, RowBuf, _) ->
+    LastLine = lists:reverse(["\n" | List]),
+    reverse_print([LastLine | RowBuf]), 
+    Seed;
+
+rand(Freq, 0, Total, List, Seed, RowBuf, RowBufSize) when RowBufSize == 16 ->
+    Line = lists:reverse(["\n" | List]),
+    reverse_print([Line | RowBuf]), 
+    rand(Freq, ?LINELEN, Total, [], Seed, [], 0);
+
+rand(Freq, 0, Total, List, Seed, RowBuf, RowBufSize) ->
+    Line = lists:reverse(["\n" | List]),
+    rand(Freq, ?LINELEN, Total, [], Seed, [ Line | RowBuf], RowBufSize + 1);
+
+rand(Freq, LineLen, Total, List, Seed, RowBuf, RowBufSize) ->
+    {Rand, NewSeed} = random(Seed),
+    Base = get_base(Freq, Rand),
+    rand(Freq, LineLen-1, Total-1, [Base | List], NewSeed, RowBuf, RowBufSize).
+
+random(Seed) ->
+    NewSeed = (Seed * ?IA + ?IC) rem ?IM,
+    {trunc(NewSeed / ?IM * ?PREC), NewSeed}.
+
+get_base([{Base, _}], _P) -> Base;
+get_base([{Base, Freq}|_], P) when P < Freq -> Base;
+get_base([{_, _} | Rest], P) -> get_base(Rest, P).
+
+%Floats are expensive and we want to avoid dealing with floats in get_base/1.
+%Precalculate list of accumulated integers 
+mk_list(Probs)-> lists:reverse(mk_list(Probs, 0, [])).
+mk_list([{B, P}], AccP, AccL)-> [{B, AccP + trunc(P*?PREC)}| AccL];
+mk_list([{B, P}|T], AccP, AccL)-> 
+    mk_list(T, AccP + trunc(P*?PREC), [{B, AccP + trunc(P*?PREC)}| AccL]).
+
+print(List) -> port_command(get(port), List).
+reverse_print(List) -> port_command(get(port), lists:reverse(List)).
+%%% -*- mode: erlang -*-
+%%% $Id: fibo.erlang,v 1.5 2005-04-25 19:01:38 igouy-guest Exp $
+%%% http://shootout.alioth.debian.org/
+
+-module(fibo).
+-export([main/1]).
+
+main([Arg]) ->
+    Num = list_to_integer(Arg),
+    io:fwrite("~w\n", [fib(Num)]),
+    halt(0).
+
+fib(0) -> 1;
+fib(1) -> 1;
+fib(N) -> fib(N-2) + fib(N-1).
+%%% The Computer Language Shootout
+%%% http://shootout.alioth.debian.org/
+%%%
+%%% Contributed by Isaac Gouy
+
+-module(harmonic).
+-export([main/1]).
+
+main([Arg]) ->
+   Num = list_to_integer(Arg),
+   io:fwrite("~.9f~n", [harmonic(Num,0.0)]),
+   erlang:halt().
+
+harmonic(0,PartialSum) -> PartialSum;
+harmonic(I,PartialSum) -> harmonic(I-1,PartialSum+(1.0/I)).
+
+
+ 
+%%% The Great Computer Language Shootout 
+%%% http://shootout.alioth.debian.org/
+%%%
+%%% Use ETS tables (Erlang's associative store).
+%%%
+%%% Optimizations provided by Einar Karttunen.
+%%% An off-by-one error corrected by Brent Fulgham
+%%% modified by Isaac Gouy
+
+-module(hash).
+-export([main/0, main/1]).
+
+main() -> main(["1"]).
+main([Arg]) ->
+   N = list_to_integer(Arg),
+   H = ets:new(i_am_a_carrot, [set]),
+   doinserts(0, N + 1, H),
+   Count = dolookups(N + 1, 0, H),
+   io:format("~w~n", [Count]),
+   halt().
+
+doinserts(N, N, H) -> ok;
+doinserts(I, N, H) ->
+   ets:insert(H, { erlang:integer_to_list(I, 16), I }),
+   doinserts(I+1, N, H).
+
+dolookups(0, C, H) -> C;
+dolookups(I, C, H) ->
+   Nx = integer_to_list(I),
+   case ets:lookup(H, Nx) of
+      [] ->    dolookups(I-1, C, H);
+      Found -> dolookups(I-1, C+1, H)
+   end.
+%%% The Great Computer Language Shootout 
+%%% http://shootout.alioth.debian.org/
+%%% 
+%%% improvements by James Hague 
+%%% modified by Isaac Gouy
+%%%
+%%% Use ETS tables (Erlang's associative store).
+
+-module(hash2).
+-export([main/0, main/1]).
+
+main() -> main(["1"]).
+main([Arg]) ->
+   N = list_to_integer(Arg),
+   H1 = ets:new(one, [set]),
+   H2 = ets:new(two, [set]),
+   doinserts1(0, H1),
+   doinserts2(N, H1, H2),
+   io:format("~w ~w ~w ~w~n", [value(H1, list_to_atom("foo_1")),
+      value(H1, list_to_atom("foo_9999")),
+      value(H2, list_to_atom("foo_1")),
+      value(H2, list_to_atom("foo_9999"))]),
+   halt(0).
+
+doinserts1(10000, _) -> ok;
+doinserts1(I, H) ->
+   Key = list_to_atom(lists:append("foo_", integer_to_list(I))),
+   ets:insert(H, { Key, I }),
+   doinserts1(I+1, H).
+
+doinserts2(0, _, _) -> ok;
+doinserts2(I, H1, H2) ->
+   addTables(H1, H2),
+   doinserts2(I-1, H1, H2).
+
+addTables(H1, H2) ->
+   Key = ets:first(H1),
+   addTables(Key, H1, H2).
+
+value(Tab, Key) -> { _, V } = hd(ets:lookup(Tab, Key)), V.
+
+addTables('$end_of_table', _, _) -> ok;
+addTables(Key, H1, H2) ->
+   Val1 = value(H1, Key),
+   case (catch ets:update_counter(H2, Key, Val1)) of
+      {'EXIT', {badarg, _}} -> ets:insert(H2, {Key, Val1});
+      _                     -> true
+   end,
+   addTables(ets:next(H1, Key), H1, H2).
+%% The Great Computer Language Shootout
+%% http://shootout.alioth.debian.org/
+%%
+%% contributed by Isaac Gouy (Erlang novice)
+%% 20040619: Nicolas Niclausse: use ets instead of tuples.
+%% 20040721: Alexey Shchepin: use process dictionary instead of ets.
+%% fixed by Isaac Gouy
+%%
+%% Quick and Dirty transliteration from the Mercury solution
+%% with +1 adjustment for array indexes.
+%% Mercury uses 0..N-1 and Erlang uses 1..N
+%%
+%% Usage: start from command line with
+%%     erlc heapsort.erl
+%%     erl -noinput -s heapsort main 10000
+
+-module(heapsort).
+-export([main/0, main/1]).
+
+random_heap(I, Seed, N) ->
+   case I < N of
+      true ->
+         {NextSeed, R} = gen_random(Seed),
+         up_heap(I, R),
+         random_heap(I+1, NextSeed, N);
+      false -> ok
+   end.
+
+up_heap(N, Y) ->
+   HalfN = N div 2,
+   X = get(HalfN+1), %%%% +1
+   case 0 < N andalso X < Y of
+      true ->
+         put(N+1, X), %%%% +1
+         up_heap(HalfN, Y);
+      false ->
+         put(N+1, Y) %%%% +1
+   end.
+
+heapsort(0) -> ok;
+heapsort(N) ->
+   remove_greatest(N),
+   heapsort(N-1).
+
+remove_greatest(N) ->
+   X = get(0+1), %%%% +1
+   Y = get(N+1), %%%% +1
+   put(N+1, X), %%%% +1
+   down_heap(0, N-1, Y).
+
+down_heap(I, N, X) ->
+    L = I + I + 1,
+    R = L + 1,
+    case N < L of
+        true ->
+            put(I+1, X); %%%% +1
+        false ->
+	    {J, Y} = if
+			 R < N ->
+			     RV = get(R+1),
+			     LV = get(L+1),
+			     if
+				 RV > LV ->
+				     {R, RV};
+				 true ->
+				     {L, LV}
+			     end;
+			 true ->
+			     {L, get(L+1)}
+		     end,
+            case X > Y of
+	        true -> put(I+1, X); %%%% +1
+                false ->
+		    put(I+1, Y), %%%% +1
+		    down_heap(J, N, X)
+            end
+    end.
+
+clear_ets_array(0) -> ok;
+clear_ets_array(I) ->
+   put(I, 0),
+   clear_ets_array(I - 1).
+
+gen_random(Seed) ->
+   IM = 139968, IA = 3877, IC = 29573,
+   S = ((Seed * IA) + IC) rem IM,
+   {S, S/IM}.
+
+main() -> main(["1"]).
+main([Arg]) ->
+   N = list_to_integer(Arg),
+   clear_ets_array(N),
+   random_heap(0, 42, N),
+   heapsort(N-1),
+   io:fwrite("~.10f~n", [get(N)]),
+   halt(0).
+%%% -*- mode: erlang -*-
+%%% $Id: hello.erlang,v 1.1 2004-05-19 18:10:16 bfulgham Exp $
+%%% http://www.bagley.org/~doug/shootout/
+
+-module(hello).
+-export([main/0]).
+
+main() -> io:fwrite("hello world\n", []), halt(0).
+%% The Computer Language Benchmarks Game
+%% http://shootout.alioth.debian.org/
+%% contributed by Fredrik Svahn based on an earlier submission
+%%             by Kenneth Johansson, Vlad Dumitrescu and Ulf Wiger
+
+-module(knucleotide).
+-export([main/1]).
+
+to_upper(<<C, Cs/binary>>, Acc) when C >= $a, C =< $z ->
+    to_upper(Cs, [C-($a-$A)| Acc]);
+to_upper(<<$\n, Cs/binary>>, Acc) -> to_upper(Cs, Acc);
+to_upper(<<C, Cs/binary>>, Acc) -> to_upper(Cs, [C | Acc]);
+to_upper(<<>>, Acc) -> lists:reverse(Acc).
+
+%% Read and discard until start of third segment
+seek_three() ->
+    case io:get_line('') of
+	<<">TH", _/binary>> -> done;
+	eof        -> erlang:error(eof);
+	_          -> seek_three()
+    end.
+
+%% Read third segment
+get_seq_three(Seq) ->
+    case io:get_line('') of
+	eof -> iolist_to_binary(lists:reverse(Seq));
+	Str -> get_seq_three([to_upper(Str, [])|Seq])
+    end.
+
+%% Generate frequency hash table
+gen_freq_table(FreqT, Seq, Len) -> 
+    gen_freq_table(Seq, Len, FreqT, size(Seq)-Len).
+
+gen_freq_table(_, _, _, -1) -> done;
+gen_freq_table(Seq, Len, FreqT, Dec) ->
+    <<_:Dec/binary, Key:Len/binary, _/binary>> = Seq,
+    update_counter(Key, FreqT),
+    gen_freq_table(Seq, Len, FreqT, Dec-1).
+
+%% Update hash table counter for already existing pattern or insert new
+update_counter(Key, FreqT) ->
+    try ets:update_counter(FreqT, Key, 1) of _ -> ok
+    catch error:badarg -> ets:insert(FreqT, {Key, 1})
+    end.
+
+%% Print the frequency table in the right order
+print_freq_table(FreqT) ->
+    FreqList = lists:reverse(lists:keysort(2, ets:tab2list(FreqT))),
+    Tot = lists:foldr(fun({_, Cnt}, Acc)-> Acc + Cnt end, 0, FreqList),
+    lists:foreach(fun({Nucleoid, Cnt})->
+			  io:fwrite("~s ~.3f\n",[Nucleoid, Cnt*100/Tot]) 
+		  end, FreqList),
+    io:fwrite("\n").
+
+%% Print number of occurrences for a specific pattern
+print_count(FreqT, Pattern) ->
+    case ets:lookup(FreqT, Pattern) of
+	[{_, Value}] -> io:fwrite("~w\t~s\n",[Value, Pattern]);
+	[] -> io:fwrite("~w\t~s\n",[0, Pattern])
+    end.
+
+%% Spawn a worker process with its own hash table
+do({PrintFun, Pattern}, Seq) ->
+    spawn( fun()->
+		   FreqT = ets:new(hash, [set]),
+		   gen_freq_table(FreqT, Seq, size(Pattern)),
+		   %Work is done, wait for token and print
+		   receive Pids -> 
+			   PrintFun(FreqT, Pattern),
+			   hd(Pids) ! tl(Pids) 
+		   end,
+		   ets:delete(FreqT)
+	   end ).
+
+main(_Arg) ->
+    io:setopts(standard_io, [binary]),
+    seek_three(),
+    Seq = get_seq_three([]),
+    PrintFreq = fun(Res, _Pattern)-> print_freq_table(Res) end,
+    PrintCount = fun(Res, Pattern)-> print_count(Res, Pattern) end,
+    Actions = [{PrintFreq,  <<"?">>},
+	       {PrintFreq,  <<"??">>},
+	       {PrintCount, <<"GGT">>},
+	       {PrintCount, <<"GGTA">>},
+	       {PrintCount, <<"GGTATT">>},
+	       {PrintCount, <<"GGTATTTTAATT">>},
+	       {PrintCount, <<"GGTATTTTAATTTATAGT">>}],
+	
+    Pids = [ do(Action, Seq) || Action <- Actions ],
+    %Pass token to print in right order
+    hd(Pids) ! tl(Pids) ++ [self()],
+    receive _Pid -> halt(0) end.
+%% The Computer Language Benchmarks Game
+%% http://shootout.alioth.debian.org/
+%%
+%% k-nucleotide - using binaries and process dictionaries
+%% Contributed by Erik Søe Sørensen
+%%
+
+-module(knucleotide_pdict).
+
+-export([main/1, body/0]).
+
+-define(WORKER_LENGTHS, [1,2,3,4,6,12,18]).
+-define(WORKER_QUERIES,
+		  [all_by_frequency,
+		   all_by_frequency,
+		   {find_frequency, <<"GGT">>},
+		   {find_frequency, <<"GGTA">>},
+		   {find_frequency, <<"GGTATT">>},
+		   {find_frequency, <<"GGTATTTTAATT">>},
+		   {find_frequency, <<"GGTATTTTAATTTATAGT">>}]).
+
+find_seq() ->
+    case io:get_line('') of
+	<<">", _/binary>> ->
+	    ok;         % Found
+	eof ->
+	    exit(eof);
+	_ ->
+	    find_seq()  % Keep searching
+    end.
+
+process_seq(Dests) ->
+    case io:get_line('') of
+	<<">", _/binary>> ->
+	    done;
+	eof ->
+	    lists:foreach(fun(Dest)->Dest ! eof end, Dests),
+	    ok;
+	Line when is_binary(Line) ->
+	    Data = normalize_line(Line),
+	    lists:foreach(fun(Dest)->Dest ! Data end, Dests),
+	    process_seq(Dests)
+    end.
+
+
+normalize_line(Bin) ->
+    list_to_binary([to_upper(C) || C<-binary_to_list(Bin), C =/= $\n]).
+
+to_upper(Char) when $a =< Char, Char =< $z -> Char - $a + $A;
+to_upper(Char)                             -> Char.
+
+spawn_worker(Len) ->
+    spawn(fun()->worker_read(Len, 0, <<>>) end).
+
+worker_read(Len, Total,Buf) when is_integer(Len),
+				      is_integer(Total),
+				is_binary(Buf),
+				byte_size(Buf) < Len ->
+    receive
+	Data when is_binary(Data) ->
+	    worker_read(Len, Total, <<Buf/binary, Data/binary>>);
+	eof ->
+	    worker_done(Total)
+    end;
+worker_read(Len, Total, Buf) when is_integer(Len),
+                                is_integer(Total),
+				is_binary(Buf),
+				byte_size(Buf) >= Len ->
+    <<Key:Len/binary, _/binary>> = Buf,
+    Before = case get(Key) of
+		 undefined -> 0;
+		 X when is_integer(X) -> X
+	     end,
+    put(Key, Before + 1),
+    <<_, Rest/binary>> = Buf,
+    worker_read(Len, Total+1, Rest).
+
+worker_done(Total) ->
+    receive
+	{all_by_frequency, Pid, Ref} ->
+	    Answer = lists:keysort(2, get()),
+	    TxtAnswer = lists:foldl(fun({Key,Freq},Acc) ->
+					    [Key, $\ ,
+					     io_lib:format("~.3f", [Freq*100/Total]),
+					     $\n | Acc]
+				    end, "\n", Answer),
+	    Pid ! {Ref,TxtAnswer};
+	{{find_frequency, Key}, Pid,Ref} ->
+	    Freq = case get(Key) of
+		       undefined -> 0;
+		       X -> X
+		   end,
+	    TxtAnswer = [integer_to_list(Freq), $\t, Key, $\n],
+	    Pid ! {Ref,TxtAnswer};
+	stop ->
+	    exit(normal)
+    end,
+    done.
+
+body() ->
+    %% Start workers in background:
+    Pids = lists:map(fun spawn_worker/1, ?WORKER_LENGTHS),
+
+    io:setopts(standard_io, [binary]),
+
+    %% Skip to third sequence:
+    find_seq(),
+    find_seq(),
+    find_seq(),
+    process_seq(Pids),
+
+    %% Request answers:
+    Refs =
+	lists:zipwith(fun (Pid,Query) ->
+			      Ref = make_ref(),
+			      Pid ! {Query, self(), Ref},
+			      Ref
+		      end,
+		      Pids, ?WORKER_QUERIES),
+
+    %% Receive and print answers:
+    lists:foreach(fun(Ref) ->
+			  receive {Ref, Answer} ->
+				  io:put_chars(Answer)
+			  end
+		  end, Refs),
+    ok.
+
+main(_Args) ->
+    body(),
+    halt(0).
+%% The Computer Language Benchmarks Game
+%% http://shootout.alioth.debian.org/
+%% contributed by Fredrik Svahn based on an earlier submission
+%%             by Kenneth Johansson, Vlad Dumitrescu and Ulf Wiger
+
+-module(knucleotide).
+-export([main/1]).
+
+to_upper(<<C, Cs/binary>>, Acc) when C >= $a, C =< $z ->
+    to_upper(Cs, [C-($a-$A)| Acc]);
+to_upper(<<$\n, Cs/binary>>, Acc) -> to_upper(Cs, Acc);
+to_upper(<<C, Cs/binary>>, Acc) -> to_upper(Cs, [C | Acc]);
+to_upper(<<>>, Acc) -> list_to_binary(lists:reverse(Acc)).
+
+%% Read and discard until start of third segment
+seek_three() ->
+    case io:get_line('') of
+	<<">TH", _/binary>> -> done;
+	eof        -> erlang:error(eof);
+	_          -> seek_three()
+    end.
+
+%% Read third segment
+get_seq_three(Seq) ->
+    case io:get_line('') of
+	eof -> iolist_to_binary(lists:reverse(Seq));
+	Str -> get_seq_three([to_upper(Str, [])|Seq])
+    end.
+
+%% Generate frequency hash table
+gen_freq_table(FreqT, Seq, Len) ->
+    gen_freq_table(Seq, Len, FreqT, size(Seq)-Len).
+
+gen_freq_table(_, _, _, -1) -> done;
+gen_freq_table(Seq, Len, FreqT, Dec) ->
+    <<_:Dec/binary, Key:Len/binary, _/binary>> = Seq,
+    update_counter(Key, FreqT),
+    gen_freq_table(Seq, Len, FreqT, Dec-1).
+
+%% Update hash table counter for already existing pattern or insert new
+update_counter(Key, FreqT) ->
+    try ets:update_counter(FreqT, Key, 1) of _ -> ok
+    catch error:badarg -> ets:insert(FreqT, {Key, 1})
+    end.
+
+%% Print the frequency table in the right order
+print_freq_table(FreqT) ->
+    FreqList = lists:reverse(lists:keysort(2, ets:tab2list(FreqT))),
+    Tot = lists:foldr(fun({_, Cnt}, Acc)-> Acc + Cnt end, 0, FreqList),
+    lists:foreach(fun({Nucleoid, Cnt})->
+			  io:fwrite("~s ~.3f\n",[Nucleoid, Cnt*100/Tot])
+		  end, FreqList),
+    io:fwrite("\n").
+
+%% Print number of occurrences for a specific pattern
+print_count(FreqT, Pattern) ->
+    case ets:lookup(FreqT, Pattern) of
+	[{_, Value}] -> io:fwrite("~w\t~s\n",[Value, Pattern]);
+	[] -> io:fwrite("~w\t~s\n",[0, Pattern])
+    end.
+
+%% Spawn a worker process with its own hash table
+do({PrintFun, Pattern}, Seq) ->
+    spawn( fun()->
+		   FreqT = ets:new(hash, [set]),
+		   gen_freq_table(FreqT, Seq, size(Pattern)),
+		   %Work is done, wait for token and print
+		   receive Pids ->
+			   PrintFun(FreqT, Pattern),
+			   hd(Pids) ! tl(Pids)
+		   end,
+		   ets:delete(FreqT)
+	   end ).
+
+main(_Arg) ->
+    io:setopts(standard_io, [binary]),
+    seek_three(),
+    Seq = get_seq_three([]),
+    PrintFreq = fun(Res, _Pattern)-> print_freq_table(Res) end,
+    PrintCount = fun(Res, Pattern)-> print_count(Res, Pattern) end,
+    Actions = [{PrintFreq,  <<"?">>},
+	       {PrintFreq,  <<"??">>},
+	       {PrintCount, <<"GGT">>},
+	       {PrintCount, <<"GGTA">>},
+	       {PrintCount, <<"GGTATT">>},
+	       {PrintCount, <<"GGTATTTTAATT">>},
+	       {PrintCount, <<"GGTATTTTAATTTATAGT">>}],
+
+    Pids = [ do(Action, Seq) || Action <- Actions ],
+    %Pass token to print in right order
+    hd(Pids) ! tl(Pids) ++ [self()],
+    receive _Pid -> halt(0) end.
+%% The Great Computer Language Shootout
+%% http://shootout.alioth.debian.org/
+
+%% contributed by Alexey Shchepin <alexey@sevcom.net>
+%% modified by Isaac Gouy
+
+% module "lists" already exists in stdlib
+-module(lists_test).
+-export([main/0, main/1]).
+
+-define(SIZE, 10000).
+
+main() -> main(["1"]).
+main([Arg]) ->
+   N = list_to_integer(Arg),
+   test_lists_n(N),
+   halt(0).
+
+test_lists_n(1) ->
+   io:format("~p~n", [test_lists()]);
+test_lists_n(N) ->
+   test_lists(),
+   test_lists_n(N-1).
+
+test_lists() ->
+   erase(),
+   L1 = create_seq(),
+   L2 = copy(L1),
+   {L22, L3} = move1(L2, new()),
+   {L33, L222} = move2(L3, L22),
+   L11 = reverse(L1),
+   ?SIZE = head(L11),
+   test_eq(L11, L222),
+   len(L11).
+
+move1(From, To) ->
+   case move_from_begin_to_end(From, To) of
+      {NewFrom, NewTo} ->
+         move1(NewFrom, NewTo);
+      nil ->
+         {From, To}
+   end.
+
+move2(From, To) ->
+   case move_from_end_to_end(From, To) of
+      {NewFrom, NewTo} ->
+         move2(NewFrom, NewTo);
+      nil ->
+         {From, To}
+   end.
+
+% Implementation of doubly-linked lists
+
+new() ->
+   {nil, nil}.
+
+new_el(Data) ->
+   Ref = make_ref(),
+   put(Ref, Data),
+   Ref.
+
+push_end({nil, nil}, Val) ->
+   Data = {Val, nil, nil},
+   NewEl = new_el(Data),
+   {NewEl, NewEl};
+push_end({First, Last}, Val) ->
+   Data = {Val, Last, nil},
+   NewEl = new_el(Data),
+   put(Last, setelement(3, get(Last), NewEl)),
+   {First, NewEl}.
+
+head({First, _Last}) ->
+   element(1, get(First)).
+
+create_seq() ->
+   create_seq(1, new()).
+create_seq(N, List) ->
+   if
+      N =< ?SIZE ->
+         create_seq(N+1, push_end(List, N));
+      true ->
+         List
+   end.
+
+copy({First, _Last}) ->
+   copy1(First, new()).
+
+copy1(nil, List) ->
+   List;
+copy1(El, List) ->
+   {Val, _Prev, Next} = get(El),
+   copy1(Next, push_end(List, Val)).
+
+reverse({First, Last}) ->
+   reverse_els(First),
+   {Last, First}.
+
+reverse_els(nil) ->
+   ok;
+reverse_els(El) ->
+   {Val, Prev, Next} = get(El),
+   put(El, {Val, Next, Prev}),
+   reverse_els(Next).
+
+move_from_begin_to_end({First1, Last1}, {First2, Last2}) ->
+   if
+      First1 == nil ->
+         nil;
+      true ->
+         {Val, _Prev1, Next1} = get(First1),
+         NewList1 = if
+            Next1 == nil ->
+               {nil, nil};
+            true ->
+               {Next1, Last1}
+         end,
+         NewList2 = if
+            First2 == nil ->
+               Data = {Val, nil, nil},
+               put(First1, Data),
+               {First1, First1};
+            true ->
+               Data = {Val, Last2, nil},
+               put(First1, Data),
+               put(Last2, setelement(3, get(Last2), First1)),
+               {First2, First1}
+         end,
+      {NewList1, NewList2}
+   end.
+
+move_from_end_to_end({First1, Last1}, {First2, Last2}) ->
+   if
+      First1 == nil ->
+         nil;
+      true ->
+         {Val, Prev1, _Next1} = get(Last1),
+         NewList1 = if
+            Prev1 == nil ->
+               {nil, nil};
+            true ->
+               {First1, Prev1}
+         end,
+         NewList2 = if
+            First2 == nil ->
+               Data = {Val, nil, nil},
+               put(Last1, Data),
+               {Last1, Last1};
+            true ->
+               Data = {Val, Last2, nil},
+               put(Last1, Data),
+               put(Last2, setelement(3, get(Last2), Last1)),
+               {First2, Last1}
+         end,
+      {NewList1, NewList2}
+   end.
+
+test_eq({First1, Last1}, {First2, Last2}) ->
+   test_eq1(First1, First2).
+
+test_eq1(nil, nil) ->
+   ok;
+test_eq1(El1, El2) ->
+   {Val, _Prev1, Next1} = get(El1),
+   {Val, _Prev2, Next2} = get(El2),
+   test_eq1(Next1, Next2).
+
+len({First, _Last}) ->
+   len(First, 0).
+
+len(nil, N) ->
+   N;
+len(El, N) ->
+   len(element(3, get(El)), N + 1).
+
+%% The Computer Language Benchmarks Game
+%% http://shootout.alioth.debian.org/
+%% Contributed by Fredrik Svahn based on Per Gustafsson's mandelbrot program
+
+-module(mandelbrot).
+-export([main/1]).
+-define(LIM_SQR, 4.0).
+-define(ITER, 50).
+-define(SR, -1.5).
+-define(SI, -1).
+
+main([Arg]) ->
+    N = list_to_integer(Arg),
+    io:put_chars(["P4\n", Arg, " ", Arg, "\n"]),
+    
+    %% Spawn one process per row
+    Row = fun(Y)-> spawn(fun()-> row(0, ?SI+Y*2/N, N, 0, [], 7) end) end,
+    Pids = lists:map(Row, lists:seq(0,N-1)),
+
+    %Pass token around to make sure printouts are in the right order
+    hd(Pids) ! tl(Pids) ++ [ self() ],
+    receive _Token -> halt(0) end.
+
+%Iterate over a row, collect bits, bytes and finally print the row
+row(X, _, N, Bits, Bytes, BitC) when X =:= N-1 ->
+    receive Pids ->
+	    put_chars(Bits, Bytes, BitC),
+	    hd(Pids) ! tl(Pids)
+    end;
+
+row(X, Y2, N, Bits, Bytes, 0) ->
+    row(X+1, Y2, N, 0, [Bits bsl 1 + m(?ITER, ?SR+X*2/N, Y2) | Bytes], 7);
+
+row(X, Y2, N, Bits, Bytes, BitC) ->
+    row(X+1, Y2, N, Bits bsl 1 + m(?ITER, ?SR+X*2/N, Y2), Bytes, BitC-1).
+
+%Mandelbrot algorithm
+m(Iter, CR,CI) -> m(Iter - 1, CR, CI, CR, CI).
+
+m(Iter, R, I, CR, CI) ->
+    case R*R+I*I > ?LIM_SQR of 
+	false when Iter > 0 -> m(Iter-1, R*R-I*I+CR, 2*R*I+CI, CR, CI);
+	false -> 1;
+	true -> 0
+    end.
+
+put_chars(_, Bytes, 7)-> io:put_chars(lists:reverse(Bytes));
+put_chars(Bits, Bytes, C) -> io:put_chars(lists:reverse([Bits bsl (C+1) | Bytes])).
+%% The Great Computer Language Shootout
+%% http://shootout.alioth.debian.org/
+
+%% contributed by Alexey Shchepin <alexey@sevcom.net>
+%% modified by Isaac Gouy
+
+-module(matrix).
+-export([main/0, main/1]).
+
+-define(SIZE, 30).
+
+main() -> main(["1"]).
+main([Arg]) ->
+    N = list_to_integer(Arg),
+    M1 = mkmatrix(?SIZE, ?SIZE),
+    M2 = mkmatrix(?SIZE, ?SIZE),
+    mmult_n(N, M1, M2),
+    halt(0).
+
+mmult_n(1, M1, M2) ->
+    M3 = mmult(M1, M2),
+    io:format("~p ~p ~p ~p~n", [element(1, element(1, M3)),
+			        element(4, element(3, M3)),
+			        element(3, element(4, M3)),
+			        element(5, element(5, M3))]);
+mmult_n(N, M1, M2) ->
+    mmult(M1, M2),
+    mmult_n(N-1, M1, M2).
+
+mkmatrix(Rows, Cols) ->
+    list_to_tuple(
+      lists:map(fun(Row) ->
+			list_to_tuple(lists:seq(Row * Cols + 1,
+						Row * Cols + Cols)) 
+		end, lists:seq(0, Rows - 1))).
+
+
+mmult(M1, M2) ->
+    mmult1(?SIZE, M1, M2, []).
+
+mmult1(0, M1, M2, M3) ->
+    list_to_tuple(M3);
+mmult1(Row, M1, M2, M3) ->
+    M1R = element(Row, M1),
+    mmult1(Row - 1, M1, M2,
+	   [mmult2(?SIZE, Row, M1R, M2, []) | M3]).
+
+mmult2(0, Row, M1R, M2, R) ->
+    list_to_tuple(R);
+mmult2(Col, Row, M1R, M2, R) ->
+    mmult2(Col - 1, Row, M1R, M2,
+	   [inner_loop(?SIZE, Col, Row, M1R, M2, 0) | R]).
+
+inner_loop(0, Col, Row, M1R, M2, Sum) ->
+    Sum;
+inner_loop(I, Col, Row, M1R, M2, Sum) ->
+    inner_loop(I - 1, Col, Row, M1R, M2,
+	       Sum + element(I, M1R) * element(Col, element(I, M2))).
+
+
+
+%  The Great Computer Language Shootout
+%   http://shootout.alioth.debian.org/
+%
+%   contributed by Soeren Finster
+%
+%   erl -noshell -noinput -run message main N
+
+
+-module(message).
+-export([main/1, loop/1]).
+
+main([Arg]) ->
+    N = list_to_integer(Arg),
+    Last = start(500, self()),
+    io:fwrite("~p~n", [sendtimes(N, Last, 0)]),
+    erlang:halt(0).
+
+start(0, LastPID) -> LastPID;
+
+start(X, LastPID) -> start(X-1, spawn(message, loop, [LastPID])).
+
+loop(LastPID) ->
+	receive
+		N ->
+		LastPID ! N+1,
+		loop(LastPID)
+	end.
+
+sendtimes(0,_ ,X) -> X;
+
+sendtimes(N, Last, X) ->
+	Last ! 0,
+	receive	Y -> Y end,
+	sendtimes(N-1, Last, X+Y).
+
+
+%%% -*- mode: erlang -*-
+%%% $Id: methcall.erlang,v 1.2 2005-05-08 02:02:47 igouy-guest Exp $
+%%% http://shootout.alioth.debian.org/
+%%%
+%%% Provided by Bengt Kleberg (Erlang Guru!)
+%%% fixed by Isaac Gouy (Erlang novice)
+
+-module(methcall).  
+-export([main/0, main/1]).
+
+-record( toggle_base, {state, value = fun value/1, activate = fun activate/1} ).
+-record( toggle, {toggle_base} ).
+-record( nth_toggle, { toggle_base, counter = 0, max_count } ).
+
+main() -> main(["1"]).
+main([Arg]) ->
+   Number_of_Times = list_to_integer(Arg),
+   State = activate_toggle( Number_of_Times, toggle_new( true ) ),
+   io:fwrite("~w\n", [State]),
+   Nth_State = activate_toggle( Number_of_Times, nth_toggle_new( true, 3 ) ),
+   io:fwrite("~w\n", [Nth_State]),
+   erlang:halt().
+
+activate_toggle( 0, Toggle ) ->
+	Value = (Toggle#toggle.toggle_base)#toggle_base.value,
+	Value( Toggle );
+activate_toggle( Number_of_Times, Toggle ) ->
+	Activate = (Toggle#toggle.toggle_base)#toggle_base.activate,
+	activate_toggle( Number_of_Times - 1, Activate( Toggle )).
+
+
+toggle_base_new( State ) ->
+	#toggle_base{state = State}.
+
+toggle_new( State ) ->
+	Toggle = toggle_base_new( State ),
+	#toggle{toggle_base = Toggle}.
+
+nth_toggle_new( State, Max_Count ) ->
+	Toggle = toggle_base_new( State ),
+	#nth_toggle{toggle_base = Toggle, max_count = Max_Count - 1}.
+
+
+activate( #toggle_base{state = true} = Toggle_Base ) ->
+	Toggle_Base#toggle_base{state = false};
+activate( #toggle_base{state = false} = Toggle_Base ) ->
+	Toggle_Base#toggle_base{state = true};
+activate( #toggle{toggle_base = Toggle_Base} = Toggle ) ->
+	Toggle#toggle{toggle_base = activate( Toggle_Base )};
+activate( #nth_toggle{counter = Max_Count, max_count = Max_Count, toggle_base = Toggle_Base} = Nth_Toggle ) ->
+	Nth_Toggle#nth_toggle{toggle_base = activate( Toggle_Base ), counter = 0};
+activate( #nth_toggle{counter = Count} = Nth_Toggle ) ->
+	Nth_Toggle#nth_toggle{counter = Count + 1}.
+
+value( #toggle_base{state = State} ) ->
+	State;
+value( #toggle{toggle_base = Toggle_Base} ) ->
+	value( Toggle_Base );
+value( #nth_toggle{toggle_base = Toggle_Base} ) ->
+	value( Toggle_Base ).
+
+%% The Great Computer Language Shootout
+%% contributed by Bengt Kleberg (Erlang Guru)
+%%
+%% http://shootout.alioth.debian.org/
+%%
+%% Usage: start from command line with
+%%     erlc moments.erl
+%%     erl -noinput -s moments main < InputFile
+
+-module(moments). 
+-export([main/0, main/1]). 
+
+%% ignore program argument
+main() -> main(['1']).
+main(_Args) ->
+    Numbers = input_floats(),
+    How_many = erlang:length( Numbers ),
+    Median = median( Numbers, How_many ),
+    Mean = lists:sum( Numbers ) / How_many,
+    {Ad, Av, As, Ak} = various_averages( Numbers, Mean),
+    Average_deviation = Ad / How_many,
+    Variance = Av / (How_many - 1),
+    Standard_deviation = math:sqrt(Variance),
+    Skew = skew(How_many, As, Variance, Standard_deviation),
+    Kurtosis = kurtosis(How_many, Ak, Variance),
+    print(How_many, Median, Mean, Average_deviation, Standard_deviation,
+    	Variance, Skew, Kurtosis),
+    halt().
+
+input_floats() -> % "list of (double precision floating point) numbers"? no,integers.
+    input_floats(io:fread('', "~d"), []).
+input_floats(eof, Numbers) ->
+    Numbers;
+input_floats({ok, [Float]}, Numbers) ->
+    input_floats( io:fread('', "~d"), [Float|Numbers] ).
+
+various_averages( Numbers, Mean ) ->
+    Fun = fun( Float, {Ad, Av, As, Ak} ) ->
+            D = Float - Mean,
+	    D2 = D * D,
+	    {Ad + erlang:abs(D), Av + D2, As + (D2 * D), Ak + (D2 * D2)}
+	  end,
+    lists:foldl( Fun, {0.0, 0.0, 0.0, 0.0}, Numbers ).
+
+median(L, N) -> medianS(lists:sort(L), N).
+
+medianS(L, N) ->
+    Mid = (N div 2) + 1, % 1-based list access
+    case N rem 2 of
+        0 -> (lists:nth(Mid, L) + lists:nth(Mid - 1, L)) / 2;
+        1 -> lists:nth(Mid, L)
+    end.
+
+skew(N, As, V, SD) when V > 0.0 -> As / (N * V * SD);
+skew(_N, _As, _V, _SD) -> 0.
+
+kurtosis(N, Ak, V) when V > 0.0 -> Ak / (N * V * V) - 3;
+kurtosis(_N, _Ak, _V) -> 0.
+
+print(How_many, Median, Mean, Average_deviation, Standard_deviation,
+        Variance, Skew, Kurtosis) ->
+    io:fwrite("n:                  ~w~n", [How_many]), 
+    io:fwrite("median:             ~f~n", [Median]), 
+    io:fwrite("mean:               ~f~n", [Mean]), 
+    io:fwrite("average_deviation:  ~f~n", [Average_deviation]), 
+    io:fwrite("standard_deviation: ~f~n", [Standard_deviation]), 
+    io:fwrite("variance:           ~f~n", [Variance]), 
+    io:fwrite("skew:               ~f~n", [Skew]), 
+    io:fwrite("kurtosis:           ~f~n", [Kurtosis]). 
+% The Computer Language Benchmarks Game
+% http://shootout.alioth.debian.org/
+%
+% contributed by Paulo Sergio Almeida
+% minor optimizations by Ulf Wiger (2007-06-17)
+
+-module(nbody).
+-export([main/1]).
+
+-define(pi, 3.14159265358979323).
+-define(solar_mass, (4 * ?pi * ?pi)).
+-define(days_per_year, 365.24).
+-define(f(X), is_float(X)).
+
+main([Arg]) ->
+    N = list_to_integer(Arg),
+    main(N),
+    erlang:halt(0);
+
+main(N) ->
+  Bodies = offset_momentum(bodies()),
+  io:format("~.9f\n", [energy(Bodies)]),
+  io:format("~.9f\n", [energy(advance(N, Bodies, 0.01))]).
+
+offset_momentum(Bodies = [{X, Y, Z, _, _, _, Ms} | T])
+    when ?f(X),?f(Y),?f(Z),?f(Ms) ->
+  {Px, Py, Pz} = lists:foldl(fun({_, _, _, Vx, Vy, Vz, M}, {Px, Py, Pz}) 
+				     when ?f(Vx),?f(Vy),?f(M),?f(Px),?f(Py),
+				     ?f(Pz) ->
+                               {Px + Vx * M, Py + Vy * M, Pz + Vz * M}
+                             end,
+                             {0.0, 0.0, 0.0},
+                             Bodies),
+  [{X, Y, Z, -Px/?solar_mass, -Py/?solar_mass, -Pz/?solar_mass, Ms} | T].
+
+energy(Bodies) -> energy(Bodies, 0.0).
+
+energy([], E) -> E;
+energy([{X, Y, Z, Vx, Vy, Vz, M} | T], E)
+  when ?f(X),?f(Y), ?f(Z), ?f(Vx), ?f(Vy), ?f(Vz), ?f(M), ?f(E) ->
+  energy(T, lists:foldl(fun({X2, Y2, Z2, _, _, _, M2}, Ea)
+			   when ?f(X2),?f(Y2),?f(Z2),?f(M2),?f(Ea) ->
+                          Dx = X - X2,
+                          Dy = Y - Y2,
+                          Dz = Z - Z2,
+                          Dist = math:sqrt(Dx*Dx + Dy*Dy + Dz*Dz),
+                          Ea - M * M2 / Dist
+                        end,
+                        E + 0.5 * M * (Vx * Vx + Vy * Vy + Vz * Vz),
+                        T)).
+
+advance(0, Bodies, _Dt) -> Bodies;
+advance(N, Bodies, Dt) -> advance(N - 1, adv2(adv1(Bodies, Dt), Dt), Dt).
+
+%%% adv1([B], _) -> [B];
+%%% adv1([B | T], Dt) ->
+%%%   {B1, T1} = adv1(B, T, [], Dt),
+%%%   [B1 | adv1(T1, Dt)].
+adv1(Bs, Dt) ->
+    adv1(Bs, Dt, []).
+adv1([], _, Acc) -> Acc;
+adv1([B | T], Dt, Acc) ->
+  {B1, T1} = adv1(B, T, [], Dt),
+    adv1(T1, Dt, [B1|Acc]).
+
+%%%adv1(B, [],  L, _Dt) -> {B, lists:reverse(L)};
+adv1(B, [],  L, _Dt) -> {B, L};
+adv1({X, Y, Z, Vx, Vy, Vz, M}, [{X2, Y2, Z2, Vx2, Vy2, Vz2, M2} | T], L, Dt)
+  when ?f(X), ?f(Y), ?f(Z), ?f(Vx), ?f(Vy), ?f(Vz), ?f(M), ?f(Dt),
+       ?f(X2), ?f(Y2), ?f(Z2), ?f(Vx2), ?f(Vy2), ?f(Vz2), ?f(M2) ->
+  Dx = X - X2,
+  Dy = Y - Y2,
+  Dz = Z - Z2,
+  D = math:sqrt(Dx*Dx + Dy*Dy + Dz*Dz),
+  Mag = Dt / (D*D*D),
+  Bmm = M *Mag,
+  B2mm = M2 *Mag,
+  Bnew = {X, Y, Z, Vx - Dx * B2mm, Vy - Dy * B2mm, Vz - Dz * B2mm, M},
+  B2new = {X2, Y2, Z2, Vx2 + Dx * Bmm, Vy2 + Dy * Bmm, Vz2 + Dz * Bmm, M2},
+  adv1(Bnew, T, [B2new | L], Dt).
+
+adv2(Bs, Dt) ->
+    adv2(Bs, Dt, []).
+adv2([], _, Acc) -> Acc;
+adv2([{X, Y, Z, Vx, Vy, Vz, M} | T], Dt, Acc)
+  when ?f(X), ?f(Y), ?f(Z), ?f(Vx), ?f(Vy), ?f(Vz), ?f(M), ?f(Dt) ->
+    adv2(T, Dt, [{X + Dt * Vx, Y + Dt * Vy, Z + Dt * Vz, Vx, Vy, Vz, M}|Acc]).
+
+bodies() ->
+[
+  { % sun
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  0.0,
+  ?solar_mass
+  },
+
+  { % jupiter
+  4.84143144246472090e+00,
+  -1.16032004402742839e+00,
+  -1.03622044471123109e-01,
+  1.66007664274403694e-03 * ?days_per_year,
+  7.69901118419740425e-03 * ?days_per_year,
+  -6.90460016972063023e-05 * ?days_per_year,
+  9.54791938424326609e-04 * ?solar_mass
+  },
+
+  { % saturn
+  8.34336671824457987e+00,
+  4.12479856412430479e+00,
+  -4.03523417114321381e-01,
+  -2.76742510726862411e-03 * ?days_per_year,
+  4.99852801234917238e-03 * ?days_per_year,
+  2.30417297573763929e-05 * ?days_per_year,
+  2.85885980666130812e-04 * ?solar_mass
+  },
+
+  { % uranus
+  1.28943695621391310e+01,
+  -1.51111514016986312e+01,
+  -2.23307578892655734e-01,
+  2.96460137564761618e-03 * ?days_per_year,
+  2.37847173959480950e-03 * ?days_per_year,
+  -2.96589568540237556e-05 * ?days_per_year,
+  4.36624404335156298e-05 * ?solar_mass
+  },
+
+  { % neptune
+  1.53796971148509165e+01,
+  -2.59193146099879641e+01,
+  1.79258772950371181e-01,
+  2.68067772490389322e-03 * ?days_per_year,
+  1.62824170038242295e-03 * ?days_per_year,
+  -9.51592254519715870e-05 * ?days_per_year,
+  5.15138902046611451e-05 * ?solar_mass
+  }
+].
+
+%%%  The Great Computer Language Shootout 
+%%%  http://shootout.alioth.debian.org/
+%%% 
+%%%  modified by Isaac Gouy
+
+-module(nestedloop).
+-export([main/1]).
+
+main([Arg]) ->
+   Num = list_to_integer(Arg),
+   io:fwrite("~w\n", [loopA(Num, Num, 0)]),
+   halt(0).
+
+
+loopA(0, M, N) -> N;
+loopA(I, M, N) -> loopA(I - 1, M, loopB(M, M, N)).
+
+loopB(0, M, N) -> N;
+loopB(I, M, N) -> loopB(I - 1, M, loopC(M, M, N)).
+
+loopC(0, M, N) -> N;
+loopC(I, M, N) -> loopC(I - 1, M, loopD(M, M, N)).
+
+loopD(0, M, N) -> N;
+loopD(I, M, N) -> loopD(I - 1, M, loopE(M, M, N)).
+
+loopE(0, M, N) -> N;
+loopE(I, M, N) -> loopE(I - 1, M, loopF(M, N)).
+
+loopF(0, N) -> N;
+loopF(I, N) -> loopF(I - 1, 1 + N).
+%  The Computer Language Benchmarks Game
+%  http://shootout.alioth.debian.org/
+%
+%  contributed by Fredrik Svahn
+
+
+-module(nsieve).
+-export([main/1]).
+
+main([Arg])->
+    N = list_to_integer(Arg),
+    [ go(10000 bsl X) || X <- [N, N-1, N-2] ],
+    erlang:halt().
+
+go(N) -> 
+    C = ns(N, 2, 0, array:new({default, true})),
+    io:fwrite("Primes up to ~8.10B ~8.10B~n", [N, C]).
+
+
+ns(N, I, C, A) when I < N ->
+    case array:get(I, A) of 
+	false -> ns(N, I+1, C, A);
+	true  -> ns(N, I+1, C+1, mark(I bsl 1, I, N, A))
+    end;
+
+ns(_, _, C, _) -> C. 
+
+
+mark(J, I, N, A) when J < N -> 
+    case array:get(J, A) of 
+	false -> mark(J+I, I, N, A);
+	true  -> mark(J+I, I, N, array:set(J, false, A))
+    end;
+
+mark(_, _, _, A) -> A.
+
+%   The Computer Language Benchmarks Game
+%   http://shootout.alioth.debian.org/
+%
+%   contributed by Jiri Isa
+
+-module(nsieve).
+-export([main/1]).
+
+main([Arg]) ->
+   N = list_to_integer(Arg),
+   start(N),
+   erlang:halt(0).
+
+start(N) ->
+   ns(N),
+   ns(N-1),
+   ns(N-2).
+
+
+ns(N) ->
+   M = (1 bsl N) * 10000,
+   Array = hipe_bifs:bytearray(M + 1, 1),
+   Count = ns(2, M, 0, Array),
+   io:fwrite("Primes up to ~8.10b ~8.10b~n", [M, Count]).
+
+ns(Start, Start, Count, _) -> Count;
+ns(Start, M, Count, Array) ->
+   case hipe_bifs:bytearray_sub(Array, Start) of
+      0 ->
+         ns(Start + 1, M, Count, Array);
+      1 ->
+         mark(Start + Start, Start, M, Array),
+         ns(Start + 1, M, Count + 1, Array)
+   end.
+
+mark(Start, _, M, _) when Start > M -> ok;
+mark(Start, Step, M, Array) ->
+   hipe_bifs:bytearray_update(Array, Start, 0),
+   mark(Start + Step, Step, M, Array).
+
+%  The Computer Language Shootout
+%  http://shootout.alioth.debian.org/
+%  contributed by Kostis Sagonas
+%  modified by Per Gustafsson
+
+-module(nsievebits).
+-export([main/1]).
+
+main([Arg]) ->
+  N = list_to_integer(Arg),
+  lists:foreach(fun(I) -> nsieve(10000 bsl (N-I)) end, [0,1,2]),
+  halt(0).
+
+nsieve(M) ->
+  io:format("Primes up to ~8w ~8w\n", [M, nsieve(array(M), 2, M-1, 0)]).
+
+nsieve(A, P, Sz, C) when P =< Sz ->
+  NC = case (hipe_bifs:bytearray_sub(A, (P bsr 3)) band (1 bsl (P band 7))) of
+	   0 -> C;
+	   _ -> nsieve_sub(A, P+P, Sz, P), C+1
+       end,
+  nsieve(A, P+1, Sz, NC);
+nsieve(_A, _P, _M, C) -> C.
+
+nsieve_sub(A, I, Sz, P) when I =< Sz ->
+  IC = (I bsr 3),
+  Val = (hipe_bifs:bytearray_sub(A, IC) band bnot(1 bsl (I band 7))),
+  hipe_bifs:bytearray_update(A, IC, Val),
+  nsieve_sub(A, I+P, Sz, P);
+nsieve_sub(_, _, _, _) -> ok.
+
+array(M) -> hipe_bifs:bytearray((M bsr 3)+1, 16#ff).
+%%% -*- mode: erlang -*-
+%%% $Id: objinst.erlang,v 1.2 2005-05-08 02:02:47 igouy-guest Exp $
+%%% http://shootout.alioth.debian.org/
+%%%
+%%% Provided by Bengt Kleberg (Erlang Guru!)
+%%% Slightly modified by Brent Fulgham to match expected output.
+%%% fixed by Isaac Gouy
+
+-module(objinst).  
+-export([main/0, main/1]).
+
+-record( toggle_base, {state, value = fun value/1, activate = fun activate/1} ).
+-record( toggle, {toggle_base} ).
+-record( nth_toggle, { toggle_base, counter = 0, max_count } ).
+
+main() -> main(["1"]).
+main([Arg]) ->
+	Number_of_Times = list_to_integer(Arg),
+	activate_toggle( 5, toggle_new( true ) ),
+	create_toggle( Number_of_Times ),
+	io:fwrite("\n"),
+	activate_toggle( 8, nth_toggle_new( true, 3 ) ),
+	create_nth_toggle( Number_of_Times ),
+	erlang:halt().
+
+atom_to_integer( Atom ) ->
+	erlang:list_to_integer(erlang:atom_to_list(Atom)).
+
+activate_toggle( 0, _Toggle ) -> ok;
+activate_toggle( N, Toggle ) ->
+	Activated_Toggle = ((Toggle#toggle.toggle_base)#toggle_base.activate)(Toggle),
+	Value = ((Activated_Toggle#toggle.toggle_base)#toggle_base.value)(Activated_Toggle),
+	io:fwrite("~w\n", [Value]),
+	activate_toggle( N - 1, Activated_Toggle).
+
+create_toggle( 0 ) -> ok;
+create_toggle( N ) ->
+	_Toggle = toggle_new( true ),
+	create_toggle( N-1 ).
+
+create_nth_toggle( 0 ) -> ok;
+create_nth_toggle( N ) ->
+	_Toggle = nth_toggle_new( true, 3 ),
+	create_nth_toggle( N-1 ).
+
+toggle_base_new( State ) ->
+	#toggle_base{state = State}.
+
+toggle_new( State ) ->
+	Toggle = toggle_base_new( State ),
+	#toggle{toggle_base = Toggle}.
+
+nth_toggle_new( State, Max_Count ) ->
+	Toggle = toggle_base_new( State ),
+	#nth_toggle{toggle_base = Toggle, max_count = Max_Count - 1}.
+
+
+activate( #toggle_base{state = true} = Toggle_Base ) ->
+	Toggle_Base#toggle_base{state = false};
+activate( #toggle_base{state = false} = Toggle_Base ) ->
+	Toggle_Base#toggle_base{state = true};
+activate( #toggle{toggle_base = Toggle_Base} = Toggle ) ->
+	Toggle#toggle{toggle_base = activate( Toggle_Base )};
+activate( #nth_toggle{counter = Max_Count, max_count = Max_Count, toggle_base = Toggle_Base} = Nth_Toggle ) ->
+	Nth_Toggle#nth_toggle{toggle_base = activate( Toggle_Base ), counter = 0};
+activate( #nth_toggle{counter = Count} = Nth_Toggle ) ->
+	Nth_Toggle#nth_toggle{counter = Count + 1}.
+
+value( #toggle_base{state = State} ) ->
+	State;
+value( #toggle{toggle_base = Toggle_Base} ) ->
+	value( Toggle_Base );
+value( #nth_toggle{toggle_base = Toggle_Base} ) ->
+	value( Toggle_Base ).
+%%% The Computer Language Shootout
+%%% http://shootout.alioth.debian.org/
+%%% Contributed by Isaac Gouy (Erlang novice)
+
+-module(partialsums).
+-export([main/1]).
+-import(math,[pow/2,sin/1,cos/1]).
+-import(lists,[foreach/2,zipwith/3]).
+
+main([Arg]) ->
+   N = list_to_integer(Arg),
+   Names = ["(2/3)^k", "k^-0.5", "1/k(k+1)", "Flint Hills", "Cookson Hills",
+            "Harmonic", "Riemann Zeta", "Alternating Harmonic", "Gregory"],
+   Sums = loop(1, N, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
+   foreach( 
+      fun(L) -> io:format("~.9f\t~s~n", L) end,
+      zipwith(fun(X, Y) -> [X,Y] end, Sums, Names) ),
+   erlang:halt().
+
+
+loop(K,N,Alt,A1,A2,A3,A4,A5,A6,A7,A8,A9) when K =< N ->
+   SK = sin(K),
+   CK = cos(K),
+   K3 = pow(K,3),
+
+   loop(K+1,N,-Alt,
+      A1 + pow(2.0/3.0,K-1),
+      A2 + pow(K,-0.5),
+      A3 + (1.0/(K*(K+1))),
+      A4 + (1.0/(K3*SK*SK)),
+      A5 + (1.0/(K3*CK*CK)),
+      A6 + (1.0/K),
+      A7 + (1.0/pow(K,2)),
+      A8 + (Alt/K),
+      A9 + (Alt/(2*K-1)));
+
+loop(K,N,Alt,A1,A2,A3,A4,A5,A6,A7,A8,A9) -> [A1,A2,A3,A4,A5,A6,A7,A8,A9].
+
+%  The Great Computer Language Shootout
+%   http://shootout.alioth.debian.org/
+%  
+%   contributed by Mark Scandariato
+%
+%   erl -noshell -noinput -run pidigits main 7 
+
+
+-module(pidigits).
+-export([main/1]).
+
+% conversion
+is_safe(Z, N) -> N == extr(Z, 4).
+next(Z)       -> extr(Z, 3).
+prod(Z, N)    -> comp({10, -10*N, 0, 1}, Z).
+cons(Z, Zp)   -> comp(Z, Zp).
+
+% LFT
+-define(unit, {1,0,0,1}).
+comp({Q,R,S,T}, {Qp, Rp, Sp, Tp}) ->
+    {Q*Qp + R*Sp, Q*Rp + R*Tp, S*Qp + T*Sp, S*Rp + T*Tp}.
+extr({Q,R,S,T}, X) -> (Q * X + R) div (S * X + T).
+
+lft(K) -> {K, 4*K+2, 0, 2*K+1}.
+
+stream(N) -> stream(N, 0, 1, ?unit, []).
+stream(N, N, _, _, P) -> print(N,P);
+stream(N, C, K, Z, P) ->
+    Y = next(Z),
+    case is_safe(Z, Y) of
+        true  ->
+            stream(N, C+1, K, prod(Z,Y), update(C,Y,P));
+        false ->
+            stream(N, C, K+1, cons(Z, lft(K)), P)
+    end.
+
+
+update(C, D, P) when C rem 10 == 0, C > 0 ->
+    print(C, P),
+    [D];
+
+update(_, D, P) -> [D|P].
+
+
+print(C, P) -> do_print(C, lists:reverse(P)).
+
+
+do_print(C, []) when C rem 10 == 0 -> io:fwrite("\t:~p~n", [C]);
+do_print(C, []) -> io:fwrite("~*.1c:~p~n", [10 - C rem 10, $\t, C]);
+do_print(C, [H|T]) -> io:fwrite("~p", [H]), do_print(C, T).
+
+
+main([Arg]) ->
+    N = list_to_integer(Arg),
+    main(N),
+    erlang:halt(0);
+
+main(N) when N > 1 -> stream(N).
+%% The Computer Language Benchmarks Game
+%% http://shootout.alioth.debian.org/
+%%
+%% Contributed by : Alkis Gotovos 10 Oct 2010
+
+-module(pidigits).
+
+-compile([native, {hipe, [o3]}]).
+
+-export([main/1]).
+
+main(N) when is_integer(N) ->
+    Pid = spawn_link(fun() -> io_worker() end),
+    register(io_worker, Pid),
+    stream({1, 0, 1}, 1, 0, N);
+main([N]) -> main(list_to_integer(N)).
+    
+comp({Q, R, T}, {U, V, X}) -> {Q*U, Q*V + R*X, T*X}.
+
+next({Q, R, T}) -> (Q*3 + R) div T.
+
+safe({Q, R, T}, N) -> N == (Q*4 + R) div T.
+
+prod({Z11, Z12, Z22}, N) -> {10*Z11, 10*(Z12 - N*Z22), Z22}.
+
+stream(Z, K, P, N) ->
+    Y = next(Z),
+    case safe(Z, Y) of
+	true ->
+	    io_worker ! {Y, P + 1, N},
+	    stream(prod(Z, Y), K, P + 1, N);
+	false -> stream(comp(Z, {K, 4*K + 2, 2*K + 1}), K + 1, P, N)
+    end.
+
+io_worker() ->
+    receive
+	{Y, N, N} ->
+	    Spaces = (10 - N rem 10) rem 10,
+	    io:fwrite("~w~.*c\t:~w~n", [Y, Spaces, $ , N]),
+	    erlang:halt(0);
+	{Y, P, _N} when P rem 10 == 0 ->
+	    io:fwrite("~w\t:~w~n", [Y, P]),
+	    io_worker();
+	{Y, _P, _N} ->
+	    io:fwrite("~w", [Y]),
+	    io_worker()
+    end.
+%  The Great Computer Language Shootout
+%   http://shootout.alioth.debian.org/
+%  
+%   contributed by Mark Scandariato
+%
+%   erl -noshell -noinput -run process main N
+
+
+-module(process).
+-export([main/1, ring/2]).
+
+main([Arg]) ->
+    N = list_to_integer(Arg),
+    io:fwrite("~p~n", [ring(N, 1)]),
+    erlang:halt(0).
+    
+ring(L, N) when N >= 0, L > 0 ->
+    Pid = self(),
+    First = spawn(fun() -> proc(L, Pid) end),
+    receive ready -> ok end,
+    inject(First, N),
+    First ! Pid,
+    receive {done, A} -> A end.
+
+inject(_, 0) -> ok;
+inject(Pid, N) ->
+    Pid ! 0,
+    inject(Pid, N-1).
+
+
+proc(0, Start) -> 
+    Start ! ready,
+    acc(0);
+proc(L, Start) ->
+    Next = spawn(fun() -> proc(L-1, Start) end),
+    fwd(Next).
+
+fwd(Next) ->
+    receive
+        N when is_integer(N) -> 
+            Next ! N+1,
+            fwd(Next);
+        Pid when is_pid(Pid) -> 
+            Next ! Pid
+    end.
+
+acc(A) ->
+    receive
+        N when is_integer(N) -> acc(A+N);
+        Pid when is_pid(Pid) -> Pid ! {done, A}
+    end.
+
+% vim: set ts=4 ft=erlang
+%% The Great Computer Language Shootout
+%% contributed by Isaac Gouy (Erlang novice)
+%%
+%% http://shootout.alioth.debian.org/
+%%
+%% Erlang by-design uses soft-real-time lightweight threads.
+%% Message send/receive gives synchronization & data access.
+%%
+%% Usage: start from command line with
+%%     erlc prodcons.erl
+%%     erl -noinput -s prodcons main 100000
+
+-module(prodcons). 
+-export([main/1, producer/3, consumer/4]). 
+
+
+producer(0, NP, Main) -> Main ! {self(), NP};
+producer(N, NP, Main) -> 
+    receive                                           %% receive buffer empty
+        {From, next} -> 
+            From ! {data, NP},                        %% signal buffer full
+            producer(N-1, NP+1, Main)
+    end.
+
+
+consumer(0, NC, _, Main) -> Main ! {self(), NC};
+consumer(N, NC, P, Main) ->
+    P ! {self(), next},                               %% signal buffer empty
+    receive                                           %% receive buffer full
+        {data, Value} -> consumer(N-1, NC+1, P, Main) %% empty buffer
+    end.
+
+
+main([Arg]) ->
+    N = list_to_integer(atom_to_list(Arg)),
+    P = spawn(prodcons, producer, [N, 0, self()]),     %% spawn producer thread
+    C = spawn(prodcons, consumer, [N, 0, P, self()]),  %% spawn consumer thread
+    receive {P, NP} -> ok end,                        %% wait on producer thread
+    receive {C, NC} -> ok end,                        %% wait on consumer thread
+    io:format("~w ~w~n", [NP, NC]),
+    halt(0).
+
+
+
+
+%% The Great Computer Language Shootout 
+%% http://shootout.alioth.debian.org/
+%% 
+%% modified by Isaac Gouy
+
+-module(random).
+-export([main/0, main/1]).
+
+main() -> main(["1"]).
+main([Arg]) ->
+   N = list_to_integer(Arg),
+   io:fwrite("~.9f\n", [rand(N, 42, 0.0, 100.0)]),
+   halt(0).
+
+-define(IM, 139968).
+-define(IA, 3877).
+-define(IC, 29573).
+
+rand(0, _, Rand, _) -> Rand;
+rand(N, Seed, Rand, Max) ->
+   NewSeed = (Seed * ?IA + ?IC) rem ?IM,
+   NewRand = Max * NewSeed / ?IM,
+   rand(N-1, NewSeed, NewRand, Max).
+% The Computer Language Shootout
+% http://shootout.alioth.debian.org/
+% contributed by Isaac Gouy (Erlang novice)
+
+-module(recursive).
+-export([main/1]).
+
+main([Arg]) ->
+    N = list_to_integer(Arg),
+    io:fwrite("Ack(3,~w): ~w\n", [N, ack(3, N)]),
+    io:fwrite("Fib(~.1f): ~.1f\n", [27.0+float(N), fib(27.0+float(N))]),
+    M=N-1, io:fwrite("Tak(~w,~w,~w): ~w\n", [M*3,M*2,M, tak(M*3,M*2,M)]),
+    io:fwrite("Fib(~w): ~w\n", [3, fib(3)]),
+    io:fwrite("Tak(~.1f,~.1f,~.1f): ~.1f\n", [3.0,2.0,1.0, tak(3.0,2.0,1.0)]),
+    halt(0).
+
+ack(0,N) -> N+1;
+ack(M,0) -> ack(M-1,1);
+ack(M,N) -> ack(M-1, ack(M,N-1)).
+
+fib(N) when N < 2, float(N) -> 1.0;
+fib(N) when N < 2, integer(N) -> 1;
+fib(N) -> fib(N-2) + fib(N-1).
+
+tak(X, Y, Z) when Y >= X -> Z;
+tak(X, Y, Z) -> tak(tak(X-1,Y,Z), tak(Y-1,Z,X), tak(Z-1,X,Y)).
+% The Computer Language Benchmarks Game
+% http://shootout.alioth.debian.org/
+% contributed by Fredrik Svahn
+
+-module(recursive).
+-export([main/1]).
+
+fibF(N) when is_float(N), N<2.0-> 1.0;
+fibF(N) when is_float(N)-> fibF(N-2.0) + fibF(N-1.0).
+fibI(N) when is_integer(N), N<2-> 1;
+fibI(N) when is_integer(N)-> fibI(N-2) + fibI(N-1).
+
+ack(0,Y) when is_integer(Y)-> Y+1;
+ack(X,0) when is_integer(X)-> ack(X-1,1);
+ack(X,Y) when is_integer(X), is_integer(Y)-> ack(X-1, ack(X,Y-1)).
+
+%Only used for small numbers -> don't optimize for float!
+tak(X, Y, Z) when Y < X-> tak(tak(X-1,Y,Z), tak(Y-1,Z,X), tak(Z-1,X,Y));
+tak(_, _, Z) -> Z.
+
+main([Arg]) ->
+    N = list_to_integer(Arg), M=N-1,
+    io:fwrite("Ack(3,~w): ~w\n", [N, ack(3, N)]),
+    io:fwrite("Fib(~.1f): ~.1f\n", [27.0+N, fibF(27.0+N)]),
+    io:fwrite("Tak(~w,~w,~w): ~w\n", [M*3,M*2,M, tak(M*3,M*2,M)]),
+    io:fwrite("Fib(3): ~w\n", [fibI(3)]),
+    io:fwrite("Tak(3.0,2.0,1.0): ~.1f\n", [tak(3.0,2.0,1.0)]),
+    halt(0).
+
+
+
+
+
+% The Computer Language Benchmarks Game
+% http://shootout.alioth.debian.org/
+% contributed by David Butler
+
+
+-module(recursive).
+-export([main/1]).
+
+main([Arg]) ->
+    N = list_to_integer(Arg),
+    io:fwrite("Ack(3,~w): ~w\n", [N, ack(3, N)]),
+    io:fwrite("Fib(~.1f): ~.1f\n", [27.0+float(N), fib(27.0+float(N), 1.0, 1.0)]),
+    M=N-1, io:fwrite("Tak(~w,~w,~w): ~w\n", [M*3,M*2,M, tak(M*3,M*2,M)]),
+    io:fwrite("Fib(~w): ~w\n", [3, fib(3, 1, 0)]),
+    io:fwrite("Tak(~.1f,~.1f,~.1f): ~.1f\n", [3.0,2.0,1.0, tak(3.0,2.0,1.0)]),
+    halt(0).
+
+ack(0,N) -> N+1;
+ack(M,0) -> ack(M-1,1);
+ack(M,N) -> ack(M-1, ack(M,N-1)).
+
+fib(N, _, B) when N < 2, integer(N) -> B;
+fib(N, _, B) when N < 2.0, float(N) -> B;
+fib(N, A, B) -> fib(N-1, B, A+B).
+
+tak(X, Y, Z) when Y >= X -> Z;
+tak(X, Y, Z) -> tak(tak(X-1,Y,Z), tak(Y-1,Z,X), tak(Z-1,X,Y)).
+
+% The Computer Language Benchmarks Game
+% http://shootout.alioth.debian.org/
+% Contributed by: Hynek Vychodil 2009
+% Inspired by regex-dna Erlang HiPE #5 program
+%    by Sergei Matusevich 2007 and Thanassis Avgerinos 2009
+
+% Main changes:
+%   1/ Very fast Port line input instead stdio (~5x)
+%   2/ Faster IUB code alternatives explicit expansion
+%      using binary instead lists (~5x)
+%   3/ Precompile regexps in data loading phase
+%   4/ Simpler dispatch and result join code
+
+% Note: re module is damn slow. Boyer-Moore like binary matcher
+% written in Erlang should be magnitude faster (HiPE of course).
+
+-module(regexdna).
+
+-compile([native, {hipe, [o3]}]).
+
+-export([main/1]).
+
+main(_) -> main().
+
+main() -> do(), halt().
+
+do() ->
+    S = self(),
+    Worker = spawn_link(fun () -> work(S) end),
+    Worker ! {data, read()},
+    receive finish -> ok end.
+
+work(Master) ->
+    S = self(),
+    Patterns = [{Pat, re:compile(Pat, [caseless])}
+		|| Pat <- patterns()],
+    {RawSize, [B3, B2, B1 | _]} = receive
+				    {data, Data} -> Data
+				  end,
+    [L1, L2, L3] = L = [size(X) || X <- [B1, B2, B3]],
+    Size = lists:sum(L),
+    PIDS = [{spawn_link(matcher(S, B2, B3, MR)),
+	     printer(Pat)}
+	    || {Pat, {ok, MR}} <- Patterns],
+    ExpandedSize = L1 + L3 + size(expand(B2, L2, 0, <<>>)),
+    results(PIDS),
+    io:format("~n~b~n~b~n~b~n",
+	      [RawSize, Size, ExpandedSize]),
+    Master ! finish.
+
+expand(B, S, I, R) when I < S ->
+    case B of
+      <<_:I/binary, $B, _/binary>> ->
+	  expand(B, S, I + 1, <<R/binary, "(c|g|t)">>);
+      <<_:I/binary, $D, _/binary>> ->
+	  expand(B, S, I + 1, <<R/binary, "(a|g|t)">>);
+      <<_:I/binary, $H, _/binary>> ->
+	  expand(B, S, I + 1, <<R/binary, "(a|c|t)">>);
+      <<_:I/binary, $K, _/binary>> ->
+	  expand(B, S, I + 1, <<R/binary, "(g|t)">>);
+      <<_:I/binary, $M, _/binary>> ->
+	  expand(B, S, I + 1, <<R/binary, "(a|c)">>);
+      <<_:I/binary, $N, _/binary>> ->
+	  expand(B, S, I + 1, <<R/binary, "(a|c|g|t)">>);
+      <<_:I/binary, $R, _/binary>> ->
+	  expand(B, S, I + 1, <<R/binary, "(a|g)">>);
+      <<_:I/binary, $S, _/binary>> ->
+	  expand(B, S, I + 1, <<R/binary, "(c|g)">>);
+      <<_:I/binary, $V, _/binary>> ->
+	  expand(B, S, I + 1, <<R/binary, "(a|c|g)">>);
+      <<_:I/binary, $W, _/binary>> ->
+	  expand(B, S, I + 1, <<R/binary, "(a|t)">>);
+      <<_:I/binary, $Y, _/binary>> ->
+	  expand(B, S, I + 1, <<R/binary, "(c|t)">>);
+      <<_:I/binary, X, _/binary>> ->
+	  expand(B, S, I + 1, <<R/binary, X>>)
+    end;
+expand(_, _, _, R) -> R.
+
+matcher(S, B2, B3, MR) ->
+    fun () ->
+	    S !
+	      {self(), countMatches(B2, MR) + countMatches(B3, MR)}
+    end.
+
+printer(Pat) ->
+    fun (Num) -> io:format("~s ~b~n", [Pat, Num]) end.
+
+countMatches(Data, RE) ->
+    case re:run(Data, RE, [global]) of
+      {match, M} -> length(M);
+      nomatch -> 0
+    end.
+
+results([{PID, Fin} | R]) ->
+    receive {PID, Ret} -> Fin(Ret), results(R) end;
+results([]) -> ok.
+
+patterns() ->
+    ["agggtaaa|tttaccct", "[cgt]gggtaaa|tttaccc[acg]",
+     "a[act]ggtaaa|tttacc[agt]t",
+     "ag[act]gtaaa|tttac[agt]ct",
+     "agg[act]taaa|ttta[agt]cct",
+     "aggg[acg]aaa|ttt[cgt]ccct",
+     "agggt[cgt]aa|tt[acg]accct",
+     "agggta[cgt]a|t[acg]taccct",
+     "agggtaa[cgt]|[acg]ttaccct"].
+
+read() ->
+    Port = open_port({fd, 0, 1}, [in, binary, {line, 256}]),
+    read(Port, 0, [], []).
+
+read(Port, Size, Seg, R) ->
+    receive
+      {Port, {data, {eol, <<$>:8, _/binary>> = Line}}} ->
+	  read(Port, Size + size(Line) + 1, [],
+	       [iolist_to_binary(lists:reverse(Seg, [])) | R]);
+      {Port, {data, {eol, Line}}} ->
+	  read(Port, Size + size(Line) + 1, [Line | Seg], R);
+      {'EXIT', Port, normal} ->
+	  {Size, [iolist_to_binary(lists:reverse(Seg, [])) | R]};
+      Other ->
+	  io:format(">>>>>>> Wrong! ~p~n", [Other]),
+	  exit(bad_data)
+    end.
+% The Computer Language Benchmarks Game
+% http://shootout.alioth.debian.org/
+% Contributed by: Hynek Vychodil 2010
+% Inspired by regex-dna Erlang HiPE #5 program
+%    by Sergei Matusevich 2007 and Thanassis Avgerinos 2009
+
+% Main changes:
+%   1/ Very fast Port line input instead stdio (~5x)
+%   2/ Faster IUB code alternatives explicit expansion
+%      using binary instead lists (~5x)
+%   3/ Precompile regexps in data loading phase
+%   4/ Simpler dispatch and result join code
+%   5/ Use binary:matches for pattern match
+
+
+-module(regexdna).
+
+-compile([native, {hipe, [o3]}]).
+
+-export([main/0, main/1]).
+
+main(_) -> main().
+
+main() -> do(), halt().
+
+do() ->
+  S = self(),
+  Worker = spawn_link(fun () -> work(S) end),
+  Worker ! {data, read()},
+  receive finish -> ok end.
+
+work(Master) ->
+  S = self(),
+  Patterns = [{Pat, compile_pattern(Pat)}
+    || Pat <- patterns()],
+  {RawSize, [B3, B2, B1 | _]} = receive
+    {data, Data} -> Data
+  end,
+  [L1, L2, L3] = L = [size(X) || X <- [B1, B2, B3]],
+  Size = lists:sum(L),
+  PIDS = [{spawn_link(matcher(S, B2, B3, MR)),
+      printer(Pat)}
+    || {Pat, MR} <- Patterns],
+  ExpandedSize = L1 + L3 + size(expand(B2, L2, 0, <<>>)),
+  results(PIDS),
+  io:format("~n~b~n~b~n~b~n",
+    [RawSize, Size, ExpandedSize]),
+  Master ! finish.
+
+expand(B, S, I, R) when I < S ->
+  case B of
+    <<_:I/binary, $B, _/binary>> ->
+      expand(B, S, I + 1, <<R/binary, "(c|g|t)">>);
+    <<_:I/binary, $D, _/binary>> ->
+      expand(B, S, I + 1, <<R/binary, "(a|g|t)">>);
+    <<_:I/binary, $H, _/binary>> ->
+      expand(B, S, I + 1, <<R/binary, "(a|c|t)">>);
+    <<_:I/binary, $K, _/binary>> ->
+      expand(B, S, I + 1, <<R/binary, "(g|t)">>);
+    <<_:I/binary, $M, _/binary>> ->
+      expand(B, S, I + 1, <<R/binary, "(a|c)">>);
+    <<_:I/binary, $N, _/binary>> ->
+      expand(B, S, I + 1, <<R/binary, "(a|c|g|t)">>);
+    <<_:I/binary, $R, _/binary>> ->
+      expand(B, S, I + 1, <<R/binary, "(a|g)">>);
+    <<_:I/binary, $S, _/binary>> ->
+      expand(B, S, I + 1, <<R/binary, "(c|g)">>);
+    <<_:I/binary, $V, _/binary>> ->
+      expand(B, S, I + 1, <<R/binary, "(a|c|g)">>);
+    <<_:I/binary, $W, _/binary>> ->
+      expand(B, S, I + 1, <<R/binary, "(a|t)">>);
+    <<_:I/binary, $Y, _/binary>> ->
+      expand(B, S, I + 1, <<R/binary, "(c|t)">>);
+    <<_:I/binary, X, _/binary>> ->
+      expand(B, S, I + 1, <<R/binary, X>>)
+  end;
+expand(_, _, _, R) -> R.
+
+matcher(S, B2, B3, MR) ->
+  fun () ->
+      S !
+      {self(), countMatches(B2, MR) + countMatches(B3, MR)}
+  end.
+
+printer(Pat) ->
+  fun (Num) -> io:format("~s ~b~n", [Pat, Num]) end.
+
+countMatches(Data, RE) ->
+  length(binary:matches(Data,RE)).
+
+results([{PID, Fin} | R]) ->
+  receive {PID, Ret} -> Fin(Ret), results(R) end;
+results([]) -> ok.
+
+patterns() ->
+  ["agggtaaa|tttaccct", "[cgt]gggtaaa|tttaccc[acg]",
+    "a[act]ggtaaa|tttacc[agt]t",
+    "ag[act]gtaaa|tttac[agt]ct",
+    "agg[act]taaa|ttta[agt]cct",
+    "aggg[acg]aaa|ttt[cgt]ccct",
+    "agggt[cgt]aa|tt[acg]accct",
+    "agggta[cgt]a|t[acg]taccct",
+    "agggtaa[cgt]|[acg]ttaccct"].
+
+read() ->
+   Port = open_port({fd, 0, 1}, [in, binary, {line, 256}]),
+   read(Port, 0, [], []).
+
+read(Port, Size, Seg, R) ->
+  receive
+    {Port, {data, {eol, <<$>:8, _/binary>> = Line}}} ->
+      read(Port, Size + size(Line) + 1, [],
+        [iolist_to_binary(lists:reverse(Seg, [])) | R]);
+    {Port, {data, {eol, Line}}} ->
+      read(Port, Size + size(Line) + 1, [Line | Seg], R);
+    {'EXIT', Port, normal} ->
+      {Size, [list_to_binary(lists:reverse(Seg, [])) | R]};
+    Other ->
+      io:format(">>>>>>> Wrong! ~p~n", [Other]),
+      exit(bad_data)
+  end.
+
+compile_pattern(RE) ->
+  binary:compile_pattern(
+    lists:append([multbin(X) || X<-string:tokens(RE, "|")])
+  ).
+
+multbin(X) ->
+  [list_to_binary(Y) || Y <- mult(X, [])].
+
+mult([$[|R], P) ->
+  {C, Suffix} = var(R, []),
+  [ lists:reverse(P, [X|Y])
+    || X<-C, Y<-mult(Suffix, [])];
+mult([X|R], P) -> mult(R, [X|P]);
+mult([], P) -> [lists:reverse(P)].
+
+var([$]|R], C) -> {C, R};
+var([X|R], C) -> var(R, [X|C]).
+%%% -*- mode: erlang -*-
+%%% $Id: regexmatch.erlang,v 1.2 2005-03-25 07:59:08 bfulgham Exp $
+%%% http://www.bagley.org/~doug/shootout/
+
+-module(regexmatch).
+-export([main/1]).
+
+%% get the program argument, which is how many test iterations to run
+main([Arg]) ->
+    Num = list_to_integer(Arg),
+    {ok, Re} = regexp:parse(
+		 "(^|[^0-9\\(])"		% preceeding non-digit or bol
+		 "("				% area code
+		 "\\([0-9][0-9][0-9]\\)"	% is either 3 digits in parens
+		 "|"				% or
+		 "[0-9][0-9][0-9]"		% just 3 digits
+		 ")"				% end of area code
+		 " "				% area code is followed by one space
+		 "[0-9][0-9][0-9]"		% exchange is 3 digits
+		 "[ -]"				% separator is either space or dash
+		 "[0-9][0-9][0-9][0-9]"		% last 4 digits
+		 "($|[^0-9])"			% must be followed by a non-digit
+		),
+    Plist = readlines(),
+    test(Num, Re, Plist),
+    halt(0).
+
+
+test(1, Regexp, Plist) -> 
+    % display output on last iteration
+    Nums = match_phones(Regexp, Plist),
+    print_phones(1, Nums),
+    true;
+test(N, Regexp, Plist) ->
+    match_phones(Regexp, Plist),
+    test(N-1, Regexp, Plist).
+
+
+print_phones(Count, [H|T]) ->
+    [A,E,N] = H,
+    % A,E,N is a list of the matching sub-expressions, which are:
+    % Areacode (3 digits), Exchange (3 digits), Number (4 digits)
+    io:fwrite("~w: (~s) ~s-~s~n", [Count, A,E,N]),
+    print_phones(Count+1, T);
+print_phones(_, []) ->
+    true.
+
+
+match_phones(Regexp, List) ->
+    mapfilter(
+      fun(String) ->
+	      case regexp:matches(String, Regexp) of
+		  {match, []}      -> false;
+		  {match, Matches} -> parse_phone(String, Matches);
+		  _                -> false
+	      end
+      end,
+      List).
+
+
+parse_phone(Str, [H|T]) ->
+    {Start, Len} = H,
+    % Numstr is something that looks like a complete phone #
+    Numstr = string:substr(Str, Start, Len),
+    case regexp:matches(Numstr, "[0-9][0-9][0-9][0-9]*") of
+	{match, []}      -> false;
+	{match, Matches} ->
+	    lists:map(fun({Offset, Length}) ->
+			      string:substr(Numstr, Offset, Length) end,
+		      Matches);
+	_                -> false
+    end;
+parse_phone(Str, []) -> [].
+
+
+mapfilter(Fun, [H|T]) ->
+    case Fun(H) of
+	false -> mapfilter(Fun, T);
+	New   -> [New | mapfilter(Fun, T)]
+    end;
+mapfilter(_, []) -> [].
+
+
+readlines() ->
+    Port = open_port({fd, 0, 1}, [eof, {line, 512}]),
+    readlines_from_stream([], Port).
+
+readlines_from_stream(Lines, Port) ->
+    receive
+	{Port, eof} ->
+	    lists:reverse(Lines);
+	{Port, {_, {_, Line}}} ->
+	    readlines_from_stream([Line|Lines], Port)
+    end.
+%% The Computer Language Benchmarks Game
+%% http://shootout.alioth.debian.org/
+%%
+%% contributed by Vlad Balin
+%% optimizations by Fredrik Svahn
+
+-module(revcomp).
+-compile( [ inline, { inline_size, 100 } ] ).
+
+-export([main/1]).
+
+main([_Args]) ->
+    register(print_server, self()),
+    print_server ! flush_queue_empty,
+    io:setopts( [ binary ] ),
+    loop([]),
+    halt().
+
+loop( Buffer ) ->
+    case io:get_line('') of
+        eof -> 	    
+	    % block until previous output process is done
+	    receive flush_queue_empty -> ok end,
+	    flush( Buffer, << >> );
+        << ">", _/bytes >> = Head ->
+	    % block until previous output process is done
+	    receive flush_queue_empty -> ok end,
+	    % spawn output process and continue to read in main thread
+            spawn(fun()-> flush( Buffer, Head ) end),
+	    loop( [] );
+        Line -> loop( [ rev_comp_line( Line, <<>> ) | Buffer] )
+    end.
+
+%% flush( Buffer, Suffix ) -> atom().
+%% Buffer = Suffix = iolist().
+%% Format and write Buffer with sequence followed by Suffix text
+flush( Buffer, Suffix ) ->
+    io:put_chars( format( iolist_to_binary(Buffer), Suffix ) ),
+    print_server ! flush_queue_empty.
+
+%% format( Buffer, Suffix ) -> iolist().
+%% Buffer = bytes(), Suffix = iolist().
+%% Split Buffer into 60-char lines, append Suffix to the end of buffer.
+format( << Line:60/bytes, Rest/bytes >>, Suffix ) -> [ Line, 10 | format( Rest, Suffix ) ];
+format( << >>, Suffix ) -> Suffix;
+format( Line, Suffix ) -> [ Line, 10, Suffix ].
+
+%% rev_comp_line( Line, Buffer ) -> Buffer.
+%% Line = binary().
+%% Buffer = binary().
+rev_comp_line( << _:8 >>, Buffer ) -> Buffer;
+rev_comp_line( << H, Rest/bytes >>, Buffer ) -> 
+    C = rev_comp( H ),
+    rev_comp_line( Rest, << C:8, Buffer/binary >> ).
+
+rev_comp( $A ) -> $T;
+rev_comp( $C ) -> $G;
+rev_comp( $G ) -> $C;
+rev_comp( $T ) -> $A;
+rev_comp( $U ) -> $A;
+rev_comp( $M ) -> $K;
+rev_comp( $R ) -> $Y;
+rev_comp( $Y ) -> $R;
+rev_comp( $K ) -> $M;
+rev_comp( $V ) -> $B;
+rev_comp( $H ) -> $D;
+rev_comp( $D ) -> $H;
+rev_comp( $B ) -> $V;
+rev_comp( $a ) -> $T;
+rev_comp( $c ) -> $G;
+rev_comp( $g ) -> $C;
+rev_comp( $t ) -> $A;
+rev_comp( $u ) -> $A;
+rev_comp( $m ) -> $K;
+rev_comp( $r ) -> $Y;
+rev_comp( $y ) -> $R;
+rev_comp( $k ) -> $M;
+rev_comp( $v ) -> $B;
+rev_comp( $h ) -> $D;
+rev_comp( $d ) -> $H;
+rev_comp( $b ) -> $V;
+rev_comp( $N ) -> $N;
+rev_comp( $S ) -> $S;
+rev_comp( $W ) -> $W;
+rev_comp( $n ) -> $N;
+rev_comp( $s ) -> $S;
+rev_comp( $w ) -> $W;
+rev_comp( _ ) -> $?.
+%%
+%% The Computer Language Benchmarks Game
+%% http://shootout.alioth.debian.org/
+%%
+%% Based on two Erlang versions contributed by
+%% Vlad Balin and Fredrik Svahn.
+%%
+%% contributed by Michael Pitidis
+%%
+
+%% This program performs reasonably with Erlang R12B3 5.6.3 (Debian Sid),
+%% and about 5 times faster with Erlang R12B5 5.6.5 (Debian Sid),
+%% but is horribly slow with Erlang R13A (erts-5.7, HiPE CVS), and requires
+%% ridiculous amounts of memory (had to abort execution for the 25.000.000
+%% test case).
+
+-module(revcomp).
+
+-compile([native, {hipe, [o3]}, inline, {inline_size, 100}]).
+
+%-compile(export_all).
+-export([main/1]).
+
+-define(WIDTH, 60).
+-define(WORKERS, 4).
+
+main([_Args]) ->
+  io:setopts([binary]),
+  run_parallel(),
+  halt().
+
+%% Set up one process for reading. Transformations and printing are
+%% handled asynchronously in separate processes.
+run_parallel() ->
+  register(reader, self()),
+  reader ! go,
+  loop(<< >>).
+
+loop(Buf) ->
+  case io:get_line('') of
+    eof ->
+      receive go -> ok end,
+      spawn(fun() -> flush(<< >>, Buf) end),
+      receive go -> ok end;
+    << ">", _/bytes >> = Comment ->
+      receive go -> ok end,
+      spawn(fun() -> flush(Comment, Buf) end),
+      loop(<< >>);
+    Line ->
+      % Strip newline and append.
+      S = size(Line) - 1,
+      << Chunk:S/bytes, _ >> = Line,
+      loop(<< Buf/binary, Chunk/binary >>)
+  end.
+
+%% Calculate the reverse complement of Buffer, and print it.
+%% Calculation is done in chunks, each assigned a separate process.
+%% The results are collected, and printed in the correct order.
+flush(Comment, Buffer) ->
+  register(collector, self()),
+  io:put_chars(reverse_complement(Buffer)),
+  io:put_chars(Comment),
+  unregister(collector),
+  reader ! go.
+
+%% Calculation is distributed among workers.
+%% As a minor optimization, workers handle only chunks of the same size,
+%% evenly divisible by ?WIDTH. The remainder is handled by the current
+%% process, with a separate function.
+reverse_complement(<< >>) ->
+  << >>;
+reverse_complement(Buffer) ->
+  {Chunks, Left} = calculate_splits(size(Buffer), ?WORKERS),
+  Even = start_jobs(Buffer, Chunks),
+  Last = revcomp_last(Buffer, Left, << >>),
+  collect(Even) ++ [Last].
+
+start_jobs(_, 0) ->
+  0;
+start_jobs(Buffer, Chunks) ->
+  start_jobs(Buffer, Chunks, size(Buffer), 0).
+
+start_jobs(_, _, _, N = ?WORKERS) ->
+  N;
+start_jobs(Buffer, Chunk, Size, N) when Size >= Chunk ->
+  new_job({fun revcomp_chunk/4, [Buffer, Size - Chunk, Size, << >>]}, N),
+  start_jobs(Buffer, Chunk, Size - Chunk, N + 1).
+
+%% Specialized function which handles even chunks.
+revcomp_chunk(_, Start, Start, Acc) ->
+  Acc;
+revcomp_chunk(Buffer, Start, Stop, Acc) ->
+  From = Stop - ?WIDTH,
+  << _:From/bytes, Line:?WIDTH/bytes, _/bytes >> = Buffer,
+  RC = revcomp(Line),
+  revcomp_chunk(Buffer, Start, From, << Acc/binary, RC/binary >>).
+
+%% Specialized function which handles the uneven chunk.
+revcomp_last(Buffer, Stop, Acc) when Stop > ?WIDTH ->
+  From = Stop - ?WIDTH,
+  << _:From/bytes, Line:?WIDTH/bytes, _/bytes >> = Buffer,
+  RC = revcomp(Line),
+  revcomp_last(Buffer, From, << Acc/binary, RC/binary >>);
+revcomp_last(Buffer, Stop, Acc) ->
+  << Line:Stop/bytes, _/bytes >> = Buffer,
+  RC = revcomp(Line),
+  << Acc/binary, RC/binary >>.
+
+%% Generate the reverse complement of a sequence, and append
+%% a newline character.
+revcomp(<< >>) ->
+  << >>;
+revcomp(Line) ->
+  list_to_binary(lists:reverse(
+      [ 10 | [ complement(C) || C <- binary_to_list(Line)]])).
+
+calculate_splits(Size, Nodes) ->
+  Tmp = Size div Nodes,
+  Rem = Tmp rem ?WIDTH,
+  Chunks = Tmp - Rem,
+  Left = (Size rem Nodes) + (Nodes * Rem),
+  {Chunks, Left}.
+
+complement( $A ) -> $T;
+complement( $C ) -> $G;
+complement( $G ) -> $C;
+complement( $T ) -> $A;
+complement( $U ) -> $A;
+complement( $M ) -> $K;
+complement( $R ) -> $Y;
+complement( $Y ) -> $R;
+complement( $K ) -> $M;
+complement( $V ) -> $B;
+complement( $H ) -> $D;
+complement( $D ) -> $H;
+complement( $B ) -> $V;
+complement( $a ) -> $T;
+complement( $c ) -> $G;
+complement( $g ) -> $C;
+complement( $t ) -> $A;
+complement( $u ) -> $A;
+complement( $m ) -> $K;
+complement( $r ) -> $Y;
+complement( $y ) -> $R;
+complement( $k ) -> $M;
+complement( $v ) -> $B;
+complement( $h ) -> $D;
+complement( $d ) -> $H;
+complement( $b ) -> $V;
+complement( $N ) -> $N;
+complement( $S ) -> $S;
+complement( $W ) -> $W;
+complement( $n ) -> $N;
+complement( $s ) -> $S;
+complement( $w ) -> $W.
+
+%% Parallel helpers.
+new_job({Fun, Args}, N) ->
+  spawn(fun() -> collector ! {N, apply(Fun, Args)} end).
+
+collect(N) -> collect(N, []).
+collect(0, Results) -> [ R || {_, R} <- lists:keysort(1, Results) ];
+collect(N, Results) -> receive {K, R} -> collect(N-1, [{K, R} | Results]) end.
+% The Computer Language Shootout
+% Contributed by Bengt Kleberg 
+
+-module(reversefile).
+-export([main/1]).
+
+main(Args) ->
+    Reversed_lines = reverse_lines(io:get_line(''), []),
+    io:put_chars(Reversed_lines),
+    erlang:halt().
+
+reverse_lines(eof, Reversed_lines) ->
+    Reversed_lines;
+reverse_lines(Line, Reversed_lines) ->
+    reverse_lines(io:get_line(''), [Line|Reversed_lines]).
+%% The Great Computer Language Shootout 
+%% http://shootout.alioth.debian.org/
+
+%% Based on code by Maurice Castro.
+%% Originally tweaked by Doug Bagley.
+%% Further tweaked and shrunk by James Hague.
+%% modified by Isaac Gouy
+
+-module(sieve).
+-export([main/0, main/1, test/2]).
+
+% The sieve loop is spawned into its own process with a heap size of
+% 50,000 words.  With all of the list creation done by this benchmark,
+% much time is spent resizing the initially tiny heap.  Starting with
+% a larger heap improves execution time by ~20%.
+
+main() -> main(["1"]).
+main([Arg]) ->
+   Num = list_to_integer(Arg),
+   spawn_opt(sieve, test, [self(), Num], [{min_heap_size, 50000}]),
+   receive Num_primes -> io:fwrite("Count: ~w\n", [Num_primes]) end,
+   halt().
+
+test(From, N) -> test(From, N, math:sqrt(8192), lists:seq(2, 8192)).
+
+test(From, N, Max, Seq) ->
+   Num_primes = length(era(Max, Seq)),
+   if
+      N > 1 -> test(From, N-1, Max, Seq);
+      true  -> From ! Num_primes
+   end.
+
+era(Max, [H|T]) when H =< Max ->
+   [H | era(Max, [X || X <- T, X rem H =/= 0])];
+era(Max, L) ->  L.
+
+%%% Eratosthenes algorithm from Maurice Castro, with permission, 
+%%% from his book, _Erlang in Real Time_, ISBN: 0864447434
+%%% http://www.serc.rmit.edu.au/~maurice/erlbk/eg/choice/erasto.erl
+%   The Computer Language Shootout
+%   http://shootout.alioth.debian.org/
+%   contributed by Isaac Gouy (Erlang novice)
+
+-module(spectralnorm).
+-export([main/1]).
+
+main([Arg]) ->
+    N = list_to_integer(Arg),
+    {U,V} = powerMethod(N,10, array(1.0,N,[]), array(0.0,N,[]) ),
+    io:format("~.9f\n",[ loop(N,U,V,0.0,0.0) ]),
+    erlang:halt(0).
+
+% eigenvalue of V
+loop(0,_,_,VBV,VV) -> math:sqrt(VBV/VV);
+loop(I,U,V,VBV,VV) -> 
+   VI = element(I,V),
+   loop(I-1,U,V, VBV + element(I,U)*VI, VV + VI*VI).
+
+% 2I steps of the power method
+powerMethod(_,0,A,B) -> {A,B};
+powerMethod(N,I,A,B) -> 
+   V = atav(N,A,B), 
+   U = atav(N,V,A),
+   powerMethod(N,I-1,U,V).
+
+% return element i,j of infinite matrix A
+a(II,JJ) ->
+   I = II-1.0, J = JJ-1.0,
+   1.0/((I+J)*(I+J+1.0)/2.0 +I+1.0).
+
+% multiply vector v by matrix A
+av(_,0,_,AV) -> AV;
+av(N,I,V,AV) -> 
+   av(N,I-1,V, setelement(I,AV, avloop(N,I,V,0.0) )).
+
+avloop(0,_,_,X) -> X;
+avloop(J,I,V,X) -> 
+   avloop(J-1,I,V, X + a(I,J)*element(J,V) ).
+
+% multiply vector v by matrix A transposed
+atv(_,0,_,ATV) -> ATV;
+atv(N,I,V,ATV) -> 
+   atv(N,I-1,V, setelement(I,ATV, atvloop(N,I,V,0.0) )).
+
+atvloop(0,_,_,X) -> X;
+atvloop(J,I,V,X) -> atvloop(J-1,I,V, X + a(J,I)*element(J,V) ).
+
+% multiply vector v by matrix A and then by matrix A transposed
+atav(N,V,ATAV) ->
+   atv(N,N, av(N,N,V,array(0.0,N,[])) ,ATAV).
+
+% initialize a list and convert it to a tuple
+array(_,0,L) -> list_to_tuple(L);
+array(X,N,L) -> array(X,N-1,[X|L]).
+%   The Computer Language Benchmarks Game
+%   http://shootout.alioth.debian.org/
+%   contributed by Fredrik Svahn
+
+-module(spectralnorm).
+-export([main/1]).
+-compile( [ inline, { inline_size, 1000 } ] ).
+
+main([Arg]) ->
+    register(server, self()),
+    N = list_to_integer(Arg),
+    {U, V} = power_method(N, 10, erlang:make_tuple(N, 1), []),
+    io:format("~.9f\n", [ eigen(N, U, V, 0, 0) ]),
+    erlang:halt(0).
+
+% eigenvalue of V
+eigen(0, _, _, VBV, VV) when VV /= 0 -> math:sqrt(VBV / VV);
+
+eigen(I, U, V, VBV, VV) when I /= 0 ->
+    VI = element(I, V),
+    eigen(I-1, U, V, VBV + element(I, U)*VI, VV + VI*VI).
+
+% 2I steps of the power method
+power_method(_, 0, A, B) -> {A, B};
+power_method(N, I, A, _B) ->
+    V = atav(N, A),
+    U = atav(N, V),
+    power_method(N, I-1, U, V).
+
+
+% return element i,j of infinite matrix A
+a(II,JJ) -> 1/((II+JJ-2)*(II-1+JJ)/2+II).
+
+
+% multiply vector v by matrix A
+av(N, V) -> pmap(N, fun(Begin, End) -> av(N, Begin, End, V) end).
+
+av(N, Begin, End, V) -> server ! { self(), [ avloop(N, I, V, 0.0) || I <- lists:seq(Begin, End) ]}.
+
+avloop(0, _, _, X) ->  X;
+avloop(J, I, V, X) ->  avloop(J-1, I, V, X + a(I, J)*element(J, V) ).
+
+
+% multiply vector v by matrix A transposed
+atv(N, V) -> pmap(N, fun(Begin, End)-> atv(N, Begin, End, V) end).
+
+atv(N, Begin, End, V) -> server ! { self(), [ atvloop(N, I, V, 0.0) || I <- lists:seq(Begin, End) ]}.
+
+atvloop(0, _, _, X) -> X;
+atvloop(J, I, V, X) -> atvloop(J-1, I, V, X + a(J, I)*element(J, V) ).
+
+
+% multiply vector v by matrix A and then by matrix A transposed
+atav(N, V) -> atv(N, av(N, V)).
+
+
+%Helper function for multicore
+pmap(N, F) ->
+    Chunks = chunks(0, erlang:system_info(logical_processors), N, []),
+    Pids = [spawn(fun()-> F(Begin, End) end) || {Begin, End} <- Chunks],
+    Res = [ receive {Pid, X} -> X end || Pid <- Pids],
+    list_to_tuple(lists:flatten(Res)).
+
+chunks(I, P, N, A) when I == P-1 -> lists:reverse([{I*(N div P)+1, N} | A ]);
+chunks(I, P, N, A) -> chunks(I+1, P, N, [{ I*(N div P)+1, (I+1)*(N div P)} | A ]).
+
+%%% -*- mode: erlang -*-
+%%% $Id: spellcheck.erlang,v 1.4 2005-06-21 05:36:55 igouy-guest Exp $ 
+%%% http://shootout.alioth.debian.org/
+%%%
+%%% New (speedy) implementation by Bengt Kleberg. 
+
+-module(spellcheck).
+-export([main/0, main/1]).
+ 
+main() -> main(['1']).
+main(_Args) ->
+	Dict = load_dict(),
+	spell( io:fread('', "~s"), Dict ),
+	halt().
+
+load_dict() ->
+	Dict = ets:new(i_am_a_carrot, [set]),
+	{ok, Binary} = file:read_file("Usr.Dict.Words"),
+	Fun = fun( Word ) ->
+		ets:insert(Dict, {Word, 1})
+	end,
+	lists:foreach( Fun, string:tokens(erlang:binary_to_list( Binary ), "\n") ),
+	Dict.
+
+spell(eof, _Dict) ->
+	ok;
+spell({ok, [Word]}, Dict) ->
+	case ets:lookup(Dict, Word) of
+		[] -> io:format("~s~n",[Word]);
+		_Entry  -> ok
+	end,
+	spell( io:fread('', "~s"), Dict ).
+
+%%% -*- mode: erlang -*-
+%%% $Id: strcat.erlang-3.erlang,v 1.1 2004-11-10 06:44:59 bfulgham Exp $
+%%% http://www.bagley.org/~doug/shootout/
+
+-module(strcat).
+-export([main/1]).
+
+main([Arg]) ->
+    Num = list_to_integer(atom_to_list(Arg)),
+    io:fwrite("~w\n", [length(string:copies("hello\n", Num))]),
+    halt(0).
+%%% The Great Computer Language Shootout 
+%%% http://shootout.alioth.debian.org/
+%%% 
+%%% strcat.erl: 22 Jul 2001 ms@mcdev.com.au (Martin Sandiford)
+%%% modified by Isaac Gouy
+%%%
+%%% This is as close to the shootout specs for string concatenation as
+%%% I can get it.  There is a small cheat that appends shorter strings
+%%% to longer strings, rather than the other way around.  The results
+%%% are the same.
+%%%
+%%% String handling is not really one of Erlang's strengths.
+%%% From the Erlang FAQ at http://www.erlang.org/faq/x304.html
+%%% question 5.2:
+%%%
+%%%    String handling in Erlang is less efficient than it could
+%%%    be. Each character consumes 8 bytes of memory (a 32 bit integer
+%%%    and a 32 bit pointer) and access to the nth. element takes O(n)
+%%%    time. The net result is that many typical string handling
+%%%    operations are significantly slower in Erlang than in (say) C or
+%%%    even Java.
+%%%
+%%%
+%%% Usage: start from command line with:
+%%%    erlc strcat.erl # to compile
+%%%    erl -noinput -s strcat main 40000
+
+-module(strcat).
+-export([main/0, main/1]).
+
+main() -> main(["1"]).
+main([Arg]) ->
+   Num = list_to_integer(Arg),
+   io:fwrite("~w\n", [length(make_string("hello\n", Num))]),
+   halt(0).
+
+make_string(T, N) -> make_string("", T, N).
+
+make_string(S, _, 0) -> S;
+make_string(S, T, N) -> make_string(T ++ S, T, N-1).
+%%% -*- mode: erlang -*-
+%%% $Id: sumcol.erlang,v 1.6 2007-12-04 06:32:39 bfulgham Exp $
+%%% http://shootout.alioth.debian.org/
+%%%
+%%% Contributed by Bengt Kleberg (Erlang Guru!)
+
+-module(sumcol).
+-export([main/1]).
+
+%% get the program argument, which is how many test iterations to run
+%% for this test, we ignore this parameter
+main(_Args) ->
+    Sum = sumcol( io:fread('', "~d"), 0),
+    io:format( "~w~n", [Sum] ),
+    halt().
+
+sumcol(eof, Sum) ->    Sum;
+sumcol({ok, [Integer]}, Sum) ->
+    sumcol( io:fread('', "~d"), Sum + Integer).
+
+%% The Computer Language Benchmark Games
+%% http://shootout.alioth.debian.org/
+%% Contributed by Ulf Wiger
+
+-module(sumcol).
+-export([main/1]).
+-export([start/0]).
+
+%% get the program argument, which is how many test iterations to run
+%% for this test, we ignore this parameter
+main(_Args) ->
+    user ! {self(), wait_ready},
+    receive
+	ready ->
+	    halt()
+    end.
+
+%% callback function for user-defined line-oriented io
+start() ->
+    spawn(fun() ->
+		  process_flag(priority,high),
+		  register(user, self()),
+		  read_in(open_port({fd,0,1}, [{line,128},eof]), 0)
+	  end).
+
+read_in(Port, Sum) ->
+    receive
+	{Port, {data, {Eol, Str}}} when Eol==eol; Eol==noeol->
+	    read_in(Port, Sum + list_to_integer(Str));
+	{Port, eof}  ->
+	    ready(Port, Sum)
+    end.
+
+ready(Port, Sum) ->
+    port_command(Port, [integer_to_list(Sum), "\n"]),
+    erlang:port_close(Port),
+    receive
+	{From, wait_ready} ->
+	     From ! ready
+    end.
+%% The Computer Language Benchmark Games
+%% http://shootout.alioth.debian.org/
+%% Contributed by rick richardson
+
+-module(sumcol).
+-export([main/1]).
+
+%% get the program argument, which is how many test iterations to run
+%% for this test, we ignore this parameter
+main(_Args) ->
+    Sum = sumcol(io:get_line(''), 0),
+    io:format( "~w~n", [Sum] ),
+    halt().
+
+sumcol(eof, Sum) -> Sum;
+sumcol(String, Sum) -> 
+    {Int, _} = string:to_integer(String),
+    sumcol(io:get_line('') , Sum + Int).
+%  The Great Computer Language Shootout
+%   http://shootout.alioth.debian.org/ 
+%  
+%   contributed by Mark Scandariato
+%
+%   erl -noshell -noinput -run takfp main 7
+
+-module(takfp).
+-export([main/1]).
+
+main([Arg]) ->
+    N = list_to_integer(Arg),
+    io:fwrite("~.1f~n", [main(N)]),
+    erlang:halt();
+main(N) when N >= 0 -> tak(N*3.0, N*2.0, N*1.0).
+
+tak(X, Y, Z) when Y >= X -> Z;
+tak(X, Y, Z) -> tak(tak(X-1.0,Y,Z), tak(Y-1.0,Z,X), tak(Z-1.0,X,Y)).
+
+%  vim: ts=4 ft=erlang
+%%% The Computer Language Benchmarks Game
+%%% http://shootout.alioth.debian.org/
+%%% Contributed by Jiri Isa
+
+-module(threadring).
+-export([main/1, roundtrip/2]).
+
+-define(RING, 503).
+
+start(Token) ->
+   H = lists:foldl(
+      fun(Id, Pid) -> spawn(threadring, roundtrip, [Id, Pid]) end, 
+      self(), 
+      lists:seq(?RING, 2, -1)),
+   H ! Token,
+   roundtrip(1, H).
+
+roundtrip(Id, Pid) ->
+   receive
+      1 ->
+         io:fwrite("~b~n", [Id]),
+         erlang:halt();
+      Token ->
+         Pid ! Token - 1,
+         roundtrip(Id, Pid)
+   end.
+
+main([Arg]) ->
+   Token = list_to_integer(Arg),
+   start(Token).
+%%% -*- mode: erlang -*-
+%%% $Id: wc.erlang,v 1.7 2005-03-23 06:11:41 bfulgham Exp $
+%%% http://shootout.alioth.debian.org/
+%%%
+%%% Super-fast implementation by Mark Scandariato
+%%% Mega-improvement by Alexey Shchepin <alexey@sevcom.net>
+%%% Corrected to meet Shootout criteria, and made Hyper-fast
+%%%    by Mark Scandariato
+
+-module(wc).
+-export([main/1]).
+
+-define(BUFSIZE, 4096).
+
+main(_Args) ->
+    ok = io:setopts([binary]),
+    {L, W, C} = s(next(), 0, 0, 0),
+    io:fwrite("~p ~p ~p~n", [L,W,C]),
+    erlang:halt(0).
+
+next() -> next(io:get_chars('',?BUFSIZE)).
+
+next(eof) -> eof;
+next(Bin) -> binary_to_list(Bin).
+
+s([$\s|T], C, L, W) -> s(T, C+1, L, W);
+s([$\t|T], C, L, W) -> s(T, C+1, L, W);
+s([$\n|T], C, L, W) -> s(T, C+1, L+1, W);
+s([_|T], C, L, W)   -> w(T, C+1, L, W+1);
+s([], C, L, W)      -> s(next(), C, L, W);
+s(eof, C, L, W)     -> {L, W, C}.
+
+w([$\s|T], C, L, W) -> s(T, C+1, L, W);
+w([$\t|T], C, L, W) -> s(T, C+1, L, W);
+w([$\n|T], C, L, W) -> s(T, C+1, L+1, W);
+w([_|T], C, L, W)   -> w(T, C+1, L, W);
+w([], C, L, W)      -> w(next(), C, L, W);
+w(eof, C, L, W)     -> {L, W, C}.
+
+%%% -*- mode: erlang -*-
+%%% $Id: wordfreq.erlang-2.erlang,v 1.1 2004-11-10 06:40:32 bfulgham Exp $
+%%% http://www.bagley.org/~doug/shootout/
+
+%% frequency counter algorithm from Maurice Castro
+%% This version uses ETS tables - Erlang's associative store.
+
+%% This version is written to read input from a file.
+
+-module(wordfreq).
+-export([main/0, main/1]).
+
+%% get the program argument, which is how many test iterations to run
+main() -> main(['1']).
+main(Args) ->
+    [Arg] = Args,
+    % we throw away first value of list because it is ''
+    % we really should test for this and remove it explicitly
+    % but we're not flying the space shuttle here.
+    FreqList = tl(sortedfreqs(lists:concat(["Input.", Arg]))),
+    OutL = fun ({Word, Count}) ->
+		io:format("~7w\t~s~n", [Count, Word])
+	   end,
+    lists:foreach(OutL, FreqList),
+    halt(0).
+
+
+% sort the results, descending
+sortedfreqs(Datafile) -> 
+    Freqs = freq(Datafile),
+    lists:reverse(lists:keysort(2,Freqs)).
+
+
+freq(Filename) ->
+    {Status, Data} = file:open(Filename, [read]),
+    if 
+	Status == error ->
+	    io:format("Unable to open file ~s because ~w~n", [Filename, Data]);
+	true ->
+	    Table = ets:new(freqtab,[ordered_set]),
+	    FreqList = freqcnt(Data, Table),
+	    ets:delete(Table),
+	    file:close(Data),
+	    FreqList
+    end.
+
+freqcnt(Data, Table) ->
+    UpCnt = fun (Word) ->
+		    WordAtom = list_to_atom(Word),
+		    case (catch ets:update_counter(Table, WordAtom, 1)) of
+			{'EXIT', {badarg, _}} ->
+			    ets:insert(Table, {WordAtom, 1});
+			_ ->
+			    true
+		    end
+	    end,
+    case io:get_line(Data, '') of
+	eof ->
+	    ets:tab2list(Table);
+	Line -> 
+	    %% string:tokens(Line,"\n\r\t ")
+	    {ok,Words} = regexp:split(tolower(Line), "[^a-z]"),
+	    lists:foreach(UpCnt, Words),
+	    freqcnt(Data, Table)
+    end.
+
+
+%% how to lowercase a string from tklib.erl
+tolower([C|Cs]) ->
+    if C >= $A, C =< $Z -> [(C - $A) + $a | tolower(Cs)];
+	true -> [C | tolower(Cs)]
+    end;
+tolower([]) -> [];
+
+tolower(C) when C >= $A, C =< $Z -> (C - $A) + $a;
+tolower(C) -> C.
+%%% -*- mode: erlang -*- 
+%%% $Id: wordfreq.erlang,v 1.5 2005-05-13 16:24:19 igouy-guest Exp $
+%%% http://shootout.alioth.debian.org/
+%%%
+%%% Contributed by Bengt Kleberg (Erlang Guru!)
+%%% Updated by Alexey Shchepin <alexey@sevcom.net>
+
+-module(wordfreq).
+-export([main/0, main/1]).
+
+-define(BUFSIZE, 4096).
+
+%% ignore program argument
+main() -> main(['1']).
+main(_Args) ->
+    ets:new(freqtab, [set, named_table]),
+    ok = io:setopts([binary]),
+    insert_input(io:get_chars('', ?BUFSIZE), ""),
+    List = sort(),
+    print(List),
+    halt().
+
+
+insert_input(eof, _Prev) -> ok;
+insert_input(Buf, Prev) ->
+    Suffix = words1(Prev ++ binary_to_list(Buf)),
+    insert_input(io:get_chars('', ?BUFSIZE), Suffix).
+
+
+words1([C | S]) ->
+    if
+	(C >= $a) and (C =< $z) -> words2(S, [C]);
+	(C >= $A) and (C =< $Z) -> words2(S, [C + 32]);
+	true -> words1(S)
+    end;
+words1([]) ->
+    "".
+
+words2([C | S], Cs) ->
+    if
+	(C >= $a) and (C =< $z) -> words2(S, [C | Cs]);
+	(C >= $A) and (C =< $Z) -> words2(S, [C + 32 | Cs]);
+	true ->
+	    update_count(Cs),
+	    words1(S)
+    end;
+words2([], Cs) ->
+    lists:reverse(Cs).
+
+
+update_count(Word) ->
+    case (catch ets:update_counter(freqtab, Word, 1)) of
+        {'EXIT', {badarg, _}} ->
+	    true = ets:insert(freqtab, {Word, 1});
+	_Integer ->
+	    ok
+    end.
+
+sort() ->
+    Rev = [{C, lists:reverse(W)} || {W, C} <- ets:tab2list(freqtab)],
+    lists:reverse(lists:sort(Rev)).
+
+print(List) ->
+    Fun = fun({Count, Word}) ->
+		  io:format("~7w ~s~n", [Count, Word])
+	  end,
+    lists:foreach(Fun, List).
+

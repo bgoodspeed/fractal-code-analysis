@@ -1,0 +1,2062 @@
+' The Computer Language Shootout
+' http://shootout.alioth.debian.org/
+'
+' Converted from the gcc benchmark contributed by Kevin Carson
+' FreeBASIC conversion by Simon Nash(yetifoot)
+
+#define NULL cptr(Any ptr, 0)
+
+Type treeNode
+  _left As treeNode ptr
+  _right As treeNode ptr
+  item As Integer
+End Type
+
+Function NewTreeNode(ByVal _left As treeNode ptr, _
+                     ByVal _right As treeNode ptr, _
+                     ByVal item As Integer) As treeNode ptr
+                     
+  Dim _new As treeNode ptr
+
+    _new = Allocate(sizeof(treeNode))
+
+    _new->_left = _left
+    _new->_right = _right
+    _new->item = item
+
+    Return _new
+    
+End Function
+
+Function ItemCheck(ByVal tree As treeNode ptr) As Integer
+
+  If tree->_left = NULL Then
+    Return tree->item
+  Else
+    Return tree->item + ItemCheck(tree->_left) - ItemCheck(tree->_right)
+  End If
+  
+End Function
+
+Function BottomUpTree(ByVal item As Long, _
+                      ByVal depth As uInteger) As treeNode ptr
+                      
+  If (depth > 0) Then
+    Return NewTreeNode(BottomUpTree(2 * item - 1, depth - 1), _
+                       BottomUpTree(2 * item, depth - 1), _
+                       item)
+  Else
+    Return NewTreeNode(0, 0, item)
+  End If
+  
+End Function
+
+Sub DeleteTree(ByVal tree As treeNode ptr)
+
+  If tree->_left <> NULL Then
+    DeleteTree(tree->_left)
+    DeleteTree(tree->_right)
+  End If
+
+  DeAllocate(tree)
+  
+End Sub
+
+  Dim As uInteger N, depth, minDepth, maxDepth, stretchDepth
+  Dim As treeNode ptr stretchTree, longLivedTree, tempTree
+  Dim As Integer i, iterations, check
+
+    N = CInt(Command$(1))
+
+    minDepth = 4
+
+    If (minDepth + 2) > N Then
+      maxDepth = minDepth + 2
+    Else
+      maxDepth = N
+    End If
+
+    stretchDepth = maxDepth + 1
+    stretchTree = BottomUpTree(0, stretchDepth)
+    Print "stretch tree of depth " & stretchDepth & chr(9) & " check: " & ItemCheck(stretchTree) & chr(10);
+
+    DeleteTree(stretchTree)
+
+    longLivedTree = BottomUpTree(0, maxDepth)
+
+    For depth = minDepth To maxDepth Step 2
+      iterations = 2 ^ (maxDepth - depth + minDepth)
+      check = 0
+      For i = 1 To iterations
+          tempTree = BottomUpTree(i, depth)
+          check += ItemCheck(tempTree)
+          DeleteTree(tempTree)
+
+          tempTree = BottomUpTree(-i, depth)
+          check += ItemCheck(tempTree)
+          DeleteTree(tempTree)
+      Next i
+      Print Str(iterations * 2) & chr(9) & " trees of depth " & depth & chr(9) & " check: " & check & chr(10);
+    Next depth
+
+    Print "long lived tree of depth " & maxDepth & chr(9) &" check: " & ItemCheck(longLivedTree) & chr(10);
+ 
+rem The Computer Language Shootout
+rem http://shootout.alioth.debian.org/
+rem contributed by Antoni Gual
+
+#include "crt.bi"
+
+dim as integer perm(20), permp(20), count(20)
+dim as integer n,print30=0, m, r, j, i, k, temp, mostFlips=0, flips, perm0
+
+n = val(command$)
+if n < 1 then n = 7
+
+m = n - 1
+for i = 0 to m : permp(i) = i : next i
+r = n
+do
+  if print30 < 30 then
+     for i = 0 to m
+        printf ("%d",permp(i) + 1)
+     next i
+     printf("%c", 10)
+     print30 += 1
+  end if
+  while r <> 1
+     count(r-1) = r
+     r -= 1
+  wend
+  if not ((permp(0)=0) or (permp(m)=m)) then
+     for i = 0 to m
+        perm(i) = permp(i)
+     next i
+     flips = 0
+     k = perm(0)
+     do
+       i=1
+       j=k-1
+       while i<j
+           temp = perm(i)
+           perm(i)= perm(j)
+           perm(j)= temp
+           i += 1
+           j -= 1
+       wend
+       flips += 1
+       j=perm(k)
+       perm(k)=k
+       k=j
+     loop until k = 0
+     if flips > mostFlips then mostFlips = flips
+  end if
+  Do
+     if r = n then
+        printf ("Pfannkuchen(%d) = %d%c",n, mostflips, 10)
+        end
+     else
+        perm0 = permp(0)
+        i = 0
+        k=1
+        while i < r
+           permp(i) = permp(k)
+           i+= 1
+           k+=1
+        wend
+        permp(r) = perm0
+        count(r) -= 1
+        if count(r) > 0 then exit Do
+        r += 1
+     end if
+  Loop
+loop while 1
+ 
+'The Computer Language Shootout
+'http://shootout.alioth.debian.org/
+'contributed by Antoni Gual
+
+#include "crt.bi"
+
+type aminoacids
+   c as integer
+   p as double
+end type
+
+#define linelength 60
+'
+'--------------------------------------------------------------
+function gen_random(byval max as double) as double
+   const IM = 139968
+   const IA =  3877
+   const IC =  29573
+   const iim=  1/im
+   static last as long = 42
+   last = (last * IA + IC) mod IM
+   return max * last *iIM
+end function
+'
+'----------------------------------------------------------------
+sub makeRandomFasta(byval genelist as aminoacids ptr,byval count as integer,byval n as long)
+   dim as integer i,j,todo
+   dim tline as zstring * linelength+1
+   dim as double r
+   for todo =n to 1 step -linelength
+     for i = 0 to iif(todo<linelength,todo-1,linelength-1)
+       r = gen_random(1.)
+       j=0
+       while  r > genelist[j].p
+         j+=1
+       wend
+       tline[i]=genelist[j].c
+      next
+     tline[i]=0
+     puts tline
+   next
+end sub
+'
+'-----------------------------------------------------------------
+sub makeRepeatFasta(byval s as zstring ptr,byval n as integer)
+  dim as integer kn,i,m,k=0
+  dim as ubyte c=0
+  kn=len(*s)
+  for i=n to 1 step -linelength
+     m=iif(i<linelength,i,linelength)
+     while (m>=kn-k)                   'fin de bloque
+        printf ("%s", s+k)
+        m-=kn-k
+        k=0
+     wend
+     c= *(s+k+m)
+     *(s+k+m)=0
+     puts s[k]
+     *(s+k+m)=c
+     k+=m
+   next
+end sub
+'
+'----------------------------------------------------------------
+const IUB_LEN = 15
+dim iub(14) as aminoacids={(asc("a"),0.27),_
+                           (asc("c"),0.12),_
+                           (asc("g"),0.12),_
+                           (asc("t"),0.27),_
+                           (asc("B"),0.02),_
+                           (asc("D"),0.02),_
+                           (asc("H"),0.02),_
+                           (asc("K"),0.02),_
+                           (asc("M"),0.02),_
+                           (asc("N"),0.02),_
+                           (asc("R"),0.02),_
+                           (asc("S"),0.02),_
+                           (asc("V"),0.02),_
+                           (asc("W"),0.02),_
+                           (asc("Y"),0.02)}
+
+const HOMOSAPIENS_LEN = 4
+dim homosapiens(3) as aminoacids={(asc("a"),0.3029549426680),_
+                                  (asc("c"),0.1979883004921),_
+                                  (asc("g"),0.1975473066391),_
+                                  (asc("t"),0.3015094502008)}
+
+dim alu as zstring *300 => _
+          "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG"_
+          "GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA"_
+          "CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT"_
+          "ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA"_
+          "GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG"_
+          "AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC"_
+          "AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA"
+
+dim as integer n,i
+dim as double cp
+n = val(command$)
+if n < 1 then n = 1000
+
+cp=0
+for i = 0 to IUB_LEN-1
+  cp += iub(i).p
+  iub(i).p = cp
+next i
+
+cp=0
+for i = 0 to HOMOSAPIENS_LEN-1
+  cp += homosapiens(i).p
+  homosapiens(i).p = cp
+next i
+
+puts (">ONE Homo sapiens alu")
+makeRepeatFasta(@alu, n*2)
+
+puts (">TWO IUB ambiguity codes")
+makeRandomFasta(@iub(0), IUB_LEN, n*3)
+
+puts (">THREE Homo sapiens frequency")
+makeRandomFasta(@homosapiens(0), HOMOSAPIENS_LEN, n*5)
+' The Computer Language Shootout
+' http://shootout.alioth.debian.org/
+' contributed by Isaac Gouy
+
+PRINT "hello world"
+'The Computer Language Shootout
+'http://shootout.alioth.debian.org/
+'contributed by Antoni Gual
+
+#include "crt.bi"
+
+type ht_node
+  key as zstring ptr
+  _val as integer
+  _next as ht_node ptr
+end type
+'
+type ht_ht
+  size as integer
+  tbl as ht_node ptr ptr
+  iter_index as integer
+  iter_next as ht_node ptr
+  items as integer
+  totals as integer
+end type
+'
+type sorter
+  _string as zstring ptr
+  num as integer
+end type
+'
+'--------------------------------------------------
+function ht_hashcode(ByVal ht as ht_ht ptr, ByVal key as zstring ptr) As Integer
+   dim as uinteger _val = 0
+   while * key
+     _val = 5 * _val + *key
+     key+=1
+   wend
+   return (_val mod ht->size)
+end function
+'
+'----------------------------------------------------
+function ht_node_create (ByVal key as zstring ptr) as ht_node ptr
+   dim newkey as zstring ptr
+   dim  node as ht_node ptr
+   node =  allocate(sizeof(ht_node))
+   if node=0 then ? "Error allocating node": end 1
+   'no strdup in the crt lib !!!
+   newkey=allocate(strlen(key)+1)
+   if newkey=0 then ? "Can't allocate key":end
+   memcpy (newkey,key, strlen(key)+1)
+   node->key = newkey
+   node->_val = 0
+   node->_next = NULL
+   return node
+end function
+'
+'-----------------------------------------------------
+function ht_create(ByVal size As Integer) as ht_ht  ptr  '''
+    dim i As Integer = 0
+    #define  ht_num_primes 28
+    dim as uinteger ht_prime_list(ht_num_primes) = {_
+    53ul,         97ul,         193ul,       389ul,       769ul,_
+    1543ul,       3079ul,       6151ul,      12289ul,     24593ul,_
+    49157ul,      98317ul,      196613ul,    393241ul,    786433ul,_
+    1572869ul,    3145739ul,    6291469ul,   12582917ul,  25165843ul,_
+    50331653ul,   100663319ul,  201326611ul, 402653189ul, 805306457ul,_
+    1610612741ul, 3221225473ul, 4294967291ul}
+
+    dim as  ht_ht ptr ht=allocate(sizeof(ht_ht))
+
+    'print "size "; size
+    while (ht_prime_list(i) < size): i+=1:wend
+    ht->size = ht_prime_list(i)
+    ht->tbl = callocate(ht->size * sizeof(ht_node ptr))
+    ht->iter_index = 0
+    ht->iter_next = 0
+    ht->items = 0
+    ht->totals=0
+    return(ht)
+end function
+'
+'------------------------------------------------------
+sub ht_destroy(ByVal ht as ht_ht ptr)      '''
+    dim as ht_node  ptr cur,_next
+    dim i As Integer
+    for i=0 to ht->size-1
+     _next = ht->tbl[i]
+     while (_next)
+      cur = _next
+      _next = _next->_next
+      deallocate(cur->key)
+      deallocate(cur)
+     wend
+    next
+    deallocate (ht->tbl)
+    deallocate(ht)
+end sub
+'
+'---------------------------------------------------
+function ht_find_new(ByVal ht as ht_ht ptr, ByVal key as zstring ptr) as ht_node ptr
+    dim hash_code As Integer = ht_hashcode(ht, key)
+    dim as  ht_node ptr prev = 0,node = ht->tbl[hash_code]
+    'exists
+    while (node)
+      if strcmp(key, node->key)=0 then  return node
+      prev = node
+      node = node->_next
+    wend
+    'does not exist
+    ht->items+=1
+    'not the first node
+    if (prev) then
+      prev->_next = ht_node_create(key)
+      return prev->_next
+    'first node of string
+    else
+      ht->tbl[hash_code] = ht_node_create(key)
+      return ht->tbl[hash_code]
+    end if
+end function
+'
+'  Hash Table iterator data/functions
+'-------------------------------------------------------
+function ht_next(ByVal ht as ht_ht ptr)as ht_node ptr   '''
+    dim index as uinteger
+    dim as ht_node ptr node = ht->iter_next
+    'first node found
+    if (node) then
+     ht->iter_next = node->_next
+     return(node)
+    else
+     'must search for first node
+     while ht->iter_index < ht->size
+      index = ht->iter_index
+      ht->iter_index+=1
+      if ht->tbl[index] then
+       ht->iter_next = ht->tbl[index]->_next
+       return ht->tbl[index]
+      end if
+     wend
+    end if
+    return null
+end function
+'
+'-----------------------------------------------------
+function ht_first(ByVal ht as ht_ht ptr) as ht_node ptr   '''
+    ht->iter_index = 0
+    ht->iter_next = cast (ht_node ptr, NULL)
+    return ht_next(ht)
+end function
+'
+'-----------------------------------------------------
+function hash_table_size (ByVal fl As Integer, ByVal buflen As Integer) As Integer
+  dim As Integer maxsize1, maxsize2
+  maxsize1 = buflen - fl
+  maxsize2 = 4
+  fl-=1
+  while (fl > 0 and maxsize2 < maxsize1)
+   maxsize2 = maxsize2 * 4
+   fl-=1
+  wend
+  if (maxsize1 < maxsize2) then return maxsize1
+  return maxsize2
+end function
+'
+'-----------------------------------------------------
+function generate_frequencies (ByVal fl As Integer, _
+                               ByVal buffer as zstring ptr, _
+                               ByVal buflen As Integer) as ht_ht ptr
+  dim  as ht_ht ptr  ht
+  dim reader as zstring ptr
+  dim i As Integer
+  dim as ubyte nulled
+
+  if (fl > buflen) then return NULL
+  ht = ht_create (hash_table_size (fl, buflen))
+
+   for i = 0 to  buflen -fl
+    reader = @buffer[i]
+    nulled = reader[fl]
+    reader[fl] = 0
+    ht_find_new(ht, reader)->_val+=1
+    ht->totals+=1
+    reader[fl] = nulled
+  next
+  return ht
+end function
+'
+'----------------------------------------------------
+sub write_frequencies (ByVal fl As Integer, _
+                       ByVal buffer as zstring ptr, _
+                       ByVal buflen As Integer)
+
+  dim as  ht_ht ptr ht
+  dim AS Integer total, i, j, size
+  dim as  ht_node ptr nd
+  dim as sorter ptr s
+  dim as sorter tmp
+
+  ht = generate_frequencies (fl, buffer, buflen)
+
+    total = 0
+    size = 0
+    nd = ht_first(ht)
+    While nd <> NULL
+      total = total + nd->_val
+      size += 1
+      nd = ht_next(ht)
+    Wend
+
+  s = callocate (size, sizeof (sorter))
+  i = 0
+
+  'print ht->items,ht->size, ht->totals
+  nd = ht_first (ht)
+
+  while nd <> NULL
+    s[i]._string = nd->key
+    s[i].num = nd->_val
+    i+=1
+    nd = ht_next (ht)
+  wend
+
+  'bubble sort
+  for i = 0  to size - 2
+    for j = i + 1 to size-1
+      if s[i].num < s[j].num then
+         swap s[i],s[j]
+      end if
+    next
+  next
+
+  for i = 0  to size -1
+    printf ("%s %.3f%c", s[i]._string, 100 * s[i].num / ht->totals, 10)
+  next
+  printf ("%c", 10)
+  ht_destroy (ht)
+
+  deallocate (s)
+end sub
+'
+'----------------------------------------------------
+sub write_count (ByVal searchFor as zstring ptr, _
+                 ByVal buffer as zstring ptr, _
+                 ByVal buflen As Integer)
+  dim ht as ht_ht ptr
+  'print strlen(searchFor)
+  ht = generate_frequencies (strlen(searchFor), buffer, buflen)
+
+  printf ("%d%c%s%c", ht_find_new(ht, searchFor)->_val, 9, searchFor, 10)
+  ht_destroy (ht)
+end sub
+'
+'----------------------------------------------------
+  dim c as ubyte
+  dim as zstring ptr _line,buffer,tmp,x
+  dim As Integer i, linelen, nothree
+  dim As Integer buflen, seqlen
+  const bufsize= 65536
+
+  'go to the third section
+  _line = allocate (256)
+  if _line=0 then  end -1
+  nothree = -1
+  do
+  do
+  do
+    if fgets(_line, 255, stdin)=0 then ?"Can't find section three":end
+  loop until _line[0] = asc(">")
+  loop until _line[1] = asc("T")
+  loop until _line[2] = asc("H")
+  'print timer-T!
+  deallocate (_line)
+
+  'reading buffer
+
+  buffer = allocate (bufsize + 1)
+  if buffer =0 then   end (-1)
+
+  x = buffer
+  seqlen = 0
+  while (fgets (x, 255, stdin)<>0)
+     linelen=strlen(x)
+     if x[linelen-1]=10 then linelen-=1
+     seqlen = seqlen + linelen
+     if (seqlen + 512 >= buflen) then
+       buflen = buflen + bufsize
+       tmp = reallocate (buffer, buflen + 1)
+       if (tmp = NULL) then end(-1)
+       buffer = tmp
+       x = @buffer[seqlen]
+     else
+       x = @x[linelen]
+     end if
+  wend
+  x[0] = 0
+
+  *buffer = ucase(*buffer)
+  write_frequencies (1, buffer, seqlen)
+  write_frequencies (2, buffer, seqlen)
+  write_count ("GGT", buffer, seqlen)
+  write_count ("GGTA", buffer, seqlen)
+  write_count ("GGTATT", buffer, seqlen)
+  write_count ("GGTATTTTAATT", buffer, seqlen)
+  write_count ("GGTATTTTAATTTATAGT", buffer, seqlen)
+  deallocate (buffer)
+end 0
+' The Computer Language Shootout
+' http://shootout.alioth.debian.org/
+' contributed by Antoni Gual
+
+#include "crt.bi"
+#define iter 50
+
+dim shared As Integer w,h
+const As Double limit=4.0
+function calcmandel(byval x As Integer,byval y As Integer) As Integer
+  dim as double zr=0.0, zi=0.0, cr, ci, tr, ti
+  dim As Integer ii
+  cr = (2.0*x/w - 1.5) : ci=(2.0*y/h - 1.0)
+  for ii = 0 to iter-1
+    zi = 2.0*zr*zi + ci
+    zr = tr - ti + cr
+    tr=zr*zr : ti=zi*zi
+    if tr+ti > limit then return 0
+  next
+  return -1
+end function
+
+dim  As Integer x, y,  i,w1,bb,i1
+dim b as uinteger
+  w = val(command$)
+  if w < 1 then w = 300
+  h = w
+  w1=w-1
+  printf("P4%c%d %d%c",10, w, h, 10)
+  '
+  for y = 0 to h-1
+    for x = 0 to w1 step 8
+      b=0:bb=&h80
+      i1=iif (x+7>w1,w1,x+7)
+      for i =x to  i1
+       b or= bb and calcmandel(i,y)
+       bb shr=1
+      next
+      putchar b
+    next
+  next
+end
+
+ 
+' The Computer Language Shootout
+' http://shootout.alioth.debian.org
+' contributed by Isaac Gouy (Oberon-2 novice)
+' converted to FreeBASIC by Simon Nash
+
+#include "crt.bi"
+
+#define chrTAB chr(8)
+#define ODD(n) ((n AND 1) = 1)
+#undef Swap
+
+Enum BOOL_E
+  FALSE = 0
+  TRUE = NOT FALSE
+End Enum
+
+Const NW = 0, NE = 1, W = 2, E = 3, SW = 4, SE = 5
+Const SIDES = 6
+
+Const BOARD_COLS = 5
+Const BOARD_ROWS = 10
+Const BOARD_SIZE = BOARD_COLS * BOARD_ROWS
+
+Const CPIECES = 10
+Const PIECE_SIZE = 5
+Const PIECE_ROTATIONS = SIDES
+Const PIECE_FLIPS = 2
+Const PIECE_ORIENTATIONS = PIECE_ROTATIONS * PIECE_FLIPS
+
+Type BOOLEAN As Integer
+
+Type SET 
+  data As Integer ptr
+  high As Integer
+  count As Integer
+End Type
+
+Type PieceCell As PieceCellDesc ptr
+Type PieceCellDesc
+  marked As BOOLEAN
+  next(0 To SIDES - 1) As PieceCell
+End Type
+
+Type PieceShape 
+  x(0 To PIECE_SIZE - 1) As PieceCell
+End Type
+
+Type PieceCache
+  x(0 To PIECE_ORIENTATIONS - 1) As PieceShape
+End Type
+
+Type Piece As PieceDesc ptr
+Type PieceDesc
+  number As INTEGER
+  orientation As INTEGER
+  cache As PieceCache
+End Type
+      
+Type BoardCell As BoardCellDesc ptr
+Type BoardCellDesc
+  marked As BOOLEAN
+  next(0 To SIDES - 1) As BoardCell
+  number As INTEGER
+  piece As Piece
+End Type
+
+Type BoardPieceShape 
+  x(0 To PIECE_SIZE - 1) As BoardCell
+End Type
+Type BoardPiece As BoardPieceShape ptr
+Type BoardCache
+  x(0 To CPIECES - 1, 0 To PIECE_ORIENTATIONS - 1, 0 To PIECE_SIZE - 1, 0 To BOARD_SIZE - 1) As BoardPiece
+End Type
+
+Type Board
+  cells(0 To BOARD_SIZE - 1) As BoardCell
+  cellsPieceWillFill As BoardPieceShape
+  cellCount As INTEGER
+  cache As BoardCache
+End Type
+
+Type BoardPieces
+  x(0 To BOARD_SIZE - 1) As INTEGER
+End Type
+
+Dim Shared As LONGINT countdown, n
+Dim Shared board As Board
+Dim Shared pieces(0 To CPIECES - 1) As Piece
+Dim Shared unplaced As SET
+Dim Shared As BoardPieces first, last, current
+Dim Shared once As BOOLEAN
+Dim Shared noFit As BoardPiece
+Dim Shared ptr_list As Any ptr ptr
+Dim Shared ptr_count As Integer
+Dim Shared ptr_used As Integer
+
+#undef CAllocate
+#undef Allocate
+#undef ReAllocate
+#undef DeAllocate
+
+#define PTR_GRAN 10000
+Function CAllocate(ByVal size As Integer) As Any ptr
+  If ptr_list = NULL Then
+    ptr_list = malloc(PTR_GRAN * sizeof(Any ptr))
+    ptr_count = PTR_GRAN
+  End If
+  If ptr_count = ptr_used Then
+    ptr_count += PTR_GRAN
+    ptr_list = realloc(ptr_list, ptr_count * sizeof(Any ptr))
+  End If
+  ptr_list[ptr_used] = calloc(size, 1)
+  Function = ptr_list[ptr_used]
+  ptr_used += 1
+End Function
+
+Sub ptr_list_free()
+  Dim i As Integer
+    If ptr_list <> NULL Then
+      For i = 0 To ptr_used - 1
+        free(ptr_list[i])
+      Next i
+      free(ptr_list)
+    End If
+    ptr_list = NULL
+    ptr_count = 0
+    ptr_used = 0
+End Sub
+
+' Set, always 0 based, specific to this program
+Sub SET_INIT(ByVal set As SET ptr, ByVal high As Integer)
+  Dim i As Integer
+    set->data = CAllocate(sizeof(Integer) * (high + 1))
+    set->high = high
+    set->count = high + 1
+    For i = 0 To high
+      set->data[i] = TRUE
+    Next i
+End Sub
+#define SET_EMPTY(set) (set.count = 0)
+#define SET_NOTEMPTY(set) (set.count <> 0)
+#define SET_ADD(set, k) If set.data[k] = FALSE Then set.data[k] = TRUE : set.count += 1 End If
+#define SET_REMOVE(set, k) If set.data[k] = TRUE Then set.data[k] = FALSE : set.count -= 1 End If
+#define SET_IN(set, k) (set.data[k] = TRUE)
+#define SET_NOTIN(set, k) (set.data[k] = FALSE)
+
+' Cell macros
+
+#define Cell_Initialize(c) c->marked = FALSE
+#define Cell_Mark(c) c->marked = TRUE
+#define Cell_Unmark(c) c->marked = FALSE
+#define Cell_Empty(c) c->piece = NULL
+#define Cell_IsEmpty(c) (c->piece = NULL)
+#define Cell_IsNotEmpty(c) (c->piece <> NULL)
+#define Cell_Number(c, i) c->marked = FALSE : c->number = i
+
+Function BoardCell_ContiguousEmptyCells (ByVal c As BoardCell) As INTEGER
+  Dim As INTEGER count, i
+  Dim neighbour As BoardCell
+    If (c->marked = 0) AND Cell_IsEmpty(c) Then
+      Cell_Mark(c)
+      count = 1
+      For i = 0 To SIDES - 1
+        neighbour = c->next(i)
+        If (neighbour <> NULL) Then
+          If Cell_IsEmpty(neighbour) Then
+            count += BoardCell_ContiguousEmptyCells(neighbour)
+          End If
+        End If
+      Next i
+    Else
+      count = 0
+    End If
+    Return count
+End Function
+
+Sub PieceCell_Flip(ByVal c As PieceCell)
+  Dim swap As PieceCell
+    swap = c->next(NE)
+    c->next(NE) = c->next(NW)
+    c->next(NW) = swap
+  
+    swap = c->next(E)
+    c->next(E) = c->next(W)
+    c->next(W) = swap
+  
+    swap = c->next(SE)
+    c->next(SE) = c->next(SW)
+    c->next(SW) = swap
+End Sub
+
+Sub PieceCell_Rotate(ByVal c As PieceCell)
+  Dim swap As PieceCell
+    swap = c->next(E)
+    c->next(E) = c->next(NE)
+    c->next(NE) = c->next(NW)
+    c->next(NW) = c->next(W)
+    c->next(W) = c->next(SW)
+    c->next(SW) = c->next(SE)
+    c->next(SE) = swap
+End Sub
+
+Sub Piece_Make0 (ByVal p As Piece, ByRef a As PieceShape)
+  a.x(0)->next(E) = a.x(1)
+  a.x(1)->next(W) = a.x(0)
+  a.x(1)->next(E) = a.x(2)
+  a.x(2)->next(W) = a.x(1)
+  a.x(2)->next(E) = a.x(3)
+  a.x(3)->next(W) = a.x(2)
+  a.x(3)->next(SE) = a.x(4)
+  a.x(4)->next(NW) = a.x(3)
+End Sub
+
+Sub Piece_Make1 (ByVal p As Piece, ByRef a As PieceShape)
+  a.x(0)->next(SE) = a.x(1)
+  a.x(1)->next(NW) = a.x(0)
+  a.x(1)->next(SW) = a.x(2)
+  a.x(2)->next(NE) = a.x(1)
+  a.x(2)->next(W) = a.x(3)
+  a.x(3)->next(E) = a.x(2)
+  a.x(3)->next(SW) = a.x(4)
+  a.x(4)->next(NE) = a.x(3)
+End Sub
+
+Sub Piece_Make2 (ByVal p As Piece, ByRef a As PieceShape)
+  a.x(0)->next(W) = a.x(1)
+  a.x(1)->next(E) = a.x(0)
+  a.x(1)->next(SW) = a.x(2)
+  a.x(2)->next(NE) = a.x(1)
+  a.x(2)->next(SE) = a.x(3)
+  a.x(3)->next(NW) = a.x(2)
+  a.x(3)->next(SE) = a.x(4)
+  a.x(4)->next(NW) = a.x(3)
+End Sub
+
+Sub Piece_Make3 (ByVal p As Piece, ByRef a As PieceShape)
+  a.x(0)->next(SW) = a.x(1)
+  a.x(1)->next(NE) = a.x(0)
+  a.x(1)->next(W) = a.x(2)
+  a.x(2)->next(E) = a.x(1)
+  a.x(1)->next(SW) = a.x(3)
+  a.x(3)->next(NE) = a.x(1)
+  a.x(2)->next(SE) = a.x(3)
+  a.x(3)->next(NW) = a.x(2)
+  a.x(3)->next(SE) = a.x(4)
+  a.x(4)->next(NW) = a.x(3)
+End Sub
+
+Sub Piece_Make4 (ByVal p As Piece, ByRef a As PieceShape)
+  a.x(0)->next(SE) = a.x(1)
+  a.x(1)->next(NW) = a.x(0)
+  a.x(1)->next(SW) = a.x(2)
+  a.x(2)->next(NE) = a.x(1)
+  a.x(1)->next(E) = a.x(3)
+  a.x(3)->next(W) = a.x(1)
+  a.x(3)->next(SE) = a.x(4)
+  a.x(4)->next(NW) = a.x(3)
+End Sub
+
+Sub Piece_Make5 (ByVal p As Piece, ByRef a As PieceShape)
+  a.x(0)->next(SW) = a.x(1)
+  a.x(1)->next(NE) = a.x(0)
+  a.x(0)->next(SE) = a.x(2)
+  a.x(2)->next(NW) = a.x(0)
+  a.x(1)->next(SE) = a.x(3)
+  a.x(3)->next(NW) = a.x(1)
+  a.x(2)->next(SW) = a.x(3)
+  a.x(3)->next(NE) = a.x(2)
+  a.x(3)->next(SW) = a.x(4)
+  a.x(4)->next(NE) = a.x(3)
+End Sub
+
+Sub Piece_Make6 (ByVal p As Piece, ByRef a As PieceShape)
+  a.x(0)->next(SW) = a.x(1)
+  a.x(1)->next(NE) = a.x(0)
+  a.x(2)->next(SE) = a.x(1)
+  a.x(1)->next(NW) = a.x(2)
+  a.x(1)->next(SE) = a.x(3)
+  a.x(3)->next(NW) = a.x(1)
+  a.x(3)->next(SW) = a.x(4)
+  a.x(4)->next(NE) = a.x(3)
+End Sub
+
+Sub Piece_Make7 (ByVal p As Piece, ByRef a As PieceShape)
+  a.x(0)->next(SE) = a.x(1)
+  a.x(1)->next(NW) = a.x(0)
+  a.x(0)->next(SW) = a.x(2)
+  a.x(2)->next(NE) = a.x(0)
+  a.x(2)->next(SW) = a.x(3)
+  a.x(3)->next(NE) = a.x(2)
+  a.x(3)->next(SE) = a.x(4)
+  a.x(4)->next(NW) = a.x(3)
+End Sub
+
+Sub Piece_Make8 (ByVal p As Piece, ByRef a As PieceShape)
+  a.x(0)->next(E) = a.x(1)
+  a.x(1)->next(W) = a.x(0)
+  a.x(1)->next(E) = a.x(2)
+  a.x(2)->next(W) = a.x(1)
+  a.x(2)->next(NE) = a.x(3)
+  a.x(3)->next(SW) = a.x(2)
+  a.x(3)->next(E) = a.x(4)
+  a.x(4)->next(W) = a.x(3)
+End Sub
+
+Sub Piece_Make9 (ByVal p As Piece, ByRef a As PieceShape)
+  a.x(0)->next(E) = a.x(1)
+  a.x(1)->next(W) = a.x(0)
+  a.x(1)->next(E) = a.x(2)
+  a.x(2)->next(W) = a.x(1)
+  a.x(2)->next(NE) = a.x(3)
+  a.x(3)->next(SW) = a.x(2)
+  a.x(2)->next(E) = a.x(4)
+  a.x(4)->next(W) = a.x(2)
+  a.x(4)->next(NW) = a.x(3)
+  a.x(3)->next(SE) = a.x(4)
+End Sub
+
+Sub Piece_Initialize (ByVal p As Piece, ByVal n As INTEGER)
+  Dim As INTEGER i, j, k
+  Dim c As PieceCell
+    p->orientation = 0
+    p->number = n
+  
+    For k = 0 To PIECE_ORIENTATIONS - 1
+      For i = 0 TO PIECE_SIZE - 1
+        c = CAllocate(sizeof(PieceCellDesc))
+        Cell_Initialize(c)
+        p->cache.x(k).x(i) = c
+      Next i
+  
+      Select Case As Const n
+        Case 0
+          Piece_Make0( p, p->cache.x(k) )
+        Case 1
+          Piece_Make1( p, p->cache.x(k) )
+        Case 2
+          Piece_Make2( p, p->cache.x(k) )
+        Case 3
+          Piece_Make3( p, p->cache.x(k) )
+        Case 4
+          Piece_Make4( p, p->cache.x(k) )
+        Case 5
+          Piece_Make5( p, p->cache.x(k) )
+        Case 6
+          Piece_Make6( p, p->cache.x(k) )
+        Case 7
+          Piece_Make7( p, p->cache.x(k) )
+        Case 8
+          Piece_Make8( p, p->cache.x(k) )
+        Case 9
+          Piece_Make9( p, p->cache.x(k) )
+      End Select
+  
+      For i = 0 To k - 1
+        If (i MOD PIECE_ROTATIONS) = 0 Then
+          For j = 0 To PIECE_SIZE - 1
+            PieceCell_Flip(p->cache.x(k).x(j))
+          Next j
+        Else
+          For j = 0 To PIECE_SIZE - 1
+            PieceCell_Rotate(p->cache.x(k).x(j))
+          Next j
+        End If
+      Next i
+    Next k
+End Sub
+
+#define Piece_Unmark(p) Scope : Dim i As Integer : For i = 0 To PIECE_SIZE - 1 : Cell_Unmark(p->cache.x(p->orientation).x(i)) : Next i : End Scope
+
+Function Piece_NextOrientation (ByVal p As Piece) As Piece
+  p->orientation = (p->orientation + 1) MOD PIECE_ORIENTATIONS
+  Return p
+End Function
+
+Function Piece_cells(ByVal p As Piece, ByVal i As INTEGER) As PieceCell
+  Return p->cache.x(p->orientation).x(i)
+End Function
+
+Sub Board_Initialize (ByRef b As Board)
+  Dim As INTEGER i, row, m
+  Dim c As BoardCell
+  Dim As BOOLEAN isFirst, isLast
+  
+    b.cellCount = 0
+  
+    For i = 0 To BOARD_SIZE - 1
+      c = CAllocate(sizeof(BoardCellDesc))
+      Cell_Number(c, i)
+      b.cells(i) = c
+    Next i
+  
+    m = (BOARD_SIZE \ BOARD_COLS) - 1
+  
+    For i = 0 To BOARD_SIZE - 1
+      row = i \ BOARD_COLS
+      isFirst = (i MOD BOARD_COLS) = 0
+      isLast = ((i + 1) MOD BOARD_COLS) = 0
+      c = b.cells(i)
+  
+      If ODD(row) Then
+        If isLast = 0 Then
+          c->next(NE) = b.cells(i - (BOARD_COLS - 1))
+        End If
+        c->next(NW) = b.cells(i - BOARD_COLS)
+  
+        If row <> m Then
+          If isLast = 0 Then
+            c->next(SE) = b.cells(i + BOARD_COLS + 1)
+          End If
+          c->next(SW) = b.cells(i + BOARD_COLS)
+        End If
+      Else
+        If row <> 0 Then
+          If isFirst = 0 Then
+            c->next(NW) = b.cells(i - (BOARD_COLS + 1))
+          End If
+          c->next(NE) = b.cells(i - BOARD_COLS)
+        End If
+  
+        If row <> m Then
+          If isFirst = 0 Then
+            c->next(SW) = b.cells(i + (BOARD_COLS - 1))
+          End If
+          c->next(SE) = b.cells(i + BOARD_COLS)
+        End If
+      End If
+      If isFirst = 0 Then c->next(W) = b.cells(i - 1)
+      If isLast = 0 Then c->next(E) = b.cells(i + 1)
+    Next i
+End Sub
+
+Sub Board_Unmark(ByRef b As Board)
+  Dim i As INTEGER
+    For i = 0 To BOARD_SIZE - 1
+      Cell_Unmark(b.cells(i))
+    Next i
+End Sub
+
+Function Board_FirstEmptyCellIndex (ByRef b As Board) As INTEGER
+  Dim i As INTEGER
+    For i = 0 To BOARD_SIZE - 1
+      If Cell_IsEmpty(b.cells(i)) Then Return i
+    Next i
+    Return -1
+End Function
+
+Sub Board_Remove (ByRef b As Board, ByVal p As Piece)
+  Dim i As INTEGER
+    For i = 0 To BOARD_SIZE - 1
+      If b.cells(i)->piece = p Then 
+        b.cells(i)->piece = NULL
+      End If
+    Next i
+End Sub
+
+Sub Board_Find (ByRef b As Board, ByVal p As PieceCell, ByVal c As BoardCell)
+  Dim i As INTEGER
+    If (p <> NULL) Then
+      If (p->marked = 0) AND (c <> NULL) Then
+        b.cellsPieceWillFill.x(b.cellCount) = c
+        b.cellCount += 1
+        Cell_Mark(p)
+        For i = 0 To SIDES - 1
+          Board_Find(b, p->next(i), c->next(i))
+        Next i
+      End If
+    End If
+End Sub
+
+Function Board_Add (ByRef b As Board, _
+                    ByVal pieceIndex As INTEGER, _
+                    ByVal boardIndex As INTEGER, _
+                    ByVal p As Piece) As BOOLEAN
+  Dim i As INTEGER
+  Dim a As BoardPiece
+    a = b.cache.x(p->number, p->orientation, pieceIndex, boardIndex)
+  
+    b.cellCount = 0
+    Piece_Unmark(p)
+  
+    If a = NULL Then
+      Board_Find(b, Piece_cells(p, pieceIndex), b.cells(boardIndex))
+
+      If b.cellCount <> PIECE_SIZE Then
+        b.cache.x(p->number, p->orientation, pieceIndex, boardIndex) = noFit
+        Return FALSE
+      End If
+
+      a = CAllocate(sizeof(BoardPieceShape))
+      For i = 0 TO PIECE_SIZE - 1
+        a->x(i) = b.cellsPieceWillFill.x(i)
+      Next i
+      b.cache.x(p->number, p->orientation, pieceIndex, boardIndex) = a
+    Else
+      If a = noFit Then Return FALSE
+    End If
+    For i = 0 To PIECE_SIZE - 1
+      If Cell_IsNotEmpty(a->x(i)) Then Return FALSE
+    Next i
+  
+    For i = 0 TO PIECE_SIZE - 1
+      a->x(i)->piece = p
+    Next i
+    Return TRUE
+End Function
+
+Sub Initialize ()
+  Dim i As INTEGER
+  Dim p As Piece
+    Board_Initialize(board)
+    For i = 0 To ubound(pieces)
+      p = CAllocate(sizeof(PieceDesc))
+      Piece_Initialize(p, i)
+      pieces(i) = p
+    Next i
+    SET_INIT(@unplaced, ubound(pieces))
+    once = TRUE
+    noFit = CAllocate(sizeof(BoardPieceShape))
+End Sub
+
+Sub CopyTo(ByRef a As BoardPieces)
+  Dim i As Integer
+    For i = 0 To BOARD_SIZE - 1
+      a.x(i) = current.x(i)
+    Next i
+End Sub
+
+Sub UpdateFirstLast ()
+  Dim As INTEGER i, n
+  Dim As BOOLEAN lessFirst, moreFirst, lessLast, moreLast
+    If once Then
+      For i = 0 To BOARD_SIZE - 1
+        n = board.cells(i)->piece->number
+        first.x(i) = n
+        last.x(i) = n
+      Next i
+      once = FALSE
+    Else
+      lessFirst = FALSE
+      moreFirst = FALSE
+      lessLast = FALSE
+      moreLast = FALSE
+      For i = 0 To BOARD_SIZE - 1
+        n = board.cells(i)->piece->number
+  
+        IF (moreFirst = 0) AND (lessFirst = 0) AND (n < first.x(i)) Then
+          lessFirst = TRUE
+        ElseIf (n > first.x(i)) Then
+          moreFirst = TRUE
+        End If
+        If (lessLast = 0) AND (moreLast = 0) AND (n > last.x(i)) Then
+          moreLast = TRUE
+        ElseIf (n < last.x(i)) THEN
+          lessLast = TRUE
+        End If
+        current.x(i) = n
+      Next i
+      If lessFirst Then CopyTo(first)
+      If moreLast Then CopyTo(last)
+    End If
+End Sub
+
+Sub PrintBoard (ByVal a As BoardPieces)
+  Dim indent As BOOLEAN
+  Dim As INTEGER i, j
+    indent = FALSE
+    i = 0
+    While i < (ubound(a.x) + 1)
+      If indent Then Print " ";
+      For j = 0 To BOARD_COLS - 1
+        Print a.x(i) & " ";
+        i += 1
+      Next j
+      Print
+      indent = NOT indent
+    Wend
+    Print
+End Sub
+
+Sub PrintSolutions ()
+  Print n & " solutions found";
+  Print 
+  Print
+  PrintBoard(first)
+  PrintBoard(last)
+End Sub
+
+Sub PuzzleSolved ()
+  UpdateFirstLast()
+  countdown -= 1
+End Sub
+
+Function ShouldPrune () As BOOLEAN
+  Dim i As INTEGER
+  Dim forall As BOOLEAN
+    Board_Unmark(board)
+    For i = 0 To BOARD_SIZE - 1
+      forall = (BoardCell_ContiguousEmptyCells(board.cells(i)) MOD PIECE_SIZE) = 0
+      IF forall = 0 Then Return NOT forall
+    Next i
+    Return NOT forall
+End Function
+
+Sub FindSolutions ()
+  Dim As INTEGER emptyCellIndex, k, i, j
+  Dim piece As Piece
+    If countdown > 0 Then
+      If SET_NOTEMPTY(unplaced) Then
+        emptyCellIndex = Board_FirstEmptyCellIndex(board)
+
+        For k = 0 TO ubound(pieces)
+          If SET_IN(unplaced, k) Then
+            SET_REMOVE(unplaced, k)
+
+            For i = 0 To PIECE_ORIENTATIONS - 1
+              piece = Piece_NextOrientation(pieces(k))
+              For j = 0 To PIECE_SIZE - 1
+                If Board_Add(board, j, emptyCellIndex, piece) Then
+                  If ShouldPrune() = 0 Then FindSolutions()
+                  Board_Remove(board, piece)
+                End If
+              Next j
+            Next i
+            SET_ADD(unplaced, k)
+          End If
+        Next k
+      Else
+        PuzzleSolved()
+      End If
+    End If
+End Sub
+
+'MAIN
+
+n = Val(Command(1))
+countdown = n
+Initialize()
+
+FindSolutions()
+PrintSolutions()
+
+ptr_list_free()
+' The Computer Language Shootout
+' http://shootout.alioth.debian.org/
+' contributed by Josh Goldfoot
+' modified by Antoni Gual
+'-used printf from the c-runtime lib to avoid PRINT USING
+' variations from version to version
+'-changed the sub advance from indexes to pointers
+' Added some temp variables in critical places
+
+#include "crt.bi"
+
+type planet
+   as double x, y, z, vx, vy, vz, mass
+end type
+
+common shared as double pi, solar_mass, days_per_year
+pi = 3.14159265358979323
+solar_mass = 4 * pi * pi
+days_per_year = 365.24
+
+sub init_bodies(bodies() as planet)
+   rem Sun
+   bodies(0).x = 0.0
+   bodies(0).y = 0.0
+   bodies(0).z = 0.0
+   bodies(0).vx = 0.0
+   bodies(0).vy = 0.0
+   bodies(0).vz = 0.0
+   bodies(0).mass = solar_mass
+
+   rem Jupiter
+   bodies(1).x = 4.84143144246472090e+00
+   bodies(1).y = -1.16032004402742839e+00
+   bodies(1).z = -1.03622044471123109e-01
+   bodies(1).vx = 1.66007664274403694e-03 * days_per_year
+   bodies(1).vy = 7.69901118419740425e-03 * days_per_year
+   bodies(1).vz = -6.90460016972063023e-05 * days_per_year
+   bodies(1).mass = 9.54791938424326609e-04 * solar_mass
+
+   rem Saturn
+   bodies(2).x = 8.34336671824457987e+00
+   bodies(2).y = 4.12479856412430479e+00
+   bodies(2).z = -4.03523417114321381e-01
+   bodies(2).vx = -2.76742510726862411e-03 * days_per_year
+   bodies(2).vy = 4.99852801234917238e-03 * days_per_year
+   bodies(2).vz = 2.30417297573763929e-05 * days_per_year
+   bodies(2).mass = 2.85885980666130812e-04 * solar_mass
+
+   rem Uranus
+   bodies(3).x = 1.28943695621391310e+01
+   bodies(3).y = -1.51111514016986312e+01
+   bodies(3).z = -2.23307578892655734e-01
+   bodies(3).vx = 2.96460137564761618e-03 * days_per_year
+   bodies(3).vy = 2.37847173959480950e-03 * days_per_year
+   bodies(3).vz = -2.96589568540237556e-05 * days_per_year
+   bodies(3).mass = 4.36624404335156298e-05 * solar_mass
+
+   rem Neptune
+   bodies(4).x = 1.53796971148509165e+01
+   bodies(4).y = -2.59193146099879641e+01
+   bodies(4).z = 1.79258772950371181e-01
+   bodies(4).vx = 2.68067772490389322e-03 * days_per_year
+   bodies(4).vy = 1.62824170038242295e-03 * days_per_year
+   bodies(4).vz = -9.51592254519715870e-05 * days_per_year
+   bodies(4).mass = 5.15138902046611451e-05 * solar_mass
+end sub
+
+sub offset_momentum(ByVal nbodies as integer, bodies() as planet)
+  dim as double px, py, pz
+  dim as integer i
+  for i = 0 to nbodies-1
+    px += bodies(i).vx * bodies(i).mass
+    py += bodies(i).vy * bodies(i).mass
+    pz += bodies(i).vz * bodies(i).mass
+  next i
+  bodies(0).vx = -1 * px / solar_mass
+  bodies(0).vy = -1 * py / solar_mass
+  bodies(0).vz = -1 * pz / solar_mass
+end sub
+
+function energy(ByVal nbodies as integer, b() as planet) as double
+  dim as double e, dx, dy, dz, distance
+  dim as integer i, j
+  for i = 0 to nbodies-1
+    e += 0.5*b(i).mass*(b(i).vx*b(i).vx+b(i).vy*b(i).vy+b(i).vz*b(i).vz)
+    for j = i + 1 to nbodies - 1
+      dx = b(i).x - b(j).x
+      dy = b(i).y - b(j).y
+      dz = b(i).z - b(j).z
+      distance = sqr(dx * dx + dy * dy + dz * dz)
+      e -= (b(i).mass * b(j).mass) / distance
+    next j
+  next i
+  return e
+end function
+
+'the advance function is the bottleneck
+sub advance(byval nbodies as integer, byval bodies as planet ptr,byval dt as double)
+  dim as double dx, dy, dz, distance, mag,m,mm
+  dim as integer i, j
+  dim as planet ptr bi,bj
+  for i = 0 to nbodies - 1
+    bi=@bodies[i]
+    for j = i+1 to nbodies - 1
+      bj=@bodies[j]
+      dx = bi->x - bj->x
+      dy = bi->y - bj->y
+      dz = bi->z - bj->z
+      distance = sqr(dx * dx + dy * dy + dz * dz)
+      mag = dt / (distance * distance * distance)
+      mm  =bj->mass * mag
+      bi->vx -= dx * mm
+      bi->vy -= dy * mm
+      bi->vz -= dz * mm
+      mm  =bi->mass * mag
+      bj->vx += dx * mm
+      bj->vy += dy * mm
+      bj->vz += dz * mm
+    next j
+  next i
+  for i = 0 to nbodies - 1
+    bi=@bodies[i]
+    bi->x += dt * bi->vx
+    bi->y += dt * bi->vy
+    bi->z += dt * bi->vz
+  next i
+end sub
+
+#define NBODIES 5
+sub main()
+  dim as integer n, i
+  n = val(command$)
+  if n < 1 then n = 50000
+  dim bodies(NBODIES-1) as planet
+  init_bodies(bodies() )
+  offset_momentum(NBODIES, bodies() )
+  printf ("%.9f%c", energy(NBODIES, bodies()), 10)
+
+  for i = 1 to n
+     advance(NBODIES, @bodies(0), 0.01)
+  next i
+   printf ("%.9f%c", energy(NBODIES, bodies()), 10)
+end sub
+
+main()
+ 
+rem The Computer Language Shootout
+rem http://shootout.alioth.debian.org/
+rem contributed by Josh Goldfoot
+rem based on C gcc program by bearophile
+
+sub nsieve(m as integer)
+   dim flags(m) as ubyte   'FreeBasic has no boolean type
+   Dim As Integer count, i, j
+   count = 0
+   i = 2
+   while i < m
+      if flags(i) = 0 then
+         count += 1
+         j = i shl 1
+         while j < m
+            flags(j) = 1
+            j += i
+         wend
+      end if
+      i += 1
+   wend
+   print using "Primes up to ######## ########";m;count
+end sub
+
+Dim As Integer cmd, i
+
+cmd = val(COMMAND$)
+for i = 0 to 2
+   nsieve(10000 shl (cmd - i))
+next i 
+' The Computer Language Shootout
+' http://shootout.alioth.debian.org/
+' contributed by Antoni Gual 5/2006
+'
+#include "crt.bi"
+option explicit
+option escape
+dim shared p as uinteger ptr
+'
+'----------------------------------------------
+sub dosieve(m)
+dim maxf,i,inc,nn,ni
+maxf=cint(sqr(m))+1
+i=3
+while i<= maxf
+ nn=i*3 :ni=i*2
+ while nn<=m
+  p[nn\64] or= 1 shl((nn and 63)\2)
+  nn+=ni
+ wend 
+ do :i+=2:loop while (p[i\64]) and (1 shl((i and 63)\2))
+wend
+end sub
+'
+'-----------------------------------------------
+function bitcount(u as uinteger)
+ dim uc as uinteger
+ uc= u-((u shr 1) and &o33333333333)-((u shr 2) and &o11111111111)
+ return ((uc+(uc shr 3)) and &o30707070707) mod 63  
+end function
+'
+'-----------------------------------------------
+sub countprimes (m)
+dim cnt,i,m1,m2,m3,cnt1,cnt2,n2,n3
+dim  a$="Primes up to ######## ########"
+  n3=m\4\64
+  m3=((m\4) and 63)\2
+ for i=0 to n3-1
+   cnt+=32-bitcount(p[i])
+ next 
+ cnt2= cnt+m3-bitcount(p[i] and ((1 shl (m3))-1))  
+
+ n2=m\2\64
+ m2=((m\2) and 63)\2
+ for i=n3 to n2-1
+   cnt+=32-bitcount(p[i])
+ next 
+ cnt1=  cnt+m2-bitcount(p[i] and ((1 shl (m2))-1)) 
+ 
+ m1=(m and 63)\2
+ for i=n2 to m\64-1
+   cnt+=32-bitcount(p[i])
+ next 
+printf("Primes up to %8d %8d\n", m, cnt+m1-bitcount(p[i] and ((1 shl (m1))-1)))
+printf("Primes up to %8d %8d\n", m\2, cnt1)
+printf("Primes up to %8d %8d\n", m\4, cnt2) 
+end sub
+'
+'------------------------------------------------
+dim n,m,i,m1,cnt
+if len(command)=0 then print "use: N-Sieve exponent":end
+n=val(command)
+m=(1 shl n)*10000
+m1=(m\64+1) *sizeof(uinteger)
+p =callocate(m1)
+if err then ? "Could not allocate ";m1;" bytes" 
+'? "Allocated ";m1;" bytes"
+dosieve(m)
+countprimes (m)
+deallocate p
+end
+'The Computer Language Shootout
+'http://shootout.alioth.debian.org/
+'contributed by Antoni Gual
+
+#include "crt.bi"
+option explicit
+option escape
+dim shared p as uinteger ptr
+'
+'----------------------------------------------
+function dosieve(m as uinteger)
+dim as uinteger i,nn,ni
+dim cnt
+cnt=0
+i=2
+while i<= m
+  if (p[i\32] and (1 shl(i and 31)))=0 then
+   cnt+=1
+   nn=i+i:ni=i 
+   while nn<=m
+    p[nn\32] or= (1 shl(nn and 31))
+    nn+=ni
+   wend 
+  end if 
+ i+=1
+wend
+return cnt
+end function
+'
+'------------------------------------------------
+dim m1,n
+dim as uinteger m
+if len(command)=0 then print "use: N-Sieve exponent":end
+n=val(command)
+m=(1 shl n)*10000
+m1=(m\32+1) *sizeof(uinteger)
+p =callocate(m1)
+printf("Primes up to %8d %8d\n", m, dosieve(m))
+printf("Primes up to %8d %8d\n", m\2, dosieve(m\2))
+printf("Primes up to %8d %8d\n", m\4, dosieve(m\4))
+deallocate p
+end
+'The Computer Language Shootout
+'http://shootout.alioth.debian.org/
+'contributed by Antoni Gual
+
+#include "crt.bi"
+option escape
+dim sum(8) as double
+dim as double k, k2, k3, ks, kc, tt
+n = val(command$) + 1
+if n = 0 then n = 25001
+alt = 1.0
+tt = 2 / 3
+
+for k = 1 to n-1
+   k2 = k * k
+   k3 = k2 * k
+   ks = sin(k)
+   kc = cos(k)
+
+   sum(0) += tt ^ (k - 1)
+   sum(1) += 1 / sqr(k)
+   sum(2) += 1 / (k * (k + 1))
+   sum(3) += 1 / (k3 * ks * ks)
+   sum(4) += 1 / (k3 * kc * kc)
+   sum(5) += 1 / k
+   sum(6) += 1 / k2
+   sum(7) += alt / k
+   sum(8) += alt / (2 * k - 1)
+   alt *= -1
+next k
+
+printf("%.9f\t(2/3)^k\n", sum(0))
+printf("%.9f\tk^-0.5\n", sum(1))
+printf("%.9f\t1/k(k+1)\n",sum(2))
+printf("%.9f\tFlint Hills\n", sum(3))
+printf("%.9f\tCookson Hills\n", sum(4))
+printf("%.9f\tHarmonic\n", sum(5))
+printf("%.9f\tRiemann Zeta\n", sum(6))
+printf("%.9f\tAlternating Harmonic\n", sum(7))
+printf("%.9f\tGregory\n", sum(8))
+' The Computer Language Shootout
+' http://shootout.alioth.debian.org/
+' contributed by Simon Nash (yetifoot)
+' converted to FreeBASIC from the gcc c version by Mike Pall
+
+#include "crt.bi"
+#include "gmp.bi"
+
+Option Escape
+
+Type ctx_t
+  As mpz_t q, r, s, t    ' Transformation matrix components.
+  As mpz_t u, v, w       ' Temporary numbers.
+  As Integer d, i, n     ' Counters.
+  As ZString * 11 digits ' Accumulated digits for one line.
+End Type
+'
+' Compose matrix with numbers on the right.
+Sub compose_r(c As ctx_t ptr, bq As Integer, br As Integer, bs As Integer, bt As Integer)
+  mpz_mul_si(@c->u, @c->r, bs)
+  mpz_mul_si(@c->r, @c->r, bq)
+  mpz_mul_si(@c->v, @c->t, br)
+  mpz_add   (@c->r, @c->r, @c->v)
+  mpz_mul_si(@c->t, @c->t, bt)
+  mpz_add   (@c->t, @c->t, @c->u)
+  mpz_mul_si(@c->s, @c->s, bt)
+  mpz_mul_si(@c->u, @c->q, bs)
+  mpz_add   (@c->s, @c->s, @c->u)
+  mpz_mul_si(@c->q, @c->q, bq)
+End Sub
+
+' Compose matrix with numbers on the left.
+Sub compose_l(c As ctx_t ptr, bq As Integer, br As Integer, bs As Integer, bt As Integer)
+  mpz_mul_si(@c->r, @c->r, bt)
+  mpz_mul_si(@c->u, @c->q, br)
+  mpz_add   (@c->r, @c->r, @c->u)
+  mpz_mul_si(@c->u, @c->t, bs)
+  mpz_mul_si(@c->t, @c->t, bt)
+  mpz_mul_si(@c->v, @c->s, br)
+  mpz_add   (@c->t, @c->t, @c->v)
+  mpz_mul_si(@c->s, @c->s, bq)
+  mpz_add   (@c->s, @c->s, @c->u)
+  mpz_mul_si(@c->q, @c->q, bq)
+End Sub
+
+' Extract one digit.
+Function extract(c As ctx_t ptr, j As uInteger) As Integer
+  mpz_mul_ui(@c->u, @c->q, j)
+  mpz_add   (@c->u, @c->u, @c->r)
+  mpz_mul_ui(@c->v, @c->s, j)
+  mpz_add   (@c->v, @c->v, @c->t)
+  mpz_tdiv_q(@c->w, @c->u, @c->v)
+  Return mpz_get_ui(@c->w)
+End Function
+
+' Print one digit. Returns 1 for the last digit.
+Function prdigit(c As ctx_t ptr, y As Integer) As Integer
+  c->digits[c->d] = Asc("0") + y
+  c->d += 1
+  c->i += 1
+  If (c->i mod 10 = 0) OR (c->i = c->n) Then
+    c->digits[c->d] = 0
+    printf("%-10s\t:%d\n", c->digits, c->i)
+    c->d = 0
+  End If
+  return c->i = c->n
+End Function
+
+' Generate successive digits of PI.
+Sub pidigits(c As ctx_t ptr)
+  Dim As Integer k = 1
+  Dim As Integer y
+  c->d = 0
+  c->i = 0
+  mpz_init_set_ui(@c->q, 1)
+  mpz_init_set_ui(@c->r, 0)
+  mpz_init_set_ui(@c->s, 0)
+  mpz_init_set_ui(@c->t, 1)
+  mpz_init(@c->u)
+  mpz_init(@c->v)
+  mpz_init(@c->w)
+  Do
+    y = extract(c, 3)
+    If y = extract(c, 4) Then
+      If prdigit(c, y) Then Exit Sub
+      compose_r(c, 10, -10*y, 0, 1)
+    Else 
+      compose_l(c, k, 4*k+2, 0, 2*k+1)
+      k+=1
+    End If
+  Loop
+End Sub
+
+Dim As ctx_t c
+  c.n = CInt(Command$(1))
+  If c.n = 0 Then c.n = 27
+  pidigits(@c)
+  
+  
+' The Computer Language Shootout
+' http://shootout.alioth.debian.org/
+' contributed by Josh Goldfoot
+' small update to ByVal, and printf by yetifoot
+
+#include "crt.bi"
+
+Option Escape
+
+Function Ack(ByVal x As Integer, ByVal y As Integer) As Integer
+  If x = 0 Then Return (y + 1)
+  If y = 0 Then Return (Ack(x-1, 1))
+  Return (Ack(x-1, Ack(x, y-1)))
+End Function
+
+Function Fib(ByVal n As Integer) As Integer
+  If n < 2 Then Return 1
+  Return Fib(n-2) + Fib(n-1)
+End Function
+
+Function FibFP(ByVal n As Double) As Double
+  If n < 2.0 Then Return 1.0
+  Return FibFP(n-2.0) + FibFP(n-1.0)
+End Function
+
+Function Tak(ByVal x As Integer, ByVal y As Integer, ByVal z As Integer) As Integer
+  If y < x Then Return Tak( Tak(x-1, y, z), Tak(y-1, z, x), Tak(z-1, x, y) )
+  Return z
+End Function
+
+Function TakFP(ByVal x As Double, ByVal y As Double, ByVal z As Double) As Double
+  If y < x Then Return TakFP( TakFP(x-1.0, y, z), TakFP(y-1.0, z, x), TakFP(z-1.0, x, y) )
+  Return z
+End Function
+
+Dim n As Integer
+
+  n = Valint(Command$(1)) - 1
+  If n < 1 Then n = 3
+  printf("Ack(3,%d): %d\n", n+1, Ack(3, n+1))
+  printf("Fib(%.1f): %.1f\n", 28.0+n, FibFP(28.0+n))
+  printf("Tak(%d,%d,%d): %d\n", 3*n, 2*n, n, Tak(3*n, 2*n, n))
+  printf("Fib(3): %d\n", Fib(3))
+  printf("Tak(3.0,2.0,1.0): %.1f\n", TakFP(3.0, 2.0, 1.0))
+' The Computer Language Shootout
+' http://shootout.alioth.debian.org/
+' gcc program contributed by Mike Pall
+' converted to FreeBASIC from gcc by Simon Nash
+
+#include "crt.bi"
+#include "pcre/pcre.bi"
+'#include "pcre/pcreposix.bi"
+
+Type fbuf_t
+  As ZString ptr buf
+  As size_t size, len
+End Type
+
+Function fb_need(ByVal b As fbuf_t ptr, ByVal need As size_t) As ZString ptr
+  need += b->len
+  If need > b->size Then
+    If b->size = 0 Then 
+      b->size = need
+    Else 
+      While need > b->size
+        b->size += b->size
+      Wend
+    End If
+    b->buf = realloc(b->buf, b->size)
+    If b->buf = NULL Then End 1
+  End If
+  Return b->buf+b->len
+End Function
+
+#define FB_MINREAD  (3 shl 16)
+
+' Read all of a stdio stream into dst buffer
+Function fb_readall(ByVal dst As fbuf_t ptr, ByVal fp As FILE ptr) As size_t
+  Dim As ZString ptr dp
+  Dim As Integer n
+    dp = fb_need(dst, FB_MINREAD)
+    Do
+      n = fread(dp, 1, dst->size-dst->len, fp)
+      If n = 0 Then Exit Do
+      dst->len += n
+      dp = fb_need(dst, FB_MINREAD)
+    Loop
+    If ferror(fp) <> 0 Then End 1
+    Return dst->len
+End Function
+
+' Substitute pattern p with replacement r, copying from src to dst buffer.
+Function fb_subst(ByVal dst As fbuf_t ptr, ByVal src As fbuf_t ptr, _
+                  ByVal p As ZString ptr, ByVal r As ZString ptr) As size_t
+  Dim As pcre ptr re
+  Dim As pcre_extra ptr re_ex
+  Dim As ZString ptr re_e
+  Dim As ZString ptr dp
+  Dim As Integer re_eo, m(0 To 2), _pos, rlen, clen
+    re = pcre_compile(p, PCRE_CASELESS, @re_e, @re_eo, NULL)
+    If re = 0 Then End 1
+    re_ex = pcre_study(re, 0, @re_e)
+    rlen = strlen(r)
+    dst->len = 0
+    Do
+      If pcre_exec(re, re_ex, src->buf, src->len, _pos, 0, @m(0), 3) < 0 Then Exit Do
+      clen = m(0)-_pos
+      dp = fb_need(dst, clen+rlen)
+      dst->len += clen+rlen
+      memcpy(dp, src->buf+_pos, clen)
+      memcpy(dp+clen, r, rlen)
+      _pos = m(1)
+    Loop
+    clen = src->len-_pos
+    dp = fb_need(dst, clen)
+    dst->len += clen
+    memcpy(dp, src->buf+_pos, clen)
+    Return dst->len
+End Function
+
+' Count all matches with pattern p in src buffer.
+Function fb_countmatches(ByVal src As fbuf_t ptr, ByVal p As ZString ptr) As Integer
+  Dim As pcre ptr re
+  Dim As pcre_extra ptr re_ex
+  Dim As ZString ptr re_e
+  Dim As Integer re_eo, m(0 To 2), _pos, count
+    re = pcre_compile(p, PCRE_CASELESS, @re_e, @re_eo, NULL)
+    If re = 0 Then End 1
+    re_ex = pcre_study(re, 0, @re_e)
+    Do
+      If pcre_exec(re, re_ex, src->buf, src->len, _pos, 0, @m(0), 3) < 0 Then Exit Do
+      count += 1
+      _pos = m(1)
+    Loop
+    Return count
+End Function
+
+Dim Shared As ZString ptr variants(0 To 9) = { _
+  @"agggtaaa|tttaccct",         @"[cgt]gggtaaa|tttaccc[acg]", _
+  @"a[act]ggtaaa|tttacc[agt]t", @"ag[act]gtaaa|tttac[agt]ct", _
+  @"agg[act]taaa|ttta[agt]cct", @"aggg[acg]aaa|ttt[cgt]ccct", _
+  @"agggt[cgt]aa|tt[acg]accct", @"agggta[cgt]a|t[acg]taccct", _
+  @"agggtaa[cgt]|[acg]ttaccct", NULL _
+}
+
+Dim Shared As ZString ptr subst(0 To 22) = { _
+  @"B", @"(c|g|t)", @"D", @"(a|g|t)",   @"H", @"(a|c|t)", @"K", @"(g|t)", _
+  @"M", @"(a|c)",   @"N", @"(a|c|g|t)", @"R", @"(a|g)",   @"S", @"(c|g)", _
+  @"V", @"(a|c|g)", @"W", @"(a|t)",     @"Y", @"(c|t)",   NULL _
+}
+
+
+Dim As fbuf_t seq(0 To 1)
+Dim As ZString ptr ptr pp
+Dim As size_t ilen, clen, slen
+Dim As Integer _flip
+
+  ilen = fb_readall(@seq(0), stdin)
+  clen = fb_subst(@seq(1), @seq(0), ">.*|" & Chr(10), "")
+  
+  pp = @variants(0)
+  While *pp
+    printf("%s %d%c", *pp, fb_countmatches(@seq(1), *pp), 10)
+    pp += 1
+  Wend
+    
+  _flip = 1
+  pp = @subst(0)
+  Do
+    If *pp = 0 Then Exit Do
+    slen = fb_subst(@seq(1-_flip), @seq(_flip), *pp, pp[1])
+    pp += 2
+    _flip = 1-_flip
+  Loop
+  printf("%c%zu%c%zu%c%zu%c", 10, ilen, 10, clen, 10, slen, 10)
+
+' The Computer Language Shootout
+' http://shootout.alioth.debian.org/
+' contributed by Antoni Gual
+'
+option explicit
+option escape
+#include "crt.bi"
+#define linelength 60
+#define bufinc 1024*512
+dim shared pairs(14)={asc("A"),asc("T"),_
+                      asc("C"),asc("G"),_
+                      asc("M"),asc("K"),_
+                      asc("R"),asc("Y"),_
+                      asc("K"),asc("M"),_
+                      asc("V"),asc("B"),_
+                      asc("H"),asc("D")}
+
+dim shared compl(128) as ubyte
+'
+'---------------------------------------------
+sub dopairs
+  dim i
+  for i=0 to 127:compl(i)=iif(i<96,i,i-32):next
+  for i=0 to 12 step 2
+   compl(pairs(i))      =pairs(i+1)
+   compl(pairs(i)+32)   =pairs(i+1)
+   compl(pairs(i+1))    =pairs(i)
+   compl(pairs(i+1)+32) =pairs(i)
+  next
+end sub
+'
+'----------------------------------------------
+sub doreverse ( b as zstring ptr,byval j)
+   dim i,t as ubyte
+   dim as ubyte ptr st,en,pc 
+   if j=0 then exit sub 
+    st=b
+    en=b+j-1
+    while st<=en
+    t=compl(*st)
+    *st=compl(*en)
+    *en=t 
+    st+=1
+    en-=1
+   wend 
+end sub
+'
+'----------------------------------------------
+sub doprint (byval b as zstring ptr,byval l)
+  dim  c as ubyte=0
+  dim m
+  dim b1 as ubyte ptr
+  b1=b 
+  while l
+   m=iif (l<linelength,l,linelength)
+   b1+=m
+   swap c, *b1
+   puts(b) 
+   swap c, *b1
+   b=b1   
+   l-=m
+  wend
+end sub     
+'
+'-----------------------------------------------
+dim  as zstring ptr b,a
+dim lall,lb,t
+lall=bufinc
+b=allocate(lall*sizeof(ubyte))
+dopairs
+open cons for input as # 1
+a=b
+b[0]=0 
+do
+ if a-b+128 >lall then 
+    t=a-b
+    lall+=bufinc 
+    b= reallocate(b,lall*sizeof(ubyte))
+    a=b+t
+ end if 
+ line input #1, *a
+ if a[0]= asc(">") then
+    doreverse b,a-b 
+    doprint b,a-b  
+    puts a   
+    a=b
+    b[0]=0
+    continue do   
+ end if 
+ a+=len(*a) 
+loop until eof(1)
+doreverse b ,a-b
+doprint b ,a-b
+close 
+deallocate b
+end
+' The Computer Language Shootout
+' http://shootout.alioth.debian.org/
+' contributed by Josh Goldfoot
+' based on the C version by Sebastien Loisel
+' modified by Antoni Gual
+
+'#define eval_A(i, j) 1.0/((i+j)*(i+j+1)/2.0+i+1.0)
+
+function eval_A(i as integer, j as integer) as double   
+   return 1.0/((i+j)*(i+j+1)/2.0+i+1.0)
+end function
+
+sub eval_A_times_u(ByVal N as integer, u() as double, Au() as double)  
+  Dim As Integer i, j
+   for i = 0 to N - 1
+      Au(i) = 0
+      for j = 0 to N - 1
+         Au(i) += eval_A(i,j)*u(j)
+      next j
+   next i
+end sub
+
+sub eval_At_times_u(ByVal N as integer, u() as double, Au() as double) 
+  Dim As Integer i, j
+   for i = 0 to N-1
+      Au(i) = 0
+      for j = 0 to N-1
+         Au(i) += eval_A(j,i) * u(j)
+      next j
+   next i
+end sub
+
+sub eval_AtA_times_u(ByVal N as integer, u() as double, AtAu() as double)
+   dim v(N) as double
+   eval_A_times_u(N,u(),v())
+   eval_At_times_u(N,v(),AtAu() )
+end sub
+
+Dim As Integer i, j, N
+
+N = valint(COMMAND$)
+if N < 1 then N = 100
+dim as double u(N), v(N), vBv, vv
+for i = 0 to N-1
+   u(i) = 1
+next i
+for i = 0 to 9
+   eval_AtA_times_u(N,u(),v() )
+   eval_AtA_times_u(N,v(),u() )
+next i
+vBv=0 : vv=0
+for i = 0 to N - 1
+   vBv += u(i)*v(i) : vv += v(i)*v(i)
+next i
+
+dim result as double
+result = sqr(vBv/vv)
+REM this is necessary because "print using" rounds poorly
+dim factor as longint
+factor = 1000000000
+result = clngint(result * factor) / factor
+print str(result)
+ 
+#include "crt.bi"
+option escape
+dim a as zstring *128
+total=0
+while fgets(a, 128, stdin)
+ total+=valint(a)
+wend
+printf("%d\n", total)
+

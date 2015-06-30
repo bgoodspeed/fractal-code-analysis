@@ -1,0 +1,4310 @@
+;;   The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+;;;
+;;; contributed by Manuel Giraud
+;;; modified by Nicolas Neuss
+;;; modified by Juho Snellman 2005-10-26
+;;;
+;;; modified by Witali Kusnezow 2009-01-20
+;;;  * simplified structure of leaf nodes
+;;;  * optimize GC usage
+;;;  * optimize all functions
+;;;
+;;; modified by Witali Kusnezow 2009-08-20
+;;;  * remove GC hacks to satisfy new versions of the sbcl
+
+;;; Node is either (DATA) (for leaf nodes) or an improper list (DATA LEFT . RIGHT)
+
+(defun build-btree (item depth)
+  (declare (fixnum item depth))
+  (if (zerop depth) (list item)
+      (let ((item2 (+ item item))
+            (depth-1 (1- depth)))
+        (declare (fixnum item2 depth-1))
+        (cons item
+				(cons (build-btree (the fixnum (1- item2)) depth-1) 
+					  (build-btree item2 depth-1))))))
+
+(defun check-node (node)
+  (declare (values fixnum))
+  (let ((data (car node))
+        (kids (cdr node)))
+    (declare (fixnum data))
+    (if kids
+        (- (+ data (check-node (car kids)))
+           (check-node (cdr kids)))
+        data)))
+
+(defun loop-depths (max-depth &key (min-depth 4))
+  (declare (type fixnum max-depth min-depth))
+  (loop for d of-type fixnum from min-depth by 2 upto max-depth do
+       (loop with iterations of-type fixnum = (ash 1 (+ max-depth min-depth (- d)))
+          for i of-type fixnum from 1 upto iterations
+          sum (+ (the fixnum (check-node (build-btree i d)))
+                 (the fixnum (check-node (build-btree (- i) d))))
+          into result of-type fixnum
+          finally
+            (format t "~D	 trees of depth ~D	 check: ~D~%"
+                    (the fixnum (+ iterations iterations )) d result))))
+
+(defun main (&optional (n (parse-integer
+                           (or (car (last #+sbcl sb-ext:*posix-argv*
+                                          #+cmu  extensions:*command-line-strings*
+                                          #+gcl  si::*command-args*))
+                               "1"))))
+  (declare (type (integer 0 255) n))
+  (format t "stretch tree of depth ~D	 check: ~D~%" (1+ n) (check-node (build-btree 0 (1+ n))))
+  (let ((*print-pretty* nil) (long-lived-tree (build-btree 0 n)))
+    (purify)
+    (loop-depths n)
+    (format t "long lived tree of depth ~D	 check: ~D~%" n (check-node long-lived-tree))))
+;;   The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+;;;
+;;; contributed by Manuel Giraud
+;;; modified by Nicolas Neuss
+;;; modified by Juho Snellman 2005-10-26
+;;;
+;;; modified by Witali Kusnezow 2009-01-20
+;;;  * simplified structure of leaf nodes
+;;;  * optimize GC usage
+;;;  * optimize all functions
+;;;
+;;; modified by Witali Kusnezow 2009-08-20
+;;;  * remove GC hacks to satisfy new versions of the sbcl
+;;;
+;;; modified by Marko Kocic 2011-02-18
+;;;  * add declaim to optimize for speed
+;;;
+
+;;; Node is either (DATA) (for leaf nodes) or an improper list (DATA LEFT . RIGHT)
+
+(declaim (optimize (speed 3) (debug 0) (space 0) (safety 0)))
+
+(defun build-btree (item depth)
+  (declare (fixnum item depth))
+  (if (zerop depth) (list item)
+      (let ((item2 (+ item item))
+            (depth-1 (1- depth)))
+        (declare (fixnum item2 depth-1))
+        (cons item
+				(cons (build-btree (the fixnum (1- item2)) depth-1) 
+					  (build-btree item2 depth-1))))))
+
+(defun check-node (node)
+  (declare (values fixnum))
+  (let ((data (car node))
+        (kids (cdr node)))
+    (declare (fixnum data))
+    (if kids
+        (- (+ data (check-node (car kids)))
+           (check-node (cdr kids)))
+        data)))
+
+(defun loop-depths (max-depth &key (min-depth 4))
+  (declare (type fixnum max-depth min-depth))
+  (loop for d of-type fixnum from min-depth by 2 upto max-depth do
+       (loop with iterations of-type fixnum = (ash 1 (+ max-depth min-depth (- d)))
+          for i of-type fixnum from 1 upto iterations
+          sum (+ (the fixnum (check-node (build-btree i d)))
+                 (the fixnum (check-node (build-btree (- i) d))))
+          into result of-type fixnum
+          finally
+            (format t "~D	 trees of depth ~D	 check: ~D~%"
+                    (the fixnum (+ iterations iterations )) d result))))
+
+(defun main (&optional (n (parse-integer
+                           (or (car (last #+sbcl sb-ext:*posix-argv*
+                                          #+cmu  extensions:*command-line-strings*
+                                          #+gcl  si::*command-args*))
+                               "1"))))
+  (declare (type (integer 0 255) n))
+  (format t "stretch tree of depth ~D	 check: ~D~%" (1+ n) (check-node (build-btree 0 (1+ n))))
+  (let ((*print-pretty* nil) (long-lived-tree (build-btree 0 n)))
+    (purify)
+    (loop-depths n)
+    (format t "long lived tree of depth ~D	 check: ~D~%" n (check-node long-lived-tree))))
+;;; The Computer Language Shootout
+;;; http://shootout.alioth.debian.org/
+;;;
+;;; Contributed by: Shyamal Prasad
+
+
+(declaim (optimize (speed 3) (compilation-speed 0)
+		   (safety 0) (debug 0))
+	 (inline complement-color))
+
+(defun complement-color (x y)
+  "Given color x and color y return a complement for color x"
+  (cond
+   ((eq x 'blue)
+    (if (eq y 'red)
+	'yellow
+      'red))
+
+   ((eq x 'red)
+    (if (eq y 'blue)
+	'yellow
+      'blue))
+
+   ((eq x 'yellow)
+    (if (eq y 'blue)
+	'red
+      'blue))
+   (t
+    (error "oops"))))
+
+;; the mutex/cv used to get access to the room and find other chameneos
+(defvar *room-lock* (sb-thread:make-mutex))
+(defvar *wait-queue* (sb-thread:make-waitqueue))
+
+;; Variables in the room - get *room-lock* before touching these
+(declaim (fixnum *meetings-left*) (symbol *waiting-color* *incoming-color*))
+(defvar *meetings-left* 100)
+(defvar *waiting-color* nil)
+(defvar *incoming-color* nil)
+
+;; mutex/cv to used by main thread to learn that chameneos are done
+;; SBCL currently (seems) to have no way to join a thread
+(defvar *done-lock* (sb-thread:make-mutex))
+(defvar *done-queue* (sb-thread:make-waitqueue))
+(defvar *met-list* nil) ; chameneos results, updated with *done-lock* held
+
+;;Return a closure representing the chameneos creature with specified color.
+;;When run the creature will try to meet others in the room
+(defun make-chameneos (color)
+  (declare (symbol color))
+  (let ((meetings 0)
+	(other-color nil))
+    (declare (fixnum meetings) (symbol other-color))
+    #'(lambda ()
+	(loop
+	 (sb-thread:with-mutex (*room-lock*)
+	   (when (< *meetings-left* 1)
+	     (return))
+	   (cond
+	    (*waiting-color* ; there is some one in the room
+	     (setf *incoming-color* color)
+	     (setf other-color *waiting-color*)
+	     (decf *meetings-left*)
+	     (setf *waiting-color* nil) 
+	     (sb-thread:condition-notify *wait-queue*))
+	    
+	    (t ; there is no one in the room, wait for some one
+	     (setf *waiting-color* color)
+	     (sb-thread:condition-wait *wait-queue* *room-lock*)
+	     (setf other-color *incoming-color*))))
+	 
+	 (incf meetings)
+	 (setf color (complement-color color other-color)))
+	
+	;; Let the initial thread know we are done
+	(sb-thread:with-mutex (*done-lock*)
+          (push meetings *met-list*)
+	  (sb-thread:condition-notify *done-queue*)))))
+
+(defun main (&optional (n (parse-integer
+			   (car (last sb-ext:*posix-argv*)))))
+  (setf *meetings-left* n)
+  (setf *met-list* nil)
+  (mapcar (lambda (x)
+	    (sb-thread:make-thread (make-chameneos x)))
+	  '(blue red yellow blue))
+  (loop
+    (sb-thread:with-mutex (*done-lock*)
+      (when (eq (list-length *met-list*) 4)
+	(return))
+      (sb-thread:condition-wait *done-queue* *done-lock*)))
+  (format t "~A~%" (reduce #'+ *met-list*)))
+
+;; The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+;;
+;;   contributed by Alexey Voznyuk
+;;
+
+(defpackage #:smp-utils
+  (:use :cl :sb-alien :sb-thread)
+  (:export #:affinity #:apic-core-map))
+
+(in-package :smp-utils)
+
+(defun cpuset->list (cpuset)
+  (loop :for i :from 0 :below 128
+     :unless (zerop (ldb (byte 1 (mod i 8)) (elt cpuset (truncate i 8))))
+     :collect i))
+
+(defun list->cpuset (cpuset-list)
+  (loop :with cpuset = (make-array 16 :element-type '(unsigned-byte 8))
+     :for i :from 0 :below 128
+     :when (find i cpuset-list :test #'=)
+     :do (setf (ldb (byte 1 (mod i 8)) (elt cpuset (truncate i 8))) 1)
+     :finally (return cpuset)))
+
+(defun affinity (thread)
+  (with-alien ((alien-cpuset (array unsigned-char 16)))
+    (let ((retcode (alien-funcall (extern-alien "pthread_getaffinity_np" 
+                                                (function int 
+                                                          unsigned-long 
+                                                          unsigned-long 
+                                                          (* unsigned-char)))
+                                  (sb-thread::thread-os-thread thread)
+                                  16
+                                  (cast alien-cpuset (* unsigned-char)))))
+      (when (zerop retcode)
+        (values t (loop :with cpuset = (make-array 16 :element-type '(unsigned-byte 8))
+                     :for i :from 0 :below 16
+                     :do (setf (elt cpuset i) (deref alien-cpuset i))
+                     :finally (return (cpuset->list cpuset))))))))
+
+(defun (setf affinity) (affinity thread)
+  (with-alien ((alien-cpuset (array unsigned-char 16)))
+    (loop :with cpuset = (list->cpuset affinity)
+       :for i :from 0 :below 16
+       :do (setf (deref alien-cpuset i) (elt cpuset i)))
+    (zerop (alien-funcall (extern-alien "pthread_setaffinity_np" 
+                                        (function int 
+                                                  unsigned-long 
+                                                  unsigned-long 
+                                                  (* unsigned-char)))
+                          (sb-thread::thread-os-thread thread)
+                          16
+                          (cast alien-cpuset (* unsigned-char))))))
+
+(defun apic-core-map (cpuset-list)
+  (let ((default-map (mapcar #'list cpuset-list cpuset-list)))
+    (unless (probe-file #p"/proc/cpuinfo")
+      (return-from apic-core-map default-map))
+    (with-open-file (cpuinfo #p"/proc/cpuinfo")
+      (flet ((parse-key-value (line key)
+               (when (and (> (length line) (length key))
+                          (string= line key :end1 (length key)))
+                 (let ((value-offset (position #\: line :start (length key))))
+                   (when value-offset
+                     (parse-integer line :start (1+ value-offset) :junk-allowed t))))))
+        (loop :with current-cpu = nil
+           :for line = (read-line cpuinfo nil nil)
+           :while line
+           :do (multiple-value-bind (processor apicid)
+                   (values (parse-key-value line "processor")
+                           (parse-key-value line "apicid"))
+                 (cond ((and current-cpu apicid) (setf (first (find current-cpu default-map :key #'second)) apicid
+                                                       current-cpu nil))
+                       (processor (setf current-cpu processor))))
+           :finally (return (sort default-map #'< :key #'first)))))))
+  
+
+(defpackage #:chameneos-redux
+  (:use :cl :smp-utils))
+
+(in-package :chameneos-redux)
+
+;;
+;; Game DSL compiler
+;;
+
+(defmacro declare-colors-map (&rest transformations)
+  `(progn
+     (defun complement-color (color-a color-b)
+       (cond
+         ,@(loop
+              :for (test-a kw-plus test-b kw-arrow test-result) :in transformations
+              :do (assert (and (eq kw-plus '+) (eq kw-arrow '->)))
+              :collect `((and (eq color-a ',test-a) (eq color-b ',test-b))
+                         ',test-result))
+         (t (error "Invalid colors combinations"))))
+     (defun print-colors ()
+       (format t "~{~{~a + ~a -> ~a~%~}~}~%"
+               (list ,@(loop
+                          :for (test-a kw-plus test-b) :in transformations
+                          :collect `(list ,(string-downcase (string test-a))
+                                          ,(string-downcase (string test-b))
+                                          (string-downcase
+                                           (string (complement-color ',test-a
+                                                                     ',test-b))))))))))
+
+(defun spell-number (number)
+  (with-output-to-string (result-string)
+    (loop
+       :for char :across (the simple-string (format nil "~a" number))
+       :do (format result-string " ~r" (- (char-code char) (char-code #\0))))))
+
+(defmacro spin-wait (condition &key no-spin)
+  (let ((yield-spin `(loop :until ,condition :do (sb-thread:thread-yield))))
+    (if no-spin
+        yield-spin
+        `(loop
+            :repeat 16384
+            :do (when ,condition
+                  (return))
+            :finally ,yield-spin))))
+
+(defstruct chameneo
+  (color 'none :type symbol)
+  (meet-count 0 :type fixnum)
+  (same-count 0 :type fixnum)
+  (meet-wait nil :type boolean))
+
+(defmacro with-games ((&rest descriptions) &body body)
+  (if (null descriptions)
+      `(progn ,@body)
+      (destructuring-bind (game-name &rest colors)
+          (car descriptions)
+        (let* ((colors-count (length colors))
+               (worker-binds (loop :repeat colors-count :collect (gensym)))
+               (chameneos (gensym "CHAMENEOS"))
+               (action-cas (gensym "ACTION-CAS")))
+          `(let ((,chameneos (coerce (list ,@(loop :repeat colors-count :collect `(make-chameneo)))
+                                     'simple-vector))
+                 (,action-cas (list 0))
+                 ,@worker-binds)
+             (declare (type (simple-vector ,colors-count) ,chameneos)
+                      (type cons ,action-cas)
+                      (type (or null sb-thread:thread) ,@worker-binds))
+             (flet ((,(intern (format nil "RUN-~a" game-name)) (count threads-affinity smp-p)
+                      (declare (type fixnum count) (type list threads-affinity) (type boolean smp-p))
+                      (setf (car ,action-cas) (the fixnum (ash count ,(integer-length (1+ colors-count)))))
+                      (flet ((color-worker (id color)
+                               (declare (type (integer 0 ,(1- colors-count)) id) (type symbol color))
+                               (lambda ()
+                                 (setf (affinity sb-thread:*current-thread*) threads-affinity)
+                                 (let ((state (car ,action-cas))
+                                       (self (elt ,chameneos id)))
+                                   (declare (type (integer 0 ,most-positive-fixnum) state)
+                                            (type chameneo self))
+                                   (setf (chameneo-color self) color)
+                                   (loop
+                                      (when (zerop state)
+                                        (return))
+                                      (let* ((peer-id (logand state ,(1- (ash 1 (integer-length (1+ colors-count))))))
+                                             (new-state (if (zerop peer-id)
+                                                            (logior state (1+ id))
+                                                            (- state peer-id ,(ash 1 (integer-length (1+ colors-count)))))))
+                                        (declare (type (integer 0 ,(1+ colors-count)) peer-id)
+                                                 (type (integer 0 ,most-positive-fixnum) new-state))
+                                        (let ((prev-state (sb-ext:compare-and-swap (car ,action-cas) state new-state)))
+                                          (declare (type (integer 0 ,most-positive-fixnum) prev-state))
+                                          (if (= prev-state state)
+                                              (progn 
+                                                (if (zerop peer-id)
+                                                    (progn
+                                                      (if smp-p
+                                                          (spin-wait (chameneo-meet-wait self))
+                                                          (spin-wait (chameneo-meet-wait self) :no-spin t))
+                                                      (setf (chameneo-meet-wait self) nil))
+                                                    (let ((peer (elt ,chameneos (1- peer-id))))
+                                                      (when (= id (1- peer-id))
+                                                        (incf (chameneo-same-count self))
+                                                        (incf (chameneo-same-count peer)))
+                                                      (let ((new-color (complement-color (chameneo-color self)
+                                                                                         (chameneo-color peer))))
+                                                        (declare (type symbol new-color))
+                                                        (setf (chameneo-color self) new-color
+                                                              (chameneo-color peer) new-color)
+                                                        (incf (chameneo-meet-count self))
+                                                        (incf (chameneo-meet-count peer))
+                                                        (setf (chameneo-meet-wait peer) t))))
+                                                (setf state (car ,action-cas)))
+                                              (setf state prev-state)))))))))
+                        ,@(loop :for color :in colors :for thread-index :from 0
+                             :collect `(setf ,(elt worker-binds thread-index)
+                                             (sb-thread:make-thread (color-worker ,thread-index ',color)
+                                                                    :name ,(format nil "chameneos-worker-~a-~a/~a"
+                                                                                   (string-downcase (string color))
+                                                                                   thread-index
+                                                                                   colors-count)))))
+                      nil)
+                    (,(intern (format nil "WAIT-~a" game-name)) ()
+                      ,@(loop :for i :from 0 :below colors-count :collect `(sb-thread:join-thread ,(elt worker-binds i)))
+                      (format t ,(format nil "~{ ~a~}~~%" (loop :for color :in colors :collect (string-downcase (string color)))))
+                      (loop :for i :from 0 :below ,colors-count
+                         :summing (chameneo-meet-count (elt ,chameneos i)) :into total :of-type fixnum
+                         :do (format t "~a~a~%"
+                                     (chameneo-meet-count (elt ,chameneos i))
+                                     (spell-number (chameneo-same-count (elt ,chameneos i))))
+                         :finally (format t "~a~%~%" (spell-number total)))))
+               (with-games (,@(cdr descriptions))
+                 ,@body)))))))
+                      
+
+;;
+;; Game contents
+;;
+
+(progn
+  (declare-colors-map
+   (blue + blue -> blue)
+   (blue + red -> yellow)
+   (blue + yellow -> red)
+   (red + blue -> yellow)
+   (red + red -> red)
+   (red + yellow -> blue)
+   (yellow + blue -> red)
+   (yellow + red -> blue)
+   (yellow + yellow -> yellow))
+
+  (defun run-games (count current-affinity)
+    (declare (optimize (speed 3) (safety 0) (debug 0))
+             (type fixnum count)
+             (type list current-affinity))
+    (let* ((active-cores (length current-affinity))
+           (smp-p (> active-cores 1)))
+      (with-games ((game-a blue red yellow)
+                   (game-b blue red yellow red yellow blue red yellow red blue))
+        (if smp-p
+            (multiple-value-bind (affinity-a affinity-b)
+                (if (< active-cores 4)
+                    (values current-affinity current-affinity)
+                    (let ((apic-map (apic-core-map current-affinity)))
+                      (declare (type list apic-map))
+                      (values (list (second (elt apic-map 0)) (second (elt apic-map 1)))
+                              (list (second (elt apic-map 2)) (second (elt apic-map 3))))))
+              (run-game-a count affinity-a smp-p)
+              (run-game-b count affinity-b smp-p)
+              (wait-game-a)
+              (wait-game-b))
+            (progn (run-game-a count current-affinity smp-p)
+                   (wait-game-a)
+                   (run-game-b count current-affinity smp-p)
+                   (wait-game-b))))))
+  
+  (defun main (&optional force-count)
+    (let* ((args (cdr sb-ext:*posix-argv*))
+           (count (or force-count (if args (parse-integer (car args)) 600))))
+      (print-colors)
+      (multiple-value-bind (success-p current-affinity)
+          (affinity sb-thread:*current-thread*)
+        (unless success-p
+          (error "Failed to retrieve current thread affinity"))
+        (run-games count current-affinity)))))
+
+
+(in-package :cl-user)
+
+(defun main ()
+  (chameneos-redux::main))
+;;   The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+;;; Contributed by Wade Humeniuk
+
+(defun write-permutation (perm)
+  (loop for i across perm do
+	(princ (1+ i)))
+  (terpri))
+
+(defun fannkuch (n)
+  (declare (optimize (speed 3) (safety 0) (debug 0)) (fixnum n))
+  (assert (< 1 n 128))
+  (let ((perm (make-array n :element-type 'fixnum))
+        (perm1 (make-array n :element-type 'fixnum))
+        (count (make-array n :element-type 'fixnum))
+        (flips 0) (flipsmax 0) (r n) (check 0) (k 0)
+	(i 0) (perm0 0))
+
+    (declare ((simple-array fixnum (*)) perm perm1 count)
+             (fixnum flips flipsmax check k r i perm0))
+    
+    (dotimes (i n) (setf (aref perm1 i) i))
+    
+    (loop
+
+     (when (< check 30) 
+       (write-permutation perm1)
+       (incf check))
+
+     (loop while (> r 1) do
+           (setf (aref count (1- r)) r)
+           (decf r))
+
+     (unless (or (= (aref perm1 0) 0)
+		 (= (aref perm1 (1- n)) (1- n)))
+       (setf flips 0)
+       (dotimes (i n) (setf (aref perm i) (aref perm1 i)))
+       (setf k (aref perm1 0))
+       (loop while (/= k 0) do
+             (loop for j fixnum downfrom (1- k)
+                   for i fixnum from 1
+                   while (< i j) do (rotatef (aref perm i) (aref perm j)))
+             (incf flips)
+             (rotatef k (aref perm k)))
+       (setf flipsmax (max flipsmax flips)))
+
+     (loop do
+	   (when (= r n)
+	     (return-from fannkuch flipsmax))
+	   (setf i 0 perm0 (aref perm1 0))
+	   (loop while (< i r) do
+		 (setf k (1+ i)
+		       (aref perm1 i) (aref perm1 k)
+		       i k))
+	   (setf (aref perm1 r) perm0)
+	   (when (> (decf (aref count r)) 0) (loop-finish))
+	   (incf r)))))
+            
+(defun main ()
+  (let ((n (parse-integer (second *posix-argv*))))
+    (format t "Pfannkuchen(~D) = ~D~%" n (fannkuch n))))
+;; The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+;;
+;;   contributed by Alexey Voznyuk
+;;
+
+(defpackage #:fannkuch-redux
+  (:use :cl))
+
+(in-package :fannkuch-redux)
+
+(defun make-facts-vector (seq-length)
+  (make-array (1+ seq-length)
+              :initial-contents (cons 1 (loop :with r = 1 :for i from 1 to seq-length
+                                           :collect (setf r (* r i))))))
+
+(defmacro with-vars-bound ((vars bind-vars) &body body)
+  `(let (,@(loop :for var :in vars :for bind-var :in bind-vars :collect `(,var ,bind-var)))
+     (declare (type fixnum ,@vars) (ignorable ,@vars))
+     ,@body))
+
+(defmacro with-permutations (((&rest seq-vars) perm-index-start perm-count) &body body)
+  (let* ((seq-length (length seq-vars))
+         (facts (make-facts-vector seq-length))
+         (outer-tag (gensym))
+         (count (gensym)))
+    (labels ((build-loop (depth upper-seq-vars)
+               (if (>= depth seq-length)
+                   `(with-vars-bound (,seq-vars ,upper-seq-vars)
+                      (when (zerop ,count)
+                        (return-from ,outer-tag))
+                      (decf ,count)
+                      ,@body)
+                   (let* ((my-seq-vars (loop :repeat (- seq-length depth) :collect (gensym)))
+                          (shift-body `(let ((first ,(car my-seq-vars)))
+                                         (setf ,@(loop :for src :in my-seq-vars and dst = src
+                                                    :when dst :collect dst and :collect src)
+                                               ,(car (last my-seq-vars)) first)))
+                          (repeat-body (if (= depth (1- seq-length))
+                                           (build-loop (1+ depth) upper-seq-vars)
+                                           `(prog1 (if (>= ,perm-index-start ,(elt facts (- seq-length depth 1)))
+                                                       (decf ,perm-index-start ,(elt facts (- seq-length depth 1)))
+                                                       ,(build-loop (1+ depth)
+                                                                    (append my-seq-vars (subseq upper-seq-vars
+                                                                                                (length my-seq-vars)))))
+                                              ,shift-body))))
+                     (if (> (- seq-length depth) 1)
+                         `(with-vars-bound (,my-seq-vars ,upper-seq-vars)
+                            (loop :repeat ,(- seq-length depth) :do ,repeat-body))
+                         repeat-body)))))
+      `(let ((,count ,perm-count))
+         (declare (type (integer 0 ,(elt facts seq-length)) ,count))
+         (block ,outer-tag
+           ,(build-loop 0 (loop :for i :from 0 :below seq-length :collect i)))))))
+
+(defmacro with-flips-count (((&rest seq-vars) flips-count) &body body)
+  (let ((head (car seq-vars)))
+    `(let ((,flips-count 0))
+       (declare (type fixnum ,flips-count))
+       (unless (zerop ,head)
+         (loop
+            (incf ,flips-count)
+            (cond
+              ,@(loop :for value :from 1 :below (length seq-vars)
+                   :collect `((= ,head ,value)
+                              (when (zerop ,(elt seq-vars value))
+                                (return))
+                              ,@(loop :for l :from 0 :for r :downfrom value :while (< l r)
+                                   :collect `(rotatef ,(elt seq-vars l) ,(elt seq-vars r))))))))
+       ,@body)))
+
+(defstruct atomic
+  (counter 0 :type (unsigned-byte #+x86-64 64 #+x86 32)))
+
+(defmacro deffannkuch (seq-length &key (workers 1) worker-chunk-size)
+  (let* ((facts (make-facts-vector seq-length))
+         (chunk-size (or worker-chunk-size (min (elt facts seq-length) 400)))
+         (seq-vars (loop :for i :from 0 :below seq-length :collect (gensym))))
+    `(lambda ()
+       (declare (optimize (speed 3) (safety 0) (debug 0)))
+       (let ((wrk-max-flips (make-array ,workers :element-type 'fixnum))
+             (wrk-checksums (make-array ,workers :element-type 'fixnum))
+             (current-idx (make-atomic)))
+         (flet ((make-worker (wrk-index)
+                  (declare (type (integer 0 ,(1- workers)) wrk-index))
+                  (lambda ()
+                    (loop
+                       :with checksum :of-type fixnum = 0
+                       :with max-flips :of-type fixnum = 0
+                       :for perm-index :of-type fixnum = (sb-ext:atomic-incf (atomic-counter current-idx)
+                                                                             ,chunk-size)
+                       :while (< perm-index ,(elt facts seq-length))
+                       :for sign :of-type boolean = (evenp perm-index)
+                       :do (with-permutations ((,@seq-vars) perm-index ,chunk-size)
+                             (with-flips-count ((,@seq-vars) flips-count)
+                               (when (> flips-count max-flips)
+                                 (setf max-flips flips-count))
+                               (incf checksum (if sign flips-count (- flips-count)))
+                               (setf sign (not sign))))
+                       :finally (setf (elt wrk-max-flips wrk-index) max-flips
+                                      (elt wrk-checksums wrk-index) checksum)))))
+           (mapc #'sb-thread:join-thread
+                 (list ,@(loop :for wrk-index :from 0 :below workers
+                            :collect `(sb-thread:make-thread (make-worker ,wrk-index))))))
+         (loop :for i :from 0 :below ,workers
+            :summing (elt wrk-checksums i) :into checksum :of-type fixnum
+            :maximizing (elt wrk-max-flips i) :into max-flips
+            :finally (return (values checksum max-flips)))))))
+
+(defun main (&optional force-n)
+  (let* ((args (cdr sb-ext:*posix-argv*))
+         (n (or force-n (if args (parse-integer (car args)) 12))))
+    (multiple-value-bind (checksum max-flips-count)
+        (funcall (the function (eval `(deffannkuch ,n :workers 4 :worker-chunk-size 12000))))
+      (format t "~a~%Pfannkuchen(~a) = ~a~%" checksum n max-flips-count))))
+
+
+(in-package :cl-user)
+
+(defun main ()
+  (fannkuch-redux::main))
+
+;;   The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+;;;
+;;; By Jon Smith
+;;; Tranlated from OCaml implementation by ?, who translated it from
+;;; the Scala implementation by Otto Bommer.
+;;; 
+;;; This is a single core implementation.
+;;; I am sure that this program can be improved upon quite a lot.
+;;; Most likely it will involve knowing how sbcl does its optimizations.
+;;; As you can see, I simply used fixnums everywhere. There may be a better choice.
+;;;
+;;; To compile
+;;; sbcl --load fannkuch.lisp --eval "(save-lisp-and-die \"fannkuch.core\" :purify t :toplevel (lambda () (main) (quit)))"
+;;; To run
+;;; sbcl --noinform --core fannkuch.core %A
+
+(declaim (optimize (speed 3) (safety 0) (space 1) (debug 0)))
+
+(defun fannkuch (n)
+  (declare (type fixnum n))
+  (let ((csum 0)
+	(fmax 0))
+    (declare (type fixnum fmax))
+    (let ((perm (make-array n :element-type 'fixnum))
+	  (copy (make-array n :element-type 'fixnum))
+	  (num 0)) 
+
+      (loop for i from 0 to (- n 1) do (setf (aref perm i) i))
+
+      (labels ((do-iter (ht)
+		 
+		 (declare (type fixnum ht))
+		 
+		 (if (= ht 1)
+		     (progn
+		       (loop for i from 0 to (- n 1) do (setf (aref copy i) (aref perm i)))
+		       (let ((c 0))
+			 (declare (type fixnum c))
+			 (let ((z (aref copy 0)))
+			   (loop until (= z 0) do
+				(progn
+				  (loop for i from 0 to (ash z -1)
+				     do (let ((temp (aref copy i))
+					      (k (- z i)))
+					  (setf (aref copy i) (aref copy k))
+					  (setf (aref copy k) temp)))
+				  (incf c)
+				  (setf z (aref copy 0)))))
+			 (setf csum (+ csum  (if (evenp num) c (- c))))
+			 (when (> c fmax)
+			   (setf fmax c)))
+		       (incf num))
+		     (loop for i from 1 to ht do
+			  (progn (do-iter (- ht 1))
+				 (let ((temp (aref perm 0))
+				       (m (- ht 1)))
+				   (loop for i from 1 to m do
+					(setf (aref perm (- i 1)) (aref perm i)))
+				   (setf (aref perm m) temp)))))))
+
+	(do-iter n)))
+    (format t "~s~%Pfannkuchen(~s) = ~s~%" csum n fmax)))
+
+
+(defun main ()  
+  (let* ((args (cdr sb-ext:*posix-argv*))
+         (n (parse-integer (car args))))
+    (fannkuch n)))
+;;   The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+;;;
+;;; By Jon Smith (rev 3) added some more declarations.
+;;; Tranlated from OCaml implementation by ?, who translated it from
+;;; the Scala implementation by Otto Bommer.
+;;; 
+;;; This is a single core implementation. 
+;;; I am sure that this program can be improved upon quite a lot.
+;;; Most likely it will involve knowing how sbcl does its optimizations.
+;;; As you can see, I simply used fixnums everywhere. There may be a better choice.
+;;;
+;;; To compile
+;;; sbcl --load fannkuch.lisp --eval "(save-lisp-and-die \"fannkuch.core\" :purify t :toplevel (lambda () (main) (quit)))"
+;;; To run
+;;; sbcl --noinform --core fannkuch.core %A
+
+;(setf *efficiency-note-cost-threshold* 1)
+;(setf *efficiency-note-limit* 8)
+
+(declaim (optimize (speed 3) (safety 0) (space 1) (debug 0)))
+
+(defmacro sb (a) `(the fixnum ,a))
+(deftype sb () 'fixnum)
+
+(defmacro setlambda(n)
+  (declare (type fixnum n))
+  (let ((copy (gensym))
+	(perm (gensym)))
+  `(lambda (,perm ,copy)
+     (declare (optimize (speed 3) (safety 0) (space 0) (debug 0))
+      (type (simple-array sb (,n)) ,copy ,perm))
+     ,@(loop for i of-type fixnum from 0 below n collect
+	    `(setf (aref ,copy ,i) (aref ,perm ,i))))))
+
+(defmacro countfliplambda (n)
+  (declare (type fixnum n))
+  (let ((copy (gensym))
+	(c (gensym))
+	(z (gensym)))
+    `(lambda (,copy &aux (,c 0))
+       (declare (optimize (speed 3) (safety 0) (space 0) (debug 0))
+		(type sb ,c)
+		(type (simple-array sb (,n)) ,copy))
+       (let ((,z (aref ,copy 0)))
+	 (loop until (= ,z 0) do
+	      (progn
+		(case ,z 
+		  ,@(loop for i of-type sb from 1 to (- n 1) collect
+			 `(,i
+			   ,@(loop for j of-type sb from 0 to (ash i -1)
+				if (not (= j (- i j)))
+				collect `(rotatef (aref ,copy ,j) 
+						  (aref ,copy ,(- i j)))))))
+		(incf ,c)
+		(setf ,z (aref ,copy 0)))))
+       ,c)))
+
+(defun fannkuch (n)
+  (declare (type sb n))
+  (let ((csum 0)
+	(fmax 0))
+    (declare (type sb csum fmax))
+    (let ((perm (make-array n :element-type 'fixnum))
+	  (copy (make-array n :element-type 'fixnum))
+	  (num 0)
+	  (cflip (the (function ((simple-array sb (*)))) (eval `(countfliplambda ,n))))
+	  (copyfn (the (function ((simple-array sb (*)) (simple-array sb (*)))) (eval `(setlambda ,n)))))
+      (declare (type (simple-array sb (*)) perm copy)
+	       (type sb num))
+
+      (loop for i from 0 to (- n 1) do (setf (aref perm i) i))
+      
+      (labels ((do-iter (ht)
+		 (declare (type sb ht))
+		 (if (= ht 1)
+		     (progn
+		       (funcall copyfn perm copy)
+		       (let ((c (funcall cflip copy)))
+			 (declare (type sb c))
+			 (setf csum (sb (+ csum  (sb (if (evenp num) c (- c))))))
+			 (when (> c fmax)
+			   (setf fmax c)))
+		       (incf num))
+		     (loop for i of-type sb from 1 to ht do
+			  (let ((m (- ht 1))) 
+			    (do-iter m)
+			    (let ((temp (aref perm 0)))
+			      (loop for i from 1 to m do
+				   (setf (aref perm (- i 1)) (aref perm i)))
+			      (setf (aref perm m) temp)))))))
+
+	(do-iter n)))
+    (format t "~s~%Pfannkuchen(~s) = ~s~%" csum n fmax)))
+
+
+(defun main ()  
+  (let* ((args (cdr sb-ext:*posix-argv*))
+         (n (parse-integer (car args))))
+    (fannkuch n)))
+;;   The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+;;;
+;;; By Jon Smith (rev 4)
+;;; 
+;;; This is a multi core implementation. It should be quite fast.
+;;; It is now a mix of multiple techniques stolen from a number of other implementations.
+;;; (It is essentially based on every other implementation available)
+;;;
+;;; To compile
+;;; sbcl --load fannkuch.lisp --eval "(save-lisp-and-die \"fannkuch.core\" :purify t :toplevel (lambda () (main) (quit)))"
+;;; To run
+;;; sbcl --noinform --core fannkuch.core %A
+;(setf *efficiency-note-cost-threshold* 1)
+;(setf *efficiency-note-limit* 8)
+
+(declaim (optimize (speed 3) (safety 0) (space 1) (debug 0)))
+
+(defmacro sb (a) `(the fixnum ,a))
+(deftype sb () 'fixnum)
+
+(defmacro setlambda(n)
+  (declare (type fixnum n))
+  (let ((copy (gensym))
+	(perm (gensym)))
+  `(lambda (,perm ,copy)
+     (declare (optimize (speed 3) (safety 0) (space 0) (debug 0))
+      (type (simple-array sb (,n)) ,copy ,perm))
+     ,@(loop for i of-type fixnum from 0 below n collect
+	    `(setf (aref ,copy ,i) (aref ,perm ,i))))))
+
+(defmacro countfliplambda (n)
+  (declare (type fixnum n))
+  (let ((copy (gensym))
+	(c (gensym))
+	(z (gensym)))
+    `(lambda (,copy &aux (,c 0))
+       (declare (optimize (speed 3) (safety 0) (space 0) (debug 0))
+		(type sb ,c)
+		(type (simple-array sb (,n)) ,copy))
+       (let ((,z (aref ,copy 0)))
+	 (loop until (= ,z 0) do
+	      (progn
+		(case ,z 
+		  ,@(loop for i of-type sb from 1 to (- n 1) collect
+			 `(,i
+			   ,@(loop for j of-type sb from 0 to (ash i -1)
+				if (not (= j (- i j)))
+				collect `(rotatef (aref ,copy ,j) 
+						  (aref ,copy ,(- i j)))))))
+		(incf ,c)
+		(setf ,z (aref ,copy 0)))))
+       ,c)))
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun factorial (n)
+    (declare (type fixnum n))
+    (if (> n 2)
+	(* n (factorial (- n 1)))
+	n)))
+
+(let ((factorial-array (apply #'vector (loop for i from 1 to 16 collect (factorial i)))))
+  (declare (type (simple-array fixnum (*))))
+  (defun pre-computed-factorial (n)
+    (declare (type fixnum n))
+    (aref factorial-array (- n 1))))
+
+
+(defun nth-permutation (perm copy count idx &optional (len (length perm)))
+  (declare (type (simple-array fixnum (*)) perm copy count)
+	   (type fixnum idx len))
+  (loop for i from 0 below len do (setf (aref perm i) i))
+  (loop for i of-type fixnum from (- len 1) above 0 do
+       (let ((d (truncate idx (the fixnum (pre-computed-factorial i)))))
+	 (declare (type fixnum d))
+	 (setf (aref count i) d)
+	 (setf idx (the fixnum (mod idx (the fixnum(pre-computed-factorial i)))))
+	 (loop for m of-type fixnum from 0 to i do (setf (aref copy m) (aref perm m)))
+	 (loop for j of-type fixnum from 0 to i do
+	      (if (<= (+ j d) i)
+		  (setf (aref perm j) (aref copy (+ j d)))
+		  (setf (aref perm j) (aref copy (- (sb (+ j d)) i 1))))))))
+
+(defun next-permutation (perm count)
+  (Declare (type (simple-array sb (*)) perm count))
+  (let ((first (aref perm 1)))
+    (setf (aref perm 1) (aref perm 0))
+    (setf (aref perm 0) first)
+    (let ((i 1))
+      (incf (aref count i))
+      (do ()
+	  ((not (> (aref count i) i)))
+	(setf (aref count i) 0)
+	(incf i)
+	(setf (aref perm 0) (aref perm 1))
+	(let ((next-first (aref perm 1)))
+	  (loop for j from 1 below i do
+	       (setf (aref perm j) (aref perm (+ j 1))))
+	  (setf (aref perm i) first)
+	  (setf first next-first))
+	(incf (aref count i))))))
+
+
+
+(defun fannkuch (n)  
+  (declare (type fixnum n))
+  (flet ((fannkuch-sub (n cflip copyfn start end)
+	   (declare (type sb n start end)
+		    (type (function ((simple-array sb (*)))) cflip)
+		    (type (function ((simple-array sb (*)) (simple-array sb (*)))) copyfn))
+	   (let ((csum 0)
+		 (fmax 0)
+		 (count (make-array n :element-type 'fixnum))
+		 (copy (make-array n :element-type 'fixnum))
+		 (perm (make-array n :element-type 'fixnum)))
+	     (declare (type (simple-array sb (*)) perm copy count)
+		      (type sb  csum fmax))
+	     (nth-permutation perm copy count start n)
+	     (dotimes (i (- end start))
+	       (funcall copyfn perm copy)
+	       (let ((c (funcall cflip copy)))
+		 (declare (type sb c))
+		 (setf csum (sb (+ csum  (sb (if (evenp i) c (- c))))))
+		 (when (> c fmax)
+		   (setf fmax c)))
+	       (when (< (+ 1 i) end)
+		 (next-permutation perm count)))
+	     (values csum fmax))))
+
+
+    (let* ((cflip (the (function ((simple-array sb (*)))) (eval `(countfliplambda ,n))))
+	   (copyfn (the (function ((simple-array sb (*)) (simple-array sb (*)))) (eval `(setlambda ,n))))
+	   (csum 0) (fmax 0))
+      (declare (type sb csum fmax))
+      #-sb-thread (multiple-value-setq (csum fmax) (fannkuch-sub n cflip copyfn 0 (pre-computed-factorial n)))
+
+      #+sb-thread
+      (let* ((cores 4)
+	     (index 0)
+	     (index-step (truncate (the fixnum (+ (the fixnum (pre-computed-factorial n)) (- cores 1))) cores))
+	     (threads (loop for i from 0 below cores
+			 collecting  (sb-thread:make-thread (let ((start index) (end (+ index index-step)))
+							      (declare (fixnum start end))
+							      (lambda () (fannkuch-sub n cflip copyfn start end))))
+			 do (The fixnum (incf index index-step)))))
+	(declare (type fixnum cores index index index-step))
+	(dolist (thread threads) 
+	  (multiple-value-bind (sum max) (sb-thread:join-thread thread)
+	    (declare (type fixnum sum max))
+	    (incf csum sum)
+	    (when (> max fmax)
+	      (setf fmax max)))))
+      (format t "~s~%Pfannkuchen(~s) = ~s~%" csum n fmax))))
+
+(defun main ()  
+  (let* ((args (cdr sb-ext:*posix-argv*))
+         (n (parse-integer (car args))))
+    (declare (type fixnum n))
+    (fannkuch n)))
+;;   The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+;;; contributed by Ralph Richard Cook
+;;; Optimizations by Nicolas Neuss
+;;; Includes code from the 'random' benchmark
+;;; Credits from the 'random' benchmark:
+;;; Chih-Chung Chang contributed better declarations to improve performance
+;;; Multi-lisp modifications by Brent Fulgham
+
+(defconstant IM     139968)
+(defconstant IA       3877)
+(defconstant IC     29573)
+
+(defparameter THE_LAST 42)
+
+(declaim (inline gen_random select-random))
+
+(defun gen_random (max)
+  (declare (type (unsigned-byte 30) IM IA IC THE_LAST))
+  (declare (double-float max))
+  (setq THE_LAST (mod (+ (the (unsigned-byte 31) (* THE_LAST IA)) IC) IM))
+  (/ (* max THE_LAST) IM))
+
+(defconstant LINE_LENGTH 60)
+
+(defstruct (freq (:type vector))
+  (c #\x :type base-char)
+  (p 0.0d0 :type double-float))
+
+(defparameter ALU (concatenate 'string
+  "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG"
+  "GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA"
+  "CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT"
+  "ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA"
+  "GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG"
+  "AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC"
+  "AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA"))
+
+(defparameter IUB 
+  (vector
+   (make-freq :c #\a :p 0.27d0)
+   (make-freq :c #\c :p 0.12d0)
+   (make-freq :c #\g :p 0.12d0)
+   (make-freq :c #\t :p 0.27d0)
+
+   (make-freq :c #\B :p 0.02d0)
+   (make-freq :c #\D :p 0.02d0)
+   (make-freq :c #\H :p 0.02d0)
+   (make-freq :c #\K :p 0.02d0)
+   (make-freq :c #\M :p 0.02d0)
+   (make-freq :c #\N :p 0.02d0)
+   (make-freq :c #\R :p 0.02d0)
+   (make-freq :c #\S :p 0.02d0)
+   (make-freq :c #\V :p 0.02d0)
+   (make-freq :c #\W :p 0.02d0)
+   (make-freq :c #\Y :p 0.02d0)))
+
+(defparameter HomoSapiens 
+  (vector
+   (make-freq :c #\a :p 0.3029549426680d0)
+   (make-freq :c #\c :p 0.1979883004921d0)
+   (make-freq :c #\g :p 0.1975473066391d0)
+   (make-freq :c #\t :p 0.3015094502008d0)))
+
+(defun make-cumulative (freqs)
+  (let ((cp 0.0d0))
+    (declare (double-float cp))
+    (dotimes (i (length freqs))
+      (incf cp (freq-p (aref freqs i)))
+      (setf (freq-p (aref freqs i)) cp))))
+
+
+(defun select-random (freqs len)
+  (declare (fixnum len) (simple-vector freqs))
+  (let ((r (gen_random 1.0d0)))
+    (declare (double-float r))
+    (dotimes (i len)
+      (when (< r (freq-p (aref freqs i)))
+        (return-from select-random (freq-c (aref freqs i)))))
+    (freq-c (aref freqs (1- len)))))
+
+(defconstant BUFFER_SIZE 30000)
+(defun make-random-fasta (id desc freqs freqs-length n line-length)
+  (declare (fixnum freqs-length n line-length))
+  (let ((buf (make-string BUFFER_SIZE :element-type 'base-char :initial-element #\Space))
+        (index 0))
+    (declare (fixnum index))
+    (format t ">~a ~a~%" id desc)
+    (do* ((chars-remaining n (- chars-remaining current-line-length))
+          (current-line-length 0))
+         ((<= chars-remaining 0) nil)
+      (declare (fixnum chars-remaining current-line-length))
+      (setf current-line-length (min chars-remaining line-length))
+      (when (< (- BUFFER_SIZE index) current-line-length)
+        (write-sequence buf *standard-output* :end index)
+        (setf index 0))
+      (dotimes (i current-line-length)
+        (declare (fixnum i))
+        (setf (aref buf index) (select-random freqs freqs-length))
+        (incf index))
+      (setf (aref buf index) #\Newline)
+      (incf index))
+    (when (> index 0) 
+      (write-sequence buf *standard-output* :end index))))
+
+
+(defun make-repeat-fasta (id desc s n line-length)
+  (declare (fixnum n line-length))
+  (let ((s-start 0)               ; this won't change
+        (s-end (length s))        ; this won't change
+        (w-start 0)               ; this will cycle around
+        (w-end 0)                 ; this will cycle around
+        (current-line-length 0))  ; line-length or less for the last line
+    (declare (fixnum s-start s-end w-start w-end))
+    (format t ">~a ~a~%" id desc)
+    (do ((chars-remaining n (- chars-remaining current-line-length)))
+        ((<= chars-remaining 0) nil)
+        (setf current-line-length (min chars-remaining line-length))
+        (setf w-end (+ w-start current-line-length))
+        (when (> w-end s-end)
+          (decf w-end s-end))
+        (if (> w-end w-start)
+          (write-sequence s *standard-output* :start w-start :end w-end)
+          (progn
+            (write-sequence s *standard-output* :start w-start :end s-end)
+            (write-sequence s *standard-output* :start s-start :end w-end)))
+        (write-char #\Newline)
+        (setf w-start w-end))))
+
+
+(defun main ()
+  (let ((n (parse-integer (or (car (last #+sbcl sb-ext:*posix-argv*
+                                         #+cmu  extensions:*command-line-strings*
+                                         #+gcl  si::*command-args*)) "1"))))
+
+    (make-cumulative IUB)
+    (make-cumulative HomoSapiens)
+
+    (make-repeat-fasta "ONE" "Homo sapiens alu" ALU (* n 2) LINE_LENGTH)
+    (make-random-fasta "TWO" "IUB ambiguity codes" IUB (length IUB) (* n 3) LINE_LENGTH)
+    (make-random-fasta "THREE"  "Homo sapiens frequency" HomoSapiens (length HomoSapiens) (* n 5) LINE_LENGTH)))
+;;   The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+;;; Contributed by Gustavo Henrique Milaré
+
+;;; This file was fetched from http://shootout.alioth.debian.org/ and modified.
+;;; These are the original creators:
+
+;;; contributed by Ralph Richard Cook
+;;; Optimizations by Nicolas Neuss
+;;; Includes code from the 'random' benchmark
+;;; Credits from the 'random' benchmark:
+;;; Chih-Chung Chang contributed better declarations to improve performance
+;;; Multi-lisp modifications by Brent Fulgham
+
+(defconstant +im+     139968)
+(defconstant +ia+       3877)
+(defconstant +ic+     29573)
+
+(defparameter *last-random* 42)
+
+(declaim (inline gen-random))
+
+(defun gen-random (max)
+  (declare (type (unsigned-byte 30) *last-random*))
+  (declare (double-float max))
+  (setq *last-random* (mod (+ (the (unsigned-byte 31)
+				(* *last-random* +ia+))
+			      +ic+)
+			   +im+))
+  (/ (* max *last-random*) +im+))
+
+(defconstant +line-length+ 60)
+
+(defstruct (freq (:predicate freqp))
+  (c #\x :type base-char)
+  (p 0.0d0 :type double-float))
+
+(declaim (base-string *alu*))
+
+(defparameter *alu* (concatenate 'base-string
+  "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG"
+  "GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA"
+  "CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT"
+  "ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA"
+  "GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG"
+  "AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC"
+  "AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA"))
+
+(declaim (simple-vector *iub* *homo-sapiens*))
+
+(defparameter *iub*
+  (vector
+   (make-freq :c #\a :p 0.27d0)
+   (make-freq :c #\c :p 0.12d0)
+   (make-freq :c #\g :p 0.12d0)
+   (make-freq :c #\t :p 0.27d0)
+
+   (make-freq :c #\B :p 0.02d0)
+   (make-freq :c #\D :p 0.02d0)
+   (make-freq :c #\H :p 0.02d0)
+   (make-freq :c #\K :p 0.02d0)
+   (make-freq :c #\M :p 0.02d0)
+   (make-freq :c #\N :p 0.02d0)
+   (make-freq :c #\R :p 0.02d0)
+   (make-freq :c #\S :p 0.02d0)
+   (make-freq :c #\V :p 0.02d0)
+   (make-freq :c #\W :p 0.02d0)
+   (make-freq :c #\Y :p 0.02d0)))
+
+(defparameter *homo-sapiens*
+  (vector
+   (make-freq :c #\a :p 0.3029549426680d0)
+   (make-freq :c #\c :p 0.1979883004921d0)
+   (make-freq :c #\g :p 0.1975473066391d0)
+   (make-freq :c #\t :p 0.3015094502008d0)))
+
+(defun make-cumulative (freqs)
+  (let ((cp 0.0d0))
+    (declare (double-float cp)
+	     (simple-vector freqs))
+    (dotimes (i (length freqs))
+      (incf cp (freq-p (aref freqs i)))
+      (setf (freq-p (aref freqs i)) cp))))
+
+(declaim (inline select-random))
+
+#+nil
+(defun select-random (freqs len)
+  (declare (fixnum len) (simple-vector freqs))
+  (let ((r (gen-random 1.0d0)))
+    (declare (double-float r))
+    (dotimes (i len)
+      (when (< r (freq-p (aref freqs i)))
+        (return-from select-random (freq-c (aref freqs i)))))
+    (freq-c (aref freqs (1- len)))))
+
+(defun select-random (freqs len)
+  (declare (fixnum len) (simple-vector freqs))
+  (let ((r (gen-random 1.0d0))
+	(first (aref freqs 0)))
+    (declare (double-float r))
+    (if (< r (freq-p first))
+	(freq-c first)
+	(do* ((lo 0)
+	      (hi (1- len))
+	      (mid (truncate (+ lo hi) 2) (truncate (+ lo hi) 2))
+	      (freq (aref freqs mid) (aref freqs mid)))
+	     ((>= lo mid) (freq-c (aref freqs hi)))
+	  (declare (fixnum lo hi mid))
+	  (if (< r (freq-p freq))
+	      (setf hi mid)
+	      (setf lo mid))))))
+
+(defconstant +buffer-size+ 30000)
+
+(defun make-random-fasta (id desc freqs freqs-length n line-length)
+  (declare (fixnum freqs-length n line-length)
+	   (string id desc))
+  (let ((buf (make-string +buffer-size+ :element-type 'base-char :initial-element #\Space))
+        (index 0))
+    (declare (fixnum index)
+	     (base-string buf))
+    (format t ">~a ~a~%" id desc)
+    (do* ((chars-remaining n (- chars-remaining current-line-length))
+          (current-line-length 0))
+         ((<= chars-remaining 0) nil)
+      (declare (fixnum chars-remaining current-line-length))
+      (setf current-line-length (min chars-remaining line-length))
+      (when (< (- +buffer-size+ index) current-line-length)
+        (write-sequence buf *standard-output* :end index)
+        (setf index 0))
+      (dotimes (i current-line-length)
+        (declare (fixnum i))
+        (setf (aref buf index) (select-random freqs freqs-length))
+        (incf index))
+      (setf (aref buf index) #\Newline)
+      (incf index))
+    (when (> index 0)
+      (write-sequence buf *standard-output* :end index))))
+
+
+(defun make-repeat-fasta (id desc s n line-length)
+  (declare (fixnum n line-length)
+	   (string id desc s))
+  (let ((s-start 0)               ; this won't change
+        (s-end (length s))        ; this won't change
+        (w-start 0)               ; this will cycle around
+        (w-end 0)                 ; this will cycle around
+        (current-line-length 0))  ; line-length or less for the last line
+    (declare (fixnum s-start s-end w-start w-end current-line-length))
+    (format t ">~a ~a~%" id desc)
+    (do ((chars-remaining n (- chars-remaining current-line-length)))
+        ((<= chars-remaining 0) nil)
+      (declare (fixnum chars-remaining))
+      (setf current-line-length (min chars-remaining line-length))
+      (setf w-end (+ w-start current-line-length))
+      (when (> w-end s-end)
+	(decf w-end s-end))
+      (if (> w-end w-start)
+          (write-sequence s *standard-output* :start w-start :end w-end)
+	(progn
+	  (write-sequence s *standard-output* :start w-start :end s-end)
+	  (write-sequence s *standard-output* :start s-start :end w-end)))
+      (write-char #\Newline)
+      (setf w-start w-end))))
+
+
+(defun main ()
+  (let ((n (or (ignore-errors
+		 (parse-integer (car (last #+sbcl sb-ext:*posix-argv*
+					   #+cmu  extensions:*command-line-strings*
+					   #+gcl  si::*command-args*
+					   #+clisp nil))))
+	       1000)))
+    (declare (fixnum n))
+
+    (make-cumulative *iub*)
+    (make-cumulative *homo-sapiens*)
+
+    (make-repeat-fasta "ONE" "Homo sapiens alu"
+		       *alu* (the fixnum (* n 2)) +line-length+)
+    (make-random-fasta "TWO" "IUB ambiguity codes"
+		       *iub* (length *iub*) (the fixnum (* n 3)) +line-length+)
+    (make-random-fasta "THREE"  "Homo sapiens frequency"
+		       *homo-sapiens* (length *homo-sapiens*)
+		       (the fixnum (* n 5)) +line-length+)))
+;; The Computer Language Benchmarks Game
+;; http://shootout.alioth.debian.org/
+;;
+;; Contributed by Lorenzo Bolla
+
+(declaim (optimize (speed 3) (debug 0) (safety 0)))
+
+(declaim (fixnum +line-length+ +buffer-size+ +im+))
+(defconstant +line-length+ 60)
+(defconstant +buffer-size+ 3000)
+(defconstant +im+ 139968)
+
+(declaim (simple-base-string *alu*))
+(defparameter *alu* (concatenate 'simple-base-string
+						"GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG"
+						"GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA"
+						"CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT"
+						"ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA"
+						"GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG"
+						"AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC"
+						"AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA"))
+
+(defun cumsum (lst)
+  (let ((c 0.0))
+	(declare (type single-float c))
+	(mapcar #'(lambda (x) 
+				(declare (type single-float x)
+						 (values fixnum))
+				(the fixnum (ceiling (* +im+ (incf c x)))))
+			lst)))
+
+(defun make-cprob (probs)
+  (make-array (length probs)
+			   :element-type 'fixnum
+			   :initial-contents (cumsum probs)))
+
+(defparameter *amino-acids-syms* "acgtBDHKMNRSVWY")
+(defparameter *amino-acids-cprobs* 
+  (make-cprob '(0.27 0.12 0.12 0.27 0.02 0.02 0.02 0.02 0.02 0.02 0.02 0.02 0.02 0.02 0.02)))
+
+(defparameter *homo-sapiens-syms* "acgt")
+(defparameter *homo-sapiens-cprobs* 
+  (make-cprob '(0.3029549426680 0.1979883004921 0.1975473066391 0.3015094502008)))
+
+(let ((r 42)
+	  (ia 3877)
+	  (ic 29573))
+  (declare (type fixnum r ia ic))
+  (defun reset-random () (setf r (the fixnum 42)))
+  (declaim (inline next-random))
+  (defun next-random ()
+	(declare (values fixnum))
+	(setf r (mod (+ (the (integer 0 542655936) (* r ia)) ic) +im+))))
+
+(defun find-amino-acid (amino-acids-syms amino-acids-cprobs p)
+  (declare (type (simple-array fixnum (*)) amino-acids-cprobs)
+		   (type simple-string amino-acids-syms)
+		   (type fixnum p))
+  (let* ((i 0)
+		 (j (length amino-acids-syms)))
+	(declare (type fixnum i j))
+	(loop
+	  (when (<= j i) 
+		(return (aref amino-acids-syms i)))
+	  (let* ((mid (ash (+ i j) -1))
+			 (c (aref amino-acids-cprobs mid)))
+		(cond ((< p c)
+			   (setf j mid))
+			  (t
+				(setf i (1+ mid))))))))
+
+(declaim (inline output-line flush))
+(defun output-line (line &key (start 0) (end nil))
+  (write-line line *standard-output* :start start :end end))
+(defun flush ()
+  (finish-output *standard-output*))
+
+(defun randomize (amino-acids-syms amino-acids-cprobs title n)
+  (declare (type fixnum n))
+  (output-line title)
+  (loop
+	with buf of-type simple-base-string = (make-string +buffer-size+ :element-type 'base-char)
+	with i of-type fixnum = 0
+	with max-j of-type fixnum = (1- +buffer-size+)
+	for j of-type fixnum from 0
+	for k of-type fixnum from 0
+	while (< i n)
+	if (= k +line-length+) do 
+	(setf (aref buf j) #\Newline) 
+	(setf k -1)
+	else do 
+	(incf i)
+	(setf (aref buf j) 
+		  (find-amino-acid amino-acids-syms amino-acids-cprobs (next-random)))
+	end
+	when (= j max-j) do 
+	(write-string buf *standard-output*)
+	(setf j -1)
+	finally 
+	(output-line buf :start 0 :end j)
+	(flush)))
+
+(defun repeat (alu title n)
+  (declare (type simple-base-string alu) 
+		   (type fixnum n))
+  (let ((len (length alu))
+		(buf (concatenate 'simple-base-string 
+						  alu 
+						  (subseq alu 0 +line-length+))))
+	(declare (type fixnum len) 
+			 (type simple-base-string buf))
+	(output-line title)
+	(do* ((pos-start 0 (mod pos-end len))
+		  (m n (- m bytes))
+		  (bytes (min n +line-length+) (min m +line-length+))
+		  (pos-end (+ pos-start bytes) (+ pos-start bytes)))
+	  ((<= m 0) (flush))
+	  (declare (type fixnum pos-start pos-end m bytes))
+	  (output-line buf :start pos-start :end pos-end))))
+
+(defun main (&optional in-n)
+  (let ((n (or in-n
+			   (ignore-errors
+				 (parse-integer (car (last #+sbcl sb-ext:*posix-argv*
+										   #+cmu  extensions:*command-line-strings*
+										   #+gcl  si::*command-args*
+										   #+clisp nil))))
+			   1000)))
+	(declare (fixnum n))
+	(reset-random)
+	(repeat *alu* ">ONE Homo sapiens alu" (the fixnum (* n 2)))
+	(randomize *amino-acids-syms* *amino-acids-cprobs* ">TWO IUB ambiguity codes" (the fixnum (* n 3)))
+	(randomize *homo-sapiens-syms* *homo-sapiens-cprobs* ">THREE Homo sapiens frequency" (the fixnum (* n 5)))))
+;;   The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+;;;
+;;; By Jon Smith (rev 1)
+;;; Fixed a bug in my use of write-sequence, which wasn't apparent on my machine, for whatever reason.
+;;; Based off of java implementation. 
+;;;
+;;; To compile
+;;; sbcl --load fastab.lisp --eval "(save-lisp-and-die \"fastab.core\" :purify t :toplevel (lambda () (main) (quit)))"
+;;; To run
+;;; sbcl --noinform --core fastab.core %A
+;(setf *efficiency-note-cost-threshold* 1)
+
+(declaim (optimize (speed 3) (safety 0) (debug 0)))
+
+(defconstant line-length 60)
+(defconstant out-buffer-size (* 256 1024))
+(defconstant lookup-size (* 4 1024))
+(defconstant lookup-scale (the double-float (* 1.0d0 (- lookup-size 1))))
+(defconstant lim (- out-buffer-size (* 2 line-length) 1))
+
+(eval-when (:load-toplevel :compile-toplevel :execute)
+
+  (defstruct freq 
+    (c #\z :type character)
+    (m 0.0d0 :type double-float))
+
+  (defmacro frequify (&rest freq-pairs)
+    `(frequify-fn ',(mapcar (lambda (s)
+			      (destructuring-bind (b f) s
+				(list b f)))
+			    freq-pairs)))
+
+  (defun frequify-fn (parsed-freq-pairs)
+    (declare (type list parsed-freq-pairs))
+    (let ((i 0)
+	  (array (make-array (length parsed-freq-pairs))))
+      (dolist (pair parsed-freq-pairs)
+	(destructuring-bind (byte double) pair
+	  (let ((fr (make-freq :c byte :m double)))
+	    (setf (aref array i) fr)))
+	(incf i))
+      array))
+
+  (defun sum-and-scale (a)
+    (declare (type (simple-array freq (*)) a)) 
+    (let ((p 0.0d0))
+      (loop for i from 0 below (length a)
+	 do (setf (freq-m (aref a i))
+		  (* (incf p (freq-m (aref a i))) lookup-scale)))
+      (setf (freq-m (aref a (- (length a) 1))) lookup-scale))
+    a)
+  
+#+x86(defmacro ub (a)
+       `(the (unsigned-byte 32) ,a))
+
+(defmacro fx (a)
+    `(the fixnum ,a))
+  
+  (defsetf out-ct set-out-ct))
+
+(declaim (inline random-next))
+
+(defparameter *last* 42)
+#+x86-64(declaim (type (unsigned-byte 60) *last*))
+
+#+x86(declaim (type (unsigned-byte 29) *last*))
+
+(defconstant IM 139968)
+(defconstant IA 3877)
+(defconstant IC 29573)
+(defconstant scale (/ lookup-scale IM))
+
+(defconstant im-minus-1500 (- IM 1500))
+
+#+x86-64(defun random-next ()
+	  (declare (values (unsigned-byte 64)))
+	  (let ((last *last*))
+	    (setf *last* (the (integer 0 138467) (mod (+ (fx (* last IA)) IC) IM)))))
+
+#+x86(defun random-next ()
+       (declare (values (unsigned-byte 32)))
+       ;;fixnums are nice, but being able to use them is a pain in the ass
+       (let ((last *last*))
+	     (setf *last* (mod (ub (+ (ub (* last IA)) IC)) IM))
+))
+
+
+
+(let ((out-buf (make-array out-buffer-size :element-type 'character))
+      (ct 0))
+  (declare (type (simple-array character (*)) out-buf)
+	   (type fixnum ct))
+
+  (let ((stream *standard-output*))
+    (defun out-check-flush ()
+      (when (>= ct lim)
+	(write-sequence out-buf stream :start 0 :end ct) (setf ct 0)))
+
+    (defun out-close ()
+      (write-sequence out-buf stream :start 0 :end ct)
+      (setf ct 0)))
+
+  (let ((lookup (make-array lookup-size
+			    :element-type 'freq
+			    :initial-element (make-freq))))
+    (declare (type (simple-array freq (*)) lookup))
+
+    (defun random-fasta-make-lookup (a)
+      (declare (type (simple-array freq (*)) a))
+      (let ((j 0))
+	(loop for i from 0 below lookup-size
+	      do (loop while (< (freq-m (aref a j)) (* 1.0d0 i))  do (incf j))
+	      do (setf (aref lookup i) (aref a j)))))
+
+    (defun random-fasta-add-line (bytes)
+      (declare (type fixnum bytes))
+      (out-check-flush)
+      (let ((lct ct))
+	(declare (type fixnum lct))
+	(loop while (< lct (fx (+ ct bytes)))
+	      do (let* ((r (* (random-next) scale))
+			(ai (truncate r)))
+		   (loop while (< (freq-m (aref lookup ai)) r)
+			 do (incf ai))
+		   (setf (aref out-buf lct) (freq-c (aref lookup ai)))
+		   (incf lct)))
+
+	(setf (aref out-buf lct) #\NEWLINE)
+	(incf lct)
+	(setf ct lct)
+	(values))))
+
+  (defun random-fasta-make (desc a n)
+    (declare (type (simple-array character (*)) desc)
+	     (type fixnum n))
+
+    (random-fasta-make-lookup a)
+
+    (let ((len (length desc)))
+      (replace out-buf desc :start1 ct :start2 0 :end1 (fx (incf ct len)) :end2 len))
+
+    (setf (aref out-buf ct) #\NEWLINE)
+    (incf ct)
+    (loop while (> n 0)
+	  do (let ((bytes (min line-length n)))
+	       (random-fasta-add-line bytes)
+	       (decf n bytes)))
+    (values))
+
+  (defun repeat-fasta-make (desc alu n)
+    (declare (type (simple-array character (*)) desc alu)
+	     (type fixnum n))
+    (replace out-buf desc :start1 ct :end2 (length desc))
+    (incf ct (length desc))
+    (setf (aref out-buf ct) #\NEWLINE)
+    (incf ct)
+    (let ((buf (make-array (+ (length alu) line-length))))
+      (loop for i of-type fixnum from 0 below (length buf) by (length alu)
+	    do (replace buf alu :start1 i :end2 (min (length alu) (- (length buf) 1))))
+      (let ((pos 0))
+	(loop while (> n 0)
+	      do (let ((bytes (min line-length n)))
+		   (out-check-flush)
+		   (replace out-buf buf :start2 pos :start1 ct :end2 (the fixnum (+ pos bytes)))
+		   (incf ct bytes)
+		   (setf (aref out-buf ct) #\NEWLINE)
+		   (incf ct)
+		   (setf pos (mod (the fixnum (+ pos bytes)) (length alu)))
+		   (decf n bytes)))))
+    (values)))
+
+
+  (let ((ALU (concatenate 'string 
+			  "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG"
+			  "GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA"
+			  "CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT"
+			  "ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA"
+			  "GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG"
+			  "AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC"
+			  "AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA"))
+	(IUB (sum-and-scale (frequify 
+			     (#\a 0.27d0) (#\c 0.12d0) (#\g 0.12d0) (#\t 0.27d0)
+			     (#\B 0.02d0) (#\D 0.02d0) (#\H 0.02d0) (#\K 0.02d0)
+			     (#\M 0.02d0) (#\N 0.02d0) (#\R 0.02d0) (#\S 0.02d0)
+			     (#\V 0.02d0) (#\W 0.02d0) (#\Y 0.02d0))))
+	(homo-sapiens 
+	 (sum-and-scale (frequify 
+			 (#\a 0.3029549426680d0)
+			 (#\c 0.1979883004921d0)
+			 (#\g 0.1975473066391d0)
+			 (#\t 0.3015094502008d0)))))
+
+    (defun main (&optional in-n)
+      (let ((n (or in-n
+		   (ignore-errors
+		     (parse-integer (car (last #+sbcl sb-ext:*posix-argv*
+					       #+cmu  extensions:*command-line-strings*
+					       #+gcl  si::*command-args*
+					       #+clisp nil)))))))
+	(declare (type fixnum n))
+	(repeat-fasta-make ">ONE Homo sapiens alu" ALU (the fixnum (* n 2)))
+	(random-fasta-make ">TWO IUB ambiguity codes" IUB (the fixnum (* n 3)))
+	(random-fasta-make ">THREE Homo sapiens frequency" homo-sapiens (the fixnum (* n 5)))
+	(out-close))))
+;;   The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+;;;
+;;; By Jon Smith (rev 3)
+;;; Fixed a bug in my use of write-sequence, which wasn't apparent on my machine, for whatever reason.
+;;; Based off of java implementation. 
+;;;
+;;; To compile
+;;; sbcl --load fasta.lisp --eval "(save-lisp-and-die \"fasta.core\" :purify t :toplevel (lambda () (main) (quit)))"
+;;; To run
+;;; sbcl --noinform --core fastab.core %A
+;(setf *efficiency-note-cost-threshold* 1)
+
+(defmacro define-constant (name value &optional doc)
+  `(defconstant ,name (if (boundp ',name) (symbol-value ',name) ,value)
+     ,@(when doc (list doc))))
+
+(declaim (optimize (speed 3) (safety 0) (debug 0)))
+
+(defconstant line-length 60)
+(defconstant out-buffer-size (* 256 1024))
+(defconstant lookup-size (* 4 1024))
+(defconstant lookup-scale (the double-float (* 1.0d0 (- lookup-size 1))))
+(defconstant lim (- out-buffer-size (* 2 line-length) 1))
+
+(eval-when (:load-toplevel :compile-toplevel :execute)
+
+  (deftype cbyte () '(unsigned-byte 8))
+
+  (defmacro cbyte (form)
+    (cond ((stringp form)
+	   (map '(simple-array cbyte (*)) #'char-code form))
+	  ((characterp form)
+	   (char-code form))))
+  
+
+  (defstruct freq 
+    (c 0 :type cbyte)
+    (m 0.0d0 :type double-float))
+
+  (defmacro frequify (&rest freq-pairs)
+    `(frequify-fn ',(mapcar (lambda (s)
+			      (destructuring-bind (b f) s
+				(list (char-code b) f)))
+			    freq-pairs)))
+
+  (defun frequify-fn (parsed-freq-pairs)
+    (declare (type list parsed-freq-pairs))
+    (let ((i 0)
+	  (array (make-array (length parsed-freq-pairs))))
+      (dolist (pair parsed-freq-pairs)
+	(destructuring-bind (byte double) pair
+	  (let ((fr (make-freq :c byte :m double)))
+	    (setf (aref array i) fr)))
+	(incf i))
+      array))
+
+  (defun sum-and-scale (a)
+    (declare (type (simple-array freq (*)) a)) 
+    (let ((p 0.0d0))
+      (loop for i from 0 below (length a)
+	 do (setf (freq-m (aref a i))
+		  (* (incf p (freq-m (aref a i))) lookup-scale)))
+      (setf (freq-m (aref a (- (length a) 1))) lookup-scale))
+    a)
+
+  (defun random-fasta-make-lookup (a)
+    (declare (type (simple-array freq (*)) a))
+    (let ((lookup-byte (make-array lookup-size
+				   :element-type 'cbyte
+				   :initial-element 0))
+	  (lookup-float (make-array lookup-size
+				    :element-type 'double-float
+				    :initial-element 0.0d0)))
+      
+      (let ((j 0))
+	(loop for i from 0 below lookup-size
+	   do (loop while (< (freq-m (aref a j)) (* 1.0d0 i))  do (incf j))
+	   do (setf (aref lookup-float i) (freq-m (aref a j)))
+	   do (setf (aref lookup-byte i) (freq-c (aref a j)))))
+      (list lookup-float lookup-byte)))
+
+(defmacro fx (a)
+    `(the fixnum ,a)))
+
+(defconstant IM 139968)
+(defconstant IA 3877)
+(defconstant IC 29573)
+(defconstant scale (/ lookup-scale IM))
+
+(define-constant rand-array 
+  (let ((a (make-array IM :initial-element 0.0d0 :element-type 'double-float))
+	(last 42))
+    (labels ((random-next-sub ()
+			      (* scale (setf last (mod (+ (* last IA) IC) IM)))))
+      (dotimes (i 139968)
+	(setf (aref a i) (random-next-sub)))
+      a)))
+
+(define-constant ai-array 
+    (let ((a (make-array IM :initial-element 0 :element-type 'fixnum)))
+      (dotimes (i 139968)
+	(setf (aref a i) (truncate (aref rand-array i))))
+      a))
+
+(defparameter *c* 0)
+(declaim (type fixnum *c*))
+
+(defmacro random-next (c)
+  (assert (symbolp c))
+  (let ((g (gensym)))
+    `(if (= ,c 139968)
+	 (progn
+	   (setf ,c 1)
+	   (values ,(aref rand-array 0) ,(aref ai-array 0)))
+	 (let ((,g ,c)) 
+	   (incf ,c)
+	   (values (aref rand-array ,g) (aref ai-array ,g))))))
+
+(define-constant ALU (map '(simple-array cbyte (*)) #'char-code 
+			  (concatenate 'string
+				       "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG"
+				       "GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA"
+				       "CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT"
+				       "ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA"
+				       "GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG"
+				       "AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC"
+				       "AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA")))
+
+
+
+(define-constant IUB (random-fasta-make-lookup
+		      (sum-and-scale
+		       (frequify 
+			(#\a 0.27d0) (#\c 0.12d0) (#\g 0.12d0) (#\t 0.27d0)
+			(#\B 0.02d0) (#\D 0.02d0) (#\H 0.02d0) (#\K 0.02d0)
+			(#\M 0.02d0) (#\N 0.02d0) (#\R 0.02d0) (#\S 0.02d0)
+			(#\V 0.02d0) (#\W 0.02d0) (#\Y 0.02d0)))))
+
+(define-constant homo-sapiens 
+    (random-fasta-make-lookup 
+     (sum-and-scale 
+      (frequify 
+       (#\a 0.3029549426680d0)
+       (#\c 0.1979883004921d0)
+       (#\g 0.1975473066391d0)
+       (#\t 0.3015094502008d0)))))
+
+(define-constant out-buf (make-array out-buffer-size :element-type 'cbyte))
+
+(let ((ct 0))
+  (declare (type fixnum ct))
+
+  (let (out)
+    (defun set-out (stream)
+      (setf out stream))
+
+    (defun out-check-flush ()
+      (when (>= ct lim)
+	(write-sequence out-buf out :start 0 :end ct) (setf ct 0)))
+
+    (defun out-close ()
+      (write-sequence out-buf out :start 0 :end ct)
+      (setf ct 0)
+      (close out)
+      ))
+
+  (defun random-fasta-add-line (bytes lookup-float lookup-byte)
+    (declare (type fixnum bytes)
+	     (type (simple-array double-float (#.lookup-size)) lookup-float)
+	     (type (simple-array cbyte (#.lookup-size)) lookup-byte))
+    (out-check-flush)
+    (let ((lct ct)
+	  (c *c*))
+      (declare (type fixnum lct)
+	       (type fixnum c))
+      (loop while (< lct (fx (+ ct bytes)))
+	 do (multiple-value-bind (r ai) (random-next c)
+	      (loop while (< (aref lookup-float ai) r)
+		 do (incf ai))
+	      (setf (aref out-buf lct) (aref lookup-byte ai))
+	      (incf lct)))
+
+      (setf (aref out-buf lct) (cbyte #\NEWLINE))
+      (incf lct)
+      (setf ct lct)
+      (setf *c* c)
+      (values)))
+
+  (defun random-fasta-make (desc lookup-float lookup-byte n)
+    (declare (type (simple-array cbyte (*)) desc)
+	     (type fixnum n))
+    (let ((len (length desc)))
+      (replace out-buf desc :start1 ct :start2 0 :end1 (fx (incf ct len)) :end2 len))
+    (setf (aref out-buf ct) (cbyte #\NEWLINE))
+    (incf ct)
+    (loop while (> n 0)
+       do (let ((bytes (min line-length n)))
+	    (random-fasta-add-line bytes lookup-float lookup-byte)
+	    (decf n bytes)))
+    (values))
+
+  (defun repeat-fasta-make (desc n)
+    (declare (type (simple-array cbyte (*)) desc)
+	     (type fixnum n))
+    (replace out-buf desc :start1 ct :end2 (length desc))
+    (incf ct (length desc))
+    (setf (aref out-buf ct) (cbyte #\NEWLINE))
+    (incf ct)
+    (let ((buf (make-array (+ (length alu) line-length))))
+      (loop for i of-type fixnum from 0 below (length buf) by (length alu)
+	 do (replace buf alu :start1 i :end2 (min (length alu) (- (length buf) 1))))
+      (let ((pos 0))
+	(loop while (> n 0)
+	   do (let ((bytes (min line-length n)))
+		(out-check-flush)
+		(replace out-buf buf :start2 pos :start1 ct :end2 (the fixnum (+ pos bytes)))
+		(incf ct bytes)
+		(setf (aref out-buf ct) (cbyte #\NEWLINE))
+		(incf ct)
+		(setf pos (mod (the fixnum (+ pos bytes)) (length alu)))
+		(decf n bytes)))))
+    (values)))
+
+(defun main (&optional in-n)
+  (let ((n (or in-n
+	       (ignore-errors
+		 (parse-integer (car (last #+sbcl sb-ext:*posix-argv*
+					   #+cmu  extensions:*command-line-strings*
+					   #+gcl  si::*command-args*
+					   #+clisp nil)))))))
+    (declare (type fixnum n))
+    (set-out (open #p"/dev/stdout" :direction :output :if-exists :append :element-type 'cbyte))
+    (unwind-protect (progn
+		      (repeat-fasta-make (cbyte ">ONE Homo sapiens alu") (the fixnum (* n 2)))
+		      (random-fasta-make (cbyte ">TWO IUB ambiguity codes") 
+					 (first IUB)
+					 (second IUB)
+					 (the fixnum (* n 3)))
+		      (random-fasta-make 
+		       (cbyte ">THREE Homo sapiens frequency")
+		       (first homo-sapiens)
+		       (second homo-sapiens)
+		       (the fixnum (* n 5))))
+      (out-close))))
+;;; -*- mode: lisp -*-
+;;; $Id: fibo.sbcl,v 1.17 2005-05-22 23:50:20 bfulgham Exp $
+;;; http://shootout.alioth.debian.org/
+;;; from Bulent Murtezaogl
+;;; Multi-lisp modifications by Brent Fulgham
+
+(declaim (optimize (speed 3) #-gcl (debug 0) (safety 0) (space 0) (compilation-speed 0))
+	 (ftype (function (fixnum) fixnum) fib))
+
+(defun fib (n)
+  (declare (values fixnum))
+  (if (< n 2) 1 (+ (fib (- n 1)) (fib (- n 2)))))
+
+(defun main ()
+  (let ((n (parse-integer (or (car (last #+sbcl sb-ext:*posix-argv*
+                                         #+cmu  extensions:*command-line-strings*
+					 #+gcl  si::*command-args*)) "1"))))
+    (format t "~d~%" (fib n))))
+;;   The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+;;   contributed by James McIlree
+;;   Modified by Juho Snellman 2005-11-19
+;;     * About 50% speedup on both SBCL and CMUCL
+;;     * Use SIMPLE-BASE-STRINGs instead of (SIMPLE-ARRAY CHARACTER) for
+;;       lower memory use on Unicode SBCL
+;;     * Declare the type of SEQUENCE in ACCUMULATE-FREQUENCIES
+
+(defun read-data (stream)
+  (let ((data (make-array 0 :element-type 'base-char :adjustable t :fill-pointer 0)))
+    (do ((line (read-line stream nil 'eof) (read-line stream nil 'eof)))
+        ((or (eq line 'eof) (string= ">THREE" line :start2 0 :end2 6))))
+    (do ((line (read-line stream nil 'eof) (read-line stream nil 'eof)))
+        ((or (eq line 'eof) (char= (schar line 0) #\>)))
+      (if (not (char= (schar line 0) #\;))
+          (dotimes (char-index (length line))
+            (vector-push-extend (char-upcase (the base-char (schar line char-index))) data))))
+    (coerce data 'simple-base-string)))
+
+(defun accumulate-frequencies (hashmap sequence offset fragment-length)
+  (declare (type (integer 0 18) fragment-length)
+           (fixnum offset)
+           (type (simple-base-string) sequence))
+  (let ((last-sequence-index (- (length sequence) fragment-length)))
+    (do ((start offset (+ start fragment-length)))
+        ((> start last-sequence-index))
+      (let ((fragment (subseq sequence start (+ start fragment-length))))
+        (setf (gethash fragment hashmap) (1+ (the (integer 0 999999) (gethash fragment hashmap 0))))))))
+
+(defun calculate-frequencies (sequence fragment-length)
+  (declare (type (integer 0 18) fragment-length))
+  (let ((hashmap (make-hash-table :test #'equal)))
+    (dotimes (offset fragment-length)
+      (accumulate-frequencies hashmap sequence offset fragment-length))
+    hashmap))
+
+(defun write-frequencies (sequence length)
+  (let ((sorted-frequencies)
+        (sum 0))
+    (declare (fixnum sum))
+    (maphash #'(lambda (k v)
+                 (setf sum (+ sum (the fixnum v)))
+                 (setf sorted-frequencies (cons (cons k v) sorted-frequencies))) (calculate-frequencies sequence length))
+    (setf sorted-frequencies (sort sorted-frequencies #'(lambda (v1 v2)
+                                                          (cond ((> (the (integer 0 999999) (cdr v1)) (the (integer 0 999999) (cdr v2))) t)
+                                                                ((< (the (integer 0 999999) (cdr v1)) (the (integer 0 999999) (cdr v2))) nil)
+                                                                (t (string< (car v1) (car v2)))))))
+    (dolist (entry sorted-frequencies) (format t "~A ~,3F~%" (car entry) (* (/ (the (integer 0 999999) (cdr entry)) sum) 100.0)))
+    (terpri)))
+
+;;
+;; Delete this before including in the shootout, test method only.
+;;
+;;(defun test-main (filename)
+;;  (with-open-file (stream filename)
+;;    (let ((sequence (read-data stream)))
+;;      (declare (type (simple-array * *) sequence))
+;;      (dolist (entry '(1 2)) (write-frequencies sequence entry))
+;;      (dolist (entry '("GGT" "GGTA" "GGTATT" "GGTATTTTAATT" "GGTATTTTAATTTATAGT"))
+;;        (declare (type (simple-array * *) entry))
+;;        (format t "~A~C~A~%" (gethash entry (calculate-frequencies sequence (length entry)) 0) #\Tab entry)))))
+
+(defun main ()
+  (let ((sequence (read-data *standard-input*)))
+    (declare (type (simple-array * *) sequence))
+    (dolist (entry '(1 2)) (write-frequencies sequence entry))
+    (dolist (entry '("GGT" "GGTA" "GGTATT" "GGTATTTTAATT" "GGTATTTTAATTTATAGT"))
+      (declare (type (simple-array * *) entry))
+      (format t "~A~C~A~%"
+              (gethash entry (calculate-frequencies sequence (length entry)) 0)
+              #\Tab entry))))
+;;   The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+;;   contributed by Vsevolod Dyomkin
+;;   modified by John Fingerhut
+
+
+(defun slice-and-dice (gene k ht)
+  (declare (optimize (speed 3) (safety 0) (debug 0))
+	   (type simple-base-string gene)
+	   (type fixnum k))
+  (clrhash ht)
+;  (setf ht (make-hash-table :size (expt 2 k)))
+  (if (= k 1)
+      (dotimes (i (the fixnum (1+ (- (length gene) k))))
+        (incf (the fixnum (gethash (schar gene i) ht 0))))
+      (loop for i from 0 to (the fixnum (1+ (- (length gene) k)))
+         with gene-num = 0 and mask = (1- (expt 4 k)) do
+           (setf gene-num (logand mask (letter-to-num gene i gene-num)))
+           (unless (< i (the fixnum (1- k)))
+             (incf (the fixnum (gethash gene-num ht 0))))))
+  ht)
+
+(declaim (inline letter-to-num))
+(defun letter-to-num (gene i idx)
+  (declare (optimize (speed 3) (safety 0) (debug 0))
+           (type fixnum i))
+  (ecase (schar gene i)
+    (#\A (ash idx 2))
+    (#\C (logxor (ash idx 2) 1))
+    (#\G (logxor (ash idx 2) 2))
+    (#\T (logxor (ash idx 2) 3))))
+
+(declaim (inline gene-to-num))
+(defun gene-to-num (gene)
+  (let ((gene-num 0))
+    (dotimes (i (length gene))
+      (declare (fixnum i))
+      (setf gene-num (letter-to-num gene i gene-num)))
+    gene-num))
+
+(declaim (inline num-to-gene))
+(defun num-to-gene (num k)
+  (declare (optimize (speed 3) (safety 0) (debug 0))
+           (type fixnum num)
+           (type fixnum k))
+  (let ((gene (make-array k :element-type 'base-char))
+        (acgt #(#\A #\C #\G #\T)))
+    (dotimes (i k)
+      (let ((pos (* i 2)))
+        (declare (type fixnum pos))
+        (setf (aref gene (- k i 1))
+              (aref acgt (+ (if (logbitp pos num) 1 0)
+                            (if (logbitp (1+ pos) num) 2 0))))))
+    gene))
+
+(defun discard-data-header (stream)
+  (loop for line = (read-line stream nil nil)
+	while (and line (string/= ">THREE" line :end2 6))))
+
+(defun read-data (stream)
+  (declare (optimize (speed 3) (safety 0) (debug 0)))
+  (let ((data (make-array 0 :element-type 'base-char :adjustable t :fill-pointer 0)))
+    (do ((line (read-line stream nil 'eof) (read-line stream nil 'eof)))
+        ((or (eq line 'eof) (char= (schar line 0) #\>)))
+      (if (not (char= (schar line 0) #\;))
+          (dotimes (char-index (length line))
+            (vector-push-extend (char-upcase (the base-char (schar line char-index))) data))))
+    (coerce data 'simple-base-string)))
+
+(defun print-precentages (gene k ht)
+  (declare (type simple-base-string gene)
+	   (type fixnum k))
+  (let* ((gene-table (slice-and-dice gene k ht))
+	 sorted-frequencies
+	 (sum 0))
+    (maphash (lambda (key v)
+	       (incf sum v)
+	       (push (cons key v)
+                     sorted-frequencies))
+	     gene-table)
+    (setf sorted-frequencies
+	  (sort sorted-frequencies
+		(lambda (v1 v2)
+                  (cond ((> (cdr v1) (cdr v2)) t)
+                        ((< (cdr v1) (cdr v2)) nil)
+                        (t (< (car v1) (car v2)))))))
+    (dolist (entry sorted-frequencies)
+      (format t "~a ~,3F~%"
+	      (if (= k 1) (car entry)
+                  (num-to-gene (car entry) k))
+	      (* (/ (cdr entry) (float sum)) 100.0)))
+    (terpri)))
+
+(defun print-occurence (slice gene k ht)
+  (let ((gene-table (slice-and-dice gene k ht)))
+    (format t "~A~C~A~%"
+            (gethash (gene-to-num slice) gene-table 0)
+            #\Tab
+            slice)))
+
+(defun main ()
+  (declare (optimize (speed 0) (safety 1)))
+  (discard-data-header *standard-input*)
+  (let ((gene (read-data *standard-input*))
+        (ht (make-hash-table :rehash-size 5.0)))
+    (print-precentages gene 1 ht)
+    (print-precentages gene 2 ht)
+    (print-occurence "GGT" gene 3 ht)
+    (print-occurence "GGTA" gene 4 ht)
+    (print-occurence "GGTATT" gene 6 ht)
+    (print-occurence "GGTATTTTAATT" gene 12 ht)
+    (print-occurence "GGTATTTTAATTTATAGT" gene 18 ht)))
+
+
+(defun test ()
+  (with-open-file (*standard-input* "knucleotide-input.txt"
+				    :direction :input)
+    (with-open-file (*standard-output* "knucleotide-output.txt"
+				       :direction :output
+				       :if-does-not-exist :create
+				       :if-exists :supersede)
+      (main))))
+;;   The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+;;   contributed by Vsevolod Dyomkin
+
+
+(defun slice-and-dice (gene k ht)
+  (declare (optimize (speed 3) (safety 0) (debug 0))
+	   (type simple-base-string gene)
+	   (type fixnum k))
+  (clrhash ht)
+;  (setf ht (make-hash-table :size (expt 2 k)))
+  (if (= k 1)
+      (dotimes (i (the fixnum (- (length gene) k)))
+        (incf (the fixnum (gethash (schar gene i) ht 0))))
+      (loop for i from 0 to (the fixnum (- (length gene) k))
+         with gene-num = 0 and mask = (1- (expt 4 k)) do
+           (setf gene-num (logand mask (letter-to-num gene i gene-num)))
+           (unless (< i (the fixnum (1- k)))
+             (incf (the fixnum (gethash gene-num ht 0))))))
+  ht)
+
+(declaim (inline letter-to-num))
+(defun letter-to-num (gene i idx)
+  (declare (optimize (speed 3) (safety 0) (debug 0))
+           (type fixnum i))
+  (ecase (schar gene i)
+    (#\A (ash idx 2))
+    (#\C (logxor (ash idx 2) 1))
+    (#\G (logxor (ash idx 2) 2))
+    (#\T (logxor (ash idx 2) 3))))
+
+(declaim (inline gene-to-num))
+(defun gene-to-num (gene)
+  (let ((gene-num 0))
+    (dotimes (i (length gene))
+      (declare (fixnum i))
+      (setf gene-num (letter-to-num gene i gene-num)))
+    gene-num))
+
+(declaim (inline num-to-gene))
+(defun num-to-gene (num k)
+  (declare (optimize (speed 3) (safety 0) (debug 0))
+           (type fixnum num)
+           (type fixnum k))
+  (let ((gene (make-array k :element-type 'base-char))
+        (acgt #(#\A #\C #\G #\T)))
+    (dotimes (i k)
+      (let ((pos (* i 2)))
+        (declare (type fixnum pos))
+        (setf (aref gene (- k i 1))
+              (aref acgt (+ (if (logbitp pos num) 1 0)
+                            (if (logbitp (1+ pos) num) 2 0))))))
+    gene))
+
+(defun discard-data-header (stream)
+  (loop for line = (read-line stream nil nil)
+	while (and line (string/= ">THREE" line :end2 6))))
+
+(defun read-data (stream)
+  (declare (optimize (speed 3) (safety 0) (debug 0)))
+  (let ((data (make-array 0 :element-type 'base-char :adjustable t :fill-pointer 0)))
+    (do ((line (read-line stream nil 'eof) (read-line stream nil 'eof)))
+        ((or (eq line 'eof) (char= (schar line 0) #\>)))
+      (if (not (char= (schar line 0) #\;))
+          (dotimes (char-index (length line))
+            (vector-push-extend (char-upcase (the base-char (schar line char-index))) data))))
+    (coerce data 'simple-base-string)))
+
+(defun print-precentages (gene k ht)
+  (declare (type simple-base-string gene)
+	   (type fixnum k))
+  (let* ((gene-table (slice-and-dice gene k ht))
+	 sorted-frequencies
+	 (sum 0))
+    (maphash (lambda (key v)
+	       (incf sum v)
+	       (push (cons key v)
+                     sorted-frequencies))
+	     gene-table)
+    (setf sorted-frequencies 
+	  (sort sorted-frequencies
+		(lambda (v1 v2)
+                  (cond ((> (cdr v1) (cdr v2)) t)
+                        ((< (cdr v1) (cdr v2)) nil)
+                        (t (< (car v1) (car v2)))))))
+    (dolist (entry sorted-frequencies)
+      (format t "~a ~,3F~%"
+	      (if (= k 1) (car entry)
+                  (num-to-gene (car entry) k))
+	      (* (/ (cdr entry) (float sum)) 100.0)))
+    (terpri)))
+
+(defun print-occurence (slice gene k ht)
+  (let ((gene-table (slice-and-dice gene k ht)))
+    (format t "~A~C~A~%"
+            (gethash (gene-to-num slice) gene-table 0)
+            #\Tab
+            slice)))
+
+(defun main ()
+  (declare (optimize (speed 0) (safety 1)))
+  (discard-data-header *standard-input*)
+  (let ((gene (read-data *standard-input*))
+        (ht (make-hash-table :rehash-size 5.0)))
+    (print-precentages gene 1 ht)
+    (print-precentages gene 2 ht)
+    (print-occurence "GGT" gene 3 ht)
+    (print-occurence "GGTA" gene 4 ht)
+    (print-occurence "GGTATT" gene 6 ht)
+    (print-occurence "GGTATTTTAATT" gene 12 ht)
+    (print-occurence "GGTATTTTAATTTATAGT" gene 18 ht)))
+
+
+(defun test ()
+  (with-open-file (*standard-input* "knucleotide-input.txt"
+				    :direction :input)
+    (with-open-file (*standard-output* "knucleotide-output.txt"
+				       :direction :output
+				       :if-does-not-exist :create
+				       :if-exists :supersede)
+      (main))))
+;; The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+;;
+;;   contributed by Alexey Voznyuk
+;;
+
+(defpackage #:k-nucleotide
+  (:use :cl))
+
+(in-package :k-nucleotide)
+
+(defmacro with-packed-sequences ((&rest sequences) &body body)
+  (loop :for (bind update length) :in sequences
+     :collect `(,bind 0) :into binds
+     :collect `(type (integer 0 ,(1- (expt 4 length))) ,bind) :into decls
+     :collect `(,update (char) `(setf ,',bind
+                                      (logior (ash ,',bind -2)
+                                              (ash (logand (char-code ,char) #x6)
+                                                   ,',(1- (* (1- length) 2)))))) :into updates
+     :finally (return `(let (,@binds) (declare ,@decls) (macrolet (,@updates) ,@body)))))
+
+(defmacro pack-sequence (sequence)
+  `(with-packed-sequences ((bind update ,(length sequence)))
+     (loop :for char :across ,sequence
+        :do (update char))
+     bind))
+
+(defun unpack-sequence (length packed-seq)
+  (declare (optimize (speed 3) (safety 0) (debug 0))
+           (type fixnum length packed-seq))
+  (with-output-to-string (seq-out)
+    (loop :repeat length
+       :do (write-char (ecase (logand packed-seq #x3)
+                         (0 #\A) (1 #\C) (2 #\T) (3 #\G))
+                       seq-out)
+       :do (setf packed-seq (ash packed-seq -2)))))
+
+(defmacro with-packed-caches-fill ((hash-access) &rest updaters)
+  `(progn ,@(loop
+               :for tick :from 1 :to (apply #'max (mapcar #'third updaters))
+               :collect `(with-current-char (char :skip-newline t)
+                           ,@(loop :for (bind update length) :in updaters
+                                :collect `(,update char)
+                                :when (>= tick length)
+                                :collect `(,hash-access ,length ,bind))))))
+
+(defmacro with-reading-stream ((stream &key (block-size 8192)) &body body)
+  `(block outer-tag
+     (let ((advance (let ((buffer (make-array ,block-size :element-type 'standard-char :initial-element #\Newline))
+                          (index 0)
+                          (amount 0))
+                      (declare (type fixnum index amount))
+                      (lambda ()
+                        (prog2 (when (>= index amount)
+                                 (setf amount (read-sequence buffer ,stream)
+                                       index 0)
+                                 (when (zerop amount)
+                                   (return-from outer-tag nil)))
+                            (elt buffer index)
+                          (incf index))))))
+       (flet ((get-char () (funcall advance)))
+         (macrolet ((with-current-char ((char &key skip-newline) &body body)
+                      `(let ((,char ,(if skip-newline
+                                         `(loop :for ,char = (get-char) :while (char= ,char #\Newline)
+                                             :finally (return ,char))
+                                         `(get-char))))
+                         (declare (type standard-char ,char))
+                         ,@body)))
+           ,@body)))))
+
+(defmacro skip-buffer-to (&rest patterns)
+  `(progn ,@(loop :for pattern :in patterns
+               :collect `(loop :until (and ,@(loop :for char :across (string pattern)
+                                                :collect `(with-current-char (char)
+                                                            (char= char ,char))))))))
+
+(defmacro with-dna-analyzed ((stream hash-access &key (block-size 8192)) &rest sequence-lengths)
+  (loop :for length :in sequence-lengths
+     :collect (gensym) :into binds
+     :collect (gensym) :into updaters
+     :finally (let ((desc (mapcar #'list binds updaters sequence-lengths)))
+                (return `(with-packed-sequences (,@desc)
+                           (with-reading-stream (,stream :block-size ,block-size)
+                             (skip-buffer-to ">THREE" #\Newline)
+                             (with-packed-caches-fill (,hash-access)
+                               ,@desc)
+                             (loop (with-current-char (char :skip-newline t)
+                                     ,@(loop
+                                          :for update :in updaters
+                                          :for bind :in binds
+                                          :for length :in sequence-lengths
+                                          :collect `(,update char)
+                                          :collect `(,hash-access ,length ,bind))))))))))
+
+(defun seq= (seq-a seq-b)
+  (declare (optimize (speed 3) (safety 0) (debug 0)) (type fixnum seq-a seq-b))
+  (= seq-a seq-b))
+
+(defun seq-hash (seq)
+  (declare (optimize (speed 3) (safety 0) (debug 0)) (type fixnum seq))
+  seq)
+
+(sb-ext:define-hash-table-test seq= seq-hash)
+
+(defmacro with-smart-dna-hash ((hash-access hash-loop &key (vector-threshold 1048576)) (&rest sequence-lengths) &body body)
+  (loop :for length :in sequence-lengths
+     :for bind = (gensym)
+     :for area = (expt 4 length)
+     :for vec-p = (<= area vector-threshold)
+     :collect `(,bind ,(if vec-p
+                           `(make-array ,area :element-type 'fixnum :initial-element 0)
+                           `(make-hash-table :test ',(if (< area most-positive-fixnum) 'seq= 'eql)
+                                             :rehash-size ,(expt 2 (1- length))
+                                             :rehash-threshold 0.7))) :into binds
+     :collect `(,length ,(if vec-p ``(elt ,',bind ,key) ``(the fixnum (gethash ,key ,',bind 0)))) :into accesses
+     :collect `(,length ,(if vec-p
+                             ``(loop :for i :from 0 :below ,',(expt 4 length)
+                                  :for ,value = (elt ,',bind i)
+                                  :for ,key = (unpack-sequence ,',length i)
+                                  :unless (zerop ,value)
+                                  ,@loop-keywords)
+                             ``(loop :for packed-key :being :the :hash-keys :in ,',bind
+                                  :for ,key = (unpack-sequence ,',length packed-key)
+                                  :for ,value = (,',hash-access ,',length packed-key)
+                                  ,@loop-keywords))) :into loops
+     :finally (return `(let (,@binds)
+                         (macrolet ((,hash-access (seq-length key) (ecase seq-length ,@accesses))
+                                    (,hash-loop ((seq-length key value) &rest loop-keywords) (ecase seq-length ,@loops)))
+                           ,@body)))))
+
+(defmacro with-percentage ((hash-loop &rest seq-descriptions) &body body)
+  (if (null seq-descriptions)
+      `(progn ,@body)
+      (destructuring-bind (seq-bind seq-length)
+          (car seq-descriptions)
+        `(let ((,seq-bind (,hash-loop (,seq-length k v)
+                                      :summing v :into total :of-type fixnum
+                                      :and :collect k :into seqs
+                                      :and :collect v :into counts
+                                      :finally (return (mapcar #'list
+                                                               seqs
+                                                               (mapcar (lambda (count)
+                                                                         (declare (type fixnum count))
+                                                                         (/ (* count 100.0) total))
+                                                                       counts))))))
+           (with-percentage (,hash-loop ,@(cdr seq-descriptions)) ,@body)))))
+
+(defmacro obtain-seq-count (hash-access seq)
+  `(list (,hash-access ,(length seq) (pack-sequence ,seq)) #\Tab ,seq))
+
+(defun perform-work (stream)
+  (declare (optimize (speed 3) (safety 0) (debug 0)))
+  (with-smart-dna-hash (hash-access hash-loop :vector-threshold 16777216)
+      (1 2 3 4 6 12 18)
+    (macrolet ((incf-hash-element (seq-length key)
+                 `(incf (hash-access ,seq-length ,key))))
+      (with-dna-analyzed (stream incf-hash-element :block-size 655350) 1 2 3 4 6 12 18)
+      (with-percentage (hash-loop (seqs-1 1) (seqs-2 2))
+        (values (list seqs-1 seqs-2)
+                (list (obtain-seq-count hash-access "GGT")
+                      (obtain-seq-count hash-access "GGTA")
+                      (obtain-seq-count hash-access "GGTATT")
+                      (obtain-seq-count hash-access "GGTATTTTAATT")
+                      (obtain-seq-count hash-access "GGTATTTTAATTTATAGT")))))))
+
+(defun print-results (seq-freqs seq-counts)
+  (labels ((compare (a b)
+             (cond ((> (second a) (second b)) t)
+                   ((< (second a) (second b)) nil)
+                   (t (string< (first a) (first b)))))
+           (print-freq (freq)
+             (format t "~{~{~a ~3$~}~%~}~%" (sort freq #'compare))))
+    (mapc #'print-freq seq-freqs)
+    (format t "~{~{~a~c~a~}~%~}" seq-counts)))
+
+
+(defun main ()
+  (with-open-file (input-s #p"/dev/stdin" :external-format :iso-8859-1)
+    (multiple-value-bind (freqs counts)
+        (perform-work input-s)
+      (print-results freqs counts))))
+
+
+(in-package :cl-user)
+
+(defun main ()
+  (k-nucleotide::main))
+
+;; The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+;;
+;;   contributed by Alexey Voznyuk
+;;;
+;;; modified by Marko Kocic 
+;;;   * add optimization declarations
+
+(defpackage #:k-nucleotide
+  (:use :cl))
+
+(in-package :k-nucleotide)
+
+(declaim (optimize (speed 3)(safety 0)(space 0)(debug 0)))
+
+(defmacro with-packed-sequences ((&rest sequences) &body body)
+  (loop :for (bind update length) :in sequences
+     :collect `(,bind 0) :into binds
+     :collect `(type (integer 0 ,(1- (expt 4 length))) ,bind) :into decls
+     :collect `(,update (char) `(setf ,',bind
+                                      (logior (ash ,',bind -2)
+                                              (ash (logand (char-code ,char) #x6)
+                                                   ,',(1- (* (1- length) 2)))))) :into updates
+     :finally (return `(let (,@binds) (declare ,@decls) (macrolet (,@updates) ,@body)))))
+
+(defmacro pack-sequence (sequence)
+  `(with-packed-sequences ((bind update ,(length sequence)))
+     (loop :for char :across ,sequence
+        :do (update char))
+     bind))
+
+(defun unpack-sequence (length packed-seq)
+  (declare (optimize (speed 3) (safety 0) (debug 0))
+           (type fixnum length packed-seq))
+  (with-output-to-string (seq-out)
+    (loop :repeat length
+       :do (write-char (ecase (logand packed-seq #x3)
+                         (0 #\A) (1 #\C) (2 #\T) (3 #\G))
+                       seq-out)
+       :do (setf packed-seq (ash packed-seq -2)))))
+
+(defmacro with-packed-caches-fill ((hash-access) &rest updaters)
+  `(progn ,@(loop
+               :for tick :from 1 :to (apply #'max (mapcar #'third updaters))
+               :collect `(with-current-char (char :skip-newline t)
+                           ,@(loop :for (bind update length) :in updaters
+                                :collect `(,update char)
+                                :when (>= tick length)
+                                :collect `(,hash-access ,length ,bind))))))
+
+(defmacro with-reading-stream ((stream &key (block-size 8192)) &body body)
+  `(block outer-tag
+     (let ((advance (let ((buffer (make-array ,block-size :element-type 'standard-char :initial-element #\Newline))
+                          (index 0)
+                          (amount 0))
+                      (declare (type fixnum index amount))
+                      (lambda ()
+                        (prog2 (when (>= index amount)
+                                 (setf amount (read-sequence buffer ,stream)
+                                       index 0)
+                                 (when (zerop amount)
+                                   (return-from outer-tag nil)))
+                            (elt buffer index)
+                          (incf index))))))
+       (flet ((get-char () (funcall advance)))
+         (macrolet ((with-current-char ((char &key skip-newline) &body body)
+                      `(let ((,char ,(if skip-newline
+                                         `(loop :for ,char = (get-char) :while (char= ,char #\Newline)
+                                             :finally (return ,char))
+                                         `(get-char))))
+                         (declare (type standard-char ,char))
+                         ,@body)))
+           ,@body)))))
+
+(defmacro skip-buffer-to (&rest patterns)
+  `(progn ,@(loop :for pattern :in patterns
+               :collect `(loop :until (and ,@(loop :for char :across (string pattern)
+                                                :collect `(with-current-char (char)
+                                                            (char= char ,char))))))))
+
+(defmacro with-dna-analyzed ((stream hash-access &key (block-size 8192)) &rest sequence-lengths)
+  (loop :for length :in sequence-lengths
+     :collect (gensym) :into binds
+     :collect (gensym) :into updaters
+     :finally (let ((desc (mapcar #'list binds updaters sequence-lengths)))
+                (return `(with-packed-sequences (,@desc)
+                           (with-reading-stream (,stream :block-size ,block-size)
+                             (skip-buffer-to ">THREE" #\Newline)
+                             (with-packed-caches-fill (,hash-access)
+                               ,@desc)
+                             (loop (with-current-char (char :skip-newline t)
+                                     ,@(loop
+                                          :for update :in updaters
+                                          :for bind :in binds
+                                          :for length :in sequence-lengths
+                                          :collect `(,update char)
+                                          :collect `(,hash-access ,length ,bind))))))))))
+
+(defun seq= (seq-a seq-b)
+  (declare (optimize (speed 3) (safety 0) (debug 0)) (type fixnum seq-a seq-b))
+  (= seq-a seq-b))
+
+(defun seq-hash (seq)
+  (declare (optimize (speed 3) (safety 0) (debug 0)) (type fixnum seq))
+  seq)
+
+(sb-ext:define-hash-table-test seq= seq-hash)
+
+(defmacro with-smart-dna-hash ((hash-access hash-loop &key (vector-threshold 1048576)) (&rest sequence-lengths) &body body)
+  (loop :for length :in sequence-lengths
+     :for bind = (gensym)
+     :for area = (expt 4 length)
+     :for vec-p = (<= area vector-threshold)
+     :collect `(,bind ,(if vec-p
+                           `(make-array ,area :element-type 'fixnum :initial-element 0)
+                           `(make-hash-table :test ',(if (< area most-positive-fixnum) 'seq= 'eql)
+                                             :rehash-size ,(expt 2 (1- length))
+                                             :rehash-threshold 0.7))) :into binds
+     :collect `(,length ,(if vec-p ``(elt ,',bind ,key) ``(the fixnum (gethash ,key ,',bind 0)))) :into accesses
+     :collect `(,length ,(if vec-p
+                             ``(loop :for i :from 0 :below ,',(expt 4 length)
+                                  :for ,value = (elt ,',bind i)
+                                  :for ,key = (unpack-sequence ,',length i)
+                                  :unless (zerop ,value)
+                                  ,@loop-keywords)
+                             ``(loop :for packed-key :being :the :hash-keys :in ,',bind
+                                  :for ,key = (unpack-sequence ,',length packed-key)
+                                  :for ,value = (,',hash-access ,',length packed-key)
+                                  ,@loop-keywords))) :into loops
+     :finally (return `(let (,@binds)
+                         (macrolet ((,hash-access (seq-length key) (ecase seq-length ,@accesses))
+                                    (,hash-loop ((seq-length key value) &rest loop-keywords) (ecase seq-length ,@loops)))
+                           ,@body)))))
+
+(defmacro with-percentage ((hash-loop &rest seq-descriptions) &body body)
+  (if (null seq-descriptions)
+      `(progn ,@body)
+      (destructuring-bind (seq-bind seq-length)
+          (car seq-descriptions)
+        `(let ((,seq-bind (,hash-loop (,seq-length k v)
+                                      :summing v :into total :of-type fixnum
+                                      :and :collect k :into seqs
+                                      :and :collect v :into counts
+                                      :finally (return (mapcar #'list
+                                                               seqs
+                                                               (mapcar (lambda (count)
+                                                                         (declare (type fixnum count))
+                                                                         (/ (* count 100.0) total))
+                                                                       counts))))))
+           (with-percentage (,hash-loop ,@(cdr seq-descriptions)) ,@body)))))
+
+(defmacro obtain-seq-count (hash-access seq)
+  `(list (,hash-access ,(length seq) (pack-sequence ,seq)) #\Tab ,seq))
+
+(defun perform-work (stream)
+  (declare (optimize (speed 3) (safety 0) (debug 0)))
+  (with-smart-dna-hash (hash-access hash-loop :vector-threshold 16777216)
+      (1 2 3 4 6 12 18)
+    (macrolet ((incf-hash-element (seq-length key)
+                 `(incf (hash-access ,seq-length ,key))))
+      (with-dna-analyzed (stream incf-hash-element :block-size 655350) 1 2 3 4 6 12 18)
+      (with-percentage (hash-loop (seqs-1 1) (seqs-2 2))
+        (values (list seqs-1 seqs-2)
+                (list (obtain-seq-count hash-access "GGT")
+                      (obtain-seq-count hash-access "GGTA")
+                      (obtain-seq-count hash-access "GGTATT")
+                      (obtain-seq-count hash-access "GGTATTTTAATT")
+                      (obtain-seq-count hash-access "GGTATTTTAATTTATAGT")))))))
+
+(defun print-results (seq-freqs seq-counts)
+  (labels ((compare (a b)
+             (cond ((> (second a) (second b)) t)
+                   ((< (second a) (second b)) nil)
+                   (t (string< (first a) (first b)))))
+           (print-freq (freq)
+             (format t "~{~{~a ~3$~}~%~}~%" (sort freq #'compare))))
+    (mapc #'print-freq seq-freqs)
+    (format t "~{~{~a~c~a~}~%~}" seq-counts)))
+
+
+(defun main ()
+  (with-open-file (input-s #p"/dev/stdin" :external-format :iso-8859-1)
+    (multiple-value-bind (freqs counts)
+        (perform-work input-s)
+      (print-results freqs counts))))
+
+
+(in-package :cl-user)
+
+(defun main ()
+  (k-nucleotide::main))
+;;   The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+;;;
+;;; resubmitted by Wade Humeniuk (Fix Stream Problem)
+;;; resubmitted by Jon Smith (Remove silly assertion causing it to break on 16000 size)
+;;; re-resubmitted by Jon Smith (with a silly hack to make it parallel).
+;;; Original contributed by Yannick Gingras
+;;;
+;;; To compile
+;;; sbcl --load mandelbrot.lisp --eval "(save-lisp-and-die \"mandelbrot.core\" :purify t :toplevel (lambda () (main) (quit)))"
+;;; To run
+;;; sbcl --noinform --core mandelbrot.core %A
+
+(defun render (size stream)
+  (declare (type fixnum size) (stream stream)
+	   (optimize (speed 3) (safety 0) (debug 0)))
+  (let* ((code 0) 
+	 (bit 0)
+         (zr 0.0d0)
+	 (zi 0.0d0)
+	 (tr 0.0d0)
+	 (delta (/ 2d0 size))
+         (base-real -1.5d0) 
+	 (base-imag -1.0d0)
+         (buffer (make-array (* size (ceiling size 8)) :element-type '(unsigned-byte 8)))
+         (index 0))
+
+    (declare (type (unsigned-byte 8) code )
+             (type double-float zr zi tr base-real base-imag delta)
+             (type fixnum index bit))
+
+    (dotimes (y size)
+      (setf base-imag (- 1.0d0 (* delta y)))
+      (dotimes (x size)
+	(setf base-real (+ -1.5d0 (* delta x))
+	      zr base-real
+	      zi base-imag)
+        (setf code  
+	      (if (dotimes (n 50)
+		    (when (< 4.0d0 (+ (* zr zr) (* zi zi)))
+		      (return t))
+		    (setf tr (+ (* zr zr) (- (* zi zi)) base-real)
+			  zi (+ (* 2.0d0 zr zi) base-imag)
+			  zr tr))
+		  (ash code 1)
+		  (logior (ash code 1) #x01)))
+	(when (= (incf bit) 8)
+	  (setf (aref buffer index) code
+		bit 0 code 0)
+	  (incf index))))
+
+    (write-sequence buffer stream)))
+
+(defun par-render (size stream)
+  (declare (type fixnum size)		(stream stream)
+	   (optimize (speed 3) (safety 0) (debug 0)))
+
+  (let* ((buffer (make-array (* size (ceiling size 8)) :element-type '(unsigned-byte 8)))
+	 (quarter-size (ceiling size 4))
+	 (quarter-array (ceiling (the (unsigned-byte 32) (* size size)) 32)))
+    
+
+    (labels ((render-sub (y-start y-end index)
+	       (let ((code 0) 
+		     (bit 0)
+		     (zr 0.0d0) (zi 0.0d0) (tr 0.0d0)
+		     (delta (/ 2d0 size))
+		     (base-real -1.5d0)  (base-imag -1.0d0))
+		 (declare (type (unsigned-byte 8) code)
+			  (type double-float zr zi tr base-real base-imag delta)
+			  (type fixnum index bit))
+
+
+		 (do ((y y-start (1+ y)))
+		     ((= y y-end))
+		   (declare (type (unsigned-byte 32) y))
+
+		   (setf base-imag (- 1.0d0 (* delta y)))
+		   (dotimes (x size)
+		     (setf base-real (+ -1.5d0 (* delta x))
+			   zr base-real
+			   zi base-imag)
+		     (setf code  
+			   (if (dotimes (n 50)
+				 (when (< 4.0d0 (+ (* zr zr) (* zi zi)))
+				   (return t))
+				 (setf tr (+ (* zr zr) (- (* zi zi)) base-real)
+				       zi (+ (* 2.0d0 zr zi) base-imag)
+				       zr tr))
+			       (ash code 1)
+			       (logior (ash code 1) #x01)))
+		     (when (= (incf bit) 8)
+		       (setf (aref buffer index) code
+			     bit 0 
+			     code 0)
+		       (incf index))
+		     )))))
+      (let (threads)
+	(dotimes (i 4)
+	  (let ((start (* i quarter-size))
+		(end (* (+ i 1) quarter-size))
+		(idx (* i quarter-array)))
+	    (push (sb-thread:make-thread (lambda () (render-sub start end idx))) threads)))
+	(dolist (thread threads)
+	  (sb-thread:join-thread thread)))
+      (write-sequence buffer stream))))
+
+(defun main ()
+  (declare (optimize (speed 0) (safety 3)))
+  (let* ((args sb-ext:*posix-argv*)
+	 (n (parse-integer (second args))))
+    (with-open-stream (stream (sb-sys:make-fd-stream (sb-sys:fd-stream-fd sb-sys:*stdout*)
+						     :element-type :default
+						     :buffering :full
+						     :output t :input nil))
+
+      (format stream "P4~%~d ~d~%" n n)
+      #+sb-thread(par-render n stream)
+      #-sb-thread(render n stream)
+      (force-output stream))))
+;;   The Great Computer Language Shootout
+;;   http://shootout.alioth.debian.org/
+;;
+;;   Threads-flow.
+;;  
+;;   Contributed by Christopher Neufeld
+;;
+
+
+;; set this to 't' to print copious debugging.
+;; (defconstant +debug-print+ nil)
+;; (defparameter print-mutex nil)
+
+;; (defmacro debug-output (format-string &rest args)
+;;   (if +debug-print+
+;;       `(progn
+;;         (lock-mutex print-mutex)
+;;         (format t ,format-string ,@args)
+;;         (release-mutex print-mutex))))
+
+
+
+
+;; If we serialize the creation of threads, things go much more
+;; quickly, at least for my combination of sbcl and kernel
+;; version/configuration.
+(defconstant +serialize-threads+ t)
+(defparameter *serialize-threads-mutex* nil)
+(defparameter *serialize-threads-cond* nil)
+(defparameter *serialize-threads-flag* nil)
+
+
+;; Note that sbcl seems to be limited to 512 calls to make-thread.
+(defparameter *n-threads* 500)
+
+
+#+clisp (error "Presently, clisp does not support condition objects")
+#+gcl (error "Presently, gcl does not support multi-threading")
+
+
+(defmacro forever (&body body)
+  `(do () (nil) ,@body))
+  
+
+(defun create-cond ()
+  #+sbcl (sb-thread:make-waitqueue)
+  #-(or sbcl) (error "We need an implementation of cond creation for this platform"))
+
+(defun create-mutex ()
+  #+sbcl (sb-thread:make-mutex :value nil)
+  #-(or sbcl) (error "We need an implementation of mutex creation for this platform"))
+
+
+(defun lock-mutex (mutex)
+  #+sbcl (sb-thread:get-mutex mutex)
+  #-(or sbcl) (error "We need an implementation of mutex-locking for this platform"))
+
+(defun release-mutex (mutex)
+  #+sbcl (sb-thread:release-mutex mutex)
+  #-(or sbcl) (error "We need an implementation of mutex-unlocking for this platform"))
+  
+(defun wait-on-cond (cond locked-mutex)
+  #+sbcl (sb-thread:condition-wait cond locked-mutex)
+  #-(or sbcl) (error "We need an implementation of condition waits for this platform"))
+
+;; I was using condition-broadcast, but that just froze up the system.
+;; Possibly a bug in the implementation on sbcl?
+(defun awaken-cond-waiter (cond)
+  #+sbcl (sb-thread:condition-broadcast cond)
+  #-(or sbcl) (error "We need an implementation of condition awaken for this platform"))
+
+(defun spawn-thread (fcn)
+  #+sbcl (sb-thread:make-thread fcn)
+  #-(or sbcl) (error "We need an implementation of thread starting for this platform"))
+  
+
+
+(defclass worker ()
+  ((mutex	:initform	(create-mutex)
+                :reader		get-mutex)
+   (cond	:initform	(create-cond)
+                :reader		get-cond)
+   (message	:initform	nil
+                :accessor	get-message)
+   (client	:initform	nil
+                :accessor	get-client)))
+   
+
+(defgeneric work-fcn (obj))
+(defgeneric main-reaper (obj))
+
+
+(defun wait-for-msg (cond mutex get-msg-form)
+  (let ((msg nil))
+    (do ()
+        (msg msg)
+      (or (setf msg (funcall get-msg-form))
+          (wait-on-cond cond mutex)))))
+
+
+(defmethod work-fcn ((obj worker))
+  (when +serialize-threads+
+    (lock-mutex *serialize-threads-mutex*)
+    (setf *serialize-threads-flag* t)
+    (awaken-cond-waiter *serialize-threads-cond*)
+    (release-mutex *serialize-threads-mutex*))
+
+  (forever
+   (lock-mutex (get-mutex obj))
+   (let ((msg (wait-for-msg (get-cond obj) (get-mutex obj) #'(lambda () (get-message obj)))))
+     
+     (setf (get-message obj) nil)
+     (release-mutex (get-mutex obj))
+
+     (lock-mutex (get-mutex (get-client obj)))
+     (setf (get-message (get-client obj)) (1+ msg))
+     (awaken-cond-waiter (get-cond (get-client obj)))
+     (release-mutex (get-mutex (get-client obj))))))
+
+
+(defmethod main-reaper ((mainthread worker))
+  (lock-mutex (get-mutex mainthread))
+  (prog1
+      (wait-for-msg (get-cond mainthread) (get-mutex mainthread) #'(lambda () (get-message mainthread)))
+    (release-mutex (get-mutex mainthread))))
+
+
+(defun main (&optional n-supplied)
+  (let ((n (or n-supplied
+               (parse-integer (or (car (last #+sbcl sb-ext:*posix-argv*
+                                             #+clisp ext:*args*
+                                             #+gcl  si::*command-args*)) 
+                                  "10")))))
+
+    (let* ((mainthread (make-instance 'worker))
+           (last-obj mainthread)
+           worker
+           (accumulator 0))
+
+      (dotimes (i *n-threads*)
+        (setf worker (make-instance 'worker))
+        (setf (get-client worker) last-obj)
+        (setf last-obj worker)
+
+        (when +serialize-threads+
+          (setf *serialize-threads-flag* nil))
+
+        (spawn-thread #'(lambda () (work-fcn worker)))
+
+        (when +serialize-threads+
+          (lock-mutex *serialize-threads-mutex*)
+          (do ()
+              (*serialize-threads-flag*)
+            (or *serialize-threads-flag*
+                (wait-on-cond *serialize-threads-cond* *serialize-threads-mutex*)))
+          (release-mutex *serialize-threads-mutex*)))
+
+      (dotimes (i n)
+
+        (lock-mutex (get-mutex worker))
+        (setf (get-message worker) 0)
+        (awaken-cond-waiter (get-cond worker))
+        (release-mutex (get-mutex worker))
+
+        (incf accumulator (main-reaper mainthread)))
+
+      (format t "~D~%" accumulator))))
+
+
+
+;;;  Note: this cleanup function is not much use in my sbcl
+;;;  (post-0.9.3 CVS checkout), as there seems to be a hard limit of
+;;;  512 threads spawned in the lifetime of the sbcl job, after which
+;;;  time we fail out with an mmap error whenever trying to make a new
+;;;  thread.
+;; #+sbcl (defun cleanup ()
+;;          (dolist (thread (rest (nreverse (sb-thread:list-all-threads)))) 
+;;            (sb-thread:terminate-thread thread)))
+
+
+(if +serialize-threads+
+    (setf *serialize-threads-mutex* (create-mutex) *serialize-threads-cond* (create-cond)))
+;;   The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+;;;
+;;; contributed by Patrick Frankenberger
+;;; modified by Juho Snellman 2005-11-18
+;;;   * About 40% speedup on SBCL, 90% speedup on CMUCL
+;;;   * Represent a body as a DEFSTRUCT with (:TYPE VECTOR DOUBLE-FLOAT), a
+;;;     not as a structure that contains vectors
+;;;   * Inline APPLYFORCES
+;;;   * Replace (/ DT DISTANCE DISTANCE DISTANCE) with
+;;;     (/ DT (* DISTANCE DISTANCE DISTANCE)), as is done in the other
+;;;     implementations of this test.
+;;;   * Add a couple of declarations
+;;;   * Heavily rewritten for style (represent system as a list instead of
+;;;     an array to make the nested iterations over it less clumsy, use
+;;;     INCF/DECF where appropriate, break very long lines, etc)
+
+(defconstant +days-per-year+ 365.24d0)
+(defconstant +solar-mass+ (* 4d0 pi pi))
+
+(defstruct (body (:type (vector double-float))
+                 (:conc-name nil)
+                 (:constructor make-body (x y z vx vy vz mass)))
+  x y z
+  vx vy vz
+  mass)
+(deftype body () '(vector double-float 7))
+
+(defparameter *jupiter*
+  (make-body 4.84143144246472090d0
+             -1.16032004402742839d0
+             -1.03622044471123109d-1
+             (* 1.66007664274403694d-3 +days-per-year+)
+             (* 7.69901118419740425d-3 +days-per-year+)
+             (* -6.90460016972063023d-5  +days-per-year+)
+             (* 9.54791938424326609d-4 +solar-mass+)))
+
+(defparameter *saturn*
+  (make-body 8.34336671824457987d0
+             4.12479856412430479d0
+             -4.03523417114321381d-1
+             (* -2.76742510726862411d-3 +days-per-year+)
+             (* 4.99852801234917238d-3 +days-per-year+)
+             (* 2.30417297573763929d-5 +days-per-year+)
+             (* 2.85885980666130812d-4 +solar-mass+)))
+
+(defparameter *uranus*
+  (make-body 1.28943695621391310d1
+             -1.51111514016986312d1
+             -2.23307578892655734d-1
+             (* 2.96460137564761618d-03 +days-per-year+)
+             (* 2.37847173959480950d-03 +days-per-year+)
+             (* -2.96589568540237556d-05 +days-per-year+)
+             (* 4.36624404335156298d-05 +solar-mass+)))
+
+(defparameter *neptune*
+  (make-body 1.53796971148509165d+01
+             -2.59193146099879641d+01
+             1.79258772950371181d-01
+             (* 2.68067772490389322d-03 +days-per-year+)
+             (* 1.62824170038242295d-03 +days-per-year+)
+             (* -9.51592254519715870d-05 +days-per-year+)
+             (* 5.15138902046611451d-05 +solar-mass+)))
+
+(defparameter *sun*
+  (make-body 0.0d0 0.0d0 0.0d0 0.0d0 0.0d0 0.0d0 +solar-mass+))
+
+(declaim (inline applyforces))
+(defun applyforces (a b dt)
+  (declare (type body a b) (type double-float dt))
+  (let* ((dx (- (x a) (x b)))
+         (dy (- (y a) (y b)))
+         (dz (- (z a) (z b)))
+	 (distance (sqrt (+ (* dx dx) (* dy dy) (* dz dz))))
+	 (mag (/ dt (* distance distance distance)))
+         (dxmag (* dx mag))
+         (dymag (* dy mag))
+         (dzmag (* dz mag)))
+    (decf (vx a) (* dxmag (mass b)))
+    (decf (vy a) (* dymag (mass b)))
+    (decf (vz a) (* dzmag (mass b)))
+    (incf (vx b) (* dxmag (mass a)))
+    (incf (vy b) (* dymag (mass a)))
+    (incf (vz b) (* dzmag (mass a))))
+  nil)
+
+(defun advance (system dt)
+  (declare (double-float dt))
+  (loop for (a . rest) on system do
+        (dolist (b rest)
+          (applyforces a b dt)))
+  (dolist (b system)
+    (incf (x b) (* dt (vx b)))
+    (incf (y b) (* dt (vy b)))
+    (incf (z b) (* dt (vz b)))))
+
+(defun energy (system)
+  (let ((e 0.0d0))
+    (declare (double-float e))
+    (loop for (a . rest) on system do
+          (incf e (* 0.5d0
+                     (mass a)
+                     (+ (* (vx a) (vx a))
+                        (* (vy a) (vy a))
+                        (* (vz a) (vz a)))))
+          (dolist (b rest)
+            (let* ((dx (- (x a) (x b)))
+                   (dy (- (y a) (y b)))
+                   (dz (- (z a) (z b)))
+                   (dist (sqrt (+ (* dx dx) (* dy dy) (* dz dz)))))
+              (decf e (/ (* (mass a) (mass b)) dist)))))
+    e))
+
+(defun offset-momentum (system)
+  (let ((px 0.0d0)
+	(py 0.0d0)
+	(pz 0.0d0))
+    (dolist (p system)
+      (incf px (* (vx p) (mass p)))
+      (incf py (* (vy p) (mass p)))
+      (incf pz (* (vz p) (mass p))))
+    (setf (vx (car system)) (/ (- px) +solar-mass+)
+          (vy (car system)) (/ (- py) +solar-mass+)
+          (vz (car system)) (/ (- pz) +solar-mass+))
+    nil))
+
+(defun nbody (n)
+  (declare (fixnum n))
+  (let ((system (list *sun* *jupiter* *saturn* *uranus* *neptune*)))
+    (offset-momentum system)
+    (format t "~,9F~%" (energy system))
+    (dotimes (i n)
+      (advance system 0.01d0))
+    (format t "~,9F~%" (energy system))))
+
+(defun main ()
+  (let ((n (parse-integer (or (car (last #+sbcl sb-ext:*posix-argv*
+                                         #+cmu  extensions:*command-line-strings*
+					 #+gcl  si::*command-args*)) "1"))))
+    (nbody n)))
+
+;;   The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+;;;
+;;; contributed by Patrick Frankenberger
+;;; modified by Juho Snellman 2005-11-18
+;;;   * About 40% speedup on SBCL, 90% speedup on CMUCL
+;;;   * Represent a body as a DEFSTRUCT with (:TYPE VECTOR DOUBLE-FLOAT), a
+;;;     not as a structure that contains vectors
+;;;   * Inline APPLYFORCES
+;;;   * Replace (/ DT DISTANCE DISTANCE DISTANCE) with
+;;;     (/ DT (* DISTANCE DISTANCE DISTANCE)), as is done in the other
+;;;     implementations of this test.
+;;;   * Add a couple of declarations
+;;;   * Heavily rewritten for style (represent system as a list instead of
+;;;     an array to make the nested iterations over it less clumsy, use
+;;;     INCF/DECF where appropriate, break very long lines, etc)
+;;; modified by Marko Kocic 
+;;;   * add optimization declarations
+
+(declaim (optimize (speed 3)(safety 0)(space 0)(debug 0)))
+
+(defconstant +days-per-year+ 365.24d0)
+(defconstant +solar-mass+ (* 4d0 pi pi))
+
+(defstruct (body (:type (vector double-float))
+                 (:conc-name nil)
+                 (:constructor make-body (x y z vx vy vz mass)))
+  x y z
+  vx vy vz
+  mass)
+(deftype body () '(vector double-float 7))
+
+(defparameter *jupiter*
+  (make-body 4.84143144246472090d0
+             -1.16032004402742839d0
+             -1.03622044471123109d-1
+             (* 1.66007664274403694d-3 +days-per-year+)
+             (* 7.69901118419740425d-3 +days-per-year+)
+             (* -6.90460016972063023d-5  +days-per-year+)
+             (* 9.54791938424326609d-4 +solar-mass+)))
+
+(defparameter *saturn*
+  (make-body 8.34336671824457987d0
+             4.12479856412430479d0
+             -4.03523417114321381d-1
+             (* -2.76742510726862411d-3 +days-per-year+)
+             (* 4.99852801234917238d-3 +days-per-year+)
+             (* 2.30417297573763929d-5 +days-per-year+)
+             (* 2.85885980666130812d-4 +solar-mass+)))
+
+(defparameter *uranus*
+  (make-body 1.28943695621391310d1
+             -1.51111514016986312d1
+             -2.23307578892655734d-1
+             (* 2.96460137564761618d-03 +days-per-year+)
+             (* 2.37847173959480950d-03 +days-per-year+)
+             (* -2.96589568540237556d-05 +days-per-year+)
+             (* 4.36624404335156298d-05 +solar-mass+)))
+
+(defparameter *neptune*
+  (make-body 1.53796971148509165d+01
+             -2.59193146099879641d+01
+             1.79258772950371181d-01
+             (* 2.68067772490389322d-03 +days-per-year+)
+             (* 1.62824170038242295d-03 +days-per-year+)
+             (* -9.51592254519715870d-05 +days-per-year+)
+             (* 5.15138902046611451d-05 +solar-mass+)))
+
+(defparameter *sun*
+  (make-body 0.0d0 0.0d0 0.0d0 0.0d0 0.0d0 0.0d0 +solar-mass+))
+
+(declaim (inline applyforces))
+(defun applyforces (a b dt)
+  (declare (type body a b) (type double-float dt))
+  (let* ((dx (- (x a) (x b)))
+         (dy (- (y a) (y b)))
+         (dz (- (z a) (z b)))
+	 (distance (sqrt (+ (* dx dx) (* dy dy) (* dz dz))))
+	 (mag (/ dt (* distance distance distance)))
+         (dxmag (* dx mag))
+         (dymag (* dy mag))
+         (dzmag (* dz mag)))
+    (decf (vx a) (* dxmag (mass b)))
+    (decf (vy a) (* dymag (mass b)))
+    (decf (vz a) (* dzmag (mass b)))
+    (incf (vx b) (* dxmag (mass a)))
+    (incf (vy b) (* dymag (mass a)))
+    (incf (vz b) (* dzmag (mass a))))
+  nil)
+
+(defun advance (system dt)
+  (declare (double-float dt))
+  (loop for (a . rest) on system do
+        (dolist (b rest)
+          (applyforces a b dt)))
+  (dolist (b system)
+    (incf (x b) (* dt (vx b)))
+    (incf (y b) (* dt (vy b)))
+    (incf (z b) (* dt (vz b))))
+  nil)
+
+(defun energy (system)
+  (let ((e 0.0d0))
+    (declare (double-float e))
+    (loop for (a . rest) on system do
+          (incf e (* 0.5d0
+                     (mass a)
+                     (+ (* (vx a) (vx a))
+                        (* (vy a) (vy a))
+                        (* (vz a) (vz a)))))
+          (dolist (b rest)
+            (let* ((dx (- (x a) (x b)))
+                   (dy (- (y a) (y b)))
+                   (dz (- (z a) (z b)))
+                   (dist (sqrt (+ (* dx dx) (* dy dy) (* dz dz)))))
+              (decf e (/ (* (mass a) (mass b)) dist)))))
+    e))
+
+(defun offset-momentum (system)
+  (let ((px 0.0d0)
+	(py 0.0d0)
+	(pz 0.0d0))
+    (dolist (p system)
+      (incf px (* (vx p) (mass p)))
+      (incf py (* (vy p) (mass p)))
+      (incf pz (* (vz p) (mass p))))
+    (setf (vx (car system)) (/ (- px) +solar-mass+)
+          (vy (car system)) (/ (- py) +solar-mass+)
+          (vz (car system)) (/ (- pz) +solar-mass+))
+    nil))
+
+(defun nbody (n)
+  (declare (fixnum n))
+  (let ((system (list *sun* *jupiter* *saturn* *uranus* *neptune*)))
+    (offset-momentum system)
+    (format t "~,9F~%" (energy system))
+    (dotimes (i n)
+      (advance system 0.01d0))
+    (format t "~,9F~%" (energy system))))
+
+(defun main ()
+  (let ((n (parse-integer (or (car (last #+sbcl sb-ext:*posix-argv*
+                                         #+cmu  extensions:*command-line-strings*
+					 #+gcl  si::*command-args*)) "1"))))
+    (nbody n)))
+;;; The Computer Language Shootout
+;;; http://shootout.alioth.debian.org/
+;;;
+;;; Contributed by: Shyamal Prasad, modified by Albert Krewinkel
+
+(in-package :bleifreidenker)
+(defmacro partial-sum-to-n ((partial-sum-name iter-start &optional alternating)
+                            &body body)
+  ;; The variable capture of k, a and n is intended
+  (let ((k-fixnum (gensym)))
+   `(format t ,(format nil "~~,9f~A~A~~%" #\tab partial-sum-name)
+     (loop 
+        ,@(when alternating
+                '(initially (setf a -1d0)
+                  for a double-float = (- a)))
+        for ,k-fixnum fixnum from ,iter-start to n
+        sum (symbol-macrolet ((k (coerce ,k-fixnum 'double-float)))
+              ,@body)
+        double-float))))
+
+(declaim (inline ^2 ^3))
+(defun ^2 (x) (declare (double-float x)) (the double-float (* x x)))
+(defun ^3 (x) (declare (double-float x)) (the double-float (* x x x)))
+
+(defun main (&optional
+	     (n (parse-integer
+		 (or (car (last #+sbcl sb-ext:*posix-argv*
+				#+cmu  extensions:*command-line-strings*))))))
+  (declare (fixnum n)
+	   (optimize (speed 3) (compilation-speed 0) (safety 0) (debug 0)))
+  (macrolet ((partial-sum-list (&rest partsum-list)
+               `(progn
+                  ,@(loop for (name start expr alternate) in partsum-list
+                       collect `(partial-sum-to-n (,name ,start ,alternate)
+                                  ,expr)))))
+    (partial-sum-list 
+     ("(2/3)^k"       0    (expt #.(coerce 2/3 'double-float) k))
+     ("k^-0.5"        1    (/ 1.0d0 (sqrt k)))
+     ("1/k(k+1)"      1    (/ 1d0   (* k (+ k 1d0))))
+     ("Flint Hills"   1    (/ 1.0d0 (* (^3 k)
+                                       (^2 (sin k)))))
+     ("Cookson Hills" 1    (/ 1d0   (* (^3 k) (^2 (cos k)))))
+     ("Harmonic"      1    (/ 1d0   k))
+     ("Riemann Zeta"  1    (/ 1d0   (^2 k)))
+     ("Alternative Harmonic"   1  (/ a k)           t)
+     ("Gregory"       1    (/ a (- (* 2d0 k) 1d0))  t))))
+;; The Computer Language Benchmarks Game
+;; http://shootout.alioth.debian.org/
+;;
+;; Adapted from the C (gcc) code by Lorenzo Bolla
+
+(declaim (optimize (speed 3) (safety 0) (debug 0)))
+
+(define-alien-type mp-limb-t unsigned-int)
+(define-alien-type mp-bitcnt-t unsigned-long)
+(define-alien-type mpz-struct
+				   (struct nil
+						   (mp-alloc int)
+						   (mp-size int)
+						   (mp-d mp-limb-t)))
+(define-alien-type mpz-ptr (* mpz-struct))
+(define-alien-type mpz-srcptr (* mpz-struct))
+
+(declaim (inline mpz-init))
+(define-alien-routine ("__gmpz_init" mpz-init)
+					  void
+					  (a mpz-ptr))
+
+(declaim (inline mpz-init-set-ui))
+(define-alien-routine ("__gmpz_init_set_ui" mpz-init-set-ui)
+					  void
+					  (a mpz-ptr)
+					  (b unsigned-long))
+
+(declaim (inline mpz-get-ui))
+(define-alien-routine ("__gmpz_get_ui" mpz-get-ui)
+					  unsigned-long
+					  (a mpz-srcptr))
+
+(declaim (inline mpz-set-ui))
+(define-alien-routine ("__gmpz_set_ui" mpz-set-ui)
+					  void
+					  (a mpz-ptr)
+					  (b unsigned-long))
+
+(declaim (inline mpz-cmp))
+(define-alien-routine ("__gmpz_cmp" mpz-cmp)
+					  int
+					  (a mpz-srcptr)
+					  (b mpz-srcptr))
+
+(declaim (inline mpz-add))
+(define-alien-routine ("__gmpz_add" mpz-add)
+					  void
+					  (a mpz-ptr)
+					  (b mpz-srcptr)
+					  (c mpz-srcptr))
+
+(declaim (inline mpz-mul-2exp))
+(define-alien-routine ("__gmpz_mul_2exp" mpz-mul-2exp)
+					  void
+					  (a mpz-ptr)
+					  (b mpz-srcptr)
+					  (c mp-bitcnt-t))
+
+(declaim (inline mpz-fdiv-qr))
+(define-alien-routine ("__gmpz_fdiv_qr" mpz-fdiv-qr)
+					  void
+					  (a mpz-ptr)
+					  (b mpz-ptr)
+					  (c mpz-srcptr)
+					  (d mpz-srcptr))
+
+(declaim (inline mpz-mul-ui))
+(define-alien-routine ("__gmpz_mul_ui" mpz-mul-ui)
+					  void
+					  (a mpz-ptr)
+					  (b mpz-srcptr)
+					  (c unsigned-long))
+
+(declaim (inline mpz-submul-ui))
+(define-alien-routine ("__gmpz_submul_ui" mpz-submul-ui)
+					  void
+					  (a mpz-ptr)
+					  (b mpz-srcptr)
+					  (c unsigned-long))
+
+(defvar *libgmp-so* (load-shared-object "libgmp.so"))
+(defvar *tmp1*)
+(defvar *tmp2*)
+(defvar *num*)
+(defvar *acc*)
+(defvar *den*)
+
+(defun init ()
+  (setf *tmp1* (make-alien mpz-struct))
+  (setf *tmp2* (make-alien mpz-struct))
+  (setf *num* (make-alien mpz-struct))
+  (setf *acc* (make-alien mpz-struct))
+  (setf *den* (make-alien mpz-struct)))
+
+(defun cleanup ()
+  (free-alien *tmp1*)
+  (free-alien *tmp2*)
+  (free-alien *num*)
+  (free-alien *acc*)
+  (free-alien *den*))
+
+(defun extract-digit ()
+  (if (> (mpz-cmp *num* *acc*) 0)
+	-1
+	(progn
+	  (mpz-mul-2exp *tmp1* *num* 1)
+	  (mpz-add *tmp1* *tmp1* *num*)
+	  (mpz-add *tmp1* *tmp1* *acc*)
+	  (mpz-fdiv-qr *tmp1* *tmp2* *tmp1* *den*)
+	  (mpz-add *tmp2* *tmp2* *num*)
+	  (if (>= (mpz-cmp *tmp2* *den*) 0)
+		-1
+		(mpz-get-ui *tmp1*)))))
+
+(defun next-term (k)
+  (declare (type fixnum k))
+  (let ((y2 (1+ (* 2 k))))
+	(mpz-mul-2exp *tmp1* *num* 1)
+	(mpz-add *acc* *acc* *tmp1*)
+	(mpz-mul-ui *acc* *acc* y2)
+	(mpz-mul-ui *num* *num* k)
+	(mpz-mul-ui *den* *den* y2)))
+
+(defun eliminate-digit (d)
+  (mpz-submul-ui *acc* *den* d)
+  (mpz-mul-ui *acc* *acc* 10)
+  (mpz-mul-ui *num* *num* 10))
+
+(defun pidigits (n)
+  (declare (type fixnum n))
+  (let ((d 0)
+		(k 0)
+		(i 0)
+		(m 0))
+	(declare (type fixnum d k i m))
+	(mpz-init *tmp1*)
+	(mpz-init *tmp2*)
+	(mpz-init-set-ui *num* 1)
+	(mpz-init-set-ui *acc* 0)
+	(mpz-init-set-ui *den* 1)
+	(loop
+	  (loop
+		(incf k)
+		(next-term k)
+		(setf d (extract-digit))
+		(unless (= d -1)
+		  (return)))
+	  (format t "~D" d)
+	  (incf i)
+	  (setf m (rem i 10))
+	  (when (= m 0)
+		(format t "	:~D~%" i))
+	  (when (>= i n)
+		(return))
+	  (eliminate-digit d))
+	(unless (= m 0)
+	  (format t "	:~D~%" n))))
+
+(defun main (&optional n-supplied)
+  (let ((n (or n-supplied
+			   (parse-integer (or (car (last #+sbcl sb-ext:*posix-argv*
+											 #+clisp ext:*args*
+											 #+cmu extensions:*command-line-strings*
+											 #+gcl  si::*command-args*))
+								  "2000")))))
+	(init)
+	(pidigits n)
+	(cleanup)))
+
+;; The Computer Language Shootout
+;; http://shootout.alioth.debian.org/
+;;
+;; adapted from the Java and Python versions by Robert Brown 2006-10-06
+
+(defconstant +digits-per-line+ 10)
+(defconstant +default-stop-digits+ "1000")
+
+(defun make-digit-generator ()
+  (declare (optimize (speed 3) (debug 0) (space 0) (safety 0)))
+  (let ((zq 1)
+        (zr 0)
+        (zt 1)
+        (k 0)
+        (4k+2 2)
+        (2k+1 1))
+    (declare (type integer zq zr zt)
+             (type fixnum k 4k+2 2k+1))
+    (labels ((extract (j)
+               (the (integer 0 9) (floor (+ (* zq j) zr) zt)))
+             (compose (aq ar at bq br bt)
+               (setq zq (* aq bq)
+                     zr (+ (* aq br) (* ar bt))
+                     zt (* at bt))))
+      #'(lambda ()
+          (let ((y (extract 3)))
+            (declare (type (integer 0 9) y))
+            (loop while (not (= y (extract 4)))
+                  do (compose zq zr zt (incf k) (incf 4k+2 4) (incf 2k+1 2))
+                     (setf y (extract 3)))
+            (compose 10 (* -10 y) 1 zq zr zt)
+            y)))))
+
+(defun spigot (digits)
+  (declare (type fixnum digits))
+  (let ((digits-printed 0)
+        (next-digit (make-digit-generator)))
+    (loop while (plusp digits)
+          do (if (>= digits +digits-per-line+)
+                 (progn (loop repeat +digits-per-line+
+                              do (format t "~d" (funcall next-digit)))
+                        (incf digits-printed +digits-per-line+))
+                 (progn (loop repeat digits
+                              do (format t "~d" (funcall next-digit)))
+                        (loop repeat (- +digits-per-line+ digits)
+                              do (format t " "))
+                        (incf digits-printed digits)))
+             (format t "~a:~d~%" #\Tab digits-printed)
+             (decf digits +digits-per-line+))))
+
+
+(defun main (&optional
+	     (n (parse-integer
+                 (or (car (last #+sbcl sb-ext:*posix-argv*
+                                #+cmu extensions:*command-line-strings*
+                                #+gcl si::*command-args*))
+                     +default-stop-digits+))))
+    (spigot n))
+;; -*- mode: lisp -*-
+;;; $Id: random.sbcl,v 1.1 2005-10-27 12:19:36 rlaakso-guest Exp $
+;;; http://shootout.alioth.debian.org/
+;;; Chih-Chung Chang contributed better declarations to improve performance
+;;; Multi-lisp modifications by Brent Fulgham
+;;; Modified by Juho Snellman 2005-10-26
+;;;   * Reformatted for style.
+;;;   * (THE FIXNUM ...) is undefined behaviour when ... isn't a fixnum,
+;;;     which was causing a failure on SBCL. Recoded using the SBCL / CMUCL
+;;;     modular arithmetic facility instead. (As a bonus it's also faster).
+
+(defconstant im 139968)
+(defconstant ia 3877)
+(defconstant ic 29573)
+
+(defvar the-last 42)
+
+(declaim (inline gen-random))
+(defun gen-random (max)
+  (declare (type (unsigned-byte 32) im ia ic the-last)
+           (double-float max))
+  (let ((last (ldb (byte 32 0)
+                   (mod (ldb (byte 32 0) (+ (* the-last ia) ic)) im))))
+    (setf the-last last)
+    (/ (* max last) im)))
+
+(defun main ()
+  (let ((n (parse-integer (or (car (last #+sbcl sb-ext:*posix-argv*
+                                         #+cmu  extensions:*command-line-strings*
+					 #+gcl  si::*command-args*)) "1"))))
+    (loop for i fixnum from 1 below n do
+      (gen-random 100.0d0))
+    (format t "~,9F~%" (gen-random 100.0d0))))
+;;; The Computer Language Benchmarks Game
+;;; http://shootout.alioth.debian.org/
+;;;
+;;; contributed by Shyamal Prasad
+
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (require :asdf)
+  (require :cl-ppcre))
+
+(defparameter *regex-list*
+  (list
+   "agggtaaa|tttaccct"
+   "[cgt]gggtaaa|tttaccc[acg]"
+   "a[act]ggtaaa|tttacc[agt]t"
+   "ag[act]gtaaa|tttac[agt]ct"
+   "agg[act]taaa|ttta[agt]cct"
+   "aggg[acg]aaa|ttt[cgt]ccct"
+   "agggt[cgt]aa|tt[acg]accct"
+   "agggta[cgt]a|t[acg]taccct"
+   "agggtaa[cgt]|[acg]ttaccct"))
+
+(defparameter *alternatives*
+  '(("B" "(c|g|t)")  ("D" "(a|g|t)")
+    ("H" "(a|c|t)")  ("K" "(g|t)")
+    ("M" "(a|c)")    ("N" "(a|c|g|t)")
+    ("R" "(a|g)")    ("S" "(c|t)")
+    ("V" "(a|c|g)")  ("W" "(a|t)")
+    ("Y" "(c|t)")))
+
+
+;; Read in the entire file as the benchmark specifieds
+(defun get-input-chars (stream)
+  (with-output-to-string
+    (output)
+    (loop while (multiple-value-bind
+		    (line missing) (read-line stream nil)
+		  (when line (write-string line output))
+		  (unless missing (write-char #\Newline output))
+		  line))))
+			 
+
+
+(defun main (&optional (stream *standard-input*))
+  (let*
+      ;; Benchmark definition requires using a regex to
+      ;; remove headers/newlines from the file
+      ((text (get-input-chars stream))
+       (sequence
+	(cl-ppcre:regex-replace-all ">[^\\n]*\\n|\\n" text "")))
+
+    ;; Count and print the number of subsequences
+    (loop for regex in *regex-list* do
+	  (format t "~a ~a~%" regex
+		  (/ (length (cl-ppcre:all-matches regex sequence)) 2)))
+    
+    ;; Print lengths
+    (format t "~%~a~%" (length text))
+    (format t "~a~%" (length sequence))
+
+    ;; do the alternative substitution and create the new text string
+    ;; that the benchmark definition requires
+    (loop for pair in *alternatives* do
+	  (setf sequence
+		(cl-ppcre:regex-replace-all (car pair) sequence (cadr pair))))
+    (format t "~a~%" (length sequence))))
+;;; The Computer Language Benchmarks Game
+;;; http://shootout.alioth.debian.org/
+;;;
+;;; Contributed by: Witali Kusnezow 2009-03-02
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (require :asdf)
+  (require :cl-ppcre)
+
+#+sb-thread
+(progn
+  (define-alien-routine sysconf long (name int))
+  (use-package :sb-thread)))
+
+(eval-when (:compile-toplevel)
+(setf cl-ppcre:*regex-char-code-limit* 128))
+
+(defconstant  +regex-list+
+  '("agggtaaa|tttaccct"
+    "[cgt]gggtaaa|tttaccc[acg]"
+    "a[act]ggtaaa|tttacc[agt]t"
+    "ag[act]gtaaa|tttac[agt]ct"
+    "agg[act]taaa|ttta[agt]cct"
+    "aggg[acg]aaa|ttt[cgt]ccct"
+    "agggt[cgt]aa|tt[acg]accct"
+    "agggta[cgt]a|t[acg]taccct"
+    "agggtaa[cgt]|[acg]ttaccct"))
+
+(defconstant  +alternatives+
+  '(("B" "(c|g|t)")  ("D" "(a|g|t)")
+    ("H" "(a|c|t)")  ("K" "(g|t)")
+    ("M" "(a|c)")    ("N" "(a|c|g|t)")
+    ("R" "(a|g)")    ("S" "(c|t)")
+    ("V" "(a|c|g)")  ("W" "(a|t)")
+    ("Y" "(c|t)")))
+
+#+sb-thread
+(progn
+  (defconstant  +cpu-count+ (sysconf 84))
+  (defvar *mutex* (make-mutex))
+  (defvar *aux-mutex* (make-mutex))
+
+  (defmacro bg  (&body body) `(make-thread (lambda () ,@body)))
+  (defmacro join-all (&body body)
+	`(mapcar
+	  #'join-thread
+	  (loop for item in (list ,@body)
+		 append (if (consp item) item (list item))))))
+
+(defun read-all
+    (stream &aux (buf-size (* 1024 1024))
+     (size 0)
+     (buf-list
+      (loop
+         for buf = (make-string buf-size :element-type 'base-char)
+         for len = (read-sequence buf stream)
+         do (incf size len)
+         collect (if (< len buf-size) (subseq buf 0 len) buf)
+         while (= len buf-size))))
+  (declare (type fixnum size))
+  (loop with res-string = (make-string size :element-type 'base-char)
+     with i of-type fixnum = 0
+     for str in buf-list
+     do (setf (subseq res-string i) (the simple-base-string str))
+     (incf i (length (the simple-base-string str)))
+     finally (return res-string)))
+
+(defun length-to-replace (match)
+  (loop for x in match
+     sum (- (the fixnum (cdr x))
+            (the fixnum (car x))) of-type fixnum))
+
+(defun replace-aux
+    (match replacement target-string result-string
+     &key (match-begin 0) (match-end -1)
+     (match-length (length match))
+     &aux
+     (len (length replacement))
+     (first-match (if (zerop match-begin) '(0 . 0) (nth (1- match-begin) match)))
+     (target-start (cdr first-match))
+     (result-start (+ (the fixnum (* len match-begin))
+                    (- target-start
+                       (the fixnum (length-to-replace (subseq match 0 match-begin)))))))
+  (declare (type fixnum match-begin match-end match-length target-start result-start len)
+           (type list match)
+           (type simple-base-string result-string target-string)
+           (type vector replacement))
+  (loop with (i j) of-type fixnum = (list result-start target-start)
+     with mmatch = (if (> match-begin match-end)
+                       match (subseq match match-begin match-end))
+     for pair in mmatch
+     do (setf (subseq result-string i) (subseq target-string j (car pair))
+              i (+ i (- (the fixnum (car pair)) j))
+              (subseq result-string i) replacement
+              j (cdr pair)
+              i (+ i len))
+     finally (if (or (minusp match-end) (<= match-length match-end))
+                 (setf (subseq result-string i ) (subseq target-string j))))
+  nil)
+
+#+sb-thread
+(defun parts
+    (parts-num len
+     &aux
+     (ranges (loop with (step rest) of-type fixnum =  (multiple-value-list (floor len parts-num))
+                with i of-type fixnum = 0 while (< i len)
+                collect i into res of-type fixnum
+                do (incf i step)(if (plusp rest) (progn (incf i) (decf rest)) )
+                finally (return (append res (list len))))
+             ))
+  (declare (type fixnum len parts-num)
+           (type list ranges))
+  (mapcar #'cons ranges (subseq ranges 1)))
+
+(defun replace-all
+    (regexp replacement target-string
+     &aux (rmatch '()) (match '())
+     (result-string (make-string 0 :element-type 'base-char)))
+  (declare (type simple-base-string result-string target-string)
+           (type vector replacement))
+  (cl-ppcre:do-scans
+      (match-start match-end reg-starts reg-ends regexp target-string nil)
+    (push (cons match-start match-end) rmatch))
+  (if rmatch
+      (progn
+        (setf match (reverse rmatch)
+              result-string (make-string
+                             (+ (- (length target-string)
+                                   (length-to-replace match))
+                                (the fixnum (* (length replacement)
+                                               (length match)))) :element-type 'base-char))
+        #-sb-thread
+        (replace-aux match replacement target-string result-string)
+        #+sb-thread
+        (mapcar #'join-thread
+                (loop with len of-type fixnum = (length match)
+				   with parts-list  = (parts +cpu-count+ len)
+                   with current of-type fixnum = 0
+                   repeat +cpu-count+
+                   collect
+					 (bg (let (range)
+                           (with-mutex (*mutex*)
+                             (setf range (nth current parts-list))
+                             (incf current))
+                           (replace-aux match replacement target-string result-string
+                                        :match-begin (car range) :match-end (cdr range)
+                                        :match-length len)))))
+        result-string)
+      target-string))
+
+(defun main (&optional (stream *standard-input*)
+             &aux (sequence (read-all stream))
+             (size (length sequence)))
+  (declare (type simple-base-string sequence))
+  (setf sequence (replace-all ">[^\\n]*\\n|\\n" "" sequence))
+
+  #-sb-thread
+  (progn
+    (loop for regex in +regex-list+ do
+         (format t "~a ~a~%" regex
+                 (/ (length
+                     (the list
+                       (cl-ppcre:all-matches regex sequence))) 2)))
+    (format t "~%~a~%~a~%" size (length sequence))
+    (loop for pair in +alternatives+ do
+         (setf sequence (replace-all  (car pair) (cadr pair) sequence )))
+    (format t "~a~%" (length sequence)))
+  #+sb-thread
+  (let* ((len (length +regex-list+))
+         (result (make-list (1+ len))))
+    (join-all
+	 (loop with idx of-type fixnum = 0
+		repeat len
+		collect
+          (bg (let (reg cur)
+                (with-mutex (*aux-mutex*)
+                  (setf cur idx reg (nth cur +regex-list+))
+                  (incf idx))
+              (setf (nth cur result)
+                    (format nil "~a ~a" reg
+                            (/ (length
+                                (the list
+                                  (cl-ppcre:all-matches reg sequence))) 2))))))
+	 (bg (loop with seq = (copy-seq sequence)
+            for pair in +alternatives+ do
+              (setf seq (replace-all  (car pair) (cadr pair) seq ))
+            finally (setf (nth len result)
+                          (format nil "~%~a~%~a~%~a" size (length sequence) (length seq))))))
+    (format t "~{~a~%~}" result))
+  )
+;;; The Computer Language Shootout
+;;; http://shootout.alioth.debian.org/
+;;; Michael Weber 2006-07-18
+;;; Changes by Stefan Lang 2007-02-08
+
+(defconstant +buffer-size+ (expt 2 15))
+(defconstant +newline+ (char-code #\Newline))
+(defconstant +ub+ '(unsigned-byte 8))
+
+(defconstant +lut+
+  (let ((lut (make-array 256 :element-type +ub+)))
+    (loop for a across "wsatugcyrkmbdhvnWSATUGCYRKMBDHVN"
+          for b across "WSTAACGRYMKVHDBNWSTAACGRYMKVHDBN"
+          do (setf (aref lut (char-code a)) (char-code b)))
+    lut))
+
+(defun slice (array start end)
+  (declare (optimize (speed 3) (safety 0))
+           ((simple-array #.+ub+) array)
+           (fixnum start end))
+  (let ((res (make-array (- end start) :element-type +ub+)))
+    (loop for i from start below end
+          for j from 0
+          do (setf (aref res j) (aref array i)))
+    res))
+
+(defun main ()
+  (declare (optimize (speed 3) (safety 0)))
+  (with-open-file (in "/dev/stdin" :element-type +ub+)
+    (with-open-file (out "/dev/stdout" :element-type +ub+ :direction :output :if-exists :append)
+      (let ((i-buf (make-array +buffer-size+ :element-type +ub+))
+            (o-buf (make-array +buffer-size+ :element-type +ub+))
+            (chunks nil))
+        (declare (list chunks))
+        (flet ((flush-chunks ()
+                 (let ((j 0) (k 0))
+                   (declare (fixnum j k))
+                   ;; reverse, complement, filter out old newlines, put newlines back in after 60 chars,
+                   ;; buffer output, and write buffers.  all in one go :(
+                   (loop for chunk in chunks
+                         do (loop for i from (1- (length (the (simple-array #.+ub+) chunk))) downto 0
+                                  for byte = (aref chunk i)
+                                  unless (= byte +newline+)
+				  do (setf (aref o-buf k) (aref +lut+ byte) j (1+ j) k (1+ k))
+                                  if (= j 60) do (setf (aref o-buf k) +newline+ j 0 k (1+ k))
+                                  if (> k (- +buffer-size+ 2)) do (write-sequence o-buf out :end (shiftf k 0)))
+                         finally (when (plusp k)
+                                   (write-sequence o-buf out :end k))
+                                 (when (plusp j)
+                                   (write-byte +newline+ out)))
+                   (setf chunks nil))))
+          (prog ((start 0) (end 0))
+           read-chunk
+             (setf end (read-sequence i-buf in))
+             (when (zerop end) (go end-of-input))
+           parse-chunk
+             (let ((bod (position #.(char-code #\>) i-buf :start start :end end)))
+               (cond ((numberp bod)
+                      (push (slice i-buf start bod) chunks)
+                      (setf start bod)
+                      (flush-chunks)
+                      ;; parse description
+                      (loop for eod = (position +newline+ i-buf :start start :end end)
+                            do (cond ((numberp eod)
+                                      (write-sequence i-buf out :start start :end (incf eod))
+                                      (setf start eod)
+                                      (go parse-chunk))
+                                     (t (write-sequence i-buf out :start start :end end)
+                                        (setf start 0)
+                                        (setf end (read-sequence i-buf in))))))
+                     (t (push (slice i-buf start end) chunks)
+                        (setf start 0)
+                        (go read-chunk))))
+           end-of-input
+             (flush-chunks)))))))
+;;   The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+
+;;; contributed by Bulent Murtezaoglu
+;;; Multi-lisp modifications by Brent Fulgham
+
+(declaim (optimize (speed 3) #-gcl (debug 0) (safety 0) (space 0) (compilation-speed 0)))
+
+(defconstant BLOCKSIZE 4096)
+
+(declaim (inline position-rev))
+;; I wrote the the function below because the default cmucl image
+;; doesn't seem to to have the inline expansion of position available
+(defun position-rev (string end char)
+  (declare (simple-string string) (fixnum end))
+  (declare (inline char=))
+  (loop for i from (1- end) downto 0
+    do (when (char= (aref string i) char)
+	 (return-from position-rev i))))
+
+(defun main ()
+  (declare (inline read-sequence write-string position-rev replace))
+  (let ((fp 0)
+	(bufsize BLOCKSIZE)
+	(buf (make-string BLOCKSIZE)))
+    (declare (fixnum bufsize) (simple-string buf))
+    (loop for i fixnum = (read-sequence buf *standard-input*
+	:start fp :end (+ fp BLOCKSIZE))
+      until (= i fp) do
+      (setq fp i)
+      (when (> (+ i BLOCKSIZE) bufsize)
+	(setq bufsize (* 2 bufsize))
+	(let ((tmpbuf (make-string bufsize)))
+	  (replace tmpbuf buf :start1 0 :end1 fp :start2 0 :end2 fp)
+	  (setq buf tmpbuf))))
+    (loop for i = (1- fp) then j as j = (position-rev buf i #\Newline)
+      do (write-string buf *standard-output* :start (if j (1+ j) 0) :end (1+ i))
+      while j)))
+;;   The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+;;
+;;    Adapted from the C (gcc) code by Sebastien Loisel
+;;
+;;    Contributed by Christopher Neufeld
+;;    Modified by Juho Snellman 2005-10-26
+;;      * Use SIMPLE-ARRAY instead of ARRAY in declarations
+;;      * Use TRUNCATE instead of / for fixnum division
+;;      * Rearrange EVAL-A to make it more readable and a bit faster
+
+;; Note that sbcl is at least 10 times faster than either clisp or gcl
+;; on this program, running with an argument of 500.  It would be nice
+;; to know why the others are so slow.
+
+(defun eval-AtA-times-u (n u)
+  (eval-At-times-u n (eval-A-times-u n u)))
+
+;; This is our most expensive function.  Optimized with the knowledge
+;; that 'n' will never be "huge".  This will break if 'n' exceeds
+;; approximately half of the square root of the largest fixnum
+;; supported by the implementation.  On sbcl 0.9.3,
+;; 'most-positive-fixnum' is 536870911, and we can support values of
+;; 'n' above 11000.
+(declaim (inline eval-A))
+(defun eval-A (i j)
+  (declare (type fixnum i j))
+  (let* ((n (+ i j))
+         (n+1 (1+ n)))
+    (declare (fixnum n n+1))
+    (/ (float (+ (truncate (the fixnum (* n n+1)) 2) i 1) 0d0))))
+
+(defun eval-A-times-u (n u)
+  (declare (type fixnum n)
+           (type (simple-array double-float) u))
+  (let ((retval (make-array n :element-type 'double-float :initial-element 0.0d0)))
+    (dotimes (i n)
+      (dotimes (j n)
+        (incf (aref retval i) (* (eval-A i j) (aref u j)))))
+    retval))
+
+(defun eval-At-times-u (n u)
+  (declare (type fixnum n)
+           (type (simple-array double-float) u))
+  (let ((retval (make-array n :element-type 'double-float :initial-element 0.0d0)))
+    (dotimes (i n)
+      (dotimes (j n)
+        (incf (aref retval i) (* (eval-A j i) (aref u j)))))
+    retval))
+
+
+(defun main (&optional n-supplied)
+  (let ((n (or n-supplied
+               (parse-integer (or (car (last #+sbcl sb-ext:*posix-argv*
+                                             #+clisp ext:*args*
+                                             #+cmu extensions:*command-line-strings*
+                                             #+gcl  si::*command-args*))
+                                  "2000")))))
+    (or (typep (* (- (* 2 n) 1) (- (* 2 n) 2)) 'fixnum)
+        (error "The supplied value of 'n' breaks the optimizations in EVAL-A"))
+    (let ((u (make-array n :element-type 'double-float :initial-element 1.0d0))
+          (v (make-array n :element-type 'double-float)))
+      (declare (type (simple-array double-float) U V))
+      (dotimes (i 10)
+        (setf v (eval-AtA-times-u n u))
+        (setf u (eval-AtA-times-u n v)))
+      (let ((vBv 0.0d0)
+            (vv 0.0d0))
+        (dotimes (i n)
+          (incf vBv (* (aref u i) (aref v i)))
+          (incf vv (* (aref v i) (aref v i))))
+        (format t "~11,9F~%" (sqrt (the (double-float 0d0) (/ vBv vv))))))))
+
+;; #+sbcl (progn
+;;          (sb-profile:profile eval-AtA-times-u)
+;;          (sb-profile:profile eval-A)
+;;          (sb-profile:profile eval-A-times-u)
+;;          (sb-profile:profile eval-At-times-u)
+;;          (sb-profile:profile main))
+
+;;    The Computer Language Benchmarks Game
+;;    http://shootout.alioth.debian.org/
+;;
+;;    Adapted from the C (gcc) code by Sebastien Loisel
+;;
+;;    Contributed by Christopher Neufeld
+;;    Modified by Juho Snellman 2005-10-26
+;;      * Use SIMPLE-ARRAY instead of ARRAY in declarations
+;;      * Use TRUNCATE instead of / for fixnum division
+;;      * Rearrange EVAL-A to make it more readable and a bit faster
+;;    Modified by Andy Hefner 2008-09-18
+;;      * Eliminate array consing
+;;      * Clean up type declarations in eval-A
+;;      * Distribute work across multiple cores on SBCL
+;;    Modified by Witali Kusnezow 2008-12-02
+;;      * use right shift instead of truncate for division in eval-A
+;;      * redefine eval-A as a macro
+;;    Modified by Lorenzo Bolla 2010-12-06
+;;      * added declaim at top of file
+
+
+;; This is our most expensive function.  Optimized with the knowledge
+;; that 'n' will never be "huge".  This will break if 'n' exceeds
+;; approximately half of the square root of the largest fixnum
+;; supported by the implementation.  On 32-bit sbcl,
+;; 'most-positive-fixnum' is 536870911, and we can support values of
+;; 'n' above 11000.
+
+(declaim (optimize (speed 3) (safety 0) (space 0)))
+
+(defmacro eval-A (i j)
+  `(let* ((n (+ ,i ,j))
+          (n+1 (1+ n)))
+     (declare (type (integer 0 22000) n n+1))
+     (/ (float (+ (ash (* n n+1) -1) ,i 1) 0d0))))
+
+(defun eval-At-times-u (u n Au start end)
+  (declare (type fixnum n start end)
+           (type (simple-array double-float) u Au))
+  (loop for i from start below end do
+        (setf (aref Au i)
+              (loop for j below n
+                    summing (* (aref u j) (eval-A j i))
+                    of-type double-float))))
+
+(defun eval-A-times-u (u n Au start end)
+  (declare (type fixnum n start end)
+           (type (simple-array double-float) u Au))
+  (loop for i from start below end do
+        (setf (aref Au i)
+              (loop for j below n
+                    summing (* (aref u j) (eval-A i j))
+                    of-type double-float))))
+
+#+sb-thread
+(defun execute-parallel (start end function)
+  (declare (optimize (speed 0)))
+  (let* ((num-threads 4))
+    (loop with step = (truncate (- end start) num-threads)
+          for index from start below end by step
+          collecting (let ((start index)
+                           (end (min end (+ index step))))
+                       (sb-thread:make-thread
+                        (lambda () (funcall function start end))))
+          into threads
+          finally (mapcar #'sb-thread:join-thread threads))))
+
+#-sb-thread
+(defun execute-parallel (start end function )
+  (funcall function start end))
+
+(defun eval-AtA-times-u (u AtAu v n start end)
+  (execute-parallel start end
+    (lambda (start end)
+      (eval-A-times-u u n v start end)))
+  (execute-parallel start end
+    (lambda (start end)
+      (eval-At-times-u v n AtAu start end))))
+
+(defun main (&optional n-supplied)
+  (let ((n (or n-supplied
+               (parse-integer (or (car (last #+sbcl sb-ext:*posix-argv*
+                                             #+clisp ext:*args*
+                                             #+cmu extensions:*command-line-strings*
+                                             #+gcl  si::*command-args*))
+                                  "2000")))))
+    (declare (type fixnum n))
+    (or (typep (* (- (* 2 n) 1) (- (* 2 n) 2)) 'fixnum)
+        (error "The supplied value of 'n' breaks the optimizations in EVAL-A"))
+    (let ((u (make-array n :element-type 'double-float :initial-element 1.0d0))
+          (v (make-array n :element-type 'double-float))
+          (tmp (make-array n :element-type 'double-float)))
+      (declare (type (simple-array double-float) U V))
+      (dotimes (i 10)
+        (eval-AtA-times-u u v tmp n 0 n)
+        (eval-AtA-times-u v u tmp n 0 n))
+      (let ((vBv 0.0d0)
+            (vv 0.0d0))
+        (dotimes (i n)
+          (incf vBv (* (aref u i) (aref v i)))
+          (incf vv (* (aref v i) (aref v i))))
+        (format t "~11,9F~%" (sqrt (the (double-float 0d0) (/ vBv vv))))))))
+
+;;    The Computer Language Benchmarks Game
+;;    http://shootout.alioth.debian.org/
+;;
+;;    Adapted from the C (gcc) code by Sebastien Loisel
+;;
+;;    Contributed by Christopher Neufeld
+;;    Modified by Juho Snellman 2005-10-26
+;;      * Use SIMPLE-ARRAY instead of ARRAY in declarations
+;;      * Use TRUNCATE instead of / for fixnum division
+;;      * Rearrange EVAL-A to make it more readable and a bit faster
+;;    Modified by Andy Hefner 2008-09-18
+;;      * Eliminate array consing
+;;      * Clean up type declarations in eval-A
+;;      * Distribute work across multiple cores on SBCL
+;;    Modified by Witali Kusnezow 2008-12-02
+;;      * use right shift instead of truncate for division in eval-A
+;;      * redefine eval-A as a macro
+
+
+;; This is our most expensive function.  Optimized with the knowledge
+;; that 'n' will never be "huge".  This will break if 'n' exceeds
+;; approximately half of the square root of the largest fixnum
+;; supported by the implementation.  On 32-bit sbcl,
+;; 'most-positive-fixnum' is 536870911, and we can support values of
+;; 'n' above 11000.
+
+(defmacro eval-A (i j)
+  `(let* ((n (+ ,i ,j))
+          (n+1 (1+ n)))
+     (declare (type (integer 0 22000) n n+1))
+     (/ (float (+ (ash (* n n+1) -1) ,i 1) 0d0))))
+
+(defun eval-At-times-u (u n Au start end)
+  (declare (type fixnum n start end)
+           (type (simple-array double-float) u Au))
+  (loop for i from start below end do
+        (setf (aref Au i)
+              (loop for j below n
+                    summing (* (aref u j) (eval-A j i))
+                    of-type double-float))))
+
+(defun eval-A-times-u (u n Au start end)
+  (declare (type fixnum n start end)
+           (type (simple-array double-float) u Au))
+  (loop for i from start below end do
+        (setf (aref Au i)
+              (loop for j below n
+                    summing (* (aref u j) (eval-A i j))
+                    of-type double-float))))
+
+#+sb-thread
+(defun execute-parallel (start end function)
+  (declare (optimize (speed 0)))
+  (let* ((num-threads 4))
+    (loop with step = (truncate (- end start) num-threads)
+          for index from start below end by step
+          collecting (let ((start index)
+                           (end (min end (+ index step))))
+                       (sb-thread:make-thread
+                        (lambda () (funcall function start end))))
+          into threads
+          finally (mapcar #'sb-thread:join-thread threads))))
+
+#-sb-thread
+(defun execute-parallel (start end function )
+  (funcall function start end))
+
+(defun eval-AtA-times-u (u AtAu v n start end)
+  (execute-parallel start end
+    (lambda (start end)
+      (eval-A-times-u u n v start end)))
+  (execute-parallel start end
+    (lambda (start end)
+      (eval-At-times-u v n AtAu start end))))
+
+(defun main (&optional n-supplied)
+  (let ((n (or n-supplied
+               (parse-integer (or (car (last #+sbcl sb-ext:*posix-argv*
+                                             #+clisp ext:*args*
+                                             #+cmu extensions:*command-line-strings*
+                                             #+gcl  si::*command-args*))
+                                  "2000")))))
+    (declare (type fixnum n))
+    (or (typep (* (- (* 2 n) 1) (- (* 2 n) 2)) 'fixnum)
+        (error "The supplied value of 'n' breaks the optimizations in EVAL-A"))
+    (let ((u (make-array n :element-type 'double-float :initial-element 1.0d0))
+          (v (make-array n :element-type 'double-float))
+          (tmp (make-array n :element-type 'double-float)))
+      (declare (type (simple-array double-float) U V))
+      (dotimes (i 10)
+        (eval-AtA-times-u u v tmp n 0 n)
+        (eval-AtA-times-u v u tmp n 0 n))
+      (let ((vBv 0.0d0)
+            (vv 0.0d0))
+        (dotimes (i n)
+          (incf vBv (* (aref u i) (aref v i)))
+          (incf vv (* (aref v i) (aref v i))))
+        (format t "~11,9F~%" (sqrt (the (double-float 0d0) (/ vBv vv))))))))
+;;; The Computer Language Shootout
+;;; http://shootout.alioth.debian.org/
+;;; by Risto Laakso 12/2005
+;;; Modified by Stefan Lang 2007-02-10
+
+(defun main ()
+  (declare (optimize (speed 3) (safety 0)))
+  (flet ((read-fixnum (stream)
+	   (let ((num 0) (sgn 1) (skip t))
+	     (declare (fixnum num sgn))
+	     (loop for digit fixnum = (read-byte stream)
+		   for n fixnum = (- digit #.(char-code #\0))
+		   do (cond ((= digit #.(char-code #\-))
+			     (setf sgn -1))
+			    ((<= 0 n 9)
+			     (setf num (+ n (the fixnum (* 10 num)))
+				   skip nil))
+			    ((not skip)
+			     (return (the fixnum (* sgn num)))))))))
+    (with-open-file (in "/dev/stdin" :element-type '(unsigned-byte 8))
+      (let ((sum 0))
+	(declare (fixnum sum))
+	(handler-case (loop (incf sum (read-fixnum in)))
+	  (end-of-file () (format t "~A~%" sum)))))))
+; The Computer Language Benchmarks Game
+; http://shootout.alioth.debian.org/
+; contributed by Carson Reynolds 2007/5/21
+
+(defun main ()
+  (loop for line = (read-line *standard-input* nil)
+     while (not (eq line nil))
+     summing (parse-integer line) into total
+     finally (format t "~a~%" total)))
+; The Computer Language Benchmarks Game
+; http://shootout.alioth.debian.org/
+; contributed by Carson Reynolds 2007/5/21
+; modified by Charles McMackin 2007/8/1
+
+
+
+(defun main ()
+  (with-open-file (in "/dev/stdin")
+    (loop for line of-type string = (read-line in nil)
+       while line sum (the fixnum (parse-integer line)) into total of-type fixnum
+       finally (format t "~d~%" total))))
+;;; The Computer Language Benchmarks Game
+;;; http://shootout.alioth.debian.org/
+;;;
+;;; contributed by Witali Kusnezow 2008-12-02
+
+(defparameter *mutex* (sb-thread:make-mutex :name "lock"))
+
+(defconstant  +threads+ 503)
+(defparameter *counter* 0)
+(defparameter *current* 0)
+(defparameter *main-queue* (sb-thread:make-waitqueue))
+(defparameter *queues*
+  (make-array +threads+
+              :initial-contents
+              (loop for i of-type fixnum below +threads+
+                 collect (sb-thread:make-waitqueue))))
+
+(declaim (type fixnum *counter* *current*))
+
+(defun thread-body ()
+  (sb-thread:with-mutex (*mutex* :wait-p t)
+    (let ((number *current*)
+          (next (incf *current*)))
+      (declare (fixnum number next))
+      (if (= next +threads+) (setq next 0))
+      (loop
+         with (curr_queue next_queue) =
+           (list (svref *queues* number) (svref *queues* next))
+         do (sb-thread:condition-wait curr_queue *mutex*)
+         until (zerop *counter*)
+         do (decf *counter*)  (sb-thread:condition-notify next_queue)
+         finally (format t "~d~%" (1+ number))
+           (sb-thread:condition-notify *main-queue*)))))
+
+(defun start (n)
+  (declare (type fixnum n))
+  (setq *counter* n *current* 0)
+  (let ((threads
+         (loop
+            for i of-type fixnum below +threads+
+            collect (sb-thread:make-thread #'thread-body))))
+    (sb-thread:condition-notify (svref *queues* 0))
+    (sb-thread:with-mutex (*mutex* :wait-p t)
+      (sb-thread:condition-wait *main-queue* *mutex*))
+    (dolist (i threads)
+      (handler-case (sb-thread:terminate-thread i)
+        (sb-thread:interrupt-thread-error () nil)))))
+
+(defun main ()
+  (let ((n (parse-integer (or (car (last #+sbcl sb-ext:*posix-argv*
+                                         #+cmu  extensions:*command-line-strings*
+                                         #+gcl  si::*command-args*)) "1"))))
+    (start n)))
+;;; The Computer Language Benchmarks Game
+;;; http://shootout.alioth.debian.org/
+;;;
+;;; contributed by Witali Kusnezow 2008-12-19
+;;;     using semaphore synchronization
+
+(defconstant  +threads+ 503)
+(defparameter *counter* 0)
+(defparameter *current* 0)
+(defparameter *semaphore* (sb-thread:make-semaphore))
+(defparameter *semaphores*
+  (make-array +threads+
+              :initial-contents
+              (loop for i of-type fixnum below +threads+
+                 collect (sb-thread:make-semaphore))))
+
+(declaim (type fixnum *counter* *current*))
+
+(defmacro wait   (semaphore)
+  `(sb-thread:wait-on-semaphore ,semaphore))
+(defmacro wake (semaphore)
+  `(sb-thread:signal-semaphore  ,semaphore))
+(defmacro kill   (thread)
+  `(handler-case (sb-thread:terminate-thread ,thread)
+     (sb-thread:interrupt-thread-error () nil)))
+
+(defun thread-body ()
+  (let* ((curr (svref *semaphores* *current*))
+         (next (svref *semaphores* (if (= (incf *current*) +threads+) 0 *current*)))
+         (number *current*))
+    (loop do (wait curr)
+       until (zerop (decf *counter*))
+       do (wake next)
+       finally (format t "~d~%" number) (wake *semaphore*))))
+
+(defun start (n)
+  (declare (type fixnum n))
+  (setq *counter* (1+ n) *current* 0)
+  (loop for i of-type fixnum below +threads+
+     collect (sb-thread:make-thread #'thread-body) into threads
+     finally
+       (wake (svref *semaphores* 0))
+       (wait *semaphore*)
+       (dolist (i threads) (kill i))))
+
+(defun main ()
+  (let ((n (parse-integer (or (car (last #+sbcl sb-ext:*posix-argv*
+                                         #+cmu  extensions:*command-line-strings*
+                                         #+gcl  si::*command-args*)) "1"))))
+    (start n)))

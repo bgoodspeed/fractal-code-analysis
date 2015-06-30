@@ -1,0 +1,4091 @@
+;; The Computer Language Benchmarks Game
+;; http://shootout.alioth.debian.org/
+
+;; contributed by Marko Kocic 
+;; Adapted from the Java -server version
+
+(ns binarytrees
+  (:gen-class))
+
+(set! *warn-on-reflection* true)
+
+(defrecord TreeNode [left right ^int item])
+
+(defn bottom-up-tree [item depth]
+  (if (> depth 0)
+    (TreeNode.
+     (bottom-up-tree (dec (* 2 item)) (dec depth))
+     (bottom-up-tree (* 2 item) (dec depth))
+     item)
+    (TreeNode. nil nil item)))
+
+(defn item-check [node]
+  (if (nil? (:left node))
+    (:item node)
+    (+ (:item node) (item-check (:left node)) (- (item-check (:right node))))))
+
+
+(defn iterate-trees [mx mn d] 
+  (let [iterations (bit-shift-left 1 (int (+ mx mn (- d))))] 
+    (println (format "%d\t trees of depth %d\t check: %d" (* 2 iterations) d 
+             (reduce + (map (fn [i] 
+                              (+ (item-check (bottom-up-tree i d)) 
+                                 (item-check (bottom-up-tree (- i) d)))) 
+                            (range 1 (inc iterations))))))))
+
+(def min-depth 4)
+
+(defn main [max-depth]
+  (let [stretch-depth (inc max-depth)]
+    (let [tree (bottom-up-tree 0 stretch-depth)
+          check (item-check tree)]
+      (println (format "stretch tree of depth %d\t check: %d" stretch-depth check)))
+    (let [long-lived-tree (bottom-up-tree 0 max-depth)]
+      (doseq [d (range min-depth stretch-depth 2)]
+        (iterate-trees max-depth min-depth d))
+      (println (format "long lived tree of depth %d\t check: %d" max-depth (item-check long-lived-tree))))))
+
+(defn -main [& args]
+  (let [n (if (first args) (Integer/parseInt (first args)) 0)
+        max-depth (if (> (+ min-depth 2) n) (+ min-depth 2) n)]
+    (main max-depth)))
+;; The Computer Language Benchmarks Game
+;; http://shootout.alioth.debian.org/
+;
+;; Adapted from the Java -server version
+;
+;; contributed by Marko Kocic
+;; modified by Kenneth Jonsson, restructured to allow usage of 'pmap'
+
+(ns binarytrees
+    (:gen-class))
+
+(set! *warn-on-reflection* true)
+
+(defrecord TreeNode [left right ^int item])
+
+(defn bottom-up-tree [item depth]
+      (if (> depth 0)
+          (TreeNode.
+           (bottom-up-tree (dec (* 2 item)) (dec depth))
+           (bottom-up-tree (* 2 item) (dec depth))
+           item)
+        (TreeNode. nil nil item)))
+
+(defn item-check [node]
+  (if (nil? (:left node))
+      (:item node)
+    (+ (:item node) (item-check (:left node)) (- (item-check (:right node))))))
+
+(defn iterate-trees [mx mn d]
+      (let [iterations (bit-shift-left 1 (int (+ mx mn (- d))))]
+           (format "%d\t trees of depth %d\t check: %d" (* 2 iterations) d
+                   (reduce + (map (fn [i]
+                                      (+ (item-check (bottom-up-tree i d))
+                                         (item-check (bottom-up-tree (- i) d))))
+                                  (range 1 (inc iterations)))))))
+
+(def min-depth 4)
+
+(defn main [max-depth]
+  (let [stretch-depth (inc max-depth)]
+       (let [tree (bottom-up-tree 0 stretch-depth)
+            check (item-check tree)]
+            (println (format "stretch tree of depth %d\t check: %d" stretch-depth check)))
+       (let [long-lived-tree (bottom-up-tree 0 max-depth) ]
+	    (doseq [trees-nfo (pmap (fn [d]
+				  (iterate-trees max-depth min-depth d))
+			      (range min-depth stretch-depth 2)) ]
+		   (println trees-nfo))
+            (println (format "long lived tree of depth %d\t check: %d" max-depth (item-check long-lived-tree)))
+	    (shutdown-agents))))
+
+(defn -main [& args]
+      (let [n (if (first args) (Integer/parseInt (first args)) 0)
+           max-depth (if (> (+ min-depth 2) n) (+ min-depth 2) n)]
+           (main max-depth)))
+;; The Computer Language Benchmarks Game
+;; http://shootout.alioth.debian.org/
+;
+;; Adapted from the Java -server version
+;
+;; contributed by Marko Kocic
+;; modified by Kenneth Jonsson, restructured to allow usage of 'pmap'
+;; modified by Andy Fingerhut to use faster primitive math ops
+
+(ns binarytrees
+  (:gen-class))
+
+(set! *warn-on-reflection* true)
+
+(defrecord TreeNode [left right ^int item])
+
+(defn bottom-up-tree [item depth]
+  (let [int-item (int item)
+        int-depth (int depth)]
+    (if (zero? int-depth)
+      (TreeNode. nil nil int-item)
+      (TreeNode.
+       (bottom-up-tree (unchecked-dec (unchecked-multiply 2 int-item))
+                       (unchecked-dec int-depth))
+       (bottom-up-tree (unchecked-multiply 2 int-item)
+                       (unchecked-dec int-depth))
+       int-item))))
+
+(defn item-check [node]
+  (if (nil? (:left node))
+    (int (:item node))
+    (unchecked-add (unchecked-add (int (:item node))
+                                  (int (item-check (:left node))))
+                   (int (- (item-check (:right node)))))))
+
+(defn iterate-trees [mx mn d]
+  (let [iterations (bit-shift-left 1 (int (+ mx mn (- d))))]
+    (format "%d\t trees of depth %d\t check: %d" (* 2 iterations) d
+            (reduce + (map (fn [i]
+                             (unchecked-add (int (item-check (bottom-up-tree i d)))
+                                            (int (item-check (bottom-up-tree (- i) d)))))
+                           (range 1 (inc iterations)))))))
+
+(def min-depth 4)
+
+(defn main [max-depth]
+  (let [stretch-depth (inc max-depth)]
+    (let [tree (bottom-up-tree 0 stretch-depth)
+          check (item-check tree)]
+      (println (format "stretch tree of depth %d\t check: %d" stretch-depth check)))
+    (let [long-lived-tree (bottom-up-tree 0 max-depth) ]
+      (doseq [trees-nfo (map (fn [d]
+                                (iterate-trees max-depth min-depth d))
+			      (range min-depth stretch-depth 2)) ]
+        (println trees-nfo))
+      (println (format "long lived tree of depth %d\t check: %d" max-depth (item-check long-lived-tree)))
+      (shutdown-agents))))
+
+(defn -main [& args]
+  (let [n (if (first args) (Integer/parseInt (first args)) 0)
+        max-depth (if (> (+ min-depth 2) n) (+ min-depth 2) n)]
+    (main max-depth)))
+;; The Computer Language Benchmarks Game
+;; http://shootout.alioth.debian.org/
+;
+;; Adapted from the Java -server version
+;
+;; contributed by Marko Kocic
+;; modified by Kenneth Jonsson, restructured to allow usage of 'pmap'
+;; modified by Andy Fingerhut to use faster primitive math ops
+
+(ns binarytrees
+  (:gen-class))
+
+(set! *warn-on-reflection* true)
+
+(defrecord TreeNode [left right ^int item])
+
+(defn bottom-up-tree [item depth]
+  (let [int-item (int item)
+        int-depth (int depth)]
+    (if (zero? int-depth)
+      (TreeNode. nil nil int-item)
+      (TreeNode.
+       (bottom-up-tree (unchecked-dec (unchecked-multiply 2 int-item))
+                       (unchecked-dec int-depth))
+       (bottom-up-tree (unchecked-multiply 2 int-item)
+                       (unchecked-dec int-depth))
+       int-item))))
+
+(defn item-check [node]
+  (if (nil? (:left node))
+    (int (:item node))
+    (unchecked-add (unchecked-add (int (:item node))
+                                  (int (item-check (:left node))))
+                   (int (- (item-check (:right node)))))))
+
+(defn iterate-trees [mx mn d]
+  (let [iterations (bit-shift-left 1 (int (+ mx mn (- d))))]
+    (format "%d\t trees of depth %d\t check: %d" (* 2 iterations) d
+            (reduce + (map (fn [i]
+                             (unchecked-add (int (item-check (bottom-up-tree i d)))
+                                            (int (item-check (bottom-up-tree (- i) d)))))
+                           (range 1 (inc iterations)))))))
+
+(def min-depth 4)
+
+(defn main [max-depth]
+  (let [stretch-depth (inc max-depth)]
+    (let [tree (bottom-up-tree 0 stretch-depth)
+          check (item-check tree)]
+      (println (format "stretch tree of depth %d\t check: %d" stretch-depth check)))
+    (let [long-lived-tree (bottom-up-tree 0 max-depth) ]
+      (doseq [trees-nfo (pmap (fn [d]
+                                (iterate-trees max-depth min-depth d))
+			      (range min-depth stretch-depth 2)) ]
+        (println trees-nfo))
+      (println (format "long lived tree of depth %d\t check: %d" max-depth (item-check long-lived-tree)))
+      (shutdown-agents))))
+
+(defn -main [& args]
+  (let [n (if (first args) (Integer/parseInt (first args)) 0)
+        max-depth (if (> (+ min-depth 2) n) (+ min-depth 2) n)]
+    (main max-depth)))
+;; The Computer Language Benchmarks Game
+;; http://shootout.alioth.debian.org/
+;
+;; Adapted from the Java -server version
+;
+;; contributed by Marko Kocic
+;; modified by Kenneth Jonsson, restructured to allow usage of 'pmap'
+;; modified by Andy Fingerhut to use faster primitive math ops, and
+;; deftype instead of defrecord for smaller tree nodes.
+
+(ns binarytrees
+  (:gen-class))
+
+(set! *warn-on-reflection* true)
+
+(definterface ITreeNode
+  (^int item [])
+  (left [])
+  (right []))
+
+;; These TreeNode's take up noticeably less memory than a similar one
+;; implemented using defrecord.
+
+(deftype TreeNode [left right ^int item]
+  ITreeNode
+  (^int item [this] item)
+  (left [this] left)
+  (right [this] right))
+
+(defn bottom-up-tree [item depth]
+  (let [int-item (int item)
+        int-depth (int depth)]
+    (if (zero? int-depth)
+      (TreeNode. nil nil int-item)
+      (TreeNode.
+       (bottom-up-tree (unchecked-dec (unchecked-multiply 2 int-item))
+                       (unchecked-dec int-depth))
+       (bottom-up-tree (unchecked-multiply 2 int-item)
+                       (unchecked-dec int-depth))
+       int-item))))
+
+(defn item-check [^TreeNode node]
+  (if (nil? (.left node))
+    (int (.item node))
+    (unchecked-add (unchecked-add (int (.item node))
+                                  (int (item-check (.left node))))
+                   (int (- (item-check (.right node)))))))
+
+(defn iterate-trees [mx mn d]
+  (let [iterations (bit-shift-left 1 (int (+ mx mn (- d))))]
+    (format "%d\t trees of depth %d\t check: %d" (* 2 iterations) d
+            (reduce + (map (fn [i]
+                             (unchecked-add (int (item-check (bottom-up-tree i d)))
+                                            (int (item-check (bottom-up-tree (- i) d)))))
+                           (range 1 (inc iterations)))))))
+
+(def min-depth 4)
+
+(defn main [max-depth]
+  (let [stretch-depth (inc max-depth)]
+    (let [tree (bottom-up-tree 0 stretch-depth)
+          check (item-check tree)]
+      (println (format "stretch tree of depth %d\t check: %d" stretch-depth check)))
+    (let [long-lived-tree (bottom-up-tree 0 max-depth) ]
+      ;; The following line is where Kenneth Jonsson used pmap.  On a
+      ;; 1-core machine, I have found significantly less user+system
+      ;; CPU time used when it is map, and slightly less elapsed time
+      ;; (at the cost of more user+system CPU time) when it is pmap.
+      (doseq [trees-nfo (map (fn [d]
+                                (iterate-trees max-depth min-depth d))
+			      (range min-depth stretch-depth 2)) ]
+        (println trees-nfo))
+      (println (format "long lived tree of depth %d\t check: %d" max-depth (item-check long-lived-tree)))
+      (shutdown-agents))))
+
+(defn -main [& args]
+  (let [n (if (first args) (Integer/parseInt (first args)) 0)
+        max-depth (if (> (+ min-depth 2) n) (+ min-depth 2) n)]
+    (main max-depth)))
+;;   The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+
+;; contributed by Andy Fingerhut.  
+;; Speed improvements contributed by Stuart Halloway.
+
+(ns fannkuchredux
+  (:require clojure.string)
+  (:gen-class))
+
+(set! *warn-on-reflection* true)
+
+
+;; This macro assumes that 1 <= n <= (alength a), where a is a Java
+;; array of ints.  No guarantees are made of its correctness if this
+;; condition is violated.  It does this merely to avoid checking a few
+;; conditions, and thus perhaps be a bit faster.
+
+(defmacro reverse-first-n! [n #^ints a]
+  `(let [n# (int ~n)
+         n-1# (int (dec n#))]
+     (loop [i# (int 0)
+            j# (int n-1#)]
+       (when (< i# j#)
+         (let [temp# (aget ~a i#)]
+           (aset ~a i# (aget ~a j#))
+           (aset ~a j# temp#))
+         (recur (inc i#) (dec j#))))))
+
+
+(defmacro rotate-left-first-n! [n #^ints a]
+  `(let [n# (int ~n)
+	 n-1# (dec n#)
+	 a0# (aget ~a 0)]
+     (loop [i# (int 0)]
+       (if (== i# n-1#)
+	 (aset ~a n-1# a0#)
+	 (let [i+1# (inc i#)]
+	   (aset ~a i# (aget ~a i+1#))
+	   (recur i+1#))))))
+
+
+(defn fannkuch-of-permutation [#^ints p]
+  (if (== (int 1) (aget p 0))
+    ;; Handle this special case without bothering to create a Java
+    ;; array.
+    0
+    ;; Using aclone instead of copy-java-int-array was a big
+    ;; improvement.
+    (let [#^ints p2 (aclone p)]
+      (loop [flips (int 0)]
+        (let [first-num (int (aget p2 0))]
+          (if (== (int 1) first-num)
+            flips
+            (do
+              (reverse-first-n! first-num p2)
+              (recur (inc flips)))))))))
+
+
+;; initialize the permutation generation algorithm.  The permutations
+;; need to be generated in a particular order so that the checksum may
+;; be computed correctly (or if you can determine some way to
+;; calculate the sign from an arbitrary permutation, then you can
+;; generate the permutations in any order you wish).
+
+;; With the particular order of generating permutations used in this
+;; program, it turns out that each of the n consecutive "groups" of
+;; (n-1)!  permutations begin with these permutations (example given
+;; for n=6):
+
+;;   1st permutation: 1 2 3 4 5 6    sign: 1  count vals: 1 2 3 4 5 6
+;; 121st permutation: 2 3 4 5 6 1    sign: 1  count vals: 1 2 3 4 5 5
+;; 241st permutation: 3 4 5 6 1 2    sign: 1  count vals: 1 2 3 4 5 4
+;; 361st permutation: 4 5 6 1 2 3    sign: 1  count vals: 1 2 3 4 5 3
+;; 481st permutation: 5 6 1 2 3 4    sign: 1  count vals: 1 2 3 4 5 2
+;; 601st permutation: 6 1 2 3 4 5    sign: 1  count vals: 1 2 3 4 5 1
+
+;; This makes it very easy to divide the work into n parallel tasks
+;; that each start at one of the permutations above, and generate only
+;; (n-1)! permutations each.  Then combine the checksum and maxflips
+;; values of each thread and print.
+
+(defn init-permutations [n]
+  (let [n-1 (dec n)]
+    (loop [i 1
+           p (int-array (range 1 (inc n)))
+           sign 1
+           c (int-array (range 1 (inc n)))
+           tasks [{:perm p :sign sign :counts c}]]
+      (if (== i n)
+        tasks
+        (let [p2 (aclone p)
+              c2 (aclone c)]
+          (rotate-left-first-n! n p2)
+          (aset c2 n-1 (dec (aget c2 n-1)))
+          (recur (inc i) p2 sign c2
+                 (conj tasks {:perm p2 :sign sign :counts c2})))))))
+
+
+(defmacro swap-array-elems! [a i j]
+  `(let [temp# (aget ~a ~i)]
+     (aset ~a ~i (aget ~a ~j))
+     (aset ~a ~j temp#)))
+
+
+;; Modify the passed Java arrays p (a permutation) and c (count
+;; values) in place.  Let caller negate the sign themselves.
+
+;; Return true if the final value of p is a new permutation, false if
+;; there are no more permutations and the caller should not use the
+;; value of p for anything.
+
+(defn next-permutation! [N #^ints p sign #^ints c]
+  (if (neg? sign)
+    (let [N (int N)
+	  N-1 (dec N)]
+      (swap-array-elems! p 1 2)
+      (loop [i (int 2)]
+	(if (== i N)
+	  true)
+	(let [cx (aget c i)
+	      i+1 (inc i)]
+	  (if (not= cx 1)
+	    (do
+	      (aset c i (dec cx))
+	      true)
+	    (if (== i N-1)
+	      false
+	      (do
+		(aset c i i+1)
+		(rotate-left-first-n! (inc i+1) p)
+		(recur i+1)))))))
+    ;; else sign is +1
+    (swap-array-elems! p 0 1)))
+
+
+(defn partial-fannkuch [num-perms #^ints p-arg first-sign #^ints c-arg]
+  (let [#^ints p (aclone p-arg)
+        #^ints c (aclone c-arg)
+        N (int (count p))]
+    (loop [i (int num-perms)
+           sign (int first-sign)
+	   maxflips (int 0)
+	   checksum (int 0)]
+      (if (zero? i)
+        [checksum maxflips]
+        (let [curflips (int (fannkuch-of-permutation p))]
+          (next-permutation! N p sign c)
+          (recur (dec i) (- sign) (int (max maxflips curflips))
+                 (+ checksum (* sign curflips))))))))
+
+
+(defn fannkuch [N]
+  (let [init-perms (init-permutations N)
+        N-1-factorial (reduce * (range 1 N))
+        partial-results (pmap (fn [{p :perm, s :sign, c :counts}]
+                                (partial-fannkuch N-1-factorial p s c))
+                              init-perms)]
+    (reduce (fn [[checksum1 maxflips1] [checksum2 maxflips2]]
+              [(+ checksum1 checksum2) (max maxflips1 maxflips2)])
+            partial-results)))
+
+
+(defn -main [& args]
+  (let [N (if (and (>= (count args) 1)
+		   (re-matches #"^\d+$" (nth args 0)))
+	    (. Integer valueOf (nth args 0) 10)
+	    10)]
+    (let [[checksum maxflips] (fannkuch N)]
+      (printf "%d\n" checksum)
+      (printf "Pfannkuchen(%d) = %d\n" N maxflips)))
+  (flush)
+  (. System (exit 0)))
+;;   The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+
+;; contributed by Andy Fingerhut
+
+(ns fasta
+  (:gen-class))
+
+(set! *warn-on-reflection* true)
+
+
+(defn make-repeat-fasta [#^java.io.BufferedWriter wrtr
+                         line-length id desc s n]
+  (let [descstr (str ">" id " " desc "\n")]
+    (.write wrtr descstr))
+  (let [s-len (int (count s))
+        line-length (int line-length)
+        min-buf-len (int (+ s-len line-length))
+        repeat-count (int (inc (quot min-buf-len s-len)))
+        buf (apply str (repeat repeat-count s))
+        ;; Precompute all strings that we might want to print, one at
+        ;; each possible offset in the string s to be repeated.
+        line-strings (vec (map (fn [i]
+                                 (str (subs buf i (+ i line-length)) "\n"))
+                               (range 0 s-len)))
+        num-full-lines (int (quot n line-length))]
+    (loop [j (int 0)
+           s-offset (int 0)]
+      (if (== j num-full-lines)
+        ;; Write out the left over part of length n, if any.
+        (when (not= 0 (rem n line-length))
+          (.write wrtr (str (subs buf s-offset (+ s-offset (rem n line-length)))
+                            "\n")))
+        (do
+          (.write wrtr #^String (line-strings s-offset))
+          (recur (inc j) (int (rem (+ s-offset line-length) s-len))))))))
+
+
+(definterface IPRNG
+  (gen_random_BANG_ [^double max-val]))
+
+
+(deftype PRNG [^{:unsynchronized-mutable true :tag int} rand-state]
+  IPRNG
+  (gen-random! [this max-val]
+    (let [IM (int 139968)
+          IA (int 3877)
+          IC (int 29573)
+          max (double max-val)
+          last-state (int rand-state)
+          next-state (int (rem (+ (* last-state IA) IC) IM))]
+      (set! rand-state next-state)
+      (/ (* max next-state) IM))))
+
+
+;; Find desired gene from cdf using binary search.
+
+(defmacro lookup-gene [n gene-chars gene-cdf rand-frac]
+  `(let [x# (double ~rand-frac)]
+     (loop [lo# (int -1)
+            hi# (int (dec ~n))]
+       (if (== (inc lo#) hi#)
+         (aget ~gene-chars hi#)
+         (let [mid# (int (quot (+ lo# hi#) 2))]
+           (if (< x# (aget ~gene-cdf mid#))
+             (recur lo# mid#)
+             (recur mid# hi#)))))))
+
+
+(let [my-prng (PRNG. (int 42))]
+  (defn fill-random! [#^chars gene-chars #^doubles gene-cdf n #^chars buf]
+    (let [num-genes (int (alength gene-cdf))]
+      (dotimes [i n]
+        (aset buf i (char (lookup-gene num-genes gene-chars gene-cdf
+                                       (.gen-random! my-prng 1.0))))))))
+
+
+(defn make-random-fasta [#^java.io.BufferedWriter wrtr
+                         line-length id desc n gene-chars gene-cdf]
+  (let [descstr (str ">" id " " desc "\n")]
+    (.write wrtr descstr))
+  (let [line-length (int line-length)
+        len-with-newline (int (inc line-length))
+        num-full-lines (int (quot n line-length))
+        line-buf (char-array len-with-newline)]
+    (aset line-buf line-length \newline)
+    (dotimes [i num-full-lines]
+      (fill-random! gene-chars gene-cdf line-length line-buf)
+      (.write wrtr line-buf (int 0) len-with-newline))
+    (let [remaining-len (int (rem n line-length))]
+      (when (not= 0 remaining-len)
+        (fill-random! gene-chars gene-cdf remaining-len line-buf)
+        (.write wrtr line-buf 0 remaining-len)
+        (.write wrtr "\n")))))
+
+
+(def alu (str "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG"
+              "GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA"
+              "CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT"
+              "ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA"
+              "GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG"
+              "AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC"
+              "AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA"))
+
+(def iub [[\a 0.27]
+          [\c 0.12]
+          [\g 0.12]
+          [\t 0.27]
+          [\B 0.02]
+          [\D 0.02]
+          [\H 0.02]
+          [\K 0.02]
+          [\M 0.02]
+          [\N 0.02]
+          [\R 0.02]
+          [\S 0.02]
+          [\V 0.02]
+          [\W 0.02]
+          [\Y 0.02]])
+
+(def homosapiens [[\a 0.3029549426680]
+                  [\c 0.1979883004921]
+                  [\g 0.1975473066391]
+                  [\t 0.3015094502008]])
+
+
+(defn prefix-sums-helper [x coll]
+  (lazy-seq
+   (when-let [s (seq coll)]
+     (let [sum (+ x (first s))]
+       (cons sum (prefix-sums-helper sum (rest s)))))))
+
+
+(defn prefix-sums [coll]
+  (prefix-sums-helper 0 coll))
+
+
+(defn make-genelist [pdf-map]
+  (let [n (count pdf-map)
+        chars (char-array n (map first pdf-map))
+        cdf (double-array n (prefix-sums (map #(nth % 1) pdf-map)))]
+    [chars cdf]))
+
+
+(defn -main [& args]
+  (let [n (if (and (>= (count args) 1)
+                   (re-matches #"^\d+$" (nth args 0)))
+            (. Integer valueOf (nth args 0) 10))
+        line-length 60
+        wrtr (java.io.BufferedWriter. *out*)
+        [iub-chars iub-cdf] (make-genelist iub)
+        [homosapiens-chars homosapiens-cdf] (make-genelist homosapiens)]
+    (make-repeat-fasta wrtr line-length "ONE" "Homo sapiens alu" alu (* 2 n))
+    (make-random-fasta wrtr line-length "TWO" "IUB ambiguity codes"
+                       (* 3 n) iub-chars iub-cdf)
+    (make-random-fasta wrtr line-length "THREE" "Homo sapiens frequency"
+                       (* 5 n) homosapiens-chars homosapiens-cdf)
+    (.flush wrtr))
+  (. System (exit 0)))
+;;   The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+
+;; contributed by Andy Fingerhut
+
+(ns fasta
+  (:gen-class))
+
+(set! *warn-on-reflection* true)
+
+
+(defn make-repeat-fasta [#^java.io.BufferedOutputStream ostream
+                         line-length id desc s n]
+  (let [descstr (str ">" id " " desc "\n")]
+    (.write ostream (.getBytes descstr) 0 (count descstr)))
+  (let [s-len (int (count s))
+        line-length (int line-length)
+        line-length+1 (int (inc line-length))
+        min-buf-len (int (+ s-len line-length))
+        repeat-count (int (inc (quot min-buf-len s-len)))
+        buf (apply str (repeat repeat-count s))
+        ;; Precompute all byte arrays that we might want to write, one
+        ;; at each possible offset in the string s to be repeated.
+        line-strings (vec (map (fn [i]
+                                 (.getBytes (str (subs buf i (+ i line-length))
+                                                 "\n")))
+                               (range 0 s-len)))
+        num-full-lines (int (quot n line-length))]
+    (loop [j (int 0)
+           s-offset (int 0)]
+      (if (== j num-full-lines)
+        ;; Write out the left over part of length n, if any.
+        (let [remaining (int (rem n line-length))]
+          (when (not= 0 remaining)
+            (.write ostream
+                    (.getBytes (str (subs buf s-offset (+ s-offset remaining))
+                                    "\n"))
+                    0 (inc remaining))))
+        (do
+          (.write ostream #^bytes (line-strings s-offset) 0 line-length+1)
+          (recur (inc j) (int (rem (+ s-offset line-length) s-len))))))))
+
+
+(definterface IPRNG
+  (gen_random_BANG_ [^double max-val]))
+
+
+(deftype PRNG [^{:unsynchronized-mutable true :tag int} rand-state]
+  IPRNG
+  (gen-random! [this max-val]
+    (let [IM (int 139968)
+          IA (int 3877)
+          IC (int 29573)
+          max (double max-val)
+          last-state (int rand-state)
+          next-state (int (rem (+ (* last-state IA) IC) IM))]
+      (set! rand-state next-state)
+      (/ (* max next-state) IM))))
+
+
+(let [my-prng (PRNG. (int 42))]
+  (defn fill-random! [#^bytes gene-bytes #^doubles gene-cdf n #^bytes buf]
+    (let [num-genes (int (alength gene-cdf))
+          double-one (double 1.0)]
+      (dotimes [i n]
+        (let [x (.gen-random! my-prng double-one)
+              ;; In my performance testing, I found linear search to
+              ;; be a little faster than binary search.  The arrays
+              ;; being searched are small.
+              b (byte (loop [j (int 0)]
+                        (if (< x (aget gene-cdf j))
+                          (aget gene-bytes j)
+                          (recur (inc j)))))]
+          (aset buf i b))))))
+
+
+(defn make-random-fasta [#^java.io.BufferedOutputStream ostream
+                         line-length id desc n gene-bytes gene-cdf]
+  (let [descstr (str ">" id " " desc "\n")]
+    (.write ostream (.getBytes descstr)))
+  (let [line-length (int line-length)
+        len-with-newline (int (inc line-length))
+        num-full-lines (int (quot n line-length))
+        line-buf (byte-array len-with-newline)]
+    (aset line-buf line-length (byte (int \newline)))
+    (dotimes [i num-full-lines]
+      (fill-random! gene-bytes gene-cdf line-length line-buf)
+      (.write ostream line-buf (int 0) len-with-newline))
+    (let [remaining-len (int (rem n line-length))]
+      (when (not= 0 remaining-len)
+        (fill-random! gene-bytes gene-cdf remaining-len line-buf)
+        (.write ostream line-buf 0 remaining-len)
+        (.write ostream (int \newline))))))
+
+
+(def alu (str "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG"
+              "GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA"
+              "CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT"
+              "ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA"
+              "GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG"
+              "AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC"
+              "AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA"))
+
+(def iub [[\a 0.27]
+          [\c 0.12]
+          [\g 0.12]
+          [\t 0.27]
+          [\B 0.02]
+          [\D 0.02]
+          [\H 0.02]
+          [\K 0.02]
+          [\M 0.02]
+          [\N 0.02]
+          [\R 0.02]
+          [\S 0.02]
+          [\V 0.02]
+          [\W 0.02]
+          [\Y 0.02]])
+
+(def homosapiens [[\a 0.3029549426680]
+                  [\c 0.1979883004921]
+                  [\g 0.1975473066391]
+                  [\t 0.3015094502008]])
+
+
+(defn prefix-sums-helper [x coll]
+  (lazy-seq
+   (when-let [s (seq coll)]
+     (let [sum (+ x (first s))]
+       (cons sum (prefix-sums-helper sum (rest s)))))))
+
+
+(defn prefix-sums [coll]
+  (prefix-sums-helper 0 coll))
+
+
+(defn make-genelist [pdf-map]
+  (let [n (count pdf-map)
+        bytes (byte-array n (map (fn [pair]
+                                   (byte (int (first pair))))
+                                 pdf-map))
+        cdf (double-array n (prefix-sums (map #(nth % 1) pdf-map)))]
+    [bytes cdf]))
+
+
+(defn -main [& args]
+  (let [n (if (and (>= (count args) 1)
+                   (re-matches #"^\d+$" (nth args 0)))
+            (. Integer valueOf (nth args 0) 10))
+        line-length 60
+        ostream (java.io.BufferedOutputStream. System/out)
+        [iub-bytes iub-cdf] (make-genelist iub)
+        [homosapiens-bytes homosapiens-cdf] (make-genelist homosapiens)]
+    (make-repeat-fasta ostream line-length "ONE" "Homo sapiens alu" alu (* 2 n))
+    (make-random-fasta ostream line-length "TWO" "IUB ambiguity codes"
+                       (* 3 n) iub-bytes iub-cdf)
+    (make-random-fasta ostream line-length "THREE" "Homo sapiens frequency"
+                       (* 5 n) homosapiens-bytes homosapiens-cdf)
+    (.flush ostream))
+  (. System (exit 0)))
+;;   The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+
+;; contributed by Andy Fingerhut
+
+(ns fasta
+  (:gen-class))
+
+(set! *warn-on-reflection* true)
+
+
+(defn make-repeat-fasta [#^java.io.BufferedOutputStream ostream
+                         line-length id desc s n]
+  (let [descstr (str ">" id " " desc "\n")]
+    (.write ostream (.getBytes descstr) 0 (count descstr)))
+  (let [s-len (int (count s))
+        line-length (int line-length)
+        line-length+1 (int (inc line-length))
+        min-buf-len (int (+ s-len line-length))
+        repeat-count (int (inc (quot min-buf-len s-len)))
+        buf (apply str (repeat repeat-count s))
+        ;; Precompute all byte arrays that we might want to write, one
+        ;; at each possible offset in the string s to be repeated.
+        line-strings (vec (map (fn [i]
+                                 (.getBytes (str (subs buf i (+ i line-length))
+                                                 "\n")))
+                               (range 0 s-len)))
+        num-full-lines (int (quot n line-length))]
+    (loop [j (int 0)
+           s-offset (int 0)]
+      (if (== j num-full-lines)
+        ;; Write out the left over part of length n, if any.
+        (let [remaining (int (rem n line-length))]
+          (when (not= 0 remaining)
+            (.write ostream
+                    (.getBytes (str (subs buf s-offset (+ s-offset remaining))
+                                    "\n"))
+                    0 (inc remaining))))
+        (do
+          (.write ostream #^bytes (line-strings s-offset) 0 line-length+1)
+          (recur (inc j) (int (unchecked-remainder
+                               (unchecked-add s-offset line-length)
+                               s-len))))))))
+
+
+(definterface IPRNG
+  (gen_random_BANG_ [^double max-val]))
+
+
+(deftype PRNG [^{:unsynchronized-mutable true :tag int} rand-state]
+  IPRNG
+  (gen-random! [this max-val]
+    (let [IM (int 139968)
+          IM-double (double 139968.0)
+          IA (int 3877)
+          IC (int 29573)
+          max (double max-val)
+          last-state (int rand-state)
+          next-state (int (unchecked-remainder
+                           (unchecked-add
+                            (unchecked-multiply last-state IA) IC) IM))
+          next-state-double (double next-state)]
+      (set! rand-state next-state)
+      (/ (* max next-state-double) IM-double))))
+
+
+(defmacro fill-random! [#^bytes gene-bytes #^doubles gene-cdf n #^bytes buf
+                        my-prng]
+  `(let [double-one# (double 1.0)]
+     (dotimes [i# ~n]
+       (let [x# (double (.gen-random! ~my-prng double-one#))
+             ;; In my performance testing, I found linear search to
+             ;; be a little faster than binary search.  The arrays
+             ;; being searched are small.
+             b# (byte (loop [j# (int 0)]
+                        (if (< x# (aget ~gene-cdf j#))
+                          (aget ~gene-bytes j#)
+                          (recur (unchecked-inc j#)))))]
+         (aset ~buf i# b#)))))
+
+
+(defn make-random-fasta [#^java.io.BufferedOutputStream ostream
+                         line-length id desc n #^bytes gene-bytes
+                         #^doubles gene-cdf #^PRNG my-prng]
+  (let [descstr (str ">" id " " desc "\n")]
+    (.write ostream (.getBytes descstr)))
+  (let [line-length (int line-length)
+        len-with-newline (int (inc line-length))
+        num-full-lines (int (quot n line-length))
+        line-buf (byte-array len-with-newline)]
+    (aset line-buf line-length (byte (int \newline)))
+    (dotimes [i num-full-lines]
+      (fill-random! gene-bytes gene-cdf line-length line-buf my-prng)
+      (.write ostream line-buf (int 0) len-with-newline))
+    (let [remaining-len (int (rem n line-length))]
+      (when (not= 0 remaining-len)
+        (fill-random! gene-bytes gene-cdf remaining-len line-buf my-prng)
+        (.write ostream line-buf 0 remaining-len)
+        (.write ostream (int \newline)))))
+  my-prng)
+
+
+(def alu (str "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG"
+              "GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA"
+              "CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT"
+              "ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA"
+              "GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG"
+              "AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC"
+              "AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA"))
+
+(def iub [[\a 0.27]
+          [\c 0.12]
+          [\g 0.12]
+          [\t 0.27]
+          [\B 0.02]
+          [\D 0.02]
+          [\H 0.02]
+          [\K 0.02]
+          [\M 0.02]
+          [\N 0.02]
+          [\R 0.02]
+          [\S 0.02]
+          [\V 0.02]
+          [\W 0.02]
+          [\Y 0.02]])
+
+(def homosapiens [[\a 0.3029549426680]
+                  [\c 0.1979883004921]
+                  [\g 0.1975473066391]
+                  [\t 0.3015094502008]])
+
+
+(defn prefix-sums-helper [x coll]
+  (lazy-seq
+   (when-let [s (seq coll)]
+     (let [sum (+ x (first s))]
+       (cons sum (prefix-sums-helper sum (rest s)))))))
+
+
+(defn prefix-sums [coll]
+  (prefix-sums-helper 0 coll))
+
+
+(defn make-genelist [pdf-map]
+  (let [n (count pdf-map)
+        bytes (byte-array n (map (fn [pair]
+                                   (byte (int (first pair))))
+                                 pdf-map))
+        cdf (double-array n (prefix-sums (map #(nth % 1) pdf-map)))]
+    [bytes cdf]))
+
+
+(defn -main [& args]
+  (let [n (if (and (>= (count args) 1)
+                   (re-matches #"^\d+$" (nth args 0)))
+            (. Integer valueOf (nth args 0) 10))
+        line-length 60
+        ostream (java.io.BufferedOutputStream. System/out)
+        [iub-bytes iub-cdf] (make-genelist iub)
+        [homosapiens-bytes homosapiens-cdf] (make-genelist homosapiens)
+        my-prng (PRNG. (int 42))]
+    (make-repeat-fasta ostream line-length "ONE" "Homo sapiens alu" alu (* 2 n))
+    (let [my-prng2
+          (make-random-fasta ostream line-length "TWO" "IUB ambiguity codes"
+                             (* 3 n) iub-bytes iub-cdf my-prng)]
+      (make-random-fasta ostream line-length "THREE" "Homo sapiens frequency"
+                         (* 5 n) homosapiens-bytes homosapiens-cdf my-prng2))
+    (.flush ostream)))
+;;   The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+
+;; contributed by Bill James
+;; speed improvements by Andy Fingerhut
+
+(ns fasta
+  (:gen-class))
+
+(set! *warn-on-reflection* true)
+
+
+(def *width* 60)
+(def *lookup-size* 222000)
+
+
+(def *alu* (str "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG"
+                "GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA"
+                "CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT"
+                "ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA"
+                "GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG"
+                "AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC"
+                "AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA"))
+
+(def *codes* "acgtBDHKMNRSVWY")
+
+(def *iub* [0.27 0.12 0.12 0.27 0.02 0.02 0.02 0.02
+           0.02 0.02 0.02 0.02 0.02 0.02 0.02])
+
+(def *homosapiens* [0.3029549426680 0.1979883004921
+                   0.1975473066391 0.3015094502008])
+
+
+(defn find-index [f coll]
+  (loop [i (int 0)
+         s (seq coll)]
+    (if (f (first s))
+      i
+      (recur (unchecked-inc i) (rest s)))))
+
+
+(def random-seed (int-array [42]))
+(let [scale (double (/ *lookup-size* 139968))]
+  (defn gen-random-fast []
+    (let [^ints random-seed random-seed
+          IM (int 139968)
+          IA (int 3877)
+          IC (int 29573)
+          zero (int 0)
+          new-seed (int (unchecked-remainder
+                         (unchecked-add
+                          (unchecked-multiply
+                           (aget random-seed zero) IA) IC) IM))
+          ;; I had the (aset random-seed zero new-seed) in the body of
+          ;; the let before, but strangely the Clojure compiler
+          ;; generated an unnecessary call to Integer.valueOf() to
+          ;; convert aset's return value to an Integer and then
+          ;; discard that value.  By assigning the return value of
+          ;; aset to throwaway-val, the compiler actually generates
+          ;; faster code.
+          throwaway-val (int (aset random-seed zero new-seed))]
+      (int (* new-seed scale)))))
+
+
+;; Takes a vector of probabilities.
+(defn make-cumulative [v]
+  (vec (map #(reduce + (subvec v 0 %)) (range 1 (inc (count v))))))
+
+
+;; Takes a vector of cumulative probabilities.
+(defn make-lookup-table [v]
+  (let [sz (int *lookup-size*)
+        lookup-scale (- sz 0.0001)
+        ^ints a (int-array sz)]
+    (dotimes [i sz]
+      (aset a i (int (find-index #(<= (/ i lookup-scale) %) v))))
+    a))
+
+
+(defn cycle-bytes [source source-size n
+                   ^java.io.BufferedOutputStream ostream]
+  (let [source-size (int source-size)
+        width (int *width*)
+        width+1 (int (inc width))
+        buffer-size (int (* width+1 4096))
+        buffer (byte-array buffer-size (byte 10))]
+    (loop [i (int 0)
+           j (int 0)
+           n (int n)]
+      (System/arraycopy source i buffer j width)
+      (if (> n width)
+        (recur (int (unchecked-remainder
+                     (unchecked-add i width) source-size))
+               (int (let [j (unchecked-add j width+1)]
+                      (if (== j buffer-size)
+                        (do (.write ostream buffer) (int 0))
+                        j)))
+               (unchecked-subtract n width))
+        (do
+          (aset buffer (+ j n) (byte 10))
+          (.write ostream buffer (int 0) (+ j n 1)))))))
+
+
+(defn fasta-repeat [n ^java.io.BufferedOutputStream ostream]
+  (let [source (.getBytes (str *alu* *alu*))]
+    (cycle-bytes source (count *alu*) n ostream)))
+
+
+(defn fasta-random [probs n ^java.io.BufferedOutputStream ostream]
+  (let [codes (.getBytes (str *codes*))
+        lookup-table (ints (make-lookup-table
+                            (make-cumulative probs)))
+        width (int *width*)
+        width-1 (int (dec width))
+        num-lines-in-buffer (int 2000)
+        buf-size (int (* num-lines-in-buffer (inc width)))
+        buffer (byte-array buf-size)]
+    (loop [n (int n)      ;; The number of characters left to generate.
+           j (int width)  ;; The number of characters left to
+                          ;; generate on the current line of output
+                          ;; before printing a newline.
+           i (int 0)]     ;; Number of characters put in buffer so far.
+      (if (zero? n)
+        (do
+          (.write ostream buffer (int 0) i)
+          (when (not= (aget buffer (dec i)) (byte 10))
+            (aset buffer (int 0) (byte 10))
+            (.write ostream buffer (int 0) (int 1))))
+        ;; else
+        (let [rand-byte (aget codes (aget lookup-table (gen-random-fast)))]
+          (if (== i buf-size)
+            (do
+              ;; buffer is full.  write it and start over.
+              (.write ostream buffer (int 0) buf-size)
+              (aset buffer (int 0) rand-byte)
+              (recur (unchecked-dec n) width-1 (int 1)))
+            (do
+              (aset buffer i rand-byte)
+              (if (== j (int 1))
+                ;; then
+                (do
+                  (aset buffer (unchecked-inc i) (byte 10)) ;; add newline
+                  (recur (unchecked-dec n) width (unchecked-add i 2)))
+                ;; else
+                (recur (unchecked-dec n) (unchecked-dec j)
+                       (unchecked-inc i))))))))))
+
+
+(defn write-line [s ^java.io.BufferedOutputStream stream]
+  (.write stream (.getBytes (str s "\n"))))
+
+
+(defn -main [& args]
+  (let [n (Integer/parseInt (nth args 0))
+        ostream (java.io.BufferedOutputStream. System/out)
+        start-time (System/currentTimeMillis)]
+    (write-line ">ONE Homo sapiens alu" ostream)
+    (fasta-repeat (* n 2) ostream)
+    (write-line ">TWO IUB ambiguity codes" ostream)
+    (fasta-random *iub* (* n 3) ostream)
+    (write-line ">THREE Homo sapiens frequency" ostream)
+    (fasta-random *homosapiens* (* n 5) ostream)
+    (.flush ostream)))
+;;   The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+
+;; contributed by Andy Fingerhut
+
+(ns knucleotide
+  (:gen-class))
+
+(set! *warn-on-reflection* true)
+
+
+(defn fasta-description-line
+;   "Return true when the line l is a FASTA description line"
+  [l]
+  (= \> (first (seq l))))
+
+
+(defn fasta-description-line-beginning
+;   "Return true when the line l is a FASTA description line that begins
+; with the string desc-str."
+  [desc-str l]
+  (and (fasta-description-line l)
+       (= desc-str (subs l 1 (min (count l) (inc (count desc-str)))))))
+
+
+(defn fasta-dna-str-with-desc-beginning
+;   "Take a sequence of lines from a FASTA format file, and a string
+; desc-str.  Look for a FASTA record with a description that begins with
+; desc-str, and if one is found, return its DNA sequence as a
+; single (potentially quite long) string.  If input file is big, you'll
+; save lots of memory if you call this function in a with-open for the
+; file, and don't hold on to the head of the lines parameter."
+  [desc-str lines]
+  (when-let [x (drop-while (fn [l]
+                             (not (fasta-description-line-beginning desc-str
+                                                                    l)))
+                           lines)]
+    (when-let [x (seq x)]
+      (let [y (take-while (fn [l] (not (fasta-description-line l)))
+                          (map (fn [#^java.lang.String s] (.toUpperCase s))
+                               (rest x)))]
+        (apply str y)))))
+
+
+(defn all-equal-len-subs
+;   "Returns a sequence of all length len substrings of the string s,
+; if (count s) >= len, otherwise nil."
+  [len s]
+  (when (>= (count s) len)
+    (map #(subs s % (+ % len)) (range (inc (- (count s) len))))))
+
+
+(defn tally-helper
+  [h things]
+  (if-let [r (seq things)]
+    (let [key (first r)]
+      (recur (assoc! h key (inc (get h key 0))) (rest r)))
+    h))
+
+
+(defn tally
+;   "Take a sequence things, and return a hash map h whose keys are the
+; set of unique objects in the sequence, and where (h obj) is equal to
+; the number of times obj occurs in the sequence.  Splitting it into
+; this and a helper function is a little odd, but when I had a more
+; straightforward single function for this in Clojure 1.1 alpha, it
+; 'kept the head' of the sequence and used excessive memory."
+  [things]
+  (persistent! (tally-helper (transient {}) things)))
+
+
+(defn all-tally-to-str
+  [tally]
+  (with-out-str
+    (let [total (reduce + (vals tally))]
+      (doseq [k (sort #(>= (tally %1) (tally %2)) ; sort by tally, largest first
+                      (keys tally))]
+        (println (format "%s %.3f" k
+                         (double (* 100 (/ (tally k) total)))))))))
+
+
+(defn one-tally-to-str
+  [key tally]
+  (format "%d\t%s" (get tally key 0) key))
+
+
+(defn -main [& args]
+  (with-open [br (java.io.BufferedReader. *in*)]
+    (let [dna-str (fasta-dna-str-with-desc-beginning "THREE" (line-seq br))]
+      (flush)
+      (let [tally1 (all-tally-to-str (tally (all-equal-len-subs 1 dna-str)))]
+        (println tally1))
+      (flush)
+      (let [tally2 (all-tally-to-str (tally (all-equal-len-subs 2 dna-str)))]
+        (println tally2))
+      (flush)
+      (let [tally3 (one-tally-to-str "GGT"
+                                     (tally (all-equal-len-subs 3 dna-str)))]
+        (println tally3))
+      (flush)
+      (let [tally4 (one-tally-to-str "GGTA"
+                                     (tally (all-equal-len-subs 4 dna-str)))]
+        (println tally4))
+      (flush)
+      (let [tally6 (one-tally-to-str "GGTATT"
+                                     (tally (all-equal-len-subs 6 dna-str)))]
+        (println tally6))
+      (flush)
+      (let [tally12 (one-tally-to-str "GGTATTTTAATT"
+                                      (tally (all-equal-len-subs 12 dna-str)))]
+        (println tally12))
+      (flush)
+      (let [tally18 (one-tally-to-str "GGTATTTTAATTTATAGT"
+                                      (tally (all-equal-len-subs 18 dna-str)))]
+        (println tally18))
+      (flush)))
+  (. System (exit 0)))
+;;   The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+
+;; contributed by Andy Fingerhut
+
+(ns knucleotide
+  (:gen-class))
+
+(set! *warn-on-reflection* true)
+
+
+(defn my-lazy-map [f coll]
+  (lazy-seq
+    (when-let [s (seq coll)]
+      (cons (f (first s)) (my-lazy-map f (rest s))))))
+
+
+;; modified-pmap is like pmap from Clojure 1.1, but with only as much
+;; parallelism as specified by the parameter num-threads.  Uses
+;; my-lazy-map instead of map from core.clj, since that version of map
+;; can use unwanted additional parallelism for chunked collections,
+;; like ranges.
+
+(defn modified-pmap
+  ([num-threads f coll]
+     (if (== num-threads 1)
+       (map f coll)
+       (let [n (if (>= num-threads 2) (dec num-threads) 1)
+             rets (my-lazy-map #(future (f %)) coll)
+             step (fn step [[x & xs :as vs] fs]
+                    (lazy-seq
+                      (if-let [s (seq fs)]
+                        (cons (deref x) (step xs (rest s)))
+                        (map deref vs))))]
+         (step rets (drop n rets)))))
+  ([num-threads f coll & colls]
+     (let [step (fn step [cs]
+                  (lazy-seq
+                    (let [ss (my-lazy-map seq cs)]
+                      (when (every? identity ss)
+                        (cons (my-lazy-map first ss)
+			      (step (my-lazy-map rest ss)))))))]
+       (modified-pmap num-threads #(apply f %) (step (cons coll colls))))))
+
+
+;; Return true when the line l is a FASTA description line
+
+(defn fasta-description-line [l]
+  (= \> (first (seq l))))
+
+
+;; Return true when the line l is a FASTA description line that begins
+;; with the string desc-str.
+
+(defn fasta-description-line-beginning [desc-str l]
+  (and (fasta-description-line l)
+       (= desc-str (subs l 1 (min (count l) (inc (count desc-str)))))))
+
+
+;; Take a sequence of lines from a FASTA format file, and a string
+;; desc-str.  Look for a FASTA record with a description that begins
+;; with desc-str, and if one is found, return its DNA sequence as a
+;; single (potentially quite long) string.  If input file is big,
+;; you'll save lots of memory if you call this function in a with-open
+;; for the file, and don't hold on to the head of the lines parameter.
+
+(defn fasta-dna-str-with-desc-beginning [desc-str lines]
+  (when-let [x (drop-while
+		(fn [l] (not (fasta-description-line-beginning desc-str l)))
+		lines)]
+    (when-let [x (seq x)]
+      (let [y (take-while (fn [l] (not (fasta-description-line l)))
+                          (map (fn [#^java.lang.String s] (.toUpperCase s))
+                               (rest x)))]
+        (apply str y)))))
+
+
+(def dna-char-to-code-val {\A 0, \C 1, \T 2, \G 3})
+(def code-val-to-dna-char {0 \A, 1 \C, 2 \T, 3 \G})
+
+
+;; In the hash map 'tally' in tally-dna-subs-with-len, it is more
+;; straightforward to use a Clojure string (same as a Java string) as
+;; the key, but such a key is significantly bigger than it needs to
+;; be, increasing memory and time required to hash the value.  By
+;; converting a string of A, C, T, and G characters down to an integer
+;; that contains only 2 bits for each character, we make a value that
+;; is significantly smaller and faster to use as a key in the map.
+
+;;    most                 least
+;; significant          significant
+;; bits of int          bits of int
+;;  |                         |
+;;  V                         V
+;; code code code ....  code code
+;;  ^                         ^
+;;  |                         |
+;; code for               code for
+;; *latest*               *earliest*
+;; char in                char in
+;; sequence               sequence
+
+;; Note: Given Clojure 1.2's implementation of bit-shift-left/right
+;; operations, when the value being shifted is larger than a 32-bit
+;; int, they are faster when the shift amount is a compile time
+;; constant.
+
+(defn dna-str-to-key [s]
+  ;; Accessing a local let binding is much faster than accessing a var
+  (let [dna-char-to-code-val dna-char-to-code-val]
+    (loop [key 0
+	   offset (int (dec (count s)))]
+      (if (neg? offset)
+	key
+	(let [c (nth s offset)
+	      new-key (+ (bit-shift-left key 2) (dna-char-to-code-val c))]
+	  (recur new-key (dec offset)))))))
+
+
+(defn key-to-dna-str [k len]
+  (apply str (map code-val-to-dna-char
+		  (map (fn [pos] (bit-and 3 (bit-shift-right k pos)))
+		       (range 0 (* 2 len) 2)))))
+
+
+(defn tally-dna-subs-with-len [len dna-str]
+  (let [mask-width (* 2 len)
+	mask (dec (bit-shift-left 1 mask-width))
+	dna-char-to-code-val dna-char-to-code-val]
+    (loop [offset (int (- (count dna-str) len))
+	   key (dna-str-to-key (subs dna-str offset (+ offset len)))
+	   tally (transient {key 1})]
+      (if (zero? offset)
+	(persistent! tally)
+	(let [new-offset (dec offset)
+	      new-first-char-code (dna-char-to-code-val
+                                   (nth dna-str new-offset))
+	      new-key (bit-and mask
+			       (+ (bit-shift-left key 2) new-first-char-code))
+	      new-tally (assoc! tally new-key (inc (get tally new-key 0)))]
+	  (recur new-offset new-key new-tally))))))
+
+
+(defn all-tally-to-str [tally fn-key-to-str]
+  (with-out-str
+    (let [total (reduce + (vals tally))]
+      (doseq [k (sort #(>= (tally %1) (tally %2)) ; sort by tally, largest first
+                      (keys tally))]
+        (println (format "%s %.3f" (fn-key-to-str k)
+                         (double (* 100 (/ (tally k) total)))))))))
+
+
+(defn one-tally-to-str [dna-str tally]
+  (format "%d\t%s" (get tally (dna-str-to-key dna-str) 0) dna-str))
+
+
+(defn compute-one-part [dna-str part]
+  (.println System/err (format "Starting part %d" part))
+  (let [ret-val
+	[part
+	 (condp = part
+	     0 (all-tally-to-str (tally-dna-subs-with-len 1 dna-str)
+				 (fn [k] (key-to-dna-str k 1)))
+	     1 (all-tally-to-str (tally-dna-subs-with-len 2 dna-str)
+				 (fn [k] (key-to-dna-str k 2)))
+	     2 (one-tally-to-str "GGT"
+				 (tally-dna-subs-with-len 3 dna-str))
+	     3 (one-tally-to-str "GGTA"
+				 (tally-dna-subs-with-len 4 dna-str))
+	     4 (one-tally-to-str "GGTATT"
+				 (tally-dna-subs-with-len 6 dna-str))
+	     5 (one-tally-to-str "GGTATTTTAATT"
+				 (tally-dna-subs-with-len 12 dna-str))
+	     6 (one-tally-to-str "GGTATTTTAATTTATAGT"
+				 (tally-dna-subs-with-len 18 dna-str)))]]
+    (.println System/err (format "Finished part %d" part))
+    ret-val))
+
+
+(def *default-modified-pmap-num-threads*
+     (+ 2 (.. Runtime getRuntime availableProcessors)))
+
+
+(defn -main [& args]
+  (def num-threads
+       (if (and (>= (count args) 1)
+		(re-matches #"^\d+$" (nth args 0)))
+	 (let [n (. Integer valueOf (nth args 0) 10)]
+	   (if (== n 0)
+	     *default-modified-pmap-num-threads*
+	     n))
+         *default-modified-pmap-num-threads*))
+  (with-open [br (java.io.BufferedReader. *in*)]
+    (let [dna-str (fasta-dna-str-with-desc-beginning "THREE" (line-seq br))
+          ;; Select the order of computing parts such that it is
+          ;; unlikely that parts 5 and 6 will be computed concurrently.
+          ;; Those are the two that take the most memory.  It would be
+          ;; nice if we could specify a DAG for which jobs should finish
+          ;; before others begin -- then we could prevent those two
+          ;; parts from running simultaneously.
+          results (map second
+                       (sort #(< (first %1) (first %2))
+                             (modified-pmap num-threads
+                                            #(compute-one-part dna-str %)
+                                            ;; '(6 0 1 2 3 4 5)
+                                            '(0 5 6 1 2 3 4)
+					    )))]
+      (doseq [r results]
+        (println r)
+        (flush))))
+  (. System (exit 0)))
+;;   The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+
+;; contributed by Andy Fingerhut
+
+(ns knucleotide
+  (:gen-class))
+
+(set! *warn-on-reflection* true)
+
+
+(definterface ITallyCounter
+  (^int get_count [])
+  (inc_BANG_ []))
+
+
+(deftype TallyCounter [^{:unsynchronized-mutable true :tag int} cnt]
+  ITallyCounter
+  (get-count [this] cnt)
+  (inc! [this]
+    (set! cnt (unchecked-inc cnt))))
+
+ 
+(defn my-lazy-map [f coll]
+  (lazy-seq
+    (when-let [s (seq coll)]
+      (cons (f (first s)) (my-lazy-map f (rest s))))))
+
+
+;; modified-pmap is like pmap from Clojure 1.1, but with only as much
+;; parallelism as specified by the parameter num-threads.  Uses
+;; my-lazy-map instead of map from core.clj, since that version of map
+;; can use unwanted additional parallelism for chunked collections,
+;; like ranges.
+
+(defn modified-pmap
+  ([num-threads f coll]
+     (if (== num-threads 1)
+       (map f coll)
+       (let [n (if (>= num-threads 2) (dec num-threads) 1)
+             rets (my-lazy-map #(future (f %)) coll)
+             step (fn step [[x & xs :as vs] fs]
+                    (lazy-seq
+                      (if-let [s (seq fs)]
+                        (cons (deref x) (step xs (rest s)))
+                        (map deref vs))))]
+         (step rets (drop n rets)))))
+  ([num-threads f coll & colls]
+     (let [step (fn step [cs]
+                  (lazy-seq
+                    (let [ss (my-lazy-map seq cs)]
+                      (when (every? identity ss)
+                        (cons (my-lazy-map first ss)
+			      (step (my-lazy-map rest ss)))))))]
+       (modified-pmap num-threads #(apply f %) (step (cons coll colls))))))
+
+
+;; Return true when the line l is a FASTA description line
+
+(defn fasta-description-line [l]
+  (= \> (first (seq l))))
+
+
+;; Return true when the line l is a FASTA description line that begins
+;; with the string desc-str.
+
+(defn fasta-description-line-beginning [desc-str l]
+  (and (fasta-description-line l)
+       (= desc-str (subs l 1 (min (count l) (inc (count desc-str)))))))
+
+
+;; Take a sequence of lines from a FASTA format file, and a string
+;; desc-str.  Look for a FASTA record with a description that begins
+;; with desc-str, and if one is found, return its DNA sequence as a
+;; single (potentially quite long) string.  If input file is big,
+;; you'll save lots of memory if you call this function in a with-open
+;; for the file, and don't hold on to the head of the lines parameter.
+
+(defn fasta-dna-str-with-desc-beginning [desc-str lines]
+  (when-let [x (drop-while
+		(fn [l] (not (fasta-description-line-beginning desc-str l)))
+		lines)]
+    (when-let [x (seq x)]
+      (let [y (take-while (fn [l] (not (fasta-description-line l)))
+                          (map (fn [#^java.lang.String s] (.toUpperCase s))
+                               (rest x)))]
+        (apply str y)))))
+
+
+(def dna-char-to-code-val {\A 0, \C 1, \T 2, \G 3})
+(def code-val-to-dna-char {0 \A, 1 \C, 2 \T, 3 \G})
+
+
+;; In the hash map 'tally' in tally-dna-subs-with-len, it is more
+;; straightforward to use a Clojure string (same as a Java string) as
+;; the key, but such a key is significantly bigger than it needs to
+;; be, increasing memory and time required to hash the value.  By
+;; converting a string of A, C, T, and G characters down to an integer
+;; that contains only 2 bits for each character, we make a value that
+;; is significantly smaller and faster to use as a key in the map.
+
+;;    most                 least
+;; significant          significant
+;; bits of int          bits of int
+;;  |                         |
+;;  V                         V
+;; code code code ....  code code
+;;  ^                         ^
+;;  |                         |
+;; code for               code for
+;; *latest*               *earliest*
+;; char in                char in
+;; sequence               sequence
+
+;; Note: Given Clojure 1.2's implementation of bit-shift-left/right
+;; operations, when the value being shifted is larger than a 32-bit
+;; int, they are faster when the shift amount is a compile time
+;; constant.
+
+(defn dna-str-to-key [s]
+  ;; Accessing a local let binding is much faster than accessing a var
+  (let [dna-char-to-code-val dna-char-to-code-val]
+    (loop [key 0
+	   offset (int (dec (count s)))]
+      (if (neg? offset)
+	key
+	(let [c (nth s offset)
+              code (int (dna-char-to-code-val c))
+	      new-key (+ (bit-shift-left key 2) code)]
+	  (recur new-key (dec offset)))))))
+
+
+(defn key-to-dna-str [k len]
+  (apply str (map code-val-to-dna-char
+		  (map (fn [pos] (bit-and 3 (bit-shift-right k pos)))
+		       (range 0 (* 2 len) 2)))))
+
+
+(defn tally-dna-subs-with-len [len dna-str]
+  (let [mask-width (* 2 len)
+	mask (dec (bit-shift-left 1 mask-width))
+	dna-char-to-code-val dna-char-to-code-val]
+    (loop [offset (int (- (count dna-str) len))
+	   key (dna-str-to-key (subs dna-str offset (+ offset len)))
+           tally (let [h (java.util.HashMap.)
+                       one (TallyCounter. (int 1))]
+                   (.put h key one)
+                   h)]
+      (if (zero? offset)
+        tally
+	(let [new-offset (dec offset)
+	      new-first-char-code (dna-char-to-code-val
+                                   (nth dna-str new-offset))
+	      new-key (bit-and mask (+ (bit-shift-left key 2)
+                                       new-first-char-code))]
+          (if-let [^TallyCounter cur-count (get tally new-key)]
+            (.inc! cur-count)
+            (let [one (TallyCounter. (int 1))]
+              (.put tally new-key one)))
+	  (recur new-offset new-key tally))))))
+
+
+(defn getcnt [^TallyCounter tc]
+  (.get-count tc))
+
+
+(defn all-tally-to-str [tally fn-key-to-str]
+  (with-out-str
+    (let [total (reduce + (map getcnt (vals tally)))
+          cmp-keys (fn [k1 k2]
+                     ;; Return negative integer if k1 should come earlier
+                     ;; in the sort order than k2, 0 if they are equal,
+                     ;; otherwise a positive integer.
+                     (let [cnt1 (int (getcnt (get tally k1)))
+                           cnt2 (int (getcnt (get tally k2)))]
+                       (if (not= cnt1 cnt2)
+                         (- cnt2 cnt1)
+                         (let [^String s1 (fn-key-to-str k1)
+                               ^String s2 (fn-key-to-str k2)]
+                           (.compareTo s1 s2)))))]
+      (doseq [k (sort cmp-keys (keys tally))]
+        (printf "%s %.3f\n" (fn-key-to-str k)
+                (double (* 100 (/ (getcnt (get tally k)) total))))))))
+
+
+(defn one-tally-to-str [dna-str tally]
+  (let [zerotc (TallyCounter. 0)]
+    (format "%d\t%s" (getcnt (get tally (dna-str-to-key dna-str) zerotc))
+            dna-str)))
+
+
+(defn compute-one-part [dna-str part]
+  [part
+   (condp = part
+       0 (all-tally-to-str (tally-dna-subs-with-len 1 dna-str)
+                           (fn [k] (key-to-dna-str k 1)))
+       1 (all-tally-to-str (tally-dna-subs-with-len 2 dna-str)
+                           (fn [k] (key-to-dna-str k 2)))
+       2 (one-tally-to-str "GGT"
+                           (tally-dna-subs-with-len 3 dna-str))
+       3 (one-tally-to-str "GGTA"
+                           (tally-dna-subs-with-len 4 dna-str))
+       4 (one-tally-to-str "GGTATT"
+                           (tally-dna-subs-with-len 6 dna-str))
+       5 (one-tally-to-str "GGTATTTTAATT"
+                           (tally-dna-subs-with-len 12 dna-str))
+       6 (one-tally-to-str "GGTATTTTAATTTATAGT"
+                           (tally-dna-subs-with-len 18 dna-str)))])
+
+
+(def *default-modified-pmap-num-threads*
+     (+ 2 (.. Runtime getRuntime availableProcessors)))
+
+
+(defn -main [& args]
+  (def num-threads
+       (if (and (>= (count args) 1)
+		(re-matches #"^\d+$" (nth args 0)))
+	 (let [n (. Integer valueOf (nth args 0) 10)]
+	   (if (== n 0)
+	     *default-modified-pmap-num-threads*
+	     n))
+         *default-modified-pmap-num-threads*))
+  (with-open [br (java.io.BufferedReader. *in*)]
+    (let [dna-str (fasta-dna-str-with-desc-beginning "THREE" (line-seq br))
+          ;; Select the order of computing parts such that it is
+          ;; unlikely that parts 5 and 6 will be computed concurrently.
+          ;; Those are the two that take the most memory.  It would be
+          ;; nice if we could specify a DAG for which jobs should finish
+          ;; before others begin -- then we could prevent those two
+          ;; parts from running simultaneously.
+          results (map second
+                       (sort #(< (first %1) (first %2))
+                             (modified-pmap num-threads
+                                            #(compute-one-part dna-str %)
+                                            '(0 5 6 1 2 3 4)
+					    )))]
+      (doseq [r results]
+        (println r)
+        (flush))))
+  (shutdown-agents))
+;;   The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+
+;; contributed by Andy Fingerhut
+
+;; The function 'dot' is based on suggestions and improvements made by
+;; these people posting to the Clojure Google group in April, 2009:
+;; dmitri.sotnikov, William D. Lipe, Paul Stadig, michael.messinides
+;; David Sletten, John Harrop
+
+;; change by Marko Kocic
+;; reduced code size by removing functions already present in Clojure
+
+(ns mandelbrot
+  (:gen-class)
+  (:import (java.io BufferedOutputStream)))
+
+(set! *warn-on-reflection* true)
+
+(def max-iterations 50)
+(def limit-square (double 4.0))
+
+(defn dot [r i]
+  (let [f2 (double 2.0)
+        limit-square (double limit-square)
+        iterations-remaining (int max-iterations)
+        pr (double r)
+        pi (double i)]
+    ;; The loop below is similar to the one in the Perl subroutine dot
+    ;; in mandelbrot.perl, with these name correspondences:
+    ;; pr <-> Cr, pi <-> Ci, zi <-> Zi, zr <-> Zr, zr2 <-> Tr, zi2 <-> Ti
+    (loop [zr (double 0.0)
+           zi (double 0.0)
+           i (int (unchecked-inc iterations-remaining))]
+      (let [zr2 (* zr zr)
+            zi2 (* zi zi)]
+        (if (and (not (zero? i))
+                 (< (+ zr2 zi2) limit-square))
+          (recur (+ (- zr2 zi2) pr)
+                 (+ (* (* f2 zr) zi) pi)
+                 (unchecked-dec i))
+          (zero? i))))))
+
+
+(defn index-to-val [i scale-fac offset]
+  (+ (* i scale-fac) offset))
+
+
+(defn ubyte [val]
+  (if (>= val 128)
+    (byte (- val 256))
+    (byte val)))
+
+
+(defn compute-row [x-vals y]
+    (loop [b (int 0)
+           num-filled-bits (int 0)
+           result (transient [])
+           x-vals x-vals]
+      (if-let [s (seq x-vals)]
+        ;; then
+        (let [new-bit (int (if (dot (first s) y) 1 0))
+              new-b (int (+ (bit-shift-left b 1) new-bit))]
+          (if (== num-filled-bits 7)
+            (recur (int 0)
+                   (int 0)
+                   (conj! result (ubyte new-b))
+                   (rest s))
+            (recur new-b
+                   (int (inc num-filled-bits))
+                   result
+                   (rest s))))
+        ;; else
+        (if (zero? num-filled-bits)
+          (persistent! result)
+          (persistent! (conj! result
+                              (ubyte (bit-shift-left b (- 8 num-filled-bits)))))
+          ))))
+
+
+(defn compute-rows [size]
+  (let [two-over-size (double (/ 2.0 size))
+        x-offset (double -1.5)
+        y-offset (double -1.0)
+        x-vals (map #(index-to-val % two-over-size x-offset) (range size))]
+    (pmap #(compute-row x-vals
+                        (index-to-val % two-over-size y-offset))
+          (range size))))
+
+
+(defn do-mandelbrot [size]
+  (let [rows (compute-rows size)]
+    (println "P4")
+    (println (format "%d %d" size size))
+    (let [ostream (BufferedOutputStream. System/out)]
+      (doseq [r rows]
+        (. ostream write (into-array Byte/TYPE r) 0 (count r)))
+      (. ostream close))
+    (flush)))
+
+
+(defn usage [exit-code]
+  (println (format "usage: %s size [num-threads]"
+                   *file*))
+  (println (format "    size must be a positive integer"))
+  (. System (exit exit-code)))
+
+
+(defn -main [& args]
+  (when (or (< (count args) 1) (> (count args) 2))
+    (usage 1))
+  (when (not (re-matches #"^\d+$" (nth args 0)))
+    (usage 1))
+  (def size (. Integer valueOf (nth args 0) 10))
+  (when (< size 1)
+    (usage 1))
+  (do-mandelbrot size)
+  (. System (exit 0)))
+;;   The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+
+;; contributed by Andy Fingerhut
+
+;; The function 'dot' is based on suggestions and improvements made by
+;; these people posting to the Clojure Google group in April, 2009:
+;; dmitri.sotnikov, William D. Lipe, Paul Stadig, michael.messinides
+;; David Sletten, John Harrop
+
+(ns mandelbrot
+  (:gen-class)
+  (:import (java.io BufferedOutputStream)))
+
+
+(def max-iterations 50)
+(def limit-square (double 4.0))
+
+(defn dot [r i]
+  (let [f2 (double 2.0)
+        limit-square (double limit-square)
+        iterations-remaining (int max-iterations)
+        pr (double r)
+        pi (double i)]
+    ;; The loop below is similar to the one in the Perl subroutine dot
+    ;; in mandelbrot.perl, with these name correspondences:
+    ;; pr <-> Cr, pi <-> Ci, zi <-> Zi, zr <-> Zr, zr2 <-> Tr, zi2 <-> Ti
+    (loop [zr (double 0.0)
+           zi (double 0.0)
+           i (int (inc iterations-remaining))]
+      (let [zr2 (* zr zr)
+            zi2 (* zi zi)]
+        (if (and (not (zero? i))
+                 (< (+ zr2 zi2) limit-square))
+          (recur (+ (- zr2 zi2) pr)
+                 (+ (* (* f2 zr) zi) pi)
+                 (unchecked-dec i))
+          (zero? i))))))
+
+
+(defn index-to-val [i scale-fac offset]
+  (+ (* i scale-fac) offset))
+
+
+(defn ubyte
+  [val]
+  (if (>= val 128)
+    (byte (- val 256))
+    (byte val)))
+
+
+(defn compute-row
+  [x-vals y]
+    (loop [b (int 0)
+           num-filled-bits (int 0)
+           result (transient [])
+           x-vals x-vals]
+      (if-let [s (seq x-vals)]
+        ;; then
+        (let [new-bit (int (if (dot (first s) y) 1 0))
+              new-b (int (+ (bit-shift-left b 1) new-bit))]
+          (if (== num-filled-bits 7)
+            (recur (int 0)
+                   (int 0)
+                   (conj! result (ubyte new-b))
+                   (rest s))
+            (recur new-b
+                   (int (inc num-filled-bits))
+                   result
+                   (rest s))))
+        ;; else
+        (if (zero? num-filled-bits)
+          (persistent! result)
+          (persistent! (conj! result
+                              (ubyte (bit-shift-left b (- 8 num-filled-bits)))))
+          ))))
+
+
+(defn my-lazy-map
+  [f coll]
+  (lazy-seq
+    (when-let [s (seq coll)]
+      (cons (f (first s)) (my-lazy-map f (rest s))))))
+
+
+(defn modified-pmap
+;   "Like pmap from Clojure 1.1, but with only as much parallelism as
+;   there are available processors.  Uses my-lazy-map instead of map
+;   from core.clj, since that version of map can use unwanted additional
+;   parallelism for chunked collections, like ranges."
+  ([num-threads f coll]
+     (if (== num-threads 1)
+       (map f coll)
+       (let [n (if (>= num-threads 2) (dec num-threads) 1)
+             rets (my-lazy-map #(future (f %)) coll)
+             step (fn step [[x & xs :as vs] fs]
+                    (lazy-seq
+                      (if-let [s (seq fs)]
+                        (cons (deref x) (step xs (rest s)))
+                        (map deref vs))))]
+         (step rets (drop n rets)))))
+  ([num-threads f coll & colls]
+     (let [step (fn step [cs]
+                  (lazy-seq
+                    (let [ss (my-lazy-map seq cs)]
+                      (when (every? identity ss)
+                        (cons (my-lazy-map first ss)
+                              (step (my-lazy-map rest ss)))))))]
+       (modified-pmap num-threads #(apply f %) (step (cons coll colls))))))
+  
+
+(defn compute-rows [size num-threads]
+  (let [two-over-size (double (/ 2.0 size))
+        x-offset (double -1.5)
+        y-offset (double -1.0)
+        x-vals (map #(index-to-val % two-over-size x-offset) (range size))]
+    (modified-pmap num-threads
+                   #(compute-row x-vals
+                                 (index-to-val % two-over-size y-offset))
+                   (range size))))
+
+
+(defn do-mandelbrot [size num-threads]
+  (let [rows (compute-rows size num-threads)]
+    (println "P4")
+    (println (format "%d %d" size size))
+    (let [ostream (BufferedOutputStream. System/out)]
+      (doseq [r rows]
+        (. ostream write (into-array Byte/TYPE r) 0 (count r)))
+      (. ostream close))
+    (flush)))
+
+
+(def *default-modified-pmap-num-threads*
+     (+ 2 (.. Runtime getRuntime availableProcessors)))
+
+(defn usage [exit-code]
+  (println (format "usage: %s size [num-threads]"
+                   *file*))
+  (println (format "    size must be a positive integer"))
+  (println (format "    num-threads is the maximum threads to use at once"))
+  (println (format "        during the computation.  If 0 or not given, it"))
+  (println (format "        defaults to the number of available cores plus 2,"))
+  (println (format "        which is %d"
+                   *default-modified-pmap-num-threads*))
+  (. System (exit exit-code)))
+
+
+(defn -main [& args]
+  (when (or (< (count args) 1) (> (count args) 2))
+    (usage 1))
+  (when (not (re-matches #"^\d+$" (nth args 0)))
+    (usage 1))
+  (def size (. Integer valueOf (nth args 0) 10))
+  (when (< size 1)
+    (usage 1))
+  (def num-threads
+       (if (>= (count args) 2)
+         (do
+           (when (not (re-matches #"^\d+$" (nth args 1)))
+             (usage 1))
+           (let [n (. Integer valueOf (nth args 1) 10)]
+             (if (== n 0)
+               *default-modified-pmap-num-threads*
+               n)))
+         *default-modified-pmap-num-threads*))
+  (do-mandelbrot size num-threads)
+  (. System (exit 0)))
+;;   The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+
+;; contributed by Andy Fingerhut
+
+;; The function 'dot' is based on suggestions and improvements made by
+;; these people posting to the Clojure Google group in April, 2009:
+;; dmitri.sotnikov, William D. Lipe, Paul Stadig, michael.messinides
+;; David Sletten, John Harrop
+
+;; change by Marko Kocic
+;; reduced code size by removing functions already present in Clojure
+
+;; change by Andy Fingerhut
+;; Use Java primitive double arrays instead of Clojure sequences in a
+;; few inner loops.  This is a sequential version using map instead of
+;; pmap, since sequential code tends to use less CPU time on 1-core
+;; machines.
+
+(ns mandelbrot
+  (:gen-class)
+  (:import (java.io BufferedOutputStream)))
+
+(set! *warn-on-reflection* true)
+
+
+(def max-iterations 50)
+(def limit-square (double 4.0))
+
+(defn dot [r i]
+  (let [f2 (double 2.0)
+        limit-square (double limit-square)
+        iterations-remaining (int max-iterations)
+        pr (double r)
+        pi (double i)]
+    ;; The loop below is similar to the one in the Perl subroutine dot
+    ;; in mandelbrot.perl, with these name correspondences:
+    ;; pr <-> Cr, pi <-> Ci, zi <-> Zi, zr <-> Zr, zr2 <-> Tr, zi2 <-> Ti
+    (loop [zr (double 0.0)
+           zi (double 0.0)
+           i (int (unchecked-inc iterations-remaining))]
+      (let [zr2 (* zr zr)
+            zi2 (* zi zi)]
+        (if (and (not (zero? i))
+                 (< (+ zr2 zi2) limit-square))
+          (recur (+ (- zr2 zi2) pr)
+                 (+ (* (* f2 zr) zi) pi)
+                 (unchecked-dec i))
+          (zero? i))))))
+
+
+(defn index-to-val [i scale-fac offset]
+  (+ (* i scale-fac) offset))
+
+
+(defn ubyte [val]
+  (if (>= val 128)
+    (byte (- val 256))
+    (byte val)))
+
+
+(defn compute-row [#^doubles x-vals y]
+  (let [y (double y)
+        n (int (alength x-vals))
+        num-bytes-out (int (unchecked-divide (unchecked-add n 7) 8))
+        #^bytes result (byte-array num-bytes-out)
+        zero (int 0)
+        one (int 1)]
+    (loop [i (int zero)
+           b (int zero)
+           num-filled-bits zero
+           result-idx (int zero)]
+      (if (== i n)
+        (do
+          (when (not (zero? num-filled-bits))
+            (let [last-byte-val
+                  (byte (ubyte (bit-shift-left b (- 8 num-filled-bits))))]
+            (aset result result-idx last-byte-val)))
+          result)
+        ;; else
+        (let [new-bit (int (if (dot (aget x-vals i) y) one zero))
+              new-b (int (unchecked-add (bit-shift-left b one) new-bit))]
+          (if (== num-filled-bits 7)
+            (let [byte-val (byte (ubyte new-b))]
+              (aset result result-idx byte-val)
+              (recur (unchecked-inc i)
+                     zero
+                     zero
+                     (unchecked-inc result-idx)))
+            (recur (unchecked-inc i)
+                   new-b
+                   (unchecked-inc num-filled-bits)
+                   result-idx)))))))
+
+
+(defn compute-rows [size]
+  (let [two-over-size (double (/ 2.0 size))
+        x-offset (double -1.5)
+        y-offset (double -1.0)
+        x-vals (double-array size (map #(index-to-val % two-over-size x-offset)
+                                       (range size)))
+        y-vals (double-array size (map #(index-to-val % two-over-size y-offset)
+                                       (range size)))]
+    (map #(compute-row x-vals (aget y-vals %))
+         (range size))))
+
+
+(defn do-mandelbrot [size]
+  (let [rows (compute-rows size)]
+    (printf "P4\n")
+    (printf "%d %d\n" size size)
+    (flush)
+    (let [ostream (BufferedOutputStream. System/out)]
+      (doseq [r rows]
+        (. ostream write r 0 (count r)))
+      (. ostream close))
+    (flush)))
+
+
+(defn -main [& args]
+  (let [size (. Integer valueOf (nth args 0) 10)]
+    (do-mandelbrot size)
+    (shutdown-agents)))
+;;   The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+
+;; contributed by Andy Fingerhut
+
+;; The function 'dot' is based on suggestions and improvements made by
+;; these people posting to the Clojure Google group in April, 2009:
+;; dmitri.sotnikov, William D. Lipe, Paul Stadig, michael.messinides
+;; David Sletten, John Harrop
+
+;; change by Marko Kocic
+;; reduced code size by removing functions already present in Clojure
+
+;; change by Andy Fingerhut
+;; Use Java primitive double arrays instead of Clojure sequences in a
+;; few inner loops.  This is a parallel version, identical to the
+;; sequential version except using pmap in compute-rows.
+
+(ns mandelbrot
+  (:gen-class)
+  (:import (java.io BufferedOutputStream)))
+
+(set! *warn-on-reflection* true)
+
+
+(def max-iterations 50)
+(def limit-square (double 4.0))
+
+(defn dot [r i]
+  (let [f2 (double 2.0)
+        limit-square (double limit-square)
+        iterations-remaining (int max-iterations)
+        pr (double r)
+        pi (double i)]
+    ;; The loop below is similar to the one in the Perl subroutine dot
+    ;; in mandelbrot.perl, with these name correspondences:
+    ;; pr <-> Cr, pi <-> Ci, zi <-> Zi, zr <-> Zr, zr2 <-> Tr, zi2 <-> Ti
+    (loop [zr (double 0.0)
+           zi (double 0.0)
+           i (int (unchecked-inc iterations-remaining))]
+      (let [zr2 (* zr zr)
+            zi2 (* zi zi)]
+        (if (and (not (zero? i))
+                 (< (+ zr2 zi2) limit-square))
+          (recur (+ (- zr2 zi2) pr)
+                 (+ (* (* f2 zr) zi) pi)
+                 (unchecked-dec i))
+          (zero? i))))))
+
+
+(defn index-to-val [i scale-fac offset]
+  (+ (* i scale-fac) offset))
+
+
+(defn ubyte [val]
+  (if (>= val 128)
+    (byte (- val 256))
+    (byte val)))
+
+
+(defn compute-row [#^doubles x-vals y]
+  (let [y (double y)
+        n (int (alength x-vals))
+        num-bytes-out (int (unchecked-divide (unchecked-add n 7) 8))
+        #^bytes result (byte-array num-bytes-out)
+        zero (int 0)
+        one (int 1)]
+    (loop [i (int zero)
+           b (int zero)
+           num-filled-bits zero
+           result-idx (int zero)]
+      (if (== i n)
+        (do
+          (when (not (zero? num-filled-bits))
+            (let [last-byte-val
+                  (byte (ubyte (bit-shift-left b (- 8 num-filled-bits))))]
+            (aset result result-idx last-byte-val)))
+          result)
+        ;; else
+        (let [new-bit (int (if (dot (aget x-vals i) y) one zero))
+              new-b (int (unchecked-add (bit-shift-left b one) new-bit))]
+          (if (== num-filled-bits 7)
+            (let [byte-val (byte (ubyte new-b))]
+              (aset result result-idx byte-val)
+              (recur (unchecked-inc i)
+                     zero
+                     zero
+                     (unchecked-inc result-idx)))
+            (recur (unchecked-inc i)
+                   new-b
+                   (unchecked-inc num-filled-bits)
+                   result-idx)))))))
+
+
+(defn compute-rows [size]
+  (let [two-over-size (double (/ 2.0 size))
+        x-offset (double -1.5)
+        y-offset (double -1.0)
+        x-vals (double-array size (map #(index-to-val % two-over-size x-offset)
+                                       (range size)))
+        y-vals (double-array size (map #(index-to-val % two-over-size y-offset)
+                                       (range size)))]
+    (pmap #(compute-row x-vals (aget y-vals %))
+          (range size))))
+
+
+(defn do-mandelbrot [size]
+  (let [rows (compute-rows size)]
+    (printf "P4\n")
+    (printf "%d %d\n" size size)
+    (flush)
+    (let [ostream (BufferedOutputStream. System/out)]
+      (doseq [r rows]
+        (. ostream write r 0 (count r)))
+      (. ostream close))
+    (flush)))
+
+
+(defn -main [& args]
+  (let [size (. Integer valueOf (nth args 0) 10)]
+    (do-mandelbrot size)
+    (shutdown-agents)))
+;; The Computer Language Benchmarks Game
+;; http://shootout.alioth.debian.org/
+;;
+;; contributed by Andy Fingerhut
+;; Based upon ideas from GCC version by Christian Vosteen (good comments!)
+
+(ns meteor
+  (:gen-class)
+  (:require [clojure.string :as str])
+  (:require [clojure.pprint :as pprint]))
+
+(set! *warn-on-reflection* true)
+
+
+;; The board is a 50 cell hexagonal pattern.  For    . . . . .
+;; maximum speed the board will be implemented as     . . . . .
+;; 50 bits, which will fit into 2 32-bit ints.       . . . . .
+;; I originally tried 1 64-bit long, but the bit-*    . . . . .
+;; operators in Clojure 1.2 are not as optimized     . . . . .
+;; as they will be in the next version of Clojure.    . . . . .
+;;                                                   . . . . .
+;;                                                    . . . . .
+;; I will represent 0's as empty cells and 1's       . . . . .
+;; as full cells.                                     . . . . .
+
+;; Here are the numerical indices for each position on the board, also
+;; later called board indices.
+;;
+;;  0   1   2   3   4
+;;    5   6   7   8   9
+;; 10  11  12  13  14
+;;   15  16  17  18  19
+;; 20  21  22  23  24
+;;   25  26  27  28  29
+;; 30  31  32  33  34
+;;   35  36  37  38  39
+;; 40  41  42  43  44
+;;   45  46  47  48  49
+
+
+;; Numerical encodings of directions:
+;; 0 East, 1 Southeast, 2 Southwest, 3 West, 4 Northwest, 5 Northeast
+
+;; Each puzzle piece is specified as a tree.  Every piece consists of
+;; 5 'nodes', each of which occupies one board index.  Each piece has
+;; a root node numbered 0, and every other node (numbered 1 through 4)
+;; specifies its parent node, and the direction to take to get from
+;; the parent to the child (in a default orientation).
+
+;; In the pictures below, pieces are shown graphically in their
+;; default orientation, with nodes numbered 0 through 4.
+
+;;   Piece 0   Piece 1   Piece 2   Piece 3   Piece 4
+;;                   
+;;  0 1 2 3    0   3 4   0 1 2     0 1 2     0   3
+;;         4    1 2           3       3       1 2
+;;                           4         4         4
+;;
+(def piece-defs [ [[0 0] [1 0] [2 0] [3 1]]  ; piece 0
+;;                 ^^^^^ node 1 is East (direction 0) of its parent node 0
+;;                       ^^^^^ node 2 is East of its parent node 1
+                  [[0 1] [1 0] [2 5] [3 0]]  ; piece 1
+                  [[0 0] [1 0] [2 1] [3 2]]  ; piece 2
+                  [[0 0] [1 0] [2 2] [3 1]]  ; piece 3
+                  [[0 1] [1 0] [2 5] [2 1]]  ; piece 4
+;;                                    ^ node 4's parent is 2, not 3
+;;
+;;   Piece 5   Piece 6   Piece 7   Piece 8   Piece 9
+;;
+;;    0 1 2     0 1       0 1     0 1        0 1 2 3
+;;       3 4       2 4       2       2 3 4        4
+;;                  3       4 3
+;;
+                  [[0 0] [1 0] [2 2] [3 0]]  ; piece 5
+                  [[0 0] [1 1] [2 1] [3 5]]  ; piece 6
+                  [[0 0] [1 1] [2 1] [3 3]]  ; piece 7
+                  [[0 0] [1 1] [2 0] [3 0]]  ; piece 8
+                  [[0 0] [1 0] [2 0] [3 2]]  ; piece 9
+                  ])
+
+;; Unlike Christian Vosteen's C program, I will only use 6 directions:
+;;
+;; E SE SW W NW NE
+;;
+;; I will use a different representation for piece shapes so that I
+;; won't need 12 directions for the reason that he introduced them
+;; (i.e. pieces whose shapes are like a tree, and cannot be
+;; represented only with a sequence of directions from one starting
+;; point).
+
+
+;; To minimize the amount of work done in the recursive solve function
+;; below, I'm going to precalculate all legal rotations of each piece
+;; at each position on the board. That's 10 pieces x 50 board
+;; positions x 6 rotations x 2 'flip positions' ('top side up' or 'top
+;; side down').  However, not all 6x2=12 orientations will fit on
+;; every cell.  Only keep the ones that do.  The pieces are going to
+;; be pairs of 32-bit ints just like the board so they can be
+;; bitwise-anded with the board to determine if they fit.  I'm also
+;; going to record the next possible open cell for each piece and
+;; location to reduce the burden on the solve function.
+
+
+;; Returns the direction rotated 60 degrees clockwise
+(defn rotate [dir]
+  (case dir
+        0 1
+        1 2
+        2 3
+        3 4
+        4 5
+        5 0))
+
+;; Returns the direction flipped on the horizontal axis
+(defn flip [dir]
+  (case dir
+        0 0
+        1 5
+        2 4
+        3 3
+        4 2
+        5 1))
+
+
+;; Returns the new cell index from the specified cell in the specified
+;; direction.  The index is only valid if the starting cell and
+;; direction have been checked by the out-of-bounds function first.
+
+(defn shift [cell dir]
+  (case dir
+        0 (inc cell)
+        1 (if (odd? (quot cell 5))
+              (+ cell 6)
+              (+ cell 5))
+        2 (if (odd? (quot cell 5))
+              (+ cell 5)
+              (+ cell 4))
+        3  (dec cell)
+        4 (if (odd? (quot cell 5))
+              (- cell 5)
+              (- cell 6))
+        5 (if (odd? (quot cell 5))
+              (- cell 4)
+              (- cell 5))))
+
+
+(defn make-shift-table []
+  (object-array (map (fn [cell-idx]
+                       (int-array (map (fn [dir] (shift cell-idx dir))
+                                       (range 6))))
+                     (range 50))))
+
+
+;; Returns wether the specified cell and direction will land outside
+;; of the board.  Used to determine if a piece is at a legal board
+;; location or not.
+
+(defn out-of-bounds [cell dir]
+  (case dir
+        0 (== (rem cell 5) 4)       ; cell is on the right side
+        1 (or (== (rem cell 10) 9)  ; cell is on "extreme" right side
+              (>= cell 45))         ; or the bottom row
+        2 (or (== (rem cell 10) 0)  ; cell is on "extreme" left side
+              (>= cell 45))         ; or the bottom row
+        3 (== (rem cell 5) 0)       ; cell is on the left side
+        4 (or (== (rem cell 10) 0)  ; cell is on "extreme" left side
+              (< cell 5))           ; or the top row
+        5 (or (== (rem cell 10) 9)  ; cell is on "extreme" right side
+              (< cell 5))))         ; or the top row
+
+
+(defn make-oob-table []
+  (object-array (map (fn [cell-idx]
+                       (boolean-array (map (fn [dir] (out-of-bounds cell-idx dir))
+                                           (range 6))))
+                     (range 50))))
+
+
+;; Return a piece that is the the same as the one given as argument,
+;; except rotated 60 degrees clockwise.
+
+(defn rotate-piece [piece]
+  (vec (map (fn [[parent dir]] [parent (rotate dir)]) piece)))
+
+
+;; Return a piece that is the the same as the one given as argument,
+;; except flipped along the horizontal axis.
+
+(defn flip-piece [piece]
+  (vec (map (fn [[parent dir]] [parent (flip dir)]) piece)))
+
+
+;; Convenience function to calculate and return a vector of all of the
+;; board indices that a piece's nodes will be in, if that piece's root
+;; node is at root-index.
+
+;; Note that no check is made to see whether the piece actually fits
+;; on the board or not, so some of the returned index values may be
+;; nonsense.  See cells-fit-on-board for a way to check this.
+
+(defn calc-cell-indices [piece root-index ^objects shift-table]
+  (loop [indices (transient [root-index])
+         node (int 0)]
+    (if (== node 4)
+      (persistent! indices)
+      ;; else
+      ;; Note that information about node n of a piece is in (piece
+      ;; (dec n)) We're intentionally iterating the value 'node' 0
+      ;; through 3 rather than 1 through 4 here just to avoid
+      ;; calculating (dec node) here.
+      (let [pair (piece node)
+            parent (int (pair 0))
+            dir (int (pair 1))
+            ;[parent dir] (piece node)
+            parent-loc (int (indices parent))]
+        (recur (conj! indices
+                      (if (and (< parent-loc 50) (not (neg? parent-loc)))
+                        (let [^ints shift-table-for-parent-loc
+                              (aget shift-table parent-loc)]
+                          (aget shift-table-for-parent-loc dir))
+                        0))  ;; dummy value
+               (inc node))))))
+
+
+;; Convenience function to calculate if a piece fits on the board.
+;; Node 0 of the piece, at board index (indices 0), is assumed to be
+;; on the board, but the other nodes may be off.
+
+(defmacro node-fits [node-info indices ^objects oob-table]
+  `(let [pair# ~node-info
+         parent-node-num# (int (pair# 0))
+         dir# (int (pair# 1))
+         parent-idx# (int (~indices parent-node-num#))
+         ;^booleans oob-for-parent-idx# (aget ~oob-table parent-idx#)]
+         ^"[Z" oob-for-parent-idx# (aget ~oob-table parent-idx#)]
+     (not (aget oob-for-parent-idx# dir#))))
+
+
+(defn cells-fit-on-board [piece indices ^objects oob-table]
+  (and
+   (node-fits (piece 0) indices oob-table)  ;; check node 1 of the piece
+   (node-fits (piece 1) indices oob-table)  ;; node 2, etc.
+   (node-fits (piece 2) indices oob-table)
+   (node-fits (piece 3) indices oob-table)))
+
+
+;; Fill the entire board going cell by cell, starting from index i.
+;; If any cells are "trapped" they will be left alone.
+
+(defn fill-contiguous-space! [^ints board i
+                              ^objects shift-table ^objects oob-table]
+  (letfn
+      [(fill-helper! [i]
+         (let [i (int i)
+               ^booleans oob-table-row (aget oob-table i)
+               ^ints shift-table-row (aget shift-table i)]
+           (when (zero? (aget board i))
+             (aset board i (int 1))
+             (if (not (aget oob-table-row (int 0)))
+               (fill-helper! (aget shift-table-row (int 0))))
+             (if (not (aget oob-table-row (int 1)))
+               (fill-helper! (aget shift-table-row (int 1))))
+             (if (not (aget oob-table-row (int 2)))
+               (fill-helper! (aget shift-table-row (int 2))))
+             (if (not (aget oob-table-row (int 3)))
+               (fill-helper! (aget shift-table-row (int 3))))
+             (if (not (aget oob-table-row (int 4)))
+               (fill-helper! (aget shift-table-row (int 4))))
+             (if (not (aget oob-table-row (int 5)))
+               (fill-helper! (aget shift-table-row (int 5)))))))]
+    (fill-helper! i)))
+
+
+(defn empty-cells [^ints board-arr]
+  (- 50
+     (let [^ints a board-arr]
+       (loop [i (int 49)
+              ret (int 0)]
+         (if (neg? i)
+           ret
+           (recur (unchecked-dec i) (unchecked-add ret (aget a i))))))))
+
+
+;; Warning: Modifies its argument board-arr
+
+(defn board-empty-region-sizes! [^ints board-arr
+                                 ^objects shift-table ^objects oob-table]
+  (loop [sizes (transient [])
+         num-empty (empty-cells board-arr)
+         last-empty-cell 50]
+    (if (zero? num-empty)
+      (persistent! sizes)
+      ;; else
+      (let [next-last-empty-cell (loop [i (int (dec last-empty-cell))]
+                                   (if (zero? (aget board-arr i))
+                                     i
+                                     (recur (dec i))))]
+        (fill-contiguous-space! board-arr next-last-empty-cell shift-table
+                                oob-table)
+        (let [next-num-empty (empty-cells board-arr)]
+          (recur (conj! sizes (- num-empty next-num-empty))
+                 next-num-empty
+                 next-last-empty-cell))))))
+
+
+;; Generate the pair of 32-bit ints that will later be anded with the
+;; board to determine if it fits.
+
+(defn bitmask-from-indices [indices]
+  [(reduce bit-or (map (fn [i] (if (< i 25) (bit-shift-left 1 i) 0))
+                       indices))
+   (reduce bit-or (map (fn [i] (if (< i 25) 0 (bit-shift-left 1 (- i 25))))
+                       indices))])
+
+
+(defn print-board [^ints soln]
+  (dotimes [i 50]
+    (when (zero? (unchecked-remainder i 5))
+      (println ""))
+    (when (== (unchecked-remainder i 10) (int 5))
+      (print " "))
+    (printf "%d " (aget soln i))))
+
+
+;; Solutions are encoded as vectors of 50 integers, one for each board
+;; index, where each integer is in the range [0,9], representing one
+;; of the 5 parts of a piece that is in that board index.
+
+(defn encode-solution [^ints piece-num-arr ^ints mask-arr0 ^ints mask-arr1]
+  (let [soln (int-array 50 -1)]
+    (dotimes [i 25]
+      (let [idx-mask (int (bit-shift-left (int 1) i))]
+        (loop [p (int 0)]
+          (if (< p (int 10))
+            (if (zero? (bit-and (aget mask-arr0 p) idx-mask))
+              (recur (inc p))
+              (aset soln i (aget piece-num-arr p)))))
+        (loop [p (int 0)]
+          (if (< p (int 10))
+            (if (zero? (bit-and (aget mask-arr1 p) idx-mask))
+              (recur (inc p))
+              (aset soln (unchecked-add (int 25) i) (aget piece-num-arr p)))))))
+    soln))
+
+
+;; To thin the number of pieces, I calculate if any of them trap any
+;; empty cells at the edges, such that the number of trapped empty
+;; cells is not a multiple of 5.  All pieces have 5 cells, so any such
+;; trapped regions cannot possibly be filled with any pieces.
+
+(defn one-piece-has-island [indices shift-table oob-table]
+  (let [temp-board (int-array 50)]
+    ;; Mark the piece board positions as filled
+    (doseq [idx indices]
+      (aset temp-board idx (int 1)))
+    (let [empty-region-sizes (board-empty-region-sizes! temp-board shift-table
+                                                        oob-table)]
+      (not (every? #(zero? (rem % 5)) empty-region-sizes)))))
+
+
+;; Calculate the lowest possible open cell if the piece is placed on
+;; the board.  Used to later reduce the amount of time searching for
+;; open cells in the solve function.
+
+(defn first-empty-cell-after [minimum indices]
+  (let [idx-set (set indices)]
+    (loop [i (int minimum)]
+      (if (idx-set i)
+        (recur (inc i))
+        i))))
+
+
+;; We calculate only half of piece 3's rotations.  This is because any
+;; solution found has an identical solution rotated 180 degrees.  Thus
+;; we can reduce the number of attempted pieces in the solve algorithm
+;; by not including the 180- degree-rotated pieces of ONE of the
+;; pieces.  I chose piece 3 because it gave me the best time ;)
+
+(def *piece-num-to-do-only-3-rotations* 3)
+
+;; Calculate every legal rotation for each piece at each board
+;; location.
+
+(defn calc-pieces [pieces shift-table oob-table]
+  (let [npieces (int (count pieces))
+        ^objects tbl (object-array npieces)] ; first index is piece-num
+    (dotimes [piece-num npieces]
+      (aset tbl piece-num (object-array 50))
+      (let [^objects piece-arr (aget tbl piece-num)]
+        (dotimes [cell 50]  ; second index is board index
+          ;; Start with transient vectors.  Later we will change them to
+          ;; Java arrays after we know how long to make them.
+          (aset piece-arr cell (transient [])))))
+    ;; Find all possible good piece placements
+    (dotimes [p npieces]
+      (let [unrotated-piece (pieces p)
+            num-rots (if (= p *piece-num-to-do-only-3-rotations*) 3 6)]
+        (dotimes [flip 2]
+          (loop [rot (int 0)
+                 piece (if (zero? flip)
+                         unrotated-piece
+                         (flip-piece unrotated-piece))]
+            (when (< rot num-rots)
+              (dotimes [cell 50]
+                (let [indices (calc-cell-indices piece cell shift-table)]
+                  (when (and (cells-fit-on-board piece indices oob-table)
+                             (not (one-piece-has-island indices shift-table
+                                                        oob-table)))
+                    (let [minimum (apply min indices)
+                          [piece-mask0 piece-mask1] (bitmask-from-indices
+                                                     indices)
+                          next-index (int (first-empty-cell-after minimum
+                                                                  indices))]
+
+                      (let [^ints good-placement (int-array 3)
+                            ^objects piece-arr (aget tbl p)]
+                        (aset good-placement (int 0) (int piece-mask0))
+                        (aset good-placement (int 1) (int piece-mask1))
+                        (aset good-placement (int 2) next-index)
+                        ;; Put it in the table
+                        (aset piece-arr minimum
+                              (conj! (aget piece-arr minimum) good-placement))
+                        )))))
+              (recur (inc rot) (rotate-piece piece)))))))
+    ;; Make all transient vectors into Java object arrays
+    (dotimes [piece-num npieces]
+      (let [^objects piece-arr (aget tbl piece-num)]
+        (dotimes [cell 50]
+          (let [cur-vec (persistent! (aget piece-arr cell))]
+            (aset piece-arr cell (object-array cur-vec))))))
+    tbl))
+
+
+
+;; first-empty-index-aux assumptions: idx is in the range [0,24].
+;; half-board is an integer that has bits 25 and higher equal to 0, so
+;; the loop is guaranteed to terminate, and the return value will be
+;; in the range [0,25].
+
+(defmacro first-empty-index-aux [idx half-board]
+  `(loop [i# (int ~idx)
+          hb# (int (bit-shift-right ~half-board ~idx))]
+     (if (zero? (bit-and hb# (int 1)))
+       i#
+       (recur (inc i#) (bit-shift-right hb# (int 1))))))
+
+
+(defmacro first-empty-index [idx board0 board1]
+  `(if (< ~idx (int 25))
+     (let [i# (int (first-empty-index-aux ~idx ~board0))]
+       (if (== i# (int 25))
+         (unchecked-add (int 25) (int (first-empty-index-aux (int 0) ~board1)))
+         i#))
+     (unchecked-add (int 25)
+                    (int (first-empty-index-aux (unchecked-subtract ~idx
+                                                                    (int 25))
+                                                ~board1)))))
+
+
+;; Note: board-empty-region-sizes! runs faster if there are fewer
+;; empty cells to fill.  So fill as much of the board as we can before
+;; putting in the 3 partially filled rows.  There must be at least one
+;; completely empty row at the bottom in order to correctly determine
+;; whether these 3 rows are a bad triple.
+
+(defn create-triples [shift-table oob-table]
+  (let [bad-even-triples (int-array (/ (bit-shift-left 1 15) 32))
+        bad-odd-triples (int-array (/ (bit-shift-left 1 15) 32))
+        temp-arr (int-array 50)]
+    ;; Fill rows 0..5 completely.
+    (dotimes [i 30]
+      (aset temp-arr i (int 1)))
+    (dotimes [row6 32]
+      (dotimes [row7 32]
+        (dotimes [row8 32]
+          (let [board (int (bit-or (bit-or row6 (bit-shift-left row7 5))
+                                   (bit-shift-left row8 10)))]
+            (dotimes [i 15]
+              (aset temp-arr (+ (int 30) i)
+                    (int (bit-and (int 1) (bit-shift-right board i)))))
+            (dotimes [i 5]   ;; Row 9 is completely empty to start with
+              (aset temp-arr (+ (int 45) i) (int 0)))
+            (let [empty-region-sizes (board-empty-region-sizes!
+                                      temp-arr shift-table oob-table)
+                  ;; Note that we assume board-empty-region-sizes!
+                  ;; returns a sequence, where the first element is
+                  ;; the size of the empty region that includes the
+                  ;; last cell, number 49.  Thus we can eliminate the
+                  ;; number of empty cells in that region simply by
+                  ;; removing the first element.
+                  empty-sizes-except-bottom (rest empty-region-sizes)
+                  j (int (bit-shift-right board 5))
+                  i (int (bit-and board (int 0x1F)))]
+              (when-not (every? #(zero? (rem % 5)) empty-sizes-except-bottom)
+                ;; then it is possible for pieces to fill the empty
+                ;; regions
+                (aset bad-even-triples j
+                      (bit-or (aget bad-even-triples j)
+                              (bit-shift-left (int 1) i)))))))))
+    ;; Fill rows 0..4 completely.
+    (dotimes [i 25]
+      (aset temp-arr i (int 1)))
+    (dotimes [row5 32]
+      (dotimes [row6 32]
+        (dotimes [row7 32]
+          (let [board-rows-1-3 (int (bit-or (bit-or row5 (bit-shift-left row6 5))
+                                            (bit-shift-left row7 10)))]
+            (dotimes [i 15]
+              (aset temp-arr (+ (int 25) i)
+                    (int (bit-and (int 1) (bit-shift-right board-rows-1-3 i)))))
+            (dotimes [i 10]  ;; Rows 8 and 9 are completely empty to start with
+              (aset temp-arr (+ (int 40) i) (int 0)))
+            (let [empty-region-sizes (board-empty-region-sizes!
+                                      temp-arr shift-table oob-table)
+                  empty-sizes-except-bottom (rest empty-region-sizes)
+                  j (int (bit-shift-right board-rows-1-3 5))
+                  i (int (bit-and board-rows-1-3 (int 0x1F)))]
+              (when-not (every? #(zero? (rem % 5)) empty-sizes-except-bottom)
+                (aset bad-odd-triples j
+                      (bit-or (aget bad-odd-triples j)
+                              (bit-shift-left 1 i)))
+                ))))))
+    [bad-even-triples bad-odd-triples]))
+
+
+(def num-solutions (int-array 1))
+(def all-solutions (object-array 2200))
+
+;; See comments above *piece-num-to-do-only-3-rotations*.  Each
+;; solution is thus recorded twice.  Reversing the solution has the
+;; effect of rotating it 180 degrees.
+
+(defn record-solution! [^ints soln]
+  (let [^ints num-solutions num-solutions
+        ^objects all-solutions all-solutions
+        n (int (aget num-solutions (int 0)))
+        ^ints rotated-soln (aclone soln)
+        len (int (alength soln))
+        len-1 (int (dec len))]
+    (aset all-solutions n soln)
+    (dotimes [i (unchecked-divide len (int 2))]
+      (let [tmp (int (aget rotated-soln i))
+            other-idx (int (unchecked-subtract len-1 i))]
+        (aset rotated-soln i (aget rotated-soln other-idx))
+        (aset rotated-soln other-idx tmp)))
+    (aset all-solutions (inc n) rotated-soln)
+    (aset num-solutions (int 0) (+ n (int 2)))))
+
+
+;; Assume all args have been type-hinted to int in the environment
+;; where the macro board-has-no-islands is called.
+
+(defmacro board-has-no-islands [board0 board1 index
+                                ^ints bad-even-triples
+                                ^ints bad-odd-triples]
+  `(if (>= ~index (int 40))
+     true
+     (let [row-num# (int (unchecked-divide ~index (int 5)))
+           current-3-rows#
+           (int (case row-num#
+                      (int 0) (bit-and (int 0x7FFF) ~board0)
+                      (int 1) (bit-and (int 0x7FFF)
+                                       (bit-shift-right ~board0 (int  5)))
+                      (int 2) (bit-and (int 0x7FFF)
+                                       (bit-shift-right ~board0 (int 10)))
+                      (int 3) (bit-or (bit-shift-right ~board0 (int 15))
+                                      (bit-shift-left (bit-and (int 0x1F)
+                                                               ~board1)
+                                                      (int 10)))
+                      (int 4) (bit-or (bit-shift-right ~board0 (int 20))
+                                      (bit-shift-left (bit-and (int 0x3FF)
+                                                               ~board1)
+                                                      (int 5)))
+                      (int 5) (bit-and (int 0x7FFF) ~board1)
+                      (int 6) (bit-and (int 0x7FFF)
+                                       (bit-shift-right ~board1 (int  5)))
+                      (int 7) (bit-and (int 0x7FFF)
+                                       (bit-shift-right ~board1 (int 10)))))
+           int-num# (int (bit-shift-right current-3-rows# (int 5)))
+           bit-num# (int (bit-and current-3-rows# (int 0x1F)))
+           even-row# (zero? (bit-and row-num# (int 1)))]
+       (if even-row#
+         (zero? (bit-and (int 1)
+                         (bit-shift-right (aget ~bad-even-triples int-num#)
+                                          bit-num#)))
+         (zero? (bit-and (int 1)
+                         (bit-shift-right (aget ~bad-odd-triples int-num#)
+                                          bit-num#)))))))
+
+
+;; Arguments to solve-helper:
+
+;; depth is 0 on the first call, and is 1 more for each level of
+;; nested recursive call.  It is equal to the number of pieces placed
+;; on the board in the partial solution so far.
+
+;; board is a pair of 32-bit ints representing which board cells are
+;; occupied (bit value 1) or empty (bit value 0), based upon the
+;; pieces placed so far.  Bits positions 0..24 of board0 represent
+;; board indices 0..24, and bit positions 0..24 of board1 represent
+;; board indices 25..49.
+
+;; cell is the board index in [0,49] that should be checked first to
+;; see if it is empty.
+
+;; placed-piece-bit-vec is an int where its 10 least significant bits
+;; represent the set of the piece numbers, each in the range [0,9],
+;; that have been placed so far in the current configuration.  If bit
+;; i is 1, i in [0,9], then piece i has already been placed.
+
+;; piece-num-arr is an array of the piece-nums placed so far, in the
+;; order they were placed, i.e. depth order.  (aget piece-num-arr 0)
+;; was placed at depth 0, etc.  (named sol_nums in GCC program)
+
+;; mask-arr is an array of the bitmasks of the pieces placed so far,
+;; in the order they were placed.  (named sol_masks in GCC program)
+
+(defn solve! [^objects tbl ^ints bad-even-triples ^ints bad-odd-triples]
+  (letfn
+      [(solve-helper [depth board0 board1 orig-cell placed-piece-bit-vec
+                      ^ints piece-num-arr ^ints mask-arr0 ^ints mask-arr1]
+         (let [depth (int depth)
+               board0 (int board0)
+               board1 (int board1)
+               orig-cell (int orig-cell)
+               cell (int (first-empty-index orig-cell board0 board1))
+               placed-piece-bit-vec-int (int placed-piece-bit-vec)]
+           (loop [piece-num (int 0)
+                  piece-num-mask (int 1)]
+             (when (< piece-num (int 10))
+               (when (zero? (bit-and placed-piece-bit-vec-int piece-num-mask))
+                 (let [^objects piece-arr (aget tbl piece-num)
+                       ^objects placements (aget piece-arr cell)]
+                   (dotimes [i (alength placements)]
+                     (let [^ints placement (aget placements i)
+                           piece-mask0 (int (aget placement (int 0)))
+                           piece-mask1 (int (aget placement (int 1)))
+                           next-index (int (aget placement (int 2)))
+                           piece-num-int (int piece-num)]
+                       (when (and (zero? (bit-and board0 piece-mask0))
+                                  (zero? (bit-and board1 piece-mask1)))
+                         (if (== depth 9)
+                           ;; Solution found!
+                           (do
+                             (aset piece-num-arr depth piece-num-int)
+                             (aset mask-arr0 depth piece-mask0)
+                             (aset mask-arr1 depth piece-mask1)
+                             (let [sol1 (encode-solution piece-num-arr
+                                                         mask-arr0 mask-arr1)]
+                               (record-solution! sol1)))
+                           ;; else
+                           (let [next-board0 (int (bit-or board0 piece-mask0))
+                                 next-board1 (int (bit-or board1 piece-mask1))]
+                             (when (board-has-no-islands next-board0 next-board1
+                                                         next-index
+                                                         bad-even-triples
+                                                         bad-odd-triples)
+                               (aset piece-num-arr depth piece-num-int)
+                               (aset mask-arr0 depth piece-mask0)
+                               (aset mask-arr1 depth piece-mask1)
+                               (solve-helper
+                                (inc depth)
+                                next-board0 next-board1
+                                next-index
+                                (bit-or placed-piece-bit-vec-int
+                                        (bit-shift-left (int 1) piece-num-int))
+                                piece-num-arr
+                                mask-arr0 mask-arr1)))))))))
+               (recur (inc piece-num) (bit-shift-left piece-num-mask (int 1)))
+               ))))]
+    (solve-helper 0 0 0 0 0 (int-array 10) (int-array 10) (int-array 10))))
+
+
+(defn compare-int-arrays [^ints a ^ints b]
+  (let [len (int (min (alength a) (alength b)))]
+    (loop [i (int 0)]
+      (if (< i len)
+        (let [elem-a (int (aget a i))
+              elem-b (int (aget b i))]
+          (if (== elem-a elem-b)
+            (recur (inc i))
+            (unchecked-subtract elem-a elem-b)))
+        0))))
+
+
+(defn -main [& args]
+  (let [shift-table (make-shift-table)
+        oob-table (make-oob-table)
+        tbl (calc-pieces piece-defs shift-table oob-table)
+        [bad-even-triples bad-odd-triples] (create-triples shift-table
+                                                           oob-table)]
+    (solve! tbl bad-even-triples bad-odd-triples)
+    (let [^ints num-solutions num-solutions
+          n (int (aget num-solutions (int 0)))
+          sorted-solns (sort compare-int-arrays (take n (seq all-solutions)))]
+      (println (format "%d solutions found" n))
+      (print-board (first sorted-solns))
+      (println)
+      (print-board (nth sorted-solns (dec n)))
+      (println)
+      (println))))  ; Just to match the output of the other programs exactly
+;;   The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+
+;; contributed by Johannes Friestad
+;; modified by Marko Kocic
+
+(ns nbody
+  (:gen-class))
+
+(set! *warn-on-reflection* true)
+
+(definterface IBody
+  (^String name [])
+  (^double mass [])
+  (^double x [])
+  (^double y [])
+  (^double z [])
+  (^double vx [])
+  (^double vy [])
+  (^double vz [])
+  (clone [] "returns copy of self")
+  (p_BANG_ [^double x ^double y ^double z] "set position")
+  (p_dt_BANG_ [^double dt] "update position")
+  (v_dt_BANG_ [^double dt other] "update velocity")
+  (v_BANG_ [^double vx ^double vy ^double vz] "set velocity")
+  (v_PLUS__BANG_ [^double vx ^double vy ^double vz] "add to velocity")
+  (energy [nbodies] "energy relative to nbodies"))
+
+
+(deftype Body [^String name
+               ^double mass
+               ^{:unsynchronized-mutable true :tag double} x
+               ^{:unsynchronized-mutable true :tag double} y
+               ^{:unsynchronized-mutable true :tag double} z
+               ^{:unsynchronized-mutable true :tag double} vx
+               ^{:unsynchronized-mutable true :tag double} vy
+               ^{:unsynchronized-mutable true :tag double} vz ]
+  IBody
+  (name [this] name)
+  (x [this] x)
+  (y [this] y)
+  (z [this] z)
+  (vx [this] vx)
+  (vy [this] vy)
+  (vz [this] vz)
+  (mass [this] mass)
+  (clone [this] (Body. name mass x y z vx vy vz))
+
+  (p! [this nx ny nz]
+    (set! x nx) (set! y ny) (set! z nz)
+    this)
+
+  (v! [this nvx nvy nvz]
+    (set! vx nvx) (set! vy nvy) (set! vz nvz)
+    this)
+
+  (v+! [this dvx dvy dvz]
+    (set! vx (+ vx dvx))
+    (set! vy (+ vy dvy))
+    (set! vz (+ vz dvz)))
+
+  (p-dt! [this dt]
+    (set! x (+ x (* dt vx)))
+    (set! y (+ y (* dt vy)))
+    (set! z (+ z (* dt vz)))
+    this )
+
+  (v-dt! [this dt other]
+    (let [^Body nbody other
+          dx (- x (.x nbody))
+          dy (- y (.y nbody))
+          dz (- z (.z nbody))
+          dsq (+ (* dx dx)
+                (+ (* dy dy)
+                  (* dz dz)))
+          mag (/ dt (* dsq (Math/sqrt dsq)))
+          m1 (- (* (.mass nbody) mag))
+          m2 (* mass mag) ]
+      ; own velocity
+      (set! vx (+ vx (* dx m1)))
+      (set! vy (+ vy (* dy m1)))
+      (set! vz (+ vz (* dz m1)))
+      ; v of other
+      (.v+! nbody (* dx m2) (* dy m2) (* dz m2))
+      this ))
+
+  (energy [this nbodies]
+    (let [v-sq (+ (* vx vx) (* vy vy) (* vz vz))
+          e (* 1/2 mass v-sq)  ; kinetic energy: 1/2 * m * v^2
+          f (fn [e ^Body nbody]
+              (let [dx (- x (.x nbody))
+                    dy (- y (.y nbody))
+                    dz (- z (.z nbody))
+                    dist (Math/sqrt
+                           (+ (* dx dx) (* dy dy) (* dz dz))) ]
+                (- e (/ (* mass (.mass nbody))
+                       dist)))) ]
+      (reduce f e nbodies)))
+
+  Object
+  (toString [this]
+    (let [fmt " %s mass %.3f\n p: [%.3f %.3f %.3f]\n v: [%.3f %.3f %.3f]\n"]
+      (format fmt name mass x y z vx vy vz (type x)))) )
+
+(let [solar-mass (* 4 Math/PI Math/PI)
+      days-year 365.24 ]
+  (defn mk-body [b-name & args]
+    (let [{:keys [x y z vx vy vz mass]} (apply hash-map args) ]
+      (Body. (name b-name) (* mass solar-mass) x y z
+        (* vx days-year) (* vy days-year) (* vz days-year)))))
+
+; Data for initial state
+(def *data*
+  (list
+    (mk-body :sun
+      :x 0.0
+      :y 0.0
+      :z 0.0
+      :vx 0.0
+      :vy 0.0
+      :vz 0.0
+      :mass 1.0 )
+    (mk-body :jupiter
+      :x 4.84143144246472090e+00
+      :y -1.16032004402742839e+00
+      :z -1.03622044471123109e-01
+      :vx 1.66007664274403694e-03
+      :vy 7.69901118419740425e-03
+      :vz -6.90460016972063023e-05
+      :mass 9.54791938424326609e-04 )
+    (mk-body :saturn
+      :x 8.34336671824457987e+00
+      :y 4.12479856412430479e+00
+      :z -4.03523417114321381e-01
+      :vx -2.76742510726862411e-03
+      :vy 4.99852801234917238e-03
+      :vz 2.30417297573763929e-05
+      :mass 2.85885980666130812e-04 )
+    (mk-body :uranus
+      :x 1.28943695621391310e+01
+      :y -1.51111514016986312e+01
+      :z -2.23307578892655734e-01
+      :vx 2.96460137564761618e-03
+      :vy 2.37847173959480950e-03
+      :vz -2.96589568540237556e-05
+      :mass 4.36624404335156298e-05 )
+    (mk-body :neptune
+      :x 1.53796971148509165e+01
+      :y -2.59193146099879641e+01
+      :z 1.79258772950371181e-01
+      :vx 2.68067772490389322e-03
+      :vy 1.62824170038242295e-03
+      :vz -9.51592254519715870e-05
+      :mass 5.15138902046611451e-05 ) ))
+
+
+(def *bodies*)
+
+(defn init-state []
+  ;;   "Initialize state"
+  ;; clone is a convenience for repeated runs in the REPL.
+  (def *bodies* (into-array Object (map #(.clone ^Body %) *data*)))
+  (let [[px py pz] (reduce (fn [[px py pz] ^Body b]
+                             (vector
+                              (+ px (* (.vx b) (.mass b)))
+                              (+ py (* (.vy b) (.mass b)))
+                              (+ pz (* (.vz b) (.mass b))) ))
+                           [0.0 0.0 0.0]
+                           *bodies*)
+        ^Body sun (aget ^objects *bodies* 0)
+        mass (.mass sun) ]
+    (.v! sun (/ (- px) mass) (/ (- py) mass) (/ (- pz) mass))))
+
+(defn energy
+;   "Total energy for current state"
+  ([] (energy *bodies*)) ; total
+  ([bodies]              ; loop
+    (if-not bodies 0.0
+      (+ (.energy ^Body (first bodies) (next bodies))
+        (energy (next bodies))))))
+
+(defn advance [dt]
+;   "Move system one dt timestep forwards"
+  (let [^objects bodies *bodies*
+        len (int (alength bodies))
+        dt (double dt) ]
+    (dotimes [i len]
+      (let [^Body body (aget bodies i) ]
+        ; update velocity
+        (loop [j (unchecked-inc i) ]
+          (when (< j len)
+            (let [^Body nbody (aget bodies j)]
+              (.v-dt! body dt nbody)
+              (recur (unchecked-inc j)))))
+        ; update position
+        (.p-dt! body dt)))))
+
+
+(defn usage [exit-code]
+  (println (format "usage: %s n" *file*))
+  (println (format "    n, a positive integer, is the number of simulation steps to run"))
+  (. System (exit exit-code)))
+
+
+(defn -main [& args]
+  (when (not= (count args) 1)
+    (usage 1))
+  (def n
+       (let [arg (nth args 0)]
+         (when (not (re-matches #"^\d+$" arg))
+           (usage 1))
+         (let [temp (. Integer valueOf arg 10)]
+           (when (< temp 1)
+             (usage 1))
+           temp)))
+  (init-state)
+  (println (format "%.9f" (energy)))
+  (dotimes [_ (int n)]
+    (advance 0.01))
+  (println (format "%.9f" (energy))))
+;; The Computer Language Benchmarks Game
+;; http://shootout.alioth.debian.org/
+
+;; Based on the Racket version of the benchmark by Matthew Flatt
+;;; contributed by PheliX
+
+(ns pidigits
+  (:gen-class))
+
+(defn floor-ev [q r s t x]
+  (quot (+ (* q x) r) (+ (* s x) t)))
+
+(defn ncomp [q r s t q2 r2 s2 t2]
+  [(+ (* q q2) (* r s2))
+   (+ (* q r2) (* r t2))
+   (+ (* s q2) (* t s2))
+   (+ (* s r2) (* t t2))])
+
+(defn digit [k q r s t n row col]
+  (if (> n 0)
+    (let [y (floor-ev q r s t 3)]
+      (if (== y (floor-ev q r s t 4))
+	(let [[q r s t] (ncomp 10 (* -10 y) 0 1 q r s t)]
+	  (if (== col 10)
+	    (let [row (+ row 10)]
+	      (printf "\t:%d\n%d" row y)
+	      (recur k q r s t (dec n) row 1))
+	    (do (printf "%d" y)
+		(recur k q r s t (dec n) row (inc col)))))
+	(let [[q r s t] (ncomp q r s t k (* 2 (inc (* 2 k))) 0 (inc (* 2 k)))]
+	  (recur (inc k) q r s t n row col))))
+    (printf "%s\t:%d\n" (apply str (repeat (- 10 col) " ")) (+ row col))))
+
+(defn -main [& args]
+  (let [n (try (Integer/parseInt (first args))
+               (catch NumberFormatException e 27))]
+    (digit 1 1 0 0 1 n 0 0))
+  (flush))
+;;   The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+
+;; contributed by Andy Fingerhut
+
+(ns regexdna
+  (:gen-class)
+  (:use [clojure.contrib.str-utils :only (re-gsub)])
+  (:import (java.util.regex Pattern)))
+
+
+;; Slightly modified from standard library slurp so that it can read
+;; from standard input.
+
+(defn slurp-std-input
+;   "Reads the standard input using the encoding enc into a string
+;   and returns it."
+  ([] (slurp-std-input (.name (java.nio.charset.Charset/defaultCharset))))
+  ([#^String enc]
+     (with-open [r (new java.io.BufferedReader *in*)]
+       (let [sb (new StringBuilder)]
+	 (loop [c (.read r)]
+	   (if (neg? c)
+	     (str sb)
+	     (do
+	       (.append sb (char c))
+	       (recur (.read r)))))))))
+
+
+(def dna-seq-regexes '(    "agggtaaa|tttaccct"
+		       "[cgt]gggtaaa|tttaccc[acg]"
+		       "a[act]ggtaaa|tttacc[agt]t"
+		       "ag[act]gtaaa|tttac[agt]ct"
+		       "agg[act]taaa|ttta[agt]cct"
+		       "aggg[acg]aaa|ttt[cgt]ccct"
+		       "agggt[cgt]aa|tt[acg]accct"
+		       "agggta[cgt]a|t[acg]taccct"
+		       "agggtaa[cgt]|[acg]ttaccct" ))
+
+
+(def iub-codes '( [ "B"  "(c|g|t)"   ]
+		  [ "D"  "(a|g|t)"   ]
+		  [ "H"  "(a|c|t)"   ]
+		  [ "K"  "(g|t)"     ]
+		  [ "M"  "(a|c)"     ]
+		  [ "N"  "(a|c|g|t)" ]
+		  [ "R"  "(a|g)"     ]
+		  [ "S"  "(c|g)"     ]
+		  [ "V"  "(a|c|g)"   ]
+		  [ "W"  "(a|t)"     ]
+		  [ "Y"  "(c|t)"     ] ))
+
+
+(defn one-replacement [str [iub-str iub-replacement]]
+  (re-gsub (. Pattern (compile iub-str)) iub-replacement str))
+
+
+(defn -main
+  [& args]
+  (let [content (slurp-std-input)
+        original-len (count content)
+        ;; I'd prefer if I could use the regexp #"(^>.*)?\n" like the
+        ;; Perl benchmark does, but that only matches ^ at the beginning
+        ;; of the string, not at the beginning of a line in the middle
+        ;; of the string.
+        content (re-gsub #"(^>.*|\n>.*)?\n" "" content)
+        dna-seq-only-len (count content)]
+    
+    (doseq [re dna-seq-regexes]
+      (println (format "%s %d" re
+                       ;; Prepending (?i) to the regexp in Java makes it
+                       ;; case-insensitive.
+                       (count (re-seq (. Pattern (compile (str "(?i)" re)))
+                                      content)))))
+    
+    (let [content (reduce one-replacement content iub-codes)]
+      (println (format "\n%d\n%d\n%d" original-len dna-seq-only-len
+                       (count content))))))
+;;   The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+
+;; contributed by Andy Fingerhut
+
+(ns regexdna
+  (:gen-class)
+  (:require [clojure.string :as str])
+  (:import (java.util.regex Pattern)))
+
+
+;; Slightly modified from standard library slurp so that it can read
+;; from standard input.
+
+(defn slurp-std-input
+  ;; Reads the standard input using the encoding enc into a string and
+  ;; returns it.
+  ([] (slurp-std-input (.name (java.nio.charset.Charset/defaultCharset))))
+  ([#^String enc]
+     (with-open [r (new java.io.BufferedReader *in*)]
+       (let [sb (new StringBuilder)]
+	 (loop [c (.read r)]
+	   (if (neg? c)
+	     (str sb)
+	     (do
+	       (.append sb (char c))
+	       (recur (.read r)))))))))
+
+
+(def dna-seq-regexes '(    "agggtaaa|tttaccct"
+		       "[cgt]gggtaaa|tttaccc[acg]"
+		       "a[act]ggtaaa|tttacc[agt]t"
+		       "ag[act]gtaaa|tttac[agt]ct"
+		       "agg[act]taaa|ttta[agt]cct"
+		       "aggg[acg]aaa|ttt[cgt]ccct"
+		       "agggt[cgt]aa|tt[acg]accct"
+		       "agggta[cgt]a|t[acg]taccct"
+		       "agggtaa[cgt]|[acg]ttaccct" ))
+
+
+(def iub-codes '( [ "B"  "(c|g|t)"   ]
+		  [ "D"  "(a|g|t)"   ]
+		  [ "H"  "(a|c|t)"   ]
+		  [ "K"  "(g|t)"     ]
+		  [ "M"  "(a|c)"     ]
+		  [ "N"  "(a|c|g|t)" ]
+		  [ "R"  "(a|g)"     ]
+		  [ "S"  "(c|g)"     ]
+		  [ "V"  "(a|c|g)"   ]
+		  [ "W"  "(a|t)"     ]
+		  [ "Y"  "(c|t)"     ] ))
+
+
+(defn one-replacement [str [iub-str iub-replacement]]
+  (str/replace str (. Pattern (compile iub-str)) iub-replacement))
+
+
+(defn count-regex-occurrences [re s]
+  ;; Prepending (?i) to the regexp in Java makes it
+  ;; case-insensitive.
+  [re (count (re-seq (. Pattern (compile (str "(?i)" re)))
+                     s))])
+
+
+(defn -main
+  [& args]
+  (let [content (slurp-std-input)
+        original-len (count content)
+        ;; I'd prefer if I could use the regexp #"(^>.*)?\n" like the
+        ;; Perl benchmark does, but that only matches ^ at the beginning
+        ;; of the string, not at the beginning of a line in the middle
+        ;; of the string.
+        content (str/replace content #"(^>.*|\n>.*)?\n" "")
+        dna-seq-only-len (count content)]
+    
+    (doseq [[re num-matches] (pmap #(count-regex-occurrences % content)
+                                   dna-seq-regexes)]
+      (printf "%s %d\n" re num-matches))
+    
+    (let [content (reduce one-replacement content iub-codes)]
+      (printf "\n%d\n%d\n%d\n" original-len dna-seq-only-len (count content))))
+  (flush)
+  (shutdown-agents))
+;;   The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+
+;; contributed by Andy Fingerhut
+
+(ns revcomp
+  (:gen-class))
+
+(set! *warn-on-reflection* true)
+
+
+(defn fasta-slurp-br
+;   "Reads the supplied BufferedReader using the encoding enc and
+;    returns a vector of two strings and a boolean.  The first string is
+;    a FASTA description line (without the leading > character), and the
+;    second string is the DNA sequence following the description line.
+;    The boolean is whether there are more DNA sequences to read from
+;    the file after the one returned.
+; 
+;    Note: It consumes the next > for the next FASTA sequence if there
+;    is another one, but subsequent calls to this same function handle
+;    that correctly."
+  ([#^java.io.BufferedReader r]
+     (fasta-slurp-br r (.name (java.nio.charset.Charset/defaultCharset))))
+  ([#^java.io.BufferedReader r #^String enc]
+     (let [desc-sb (new StringBuilder)
+           dna-str-sb (new StringBuilder)
+           fasta-desc-line-c (int \>)
+           nl-c (int \newline)]
+       (.append desc-sb \>)
+       (loop [c (int (.read r))
+              save-c (not= c fasta-desc-line-c)]
+         (cond
+           (neg? c)    [(str desc-sb) (str dna-str-sb) false]
+           (== c nl-c) nil  ;; finished reading desc line.  Go to next loop.
+           :else       (do
+                         (when save-c
+                           (.append desc-sb (char c)))
+                         (recur (int (.read r)) true))))
+       (loop [c (int (.read r))]
+         (cond
+           (neg? c)    [(str desc-sb) (str dna-str-sb) false]
+           (== c nl-c) (recur (int (.read r)))
+           (== c fasta-desc-line-c)
+                       [(str desc-sb) (str dna-str-sb) true]
+           :else       (do
+                         (.append dna-str-sb (char c))
+                         (recur (int (.read r)))))))))
+
+
+(def complement-dna-char-map
+     {\w \W, \W \W,
+      \s \S, \S \S,
+      \a \T, \A \T,
+      \t \A, \T \A,
+      \u \A, \U \A,
+      \g \C, \G \C,
+      \c \G, \C \G,
+      \y \R, \Y \R,
+      \r \Y, \R \Y,
+      \k \M, \K \M,
+      \m \K, \M \K,
+      \b \V, \B \V,
+      \d \H, \D \H,
+      \h \D, \H \D,
+      \v \B, \V \B,
+      \n \N, \N \N })
+
+
+(defn make-vec-char-mapper [cmap]
+  (into [] (map (fn [code]
+                  (if (contains? cmap (char code))
+                    (int (cmap (char code)))
+                    code))
+                (range 256))))
+
+
+(defn println-string-to-buffered-writer [#^java.io.BufferedWriter bw
+                                         #^java.lang.String s]
+  (. bw write (.toCharArray s) 0 (count s))
+  (. bw newLine))
+
+
+(defn print-reverse-complement-of-str-in-lines [#^java.io.BufferedWriter bw
+                                                #^java.lang.String s
+                                                complement-fn
+                                                max-len]
+  (let [comp complement-fn
+        len (int (count s))
+        max-len (int max-len)]
+    (when (> len 0)
+      (loop [start (int (dec len))
+             to-print-before-nl (int max-len)]
+        (let [next-start (int (dec start))
+              next-to-print-before-nl (int (dec to-print-before-nl))
+              in-c (int (. s charAt start))
+              out-c (int (comp in-c))]
+          (. bw write out-c)
+          (if (zero? next-to-print-before-nl)
+            (do
+              (. bw newLine)
+              (when (not (zero? start))
+                (recur next-start max-len)))
+            (do
+              (when (not (zero? start))
+                (recur next-start next-to-print-before-nl))))))
+      ;; Need one more newline at the end if the string was not a
+      ;; multiple of max-len characters.
+      (when (not= 0 (rem len max-len))
+        (. bw newLine))
+      )))
+
+
+(defn -main [& args]
+  (let [max-dna-chars-per-line 60
+        br (java.io.BufferedReader. *in*)
+        bw (java.io.BufferedWriter. *out* (* 16 8192))
+        ;; We could use the map complement-dna-char-map instead of
+        ;; complement-dna-char-fn, but when I tested that, the program
+        ;; spent a lot of time running the hashCode method on
+        ;; characters.  I'm hoping this is faster.
+        complement-dna-char-vec (make-vec-char-mapper complement-dna-char-map)]
+    (loop [[desc-str dna-seq-str more] (fasta-slurp-br br)]
+      (println-string-to-buffered-writer bw desc-str)
+      (print-reverse-complement-of-str-in-lines bw dna-seq-str
+                                                complement-dna-char-vec
+                                                max-dna-chars-per-line)
+      (when more
+        (recur (fasta-slurp-br br))))
+    (. bw flush))
+  (. System (exit 0)))
+;;   The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+
+;; contributed by Andy Fingerhut
+
+(ns revcomp
+  (:gen-class))
+
+(set! *warn-on-reflection* true)
+
+
+(def complement-dna-char-map
+     {\w \W, \W \W,
+      \s \S, \S \S,
+      \a \T, \A \T,
+      \t \A, \T \A,
+      \u \A, \U \A,
+      \g \C, \G \C,
+      \c \G, \C \G,
+      \y \R, \Y \R,
+      \r \Y, \R \Y,
+      \k \M, \K \M,
+      \m \K, \M \K,
+      \b \V, \B \V,
+      \d \H, \D \H,
+      \h \D, \H \D,
+      \v \B, \V \B,
+      \n \N, \N \N })
+
+
+(defn make-array-char-mapper [cmap]
+  (let [a (make-array Integer/TYPE 256)]
+    (dotimes [i 256]
+      (aset-int a i (if (contains? cmap (char i))
+		      (int (cmap (char i)))
+		      i)))
+    a))
+
+
+(defn revcomp-buf-and-write [#^java.lang.StringBuilder buf
+			     #^java.io.BufferedWriter wrtr
+			     #^ints comp]
+  (let [len (.length buf)]
+    (when (> len 0)
+      (loop [begin (int 0)
+	     end (int (dec len))]
+	(when (<= begin end)
+	  ;; then reverse and complement two more characters, working
+	  ;; from beginning and end towards the middle
+	  (let [b (if (= (.charAt buf begin) \newline)
+		    (inc begin)
+		    begin)
+		e (if (= (.charAt buf end) \newline)
+		    (dec end)
+		    end)]
+	    (when (<= b e)
+	      (let [cb (char (aget comp (int (.charAt buf b))))
+		    ce (char (aget comp (int (.charAt buf e))))]
+		(.setCharAt buf b ce)
+		(.setCharAt buf e cb)
+		(recur (inc b) (dec e)))))))
+      (.write wrtr (.toString buf) 0 len))))
+
+
+(defn -main [& args]
+  (let [rdr (java.io.BufferedReader. *in*)
+	wrtr (java.io.BufferedWriter. *out*)
+        complement-dna-char-array (make-array-char-mapper
+				   complement-dna-char-map)]
+    (loop [line (.readLine rdr)
+	   buf (new java.lang.StringBuilder)]
+      (if line
+	(if (= (get line 0) \>)
+	  ;; then print out revcomp of any string in buf, and after
+	  ;; that, the line just read
+	  (do
+	    (revcomp-buf-and-write buf wrtr complement-dna-char-array)
+	    (.write wrtr line 0 (count line))
+	    (.newLine wrtr)
+	    (recur (.readLine rdr) (new java.lang.StringBuilder)))
+	  ;; else add the line to buf
+	  (do
+	    (.append buf line)
+	    (.append buf \newline)
+	    (recur (.readLine rdr) buf)))
+	;; else print out revcomp of any string in buf
+	(revcomp-buf-and-write buf wrtr complement-dna-char-array)))
+    (.flush wrtr))
+  (. System (exit 0)))
+;;   The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+
+;; contributed by Andy Fingerhut
+
+(ns revcomp
+  (:gen-class))
+
+(set! *warn-on-reflection* true)
+
+
+(def complement-dna-char-map
+     {\w \W, \W \W,
+      \s \S, \S \S,
+      \a \T, \A \T,
+      \t \A, \T \A,
+      \u \A, \U \A,
+      \g \C, \G \C,
+      \c \G, \C \G,
+      \y \R, \Y \R,
+      \r \Y, \R \Y,
+      \k \M, \K \M,
+      \m \K, \M \K,
+      \b \V, \B \V,
+      \d \H, \D \H,
+      \h \D, \H \D,
+      \v \B, \V \B,
+      \n \N, \N \N })
+
+
+(defn ubyte [val]
+  (if (>= val 128)
+    (byte (- val 256))
+    (byte val)))
+
+
+(defn make-array-char-mapper [cmap]
+  (byte-array 256 (map (fn [i]
+                        (if (contains? cmap (char i))
+                          (ubyte (int (cmap (char i))))
+                          (ubyte i)))
+                       (range 256))))
+
+
+(defn reverse-and-complement! [#^bytes buf begin end #^bytes map-char-array nl]
+  (let [nl (int nl)]
+    (loop [begin (int begin)
+           end   (int end)]
+      (let [cb (int (aget buf begin))
+            ce (int (aget buf end))
+            begin (int (if (== cb nl) (unchecked-inc begin) begin))
+            end   (int (if (== ce nl) (unchecked-dec end) end))
+            cb2 (int (aget buf begin))
+            ce2 (int (aget buf end))]
+        (when (<= begin end)
+          (aset buf begin (aget map-char-array ce2))
+          (aset buf end   (aget map-char-array cb2))
+          (recur (unchecked-inc begin) (unchecked-dec end)))))))
+
+
+(defn find-next-nl-idx [idx #^bytes buf nl]
+  (loop [idx (int idx)]
+    (if (= (aget buf idx) nl)
+      idx
+      (recur (unchecked-inc idx)))))
+
+
+(defn find-next-gt-idx [idx #^bytes buf gt len]
+  (let [gt (int gt)
+        len (int len)]
+    (loop [idx (int idx)]
+      (if (or (== idx len)
+              (== (int (aget buf idx)) gt))
+        idx
+        (recur (unchecked-inc idx))))))
+
+
+(defn -main [& args]
+  (let [in-size (int (.available System/in))
+        buf (byte-array in-size)
+        complement-dna-char-array (make-array-char-mapper
+				   complement-dna-char-map)]
+    (.read System/in buf)
+    (let [len (int (alength buf))
+          nl (byte (int \newline))
+          gt (byte (int \>))]
+      (loop [i (int 0)]
+        (when (not= i len)
+          (let [next-nl-idx (int (find-next-nl-idx i buf nl))
+                next-gt-idx (int (find-next-gt-idx next-nl-idx buf gt len))]
+            (reverse-and-complement! buf next-nl-idx
+                                     (unchecked-subtract next-gt-idx 2)
+                                     complement-dna-char-array nl)
+            (recur next-gt-idx)))))
+    (.write System/out buf)))
+;;   The Computer Language Benchmarks Game
+;;   http://shootout.alioth.debian.org/
+
+;; contributed by Andy Fingerhut
+
+(ns revcomp
+  (:gen-class))
+
+(set! *warn-on-reflection* true)
+
+(gen-class
+ :name revcomp.ReversibleByteArray
+ :extends java.io.ByteArrayOutputStream
+ :exposes {count {:get getCount},
+           buf {:get getBuf}}
+ :prefix rba-
+ :methods [ [ reverse [ "[B" ] void ] ])
+
+
+(defn find-first-byte-idx [#^bytes buf start search-val]
+  (let [search-val (int search-val)]
+    (loop [i (int start)]
+      (if (== (int (aget buf i)) search-val)
+        i
+        (recur (unchecked-inc i))))))
+
+
+(defn reverse-and-complement! [#^bytes buf begin end #^bytes map-char-array nl]
+  (let [nl (int nl)]
+    (loop [begin (int begin)
+           end   (int end)]
+      (let [cb (int (aget buf begin))
+            ce (int (aget buf end))
+            begin (int (if (== cb nl) (unchecked-inc begin) begin))
+            end   (int (if (== ce nl) (unchecked-dec end) end))
+            cb2 (int (aget buf begin))
+            ce2 (int (aget buf end))]
+        (when (<= begin end)
+          (aset buf begin (aget map-char-array ce2))
+          (aset buf end   (aget map-char-array cb2))
+          (recur (unchecked-inc begin) (unchecked-dec end)))))))
+
+
+(defn rba-reverse [#^revcomp.ReversibleByteArray this #^bytes map-char-array]
+  (let [count (int (. this (getCount)))
+        #^bytes buf (. this (getBuf))
+        nl (int \newline)]
+    (when (> count 0)
+      (let [begin (inc (find-first-byte-idx buf 0 nl))
+            end (dec count)]
+        (reverse-and-complement! buf begin end map-char-array nl))
+      (. System/out write buf 0 count))))
+
+
+(def complement-dna-char-map
+     {\w \W, \W \W,
+      \s \S, \S \S,
+      \a \T, \A \T,
+      \t \A, \T \A,
+      \u \A, \U \A,
+      \g \C, \G \C,
+      \c \G, \C \G,
+      \y \R, \Y \R,
+      \r \Y, \R \Y,
+      \k \M, \K \M,
+      \m \K, \M \K,
+      \b \V, \B \V,
+      \d \H, \D \H,
+      \h \D, \H \D,
+      \v \B, \V \B,
+      \n \N, \N \N })
+
+
+(defn ubyte [val]
+  (if (>= val 128)
+    (byte (- val 256))
+    (byte val)))
+
+
+(defn make-array-char-mapper [cmap]
+  (byte-array 256 (map (fn [i]
+                         (if (contains? cmap (char i))
+                           (ubyte (int (cmap (char i))))
+                           (ubyte i)))
+                       (range 256))))
+
+
+(defn -main [& args]
+  (let [in System/in
+	out System/out
+        line (byte-array 82)
+        buf (new revcomp.ReversibleByteArray)
+        complement-dna-char-array (make-array-char-mapper
+				   complement-dna-char-map)
+        gt (int \>)]
+    (loop [nread (int (. in read line))]
+      (when (not= nread (int -1))
+        (loop [i (int 0)
+               last (int 0)]
+          (if (== i nread)
+            (. buf write line last (unchecked-subtract nread last))
+            (if (== (int (aget line i)) gt)
+              (do
+                (. buf write line last (unchecked-subtract i last))
+                (. buf reverse complement-dna-char-array)
+                (. buf reset)
+                (recur (unchecked-inc i) i))
+              ;; else
+              (recur (unchecked-inc i) last))))
+        (recur (int (. in read line)))))
+    (. buf reverse complement-dna-char-array)))
+;; The Computer Language Benchmarks Game
+;; http://shootout.alioth.debian.org/
+;;
+;; contributed by Jesse Rosenstock
+
+(ns spectralnorm
+  (:gen-class))
+
+(set! *warn-on-reflection* true)
+
+(defmacro eval-a [i j]
+  `(let [n# (+ ~i ~j)
+         n+1# (+ n# 1)]
+     (/ 1.0
+        (+ (bit-shift-right (* n# n+1#) 1)
+           ~i
+           1))))
+
+(defn multiply-a-v [^doubles v
+                    ^doubles av]
+  (dotimes [i (alength av)]
+    (aset av i (areduce v j sum 0.0 (+ sum (* (eval-a i j) (aget v j)))))))
+
+(defn multiply-at-v [^doubles v
+                     ^doubles atv]
+  (dotimes [i (alength atv)]
+    (aset atv i (areduce v j sum 0.0 (+ sum (* (eval-a j i) (aget v j)))))))
+
+(defn multiply-at-a-v [^doubles v
+                       ^doubles tmp
+                       ^doubles at-av]
+  (multiply-a-v v tmp)
+  (multiply-at-v tmp at-av))
+
+(defn dot-product [^doubles u
+                   ^doubles v]
+  (areduce u i sum 0.0 (+ sum (* (aget u i) (aget v i)))))
+
+(defn run-game [n]
+  (let [u (double-array n 1.0)
+        tmp (double-array n 0.0)
+        v (double-array n 0.0)]
+    (dotimes [_ 10]
+      (multiply-at-a-v u tmp v)
+      (multiply-at-a-v v tmp u))
+    (let [vbv (dot-product u v)
+          vv (dot-product v v)]
+      (Math/sqrt (/ vbv vv)))))
+
+(defn -main [& args]
+  (let [n (if (empty? args)
+            2500
+            (Integer/valueOf (first args)))]
+    (println (format "%.9f" (run-game n)))))
+;; The Computer Language Benchmarks Game
+;; http://shootout.alioth.debian.org/
+;;
+;; contributed by Jesse Rosenstock
+;; modified by Jim Kannampuzha
+
+(ns spectralnorm
+  (:gen-class))
+
+(set! *warn-on-reflection* true)
+
+(def chunks (atom ()))
+
+(def num-threads (.availableProcessors (Runtime/getRuntime)))
+(def workers (vec (repeatedly num-threads #(agent ()))))
+
+(defn eval-a [ii jj]
+  (let [i (int ii)
+        j (int jj)
+        n (unchecked-add i j)
+        n+1 (unchecked-inc n)]
+     (/ (double 1.0)
+        (unchecked-add (bit-shift-right (unchecked-multiply n n+1) (int 1))
+                       (unchecked-inc i)))))
+
+(defn multiply-a-v [agent
+                    ^doubles v
+                    ^doubles av
+                    chunk]
+  (doseq [i chunk]
+    (aset av i (double (areduce v j sum (double 0) 
+                                (+ sum (* (double (eval-a i j)) (aget v j))))))))
+
+(defn multiply-at-v [agent
+                     ^doubles v
+                     ^doubles atv
+                     chunk]
+  (doseq [i chunk]
+    (aset atv i (double (areduce v j sum (double 0) 
+                                 (+ sum (* (double (eval-a j i)) (aget v j))))))))
+
+(defn multiply-at-a-v [^doubles v
+                       ^doubles tmp
+                       ^doubles at-av]
+  (dotimes [i num-threads]
+    (send (nth workers i) multiply-a-v v tmp (nth @chunks i)))
+  (apply await workers)
+  (dotimes [i num-threads]
+    (send (nth workers i) multiply-at-v tmp at-av (nth @chunks i)))
+  (apply await workers))
+
+
+(defn dot-product [^doubles u ^doubles v]
+  (areduce u i sum (double 0) (+ sum (* (aget u i) (aget v i)))))
+
+(defn run-game [size]
+  (reset! chunks (map int-array 
+                      (partition-all (Math/ceil (double (/ size num-threads))) 
+                                     (range size))))
+   (let [u (double-array size 1.0)
+        tmp (double-array size 0.0)
+        v (double-array size 0.0)]
+    (dotimes [_ 10]
+      (multiply-at-a-v u tmp v)
+      (multiply-at-a-v v tmp u))
+    (let [vbv (dot-product u v)
+          vv (dot-product v v)]
+      (Math/sqrt (/ vbv vv)))))
+
+(defn -main [& args]
+  (let [n (if (empty? args)
+            2500
+            (Integer/valueOf ^String (first args)))]
+    (println (format "%.9f" (run-game n)))
+    (shutdown-agents)))
+
+;; The Computer Language Benchmarks Game
+;; http://shootout.alioth.debian.org/
+;;
+;; contributed by Jim Kannampuzha
+;; inspired by Jesse Rosenstock
+;; modified by Andy Fingerhut (small bug where if input value n was
+;;    not a multiple of the number of available processors, the
+;;    program would hang.)
+
+
+(ns spectralnorm
+  (:gen-class))
+
+(set! *warn-on-reflection* true)
+
+(defmacro eval-a [ii jj]
+  `(let [i# (int ~ii)
+         j# (int ~jj)
+         n# (unchecked-add i# j#)
+         n+1# (unchecked-inc n#)]
+     (/ (double 1.0)
+        (unchecked-add (bit-shift-right (unchecked-multiply n# n+1#) (int 1))
+                       (unchecked-inc i#)))))
+
+(defn multiply-a-v [agent ^doubles v ^doubles av range]
+  (let [end (int (second range))]
+    (loop [i (int (first range))]
+      (if (= i end)
+        nil
+        (do
+          (aset av i (double (areduce v j sum (double 0)
+                                      (+ sum (* (eval-a i j) (aget v j))))))
+          (recur (unchecked-inc i)))))))
+
+(defn multiply-at-v [agent ^doubles v ^doubles atv range]
+  (let [end (int (second range))]
+    (loop [i (int (first range))]
+      (if (= i end) nil
+          (do
+            (aset atv i
+                  (double (areduce v j sum (double 0)
+                   (+ sum (* (eval-a j i) (aget v j))))))
+            (recur (unchecked-inc i)))))))
+
+(defn multiply-at-a-v [^doubles v ^doubles tmp ^doubles at-av
+                       num-threads workers ranges]
+  (dotimes [i num-threads]
+    (send (nth workers i) multiply-a-v v tmp (nth ranges i)))
+  (apply await workers)
+  (dotimes [i num-threads]
+    (send (nth workers i) multiply-at-v tmp at-av (nth ranges i)))
+  (apply await workers))
+
+(defmacro dot-product [^doubles u ^doubles v]
+  `(areduce ~u i# sum# (double 0) (+ sum# (* (aget ~u i#) (aget ~v i#)))))
+
+(defn run-game [size]
+  (let [num-threads (int (.availableProcessors (Runtime/getRuntime)))
+        workers (vec (repeatedly num-threads #(agent ())))
+        chunk-size (int (Math/ceil (/ size num-threads)))
+        ranges  (vec (partition 2 1
+                                (take (unchecked-inc num-threads)
+                                      (iterate #(min (+ chunk-size %) size)
+                                               (int 0)))))
+        u (double-array size 1.0)
+        tmp (double-array size 0.0)
+        v (double-array size 0.0)]
+    (dotimes [_ 10]
+      (multiply-at-a-v u tmp v num-threads workers ranges)
+      (multiply-at-a-v v tmp u num-threads workers ranges))
+    (let [vbv (dot-product u v)
+          vv (dot-product v v)]
+      (Math/sqrt (/ vbv vv)))))
+
+(defn -main [& args]
+  (let [n (if (empty? args)
+            2500
+            (Integer/valueOf ^String (first args)))]
+    (println (format "%.9f" (run-game n)))
+    (shutdown-agents)))
+;; The Computer Language Benchmarks Game
+;; http://shootout.alioth.debian.org/
+;;
+;; contributed by Jim Kannampuzha
+;; inspired by Jesse Rosenstock
+
+(ns spectralnorm
+  (:gen-class))
+
+(set! *warn-on-reflection* true)
+
+(defmacro eval-a [i j]
+  `(let [n# (unchecked-add ~i ~j)
+         nn+1# (unchecked-multiply n# (unchecked-inc n#))]
+     (/ (double 1.0) (unchecked-add (bit-shift-right nn+1# 1)
+				    (unchecked-inc ~i)))))
+
+(defn multiply-a-v [agent ^doubles v ^doubles av range]
+  (let [end (int (second range))]
+    (loop [i (int (first range))]
+      (if (= i end)
+        nil
+        (do
+	  (aset av i (double (areduce v j sum (double 0)
+				      (+ sum (* (eval-a i j) (aget v j))))))
+	  (recur (unchecked-inc i)))))))
+
+(defn multiply-at-v [agent ^doubles v ^doubles atv range]
+  (let [end (int (second range))]
+    (loop [i (int (first range))]
+      (if (= i end) 
+        nil
+        (do
+	  (aset atv i (double (areduce v j sum (double 0)
+				       (+ sum (* (eval-a j i) (aget v j))))))
+	  (recur (unchecked-inc i)))))))
+
+(defn multiply-at-a-v [^doubles v ^doubles tmp ^doubles at-av workers ranges]
+  (apply await (map #(send %1 multiply-a-v v tmp %2) workers ranges))
+  (apply await (map #(send %1 multiply-at-v tmp at-av %2) workers ranges)))
+
+(defmacro dot-product [^doubles u ^doubles v]
+  `(areduce ~u i# sum# (double 0) (+ sum# (* (aget ~u i#) (aget ~v i#)))))
+
+(defn run-game [size]
+  (let [num-threads (.availableProcessors (Runtime/getRuntime))
+        workers (vec (repeatedly num-threads #(agent ())))
+        chunk-size (int (Math/ceil (/ size num-threads)))
+        ranges  (vec (partition 2 1 (take (inc num-threads)
+                                          (iterate #(+ chunk-size %) 0))))
+        u (double-array size 1.0)
+        tmp (double-array size 0.0)
+        v (double-array size 0.0)]
+    (dotimes [_ 10]
+      (multiply-at-a-v u tmp v workers ranges)
+      (multiply-at-a-v v tmp u workers ranges))
+    (Math/sqrt (/ (dot-product u v) (dot-product v v)))))
+
+(defn -main [& args]
+  (let [n (if (empty? args)
+            2500
+            (Integer/valueOf ^String (first args)))]
+    (println (format "%.9f" (run-game n)))
+    (shutdown-agents)))
+
+;; The Computer Language Benchmarks Game
+;; http://shootout.alioth.debian.org/
+;;
+;; contributed by Jesse Rosenstock
+
+(ns threadring
+  (:gen-class))
+
+(set! *warn-on-reflection* true)
+
+(defn pass-message
+  [the-agent
+   ^Integer value
+   first-agent]
+  (if (zero? value)
+    (do (println (:num the-agent))
+      (shutdown-agents)
+      (System/exit 0))
+    ; Pass to the next agent if we're not at the end of the line,
+    ; otherwise back to the first.
+    (send (if (:next the-agent) (:next the-agent) first-agent)
+          pass-message (dec value) first-agent))
+  the-agent)
+
+(defn pass-messages
+  [^Integer num-agents
+   ^Integer num-messages]
+  (let [first-agent (reduce (fn [next-agent agent-num]
+                              (agent {:next next-agent :num agent-num}))
+                            nil
+                            (range num-agents 0 -1))]
+    (send first-agent pass-message num-messages first-agent)))
+
+(defn -main [& args]
+  (let [num-messages (if (empty? args)
+                       1000
+                       (Integer/valueOf (first args)))]
+    (pass-messages 503 num-messages)))

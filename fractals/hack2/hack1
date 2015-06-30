@@ -1,0 +1,12 @@
+{gnu/usr.bin/gcc/gcc/recog.c}  755 
+{gnu/gcc/gcc/recog.c}  754 
+{gnu/usr.bin/perl/hv.c}  651 
+{usr.sbin/bgpd/rde.c}  618 
+{sys/dev/audio.c}  604 
+{gnu/gcc/gcc/config/cris/cris.c}  593 
+{gnu/usr.bin/gcc/gcc/config/mcore/mcore.c}  583 
+{gnu/gcc/gcc/dbxout.c}  518 
+{gnu/usr.bin/gcc/gcc/java/expr.c}  429 
+{sys/dev/ic/mpi.c}  390 
+{sys/dev/pci/if-san-xilinx.c}  343 
+{sys/arch/arm/arm/pmap7.c}  329 

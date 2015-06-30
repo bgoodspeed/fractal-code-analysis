@@ -1,0 +1,12 @@
+{gnu/usr.bin/gcc/gcc/recog.c}  0.5966 
+{gnu/gcc/gcc/recog.c}  0.59523 
+{gnu/usr.bin/perl/hv.c}  0.69928 
+{usr.sbin/bgpd/rde.c}  0.61891 
+{sys/dev/audio.c}  0.58739 
+{gnu/gcc/gcc/config/cris/cris.c}  0.58113 
+{gnu/usr.bin/gcc/gcc/config/mcore/mcore.c}  0.67327 
+{gnu/gcc/gcc/dbxout.c}  0.59439 
+{gnu/usr.bin/gcc/gcc/java/expr.c}  0.62566 
+{sys/dev/ic/mpi.c}  0.66608 
+{sys/dev/pci/if-san-xilinx.c}  0.56351 
+{sys/arch/arm/arm/pmap7.c}  0.5988 

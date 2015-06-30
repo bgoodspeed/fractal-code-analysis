@@ -1,0 +1,2207 @@
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+ 
+   contributed by Jarkko Miettinen
+*/
+
+public class binarytrees {
+
+	private final static int minDepth = 4;
+	
+	public static void main(String[] args){
+		int n = 0;
+		if (args.length > 0) n = Integer.parseInt(args[0]);
+		
+		int maxDepth = (minDepth + 2 > n) ? minDepth + 2 : n;
+		int stretchDepth = maxDepth + 1;
+		
+		int check = (TreeNode.bottomUpTree(0,stretchDepth)).itemCheck();
+		System.out.println("stretch tree of depth "+stretchDepth+"\t check: " + check);
+		
+		TreeNode longLivedTree = TreeNode.bottomUpTree(0,maxDepth);
+		
+		for (int depth=minDepth; depth<=maxDepth; depth+=2){
+			int iterations = 1 << (maxDepth - depth + minDepth);
+			check = 0;
+			
+			for (int i=1; i<=iterations; i++){
+				check += (TreeNode.bottomUpTree(i,depth)).itemCheck();
+				check += (TreeNode.bottomUpTree(-i,depth)).itemCheck();
+			}
+			System.out.println((iterations*2) + "\t trees of depth " + depth + "\t check: " + check);
+		}	
+		System.out.println("long lived tree of depth " + maxDepth + "\t check: "+ longLivedTree.itemCheck());
+	}
+	
+	
+	private static class TreeNode
+	{
+		private TreeNode left, right;
+		private int item;
+		
+		TreeNode(int item){
+			this.item = item;
+		}
+		
+		private static TreeNode bottomUpTree(int item, int depth){
+			if (depth>0){
+				return new TreeNode(
+						bottomUpTree(2*item-1, depth-1)
+						, bottomUpTree(2*item, depth-1)
+						, item
+				);
+			}
+			else {
+				return new TreeNode(item);
+			}
+		}
+		
+		TreeNode(TreeNode left, TreeNode right, int item){
+			this.left = left;
+			this.right = right;
+			this.item = item;
+		}
+		
+		private int itemCheck(){
+			// if necessary deallocate here
+			if (left==null) return item;
+			else return item + left.itemCheck() - right.itemCheck();
+		}
+	}
+}
+/* The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+   C program contributed by Heiner Marxen
+   Transliterated to Java by Amir K aka Razii
+*/
+
+
+public final class fannkuch
+{
+ public static void main(String[] args)
+ {
+  int n = 11;
+  if(args.length == 1) n = Integer.parseInt(args[0]);
+  System.out.println("Pfannkuchen(" + n + ") = " + fannkuch(n));
+ }
+ 
+ static int fannkuch(final int n)
+ {
+  int[] perm = new int[n];
+  int[] perm1 = new int[n];
+  int[] count = new int[n];
+  int flips;
+  int flipsMax;
+  int r;
+  int i;
+  int k;
+  int didpr;
+  final int n1 = n - 1;
+  if( n < 1 ) return 0;
+
+  for( i=0;i<n;++i ) perm1[i] = i;
+  /* initial (trivial) permu */ 
+  r = n;
+  didpr = 0;
+  flipsMax = 0;
+  for(;;)
+  {
+   if( didpr < 30 )
+   {
+    for( i=0;i<n;++i ) System.out.print (1+perm1[i]);
+    System.out.print("\n");
+    ++didpr;
+   }
+   for(;r!=1;--r)
+   {
+    count[r-1] = r;
+   }
+   if(!(perm1[0]==0 || perm1[n1]==n1) )
+   {
+    flips = 0;
+    for( i=1;i<n;++i )
+    {
+     perm[i] = perm1[i];
+    }
+    k = perm1[0];
+    
+    /* cache perm[0] in k */ 
+    do
+    {
+     /* k!=0 ==> k>0 */ 
+     int j;
+     for( i=1, j=k-1;i<j;++i, --j )
+     {
+      int t_mp = perm[i];
+      perm[i] = perm[j];
+      perm[j] = t_mp;
+     }
+     ++flips;
+     /* * Now exchange k (caching perm[0]) and perm[k] */ 
+     j=perm[k];
+     perm[k]=k;
+     k=j;
+    }
+    while(k != 0);
+    if( flipsMax < flips )
+    {
+     flipsMax = flips;
+    }
+   }
+   for(;;)
+   {
+    if( r == n )
+    {
+     return flipsMax;
+    }
+    /* rotate down perm[0..r] by one */
+     int perm0 = perm1[0];
+     i = 0;
+     while( i < r )
+     {
+      k = i+1;
+      perm1[i] = perm1[k];
+      i = k;
+     }
+     perm1[r] = perm0;
+    
+    if( (count[r] -= 1) > 0 )
+    {
+     break;
+    }
+    ++r;
+   }
+  }
+ }
+}
+/*
+ * The Great Computer Language Shootout 
+ * http://shootout.alioth.debian.org/
+ * 
+ * modified by Mehmet D. AKIN
+ *
+ */
+
+import java.io.IOException;
+import java.io.OutputStream;
+
+class fasta {
+    public static final int IM = 139968;
+    public static final int IA = 3877;
+    public static final int IC = 29573;
+    public static int last = 42;
+
+    public static final int LINE_LENGTH = 60;
+
+    // pseudo-random number generator
+    public static final double random(double max) {
+        last = (last * IA + IC) % IM;
+        return max * last / IM;
+    }
+
+    // Weighted selection from alphabet
+    public static String ALU = 
+              "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG"
+            + "GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA"
+            + "CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT"
+            + "ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA"
+            + "GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG"
+            + "AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC"
+            + "AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA";
+    public static byte[] ALUB = ALU.getBytes(); 
+
+    public static final frequency[] IUB = new frequency[] {
+            new frequency('a', 0.27), 
+            new frequency('c', 0.12),
+            new frequency('g', 0.12), 
+            new frequency('t', 0.27),
+            
+            new frequency('B', 0.02), 
+            new frequency('D', 0.02),
+            new frequency('H', 0.02), 
+            new frequency('K', 0.02),
+            new frequency('M', 0.02), 
+            new frequency('N', 0.02),
+            new frequency('R', 0.02), 
+            new frequency('S', 0.02),
+            new frequency('V', 0.02), 
+            new frequency('W', 0.02),
+            new frequency('Y', 0.02) };
+
+    public static final frequency[] HomoSapiens = new frequency[] {
+            new frequency('a', 0.3029549426680d),
+            new frequency('c', 0.1979883004921d),
+            new frequency('g', 0.1975473066391d),
+            new frequency('t', 0.3015094502008d)};
+
+    public static void makeCumulative(frequency[] a) {
+        double cp = 0.0;
+        for (int i = 0; i < a.length; i++) {
+            cp += a[i].p;
+            a[i].p = cp;
+        }
+    }
+
+    // naive
+    public final static byte selectRandom(frequency[] a) {
+        int len = a.length;
+        double r = random(1.0);
+        for (int i = 0; i < len; i++)
+            if (r < a[i].p)
+                return a[i].c;
+        return a[len - 1].c;
+    }
+
+    static int BUFFER_SIZE = 1024;
+    static int index = 0;
+    static byte[] bbuffer = new byte[BUFFER_SIZE];
+    static final void makeRandomFasta(String id, String desc,frequency[] a, int n, OutputStream writer) throws IOException
+    {
+        index = 0;
+        int m = 0;
+        String descStr = ">" + id + " " + desc + '\n'; 
+        writer.write(descStr.getBytes());
+        while (n > 0) {
+            if (n < LINE_LENGTH) m = n;  else m = LINE_LENGTH;
+            if(BUFFER_SIZE - index < m){
+                writer.write(bbuffer, 0, index);
+                index = 0;
+            }
+            for (int i = 0; i < m; i++) {
+                bbuffer[index++] = selectRandom(a);
+            }
+            bbuffer[index++] = '\n';
+            n -= LINE_LENGTH;
+        }
+        if(index != 0) writer.write(bbuffer, 0, index);
+    }    
+    
+    static final void makeRepeatFasta(String id, String desc, String alu, int n, OutputStream writer) throws IOException
+    {
+        index = 0;
+        int m = 0;
+        int k = 0;
+        int kn = ALUB.length;
+        String descStr = ">" + id + " " + desc + '\n'; 
+        writer.write(descStr.getBytes());
+        while (n > 0) {
+            if (n < LINE_LENGTH) m = n; else m = LINE_LENGTH;
+            if(BUFFER_SIZE - index < m){
+                writer.write(bbuffer, 0, index);
+                index = 0;
+            }
+            for (int i = 0; i < m; i++) {
+                if (k == kn) k = 0;
+                bbuffer[index++] = ALUB[k];
+                k++;
+            }
+            bbuffer[index++] = '\n';
+            n -= LINE_LENGTH;
+        }
+        if(index != 0) writer.write(bbuffer, 0, index);
+    }
+    
+    public static void main(String[] args) throws IOException {
+        makeCumulative(HomoSapiens);
+        makeCumulative(IUB);
+        int n = 2500000;
+        if (args.length > 0)
+            n = Integer.parseInt(args[0]);
+        OutputStream out = System.out;
+        makeRepeatFasta("ONE", "Homo sapiens alu", ALU, n * 2, out);
+        makeRandomFasta("TWO", "IUB ambiguity codes", IUB, n * 3, out);
+        makeRandomFasta("THREE", "Homo sapiens frequency", HomoSapiens, n * 5, out);
+        out.close();
+    }
+
+    public static class frequency {
+        public byte c;
+        public double p;
+
+        public frequency(char c, double p) {
+            this.c = (byte)c;
+            this.p = p;
+        }
+    }
+}
+// $Id: hello.java14,v 1.1 2006-04-01 03:23:57 igouy-guest Exp $
+// http://shootout.alioth.debian.org/
+
+public class hello {
+    public static void main(String args[]) {
+	System.out.print("hello world\n");
+    }
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+ 
+   contributed by James McIlree
+*/
+
+import java.util.*;
+import java.io.*;
+import java.text.*;
+
+public class knucleotide {
+  String sequence;
+  int count = 1;
+
+  knucleotide(String s) {
+    sequence = s;
+  }
+
+  public static void main(String[] args) throws Exception
+  {
+    StringBuffer sbuffer = new StringBuffer();
+    String line;
+    
+    BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
+    while ((line = in.readLine()) != null) {
+      if (line.startsWith(">THREE")) break;
+    }
+    
+    while ((line = in.readLine()) != null) {
+      char c = line.charAt(0);
+      if (c == '>')
+        break;
+      else if (c != ';')
+        sbuffer.append(line.toUpperCase());
+    }
+    
+    knucleotide kn = new knucleotide(sbuffer.toString());
+    kn.writeFrequencies(1);
+    kn.writeFrequencies(2);
+
+    kn.writeCount("GGT");
+    kn.writeCount("GGTA");
+    kn.writeCount("GGTATT");
+    kn.writeCount("GGTATTTTAATT");
+    kn.writeCount("GGTATTTTAATTTATAGT");
+  }
+
+  void writeFrequencies(int nucleotideLength) {
+    Map frequencies = calculateFrequencies(nucleotideLength);
+    ArrayList list = new ArrayList(frequencies.size());
+    Iterator it = frequencies.entrySet().iterator();
+
+    while (it.hasNext()) {
+      knucleotide fragment = (knucleotide)((Map.Entry)it.next()).getValue();
+      list.add(fragment);
+    }
+
+    Collections.sort(list, new Comparator() {
+        public int compare(Object o1, Object o2) {
+          int c = ((knucleotide)o2).count - ((knucleotide)o1).count;
+          if (c == 0) {
+            c = ((knucleotide)o1).sequence.compareTo(((knucleotide)o2).sequence);
+          }
+          return c;
+        }
+      });
+
+    NumberFormat nf = NumberFormat.getInstance();
+    nf.setMaximumFractionDigits(3);
+    nf.setMinimumFractionDigits(3);
+
+    int sum = sequence.length() - nucleotideLength + 1;
+
+    for (int i=0; i<list.size(); i++) {
+      knucleotide fragment = (knucleotide)list.get(i);
+      double percent = (double)fragment.count/(double)sum * 100.0;
+      System.out.println(fragment.sequence + " " + nf.format(percent) );
+    }
+    System.out.println("");
+  }
+
+  void writeCount(String nucleotideFragment) {
+    Map frequencies = calculateFrequencies(nucleotideFragment.length());
+
+    knucleotide found = (knucleotide)frequencies.get(nucleotideFragment);
+    int count = (found == null) ? 0 : found.count;
+    System.out.println(count + "\t" + nucleotideFragment);
+  }
+
+  Map calculateFrequencies(int fragmentLength) {
+    HashMap map = new HashMap();
+    for (int offset=0; offset<fragmentLength; offset++)
+      calculateFrequencies(map, offset, fragmentLength);
+
+    return map;
+  }
+
+  // Is this method really needed? The benchmark specification seems to
+  // indicate so, but it is not entirely clear. This method could easily
+  // be folded up.
+  void calculateFrequencies(Map map, int offset, int fragmentLength) {
+    int lastIndex = sequence.length() - fragmentLength + 1;
+    for (int index=offset; index<lastIndex; index+=fragmentLength) {
+      String temp = sequence.substring(index, index + fragmentLength);
+      knucleotide fragment = (knucleotide)map.get(temp);
+      if (fragment != null)
+        fragment.count++;
+      else
+        map.put(temp, new knucleotide(temp));
+    }
+  }
+}
+
+/* The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+   contributed by Stefan Krause
+*/
+
+import java.io.BufferedOutputStream;
+import java.io.IOException;
+
+class mandelbrot {
+	
+   final static double limitSquared = 4.0;
+   final static int iterations = 50;
+	
+   public static void main(String[] args) throws Exception {
+      int size = Integer.parseInt(args[0]);
+      Mandelbrot m = new Mandelbrot(size);
+      m.compute();
+   }   
+
+   public static class Mandelbrot {
+      public Mandelbrot(int size)
+      {
+         this.size = size;
+         fac = 2.0 / size;
+         out = new BufferedOutputStream(System.out);
+	   
+         int offset = size % 8;
+         shift = offset == 0 ? 0 : (8-offset);
+      }
+      final int size;
+      final BufferedOutputStream out;
+      final double fac;
+      final int shift;
+
+      public void compute() throws IOException
+      {
+         System.out.print("P4\n"); System.out.print(size); 
+         System.out.print(" "); System.out.println(size);
+         for (int y = 0; y<size; y++)
+            computeRow(y);
+         out.close();
+      }
+	   
+      private void computeRow(int y) throws IOException
+      {	   
+         int bits = 0;
+
+         for (int x = 0; x<size;x++) {
+            double Zr = 0.0;
+            double Zi = 0.0;
+            double Cr = (x*fac - 1.5); 
+            double Ci = (y*fac - 1.0);
+
+            int i = iterations;
+            double ZrN = 0;
+            double ZiN = 0;
+            do {
+               Zi = 2.0 * Zr * Zi + Ci;
+               Zr = ZrN - ZiN + Cr;
+               ZiN = Zi * Zi;
+               ZrN = Zr * Zr;
+            } while (!(ZiN + ZrN > limitSquared) && --i > 0);
+
+            bits = bits << 1;
+            if (i == 0) bits++;
+            
+            if (x%8 == 7) {
+               out.write((byte)bits);
+               bits = 0;
+            }
+         }
+         if (shift!=0) {
+            bits = bits << shift;
+            out.write((byte)bits);
+         }
+      }
+   }
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/ 
+ 
+   contributed by James McIlree
+*/
+
+
+import java.util.*;
+
+public class message {
+   public static final int numberOfThreads = 500;
+   public static int numberOfMessagesToSend;
+
+   public static void main(String args[]) {
+     numberOfMessagesToSend = Integer.parseInt(args[0]);
+
+     MessageThread chain = null;
+     for (int i=0; i<numberOfThreads; i++){
+       chain = new MessageThread(chain);
+       new Thread(chain).start();
+     }
+
+     for (int i=0; i<numberOfMessagesToSend; i++) chain.enqueue(new Integer(0));
+   }
+}
+
+class MessageThread implements Runnable {
+   MessageThread nextThread;
+   List list = new ArrayList(4);
+
+   MessageThread(MessageThread nextThread){
+     this.nextThread = nextThread;
+   }
+
+   public void run() {
+     if (nextThread != null)
+       while (true) nextThread.enqueue(dequeue());
+     else {
+       int sum = 0;
+       int finalSum = message.numberOfThreads * message.numberOfMessagesToSend;
+       while (sum < finalSum)
+         sum += dequeue().intValue();
+
+       System.out.println(sum);
+       System.exit(0);
+     }
+   }
+
+   public void enqueue(Integer message)
+   {
+     synchronized(list) {
+       list.add(new Integer(message.intValue() + 1));
+       if (list.size() == 1) {
+         list.notify();
+       }
+     }
+   }
+
+   public Integer dequeue()
+   {
+     synchronized(list) {
+       while(list.size() == 0) {
+         try { list.wait(); } catch (Exception e) {}
+       }
+       return (Integer)list.remove(0);
+     }
+   }
+}
+/* The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+   transliterated from C++ (Ben St. John) and D (Michael Deardeuff) by Amir K aka Razii
+*/
+
+
+import java.util.*;
+
+public final class meteor
+{
+    static final int X = 0;
+    static final int Y = 1;
+    static final int N_DIM = 2;
+
+    static final int EVEN = 0;
+    static final int ODD = 1;
+    static final int N_PARITY = 2;
+
+    static final int GOOD = 0;
+    static final int BAD = 1;
+    static final int ALWAYS_BAD = 2;
+
+    static final int OPEN    = 0;
+    static final int CLOSED  = 1;
+    static final int N_FIXED = 2;
+
+    static final int MAX_ISLAND_OFFSET = 1024;
+    static final int N_COL = 5;
+    static final int N_ROW = 10;
+    static final int N_CELL = N_COL * N_ROW;
+    static final int N_PIECE_TYPE = 10;
+    static final int N_ORIENT = 12;
+
+
+//-- Globals -------------------------
+    static IslandInfo[] g_islandInfo = new IslandInfo [MAX_ISLAND_OFFSET];
+    static int g_nIslandInfo = 0;
+    static OkPieces[][] g_okPieces = new OkPieces [N_ROW][N_COL];
+
+    static final int g_firstRegion[] = {
+        0x00, 0x01, 0x02, 0x03,   0x04, 0x01, 0x06, 0x07,
+        0x08, 0x01, 0x02, 0x03,   0x0c, 0x01, 0x0e, 0x0f,
+
+        0x10, 0x01, 0x02, 0x03,   0x04, 0x01, 0x06, 0x07,
+        0x18, 0x01, 0x02, 0x03,   0x1c, 0x01, 0x1e, 0x1f
+    };
+
+    static final int g_flip[] = {
+        0x00, 0x10, 0x08, 0x18, 0x04, 0x14, 0x0c, 0x1c,
+        0x02, 0x12, 0x0a, 0x1a, 0x06, 0x16, 0x0e, 0x1e,
+
+        0x01, 0x11, 0x09, 0x19, 0x05, 0x15, 0x0d, 0x1d,
+        0x03, 0x13, 0x0b, 0x1b, 0x07, 0x17, 0x0f, 0x1f,
+    };
+
+    static final int[] s_firstOne = {
+        0, 0, 1, 0,   2, 0, 1, 0,
+        3, 0, 1, 0,   2, 0, 1, 0,
+
+        4, 0, 1, 0,   2, 0, 1, 0,
+        3, 0, 1, 0,   2, 0, 1, 0,
+    };
+
+    static int getMask(int iPos) {
+        return (1 << (iPos));
+    }
+
+    static int floor(int top, int bot) {
+        int toZero = top / bot;
+        // negative numbers should be rounded down, not towards zero;
+        if ((toZero * bot != top) && ((top < 0) != (bot <= 0)))
+            toZero--;
+
+        return toZero;
+    }
+
+    static int getFirstOne(int v) {
+        int startPos = 0;
+        if (v == 0)
+            return 0;
+
+        int iPos = startPos;
+        int mask = 0xff << startPos;
+        while ((mask & v) == 0) {
+            mask <<= 8;
+            iPos += 8;
+        }
+        int result = (mask & v) >> iPos;
+        int resultLow = result & 0x0f;
+        if (resultLow != 0)
+            iPos += s_firstOne[resultLow];
+        else
+            iPos += 4 + s_firstOne[result >> 4];
+
+        return iPos;
+    }
+
+    static int countOnes(int v) {
+        int n = 0;
+        while (v != 0) {
+            n++;
+            v = v & (v - 1);
+        }
+
+        return n;
+    }
+
+
+    static int flipTwoRows(int bits) {
+        int flipped = g_flip[bits >> N_COL] << N_COL;
+        return (flipped | g_flip[bits & Board.TOP_ROW]);
+    }
+
+    static void markBad(IslandInfo info, int mask, int eo, boolean always) {
+        info.hasBad[eo][OPEN] |= mask;
+        info.hasBad[eo][CLOSED] |= mask;
+
+        if (always)
+            info.alwaysBad[eo] |= mask;
+    }
+
+    static void initGlobals() {
+        for (int i = 0; i < MAX_ISLAND_OFFSET; i++)
+        {
+            g_islandInfo[i] = new IslandInfo();
+        }
+
+        for (int i = 0; i < N_ROW; i++)
+        {
+            for (int j = 0; j < N_COL; j++)
+                g_okPieces[i][j] = new OkPieces();
+        }
+    }
+
+
+//-- Classes -------------------------;
+
+    static class OkPieces {
+        byte[] nPieces = new byte[N_PIECE_TYPE];
+        int[][] pieceVec = new int[N_PIECE_TYPE][N_ORIENT];
+    }
+
+
+    static class IslandInfo {
+        int[][] hasBad  =  new int[N_FIXED][N_PARITY];
+        int[][] isKnown =  new int[N_FIXED][N_PARITY];
+        int[] alwaysBad =  new int[N_PARITY];
+    }
+
+
+    static class Soln {
+        static final int NO_PIECE = -1;
+
+        boolean isEmpty() {
+            return (m_nPiece == 0);
+        }
+        void popPiece() {
+            m_nPiece--;
+            m_synched = false;
+        }
+        void pushPiece(int vec, int iPiece, int row) {
+            SPiece p = m_pieces[m_nPiece++];
+            p.vec = vec;
+            p.iPiece = (short) iPiece;
+            p.row = (short) row;
+        }
+
+        Soln() {
+            m_synched = false;
+            m_nPiece = 0;
+            init();
+        }
+
+        class SPiece {
+            int vec;
+            short iPiece;
+            short row;
+            SPiece() {}
+            SPiece(int avec, int apiece, int arow) {
+                vec = avec;
+                iPiece = (short)apiece;
+                row = (short)arow;
+            }
+            SPiece(SPiece other) {
+                vec = other.vec;
+                iPiece = other.iPiece;
+                row = other.row;
+            }
+        }
+
+        SPiece[] m_pieces = new SPiece [N_PIECE_TYPE];
+        int m_nPiece;
+        byte[][] m_cells = new byte [N_ROW][N_COL];
+        boolean m_synched;
+
+        void init() {
+            for (int i = 0; i < N_PIECE_TYPE; i++)
+                m_pieces[i] = new SPiece();
+        }
+        Soln (int fillVal) {
+            init();
+            m_nPiece = 0;
+            fill(fillVal);
+        }
+        public Soln clone2() {
+            Soln s = new Soln();
+            for (int i = 0; i < m_pieces.length; i++)
+                s.m_pieces[i] = new SPiece(m_pieces[i]);
+
+            s.m_nPiece = m_nPiece;
+            //System.arraycopy(m_cells, 0, s.m_cells, 0, N_CELL);
+            for (int i = 0; i < N_ROW; i++)
+            {
+                for (int j = 0; j < N_COL; j ++)
+                {
+                    s.m_cells[i][j] = m_cells[i][j];
+                }
+            }
+
+            s.m_synched = m_synched;
+            return s;
+        }
+
+        void fill(int val) {
+            m_synched = false;
+            for (int i = 0; i < N_ROW; i++)
+            {
+                for (int j = 0; j < N_COL; j++)
+                    m_cells[i][j] = (byte) val;
+            }
+        }
+
+        public String toString()  {
+            StringBuffer result = new StringBuffer(N_CELL * 2);
+
+            for (int y = 0; y < N_ROW; y++) {
+                for (int x = 0; x < N_COL; x++) {
+                    int val = m_cells[y][x];
+                    //if (val == NO_PIECE) result.append('.');
+                    {
+                        result.append(val);
+                    }
+                    result.append(' ');
+                }
+                result.append('\n');
+
+                // indent every second line
+                if (y % 2 == 0)
+                    result.append(" ");
+            }
+            return result.toString();
+        }
+
+        void setCells() {
+            if (m_synched)
+                return;
+
+            for (int iPiece = 0; iPiece < m_nPiece; iPiece++) {
+                SPiece p = m_pieces[iPiece];
+                int vec = p.vec;
+                byte pID = (byte) p.iPiece;
+                int rowOffset = p.row;
+
+                int nNewCells = 0;
+                for (int y = rowOffset; y < N_ROW; y++) {
+                    for (int x = 0; x < N_COL; x++) {
+                        if ((vec & 1) != 0) {
+                            m_cells[y][x] = pID;
+                            nNewCells++;
+                        }
+                        vec >>= 1;
+                    }
+                    if (nNewCells == Piece.N_ELEM)
+                        break;
+                }
+            }
+            m_synched = true;
+        }
+
+        boolean lessThan(Soln r) {
+            if (m_pieces[0].iPiece != r.m_pieces[0].iPiece) {
+                return m_pieces[0].iPiece < r.m_pieces[0].iPiece;
+            }
+
+            setCells();
+            r.setCells();
+
+            for (int y = 0; y < N_ROW; y++) {
+                for (int x = 0; x < N_COL; x++) {
+                    int lval = m_cells[y][x];
+                    int rval = r.m_cells[y][x];
+
+                    if (lval != rval)
+                        return (lval < rval);
+                }
+            }
+
+            return false;
+        }
+
+        void spin(Soln spun) {
+            setCells();
+
+            for (int y = 0; y < N_ROW; y++) {
+                for (int x = 0; x < N_COL; x++) {
+                    byte flipped = m_cells[N_ROW - y - 1][N_COL - x - 1];
+                    spun.m_cells[y][x] = flipped;
+                }
+            }
+
+
+            spun.m_pieces[0].iPiece = m_pieces[N_PIECE_TYPE - 1].iPiece;
+            spun.m_synched = true;
+        }
+    }
+
+
+//-----------------------
+    static class Board {
+        static final int L_EDGE_MASK = 
+                                       ((1 <<  0) | (1 <<  5) | (1 << 10) | (1 << 15) |
+                                        (1 << 20) | (1 << 25) | (1 << 30));
+        static final int R_EDGE_MASK = L_EDGE_MASK << 4;
+        static final int TOP_ROW = (1 << N_COL) - 1;
+        static final int ROW_0_MASK =
+            TOP_ROW | (TOP_ROW << 10) | (TOP_ROW << 20) | (TOP_ROW << 30);
+        static final int ROW_1_MASK = ROW_0_MASK << 5;
+        static final int BOARD_MASK = (1 << 30) - 1;
+
+        static int getIndex(int x, int y) {
+            return y * N_COL + x;
+        }
+
+        Soln m_curSoln;
+        Soln m_minSoln;
+        Soln m_maxSoln;
+        int m_nSoln;
+
+        Board () {
+            m_curSoln = new Soln(Soln.NO_PIECE);
+            m_minSoln = new Soln(N_PIECE_TYPE);
+            m_maxSoln = new Soln(Soln.NO_PIECE);
+            m_nSoln = (0);
+        }
+
+        static boolean badRegion(int[] toFill, int rNew)
+        {
+            // grow empty region, until it doesn't change any more;
+            int region;
+            do {
+                region = rNew;
+
+                // simple grow up/down
+                rNew |= (region >> N_COL);
+                rNew |= (region << N_COL);
+
+                // grow right/left
+                rNew |= (region & ~L_EDGE_MASK) >> 1;
+                rNew |= (region & ~R_EDGE_MASK) << 1;
+
+                // tricky growth
+                int evenRegion = region & (ROW_0_MASK & ~L_EDGE_MASK);
+                rNew |= evenRegion >> (N_COL + 1);
+                rNew |= evenRegion << (N_COL - 1);
+                int oddRegion = region & (ROW_1_MASK & ~R_EDGE_MASK);
+                rNew |= oddRegion >> (N_COL - 1);
+                rNew |= oddRegion << (N_COL + 1);
+
+                // clamp against existing pieces
+                rNew &= toFill[0];
+            }
+            while ((rNew != toFill[0]) && (rNew != region));
+
+            // subtract empty region from board
+            toFill[0] ^= rNew;
+
+            int nCells = countOnes(toFill[0]);
+            return (nCells % Piece.N_ELEM != 0);
+        }
+
+        static int hasBadIslands(int boardVec, int row)
+        {
+            // skip over any filled rows
+            while ((boardVec & TOP_ROW) == TOP_ROW) {
+                boardVec >>= N_COL;
+                row++;
+            }
+
+            int iInfo = boardVec & ((1 << 2 * N_COL) - 1);
+            IslandInfo info = g_islandInfo[iInfo];
+
+            int lastRow = (boardVec >> (2 * N_COL)) & TOP_ROW;
+            int mask = getMask(lastRow);
+            int isOdd = row & 1;
+
+            if ((info.alwaysBad[isOdd] & mask) != 0)
+                return BAD;
+
+            if ((boardVec & (TOP_ROW << N_COL * 3)) != 0)
+                return calcBadIslands(boardVec, row);
+
+            int isClosed = (row > 6) ? 1 : 0;
+
+            if ((info.isKnown[isOdd][isClosed] & mask) != 0)
+                return (info.hasBad[isOdd][isClosed] & mask);
+
+            if (boardVec == 0)
+                return GOOD;
+
+            int hasBad = calcBadIslands(boardVec, row);
+
+            info.isKnown[isOdd][isClosed] |= mask;
+            if (hasBad != 0)
+                info.hasBad[isOdd][isClosed] |= mask;
+
+            return hasBad;
+        }
+        static int calcBadIslands(int boardVec, int row)
+        {
+            int[] toFill = {~boardVec};
+            if ((row & 1) != 0) {
+                row--;
+                toFill[0] <<= N_COL;
+            }
+
+            int boardMask = BOARD_MASK;
+            if (row > 4) {
+                int boardMaskShift = (row - 4) * N_COL;
+                boardMask >>= boardMaskShift;
+            }
+            toFill[0] &= boardMask;
+
+            // a little pre-work to speed things up
+            int bottom = (TOP_ROW << (5 * N_COL));
+            boolean filled = ((bottom & toFill[0]) == bottom);
+            while ((bottom & toFill[0]) == bottom) {
+                toFill[0] ^= bottom;
+                bottom >>= N_COL;
+            }
+
+            int startRegion;
+            if (filled || (row < 4))
+                startRegion = bottom & toFill[0];
+            else {
+                startRegion = g_firstRegion[toFill[0] & TOP_ROW];
+                if (startRegion == 0)  {
+                    startRegion = (toFill[0] >> N_COL) & TOP_ROW;
+                    startRegion = g_firstRegion[startRegion];
+                    startRegion <<= N_COL;
+                }
+                startRegion |= (startRegion << N_COL) & toFill[0];
+            }
+
+            while (toFill[0] != 0)    {
+                if (badRegion(toFill, startRegion))
+                    return ((toFill[0]!=0) ? ALWAYS_BAD : BAD);
+                int iPos = getFirstOne(toFill[0]);
+                startRegion = getMask(iPos);
+            }
+
+            return GOOD;
+        }
+        static void calcAlwaysBad() {
+            for (int iWord = 1; iWord < MAX_ISLAND_OFFSET; iWord++) {
+                IslandInfo isleInfo = g_islandInfo[iWord];
+                IslandInfo flipped = g_islandInfo[flipTwoRows(iWord)];
+
+                for (int i = 0, mask = 1; i < 32; i++, mask <<= 1) {
+                    int boardVec = (i << (2 * N_COL)) | iWord;
+                    if ((isleInfo.isKnown[0][OPEN] & mask) != 0)
+                        continue;
+
+                    int hasBad = calcBadIslands(boardVec, 0);
+                    if (hasBad != GOOD) {
+                        boolean always = (hasBad==ALWAYS_BAD);
+                        markBad(isleInfo, mask, EVEN, always);
+
+                        int flipMask = getMask(g_flip[i]);
+                        markBad(flipped, flipMask, ODD, always);
+                    }
+                }
+                flipped.isKnown[1][OPEN] =  -1;
+                isleInfo.isKnown[0][OPEN] = -1;
+            }
+        }
+
+        static boolean hasBadIslandsSingle(int boardVec, int row)
+        {
+            int[] toFill = {~boardVec};
+            boolean isOdd = ((row & 1) != 0);
+            if (isOdd) {
+                row--;
+                toFill[0] <<= N_COL; // shift to even aligned
+                toFill[0] |= TOP_ROW;
+            }
+
+            int startRegion = TOP_ROW;
+            int lastRow = TOP_ROW << (5 * N_COL);
+            int boardMask = BOARD_MASK; // all but the first two bits
+            if (row >= 4)
+                boardMask >>= ((row - 4) * N_COL);
+            else if (isOdd || (row == 0))
+                startRegion = lastRow;
+
+            toFill[0] &= boardMask;
+            startRegion &= toFill[0];
+
+            while (toFill[0] != 0)    {
+                if (badRegion(toFill, startRegion))
+                    return true;
+                int iPos = getFirstOne(toFill[0]);
+                startRegion = getMask(iPos);
+            }
+
+            return false;
+        }
+
+        void genAllSolutions(int boardVec, int placedPieces, int row)
+        {
+            while ((boardVec & TOP_ROW) == TOP_ROW) {
+                boardVec >>= N_COL;
+                row++;
+            }
+            int iNextFill = s_firstOne[~boardVec & TOP_ROW];
+            OkPieces allowed = g_okPieces[row][iNextFill];
+
+            int iPiece = getFirstOne(~placedPieces);
+            int pieceMask = getMask(iPiece);
+            for (; iPiece < N_PIECE_TYPE; iPiece++, pieceMask <<= 1)
+            {
+                if ((pieceMask & placedPieces) != 0)
+                    continue;
+
+                placedPieces |= pieceMask;
+                for (int iOrient = 0; iOrient < allowed.nPieces[iPiece]; iOrient++) {
+                    int pieceVec = allowed.pieceVec[iPiece][iOrient];
+
+                    if ((pieceVec & boardVec) != 0)
+                        continue;
+
+                    boardVec |= pieceVec;
+
+                    if ((hasBadIslands(boardVec, row)) != 0) {
+                        boardVec ^= pieceVec;
+                        continue;
+                    }
+
+                    m_curSoln.pushPiece(pieceVec, iPiece, row);
+
+                    // recur or record solution
+                    if (placedPieces != Piece.ALL_PIECE_MASK)
+                        genAllSolutions(boardVec, placedPieces, row);
+                    else
+                        recordSolution(m_curSoln);
+
+                    boardVec ^= pieceVec;
+                    m_curSoln.popPiece();
+                }
+
+                placedPieces ^= pieceMask;
+            }
+        }
+
+        void recordSolution(Soln s) {
+            m_nSoln += 2;
+
+            if (m_minSoln.isEmpty()) {
+                m_minSoln = m_maxSoln = s.clone2();
+                return;
+            }
+
+            if (s.lessThan(m_minSoln))
+                m_minSoln = s.clone2();
+            else if (m_maxSoln.lessThan(s))
+                m_maxSoln = s.clone2();
+
+            Soln spun = new Soln();
+            s.spin(spun);
+            if (spun.lessThan(m_minSoln))
+                m_minSoln = spun;
+            else if (m_maxSoln.lessThan(spun))
+                m_maxSoln = spun;
+        }
+    }
+
+//----------------------
+    static class Piece {
+        class Instance {
+            long m_allowed;
+            int m_vec;
+            int m_offset;
+        }
+
+        static final int N_ELEM = 5;
+        static final int ALL_PIECE_MASK = (1 << N_PIECE_TYPE) - 1;
+        static final int SKIP_PIECE = 5;
+
+        static final int BaseVecs[] = {
+            0x10f, 0x0cb, 0x1087, 0x427, 0x465,
+            0x0c7, 0x8423, 0x0a7, 0x187, 0x08f
+        };
+
+        static Piece[][] s_basePiece = new Piece [N_PIECE_TYPE][N_ORIENT];
+
+        Instance[] m_instance = new Instance [N_PARITY];
+
+        void init() {
+            for (int i = 0; i < N_PARITY; i++)
+                m_instance[i] = new Instance();
+        }
+        Piece() {
+            init();
+        }
+
+        static {
+            for (int i = 0; i < N_PIECE_TYPE; i++) {
+                for (int j = 0; j < N_ORIENT; j++)
+                    s_basePiece[i][j] = new Piece();
+            }
+        }
+        static void setCoordList(int vec, int[][] pts) {
+            int iPt = 0;
+            int mask = 1;
+            for (int y = 0; y < N_ROW; y++) {
+                for (int x = 0; x < N_COL; x++) {
+                    if ((mask & vec) != 0) {
+                        pts[iPt][X] = x;
+                        pts[iPt][Y] = y;
+
+                        iPt++;
+                    }
+                    mask <<= 1;
+                }
+            }
+        }
+
+        static int toBitVector(int[][] pts) {
+            int y, x;
+            int result = 0;
+            for (int iPt = 0; iPt < N_ELEM; iPt++) {
+                x = pts[iPt][X];
+                y = pts[iPt][Y];
+
+                int pos = Board.getIndex(x, y);
+                result |= (1 << pos);
+            }
+
+            return result;
+        }
+
+        static void shiftUpLines(int[][] pts, int shift) {
+
+            for (int iPt = 0; iPt < N_ELEM; iPt++) {
+                if ((pts[iPt][Y] & shift & 0x1) != 0)
+                    (pts[iPt][X])++;
+                pts[iPt][Y] -= shift;
+            }
+        }
+
+        static int shiftToX0(int[][] pts, Instance instance, int offsetRow)
+        {
+            int x, y, iPt;
+            int xMin = pts[0][X];
+            int xMax = xMin;
+            for (iPt = 1; iPt < N_ELEM; iPt++) {
+                x = pts[iPt][X];
+                y = pts[iPt][Y];
+
+                if (x < xMin)
+                    xMin = x;
+                else if (x > xMax)
+                    xMax = x;
+            }
+
+            int offset = N_ELEM;
+            for (iPt = 0; iPt < N_ELEM; iPt++) {
+
+                pts[iPt][X] -= xMin;
+
+                if ((pts[iPt][Y] == offsetRow) && (pts[iPt][X] < offset))
+                    offset = pts[iPt][X];
+            }
+
+            instance.m_offset = offset;
+            instance.m_vec = toBitVector(pts);
+            return xMax - xMin;
+        }
+
+        void setOkPos(int isOdd, int w, int h) {
+            Instance p = m_instance[isOdd];
+            p.m_allowed = 0;
+            long posMask = 1L << (isOdd * N_COL);
+
+            for (int y = isOdd; y < N_ROW - h; y+=2, posMask <<= N_COL) {
+                if ((p.m_offset) != 0)
+                    posMask <<= p.m_offset;
+
+                for (int xPos = 0; xPos < N_COL - p.m_offset; xPos++, posMask <<= 1) {
+
+                    if (xPos >= N_COL - w)
+                        continue;
+
+                    int pieceVec = p.m_vec << xPos;
+
+                    if (Board.hasBadIslandsSingle(pieceVec, y))
+                        continue;
+
+                    p.m_allowed |= posMask;
+                }
+            }
+        }
+
+        static void genOrientation(int vec, int iOrient, Piece target)
+        {
+            int[][] pts = new int[N_ELEM][N_DIM];
+            setCoordList(vec, pts);
+
+            int y, x, iPt;
+            int rot = iOrient % 6;
+            int flip = iOrient >= 6 ? 1 : 0;
+            if (flip != 0) {
+                for (iPt = 0; iPt < N_ELEM; iPt++)
+                    pts[iPt][Y] = -pts[iPt][Y];
+            }
+
+            while ((rot--) != 0) {
+                for (iPt = 0; iPt < N_ELEM; iPt++) {
+                    x = pts[iPt][X];
+                    y = pts[iPt][Y];
+
+                    int xNew = floor((2 * x - 3 * y + 1), 4);
+                    int yNew = floor((2 * x + y + 1), 2);
+                    pts[iPt][X] = xNew;
+                    pts[iPt][Y] = yNew;
+                }
+            }
+
+            int yMin = pts[0][Y];
+            int yMax = yMin;
+            for (iPt = 1; iPt < N_ELEM; iPt++) {
+                y = pts[iPt][Y];
+
+                if (y < yMin)
+                    yMin = y;
+                else if (y > yMax)
+                    yMax = y;
+            }
+            int h = yMax - yMin;
+            Instance even = target.m_instance[EVEN];
+            Instance odd = target.m_instance[ODD];
+
+            shiftUpLines(pts, yMin);
+            int w = shiftToX0(pts, even, 0);
+            target.setOkPos(EVEN, w, h);
+            even.m_vec >>= even.m_offset;
+
+            shiftUpLines(pts, -1);
+            w = shiftToX0(pts, odd, 1);
+            odd.m_vec >>= N_COL;
+            target.setOkPos(ODD, w, h);
+            odd.m_vec >>= odd.m_offset;
+        }
+
+        static void genAllOrientations() {
+            for (int iPiece = 0; iPiece < N_PIECE_TYPE; iPiece++) {
+                int refPiece = BaseVecs[iPiece];
+                for (int iOrient = 0; iOrient < N_ORIENT; iOrient++) {
+                    Piece p = s_basePiece[iPiece][iOrient];
+                    genOrientation(refPiece, iOrient, p);
+                    if ((iPiece == SKIP_PIECE)  && (((iOrient / 3) & 1) != 0))
+                        p.m_instance[0].m_allowed = p.m_instance[1].m_allowed = 0;
+                }
+            }
+            for (int iPiece = 0; iPiece < N_PIECE_TYPE; iPiece++) {
+                for (int iOrient = 0; iOrient < N_ORIENT; iOrient++) {
+                    long mask = 1;
+                    for (int iRow = 0; iRow < N_ROW; iRow++) {
+                        Instance p = getPiece(iPiece, iOrient, (iRow & 1));
+                        for (int iCol = 0; iCol < N_COL; iCol++) {
+                            OkPieces allowed = g_okPieces[iRow][iCol];
+                            if ((p.m_allowed & mask) != 0) {
+                                allowed.pieceVec[iPiece][allowed.nPieces[iPiece]] = p.m_vec << iCol;
+                                (allowed.nPieces[iPiece])++;
+                            }
+
+                            mask <<= 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        static Instance getPiece(int iPiece, int iOrient, int iParity) {
+            return s_basePiece[iPiece][iOrient].m_instance[iParity];
+        }
+    }
+
+
+//-- Main ---------------------------
+    public static void main(String[] args) {
+        if (args.length > 2)
+            System.exit(-1); // spec says this is an error;
+
+        initGlobals();
+        Board b = new Board();
+        Piece.genAllOrientations();
+        Board.calcAlwaysBad();
+        b.genAllSolutions(0, 0, 0);
+
+        System.out.println(b.m_nSoln + " solutions found\n");
+        System.out.println(b.m_minSoln);
+        System.out.println(b.m_maxSoln);
+    }
+}
+/* The Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   contributed by Mark C. Lewis
+*/
+
+import java.text.*;
+
+public final class nbody {
+   private static final NumberFormat nf = new DecimalFormat("#0.000000000");
+
+	public static void main(String[] args) {
+	   int n = Integer.parseInt(args[0]);
+	   
+		NBodySystem bodies = new NBodySystem();
+		
+		System.out.println(nf.format(bodies.energy()) );
+		for (int i=0; i<n; ++i) {
+		   bodies.advance(0.01);
+		}
+		System.out.println(nf.format(bodies.energy()) );		
+	}
+}
+
+
+final class NBodySystem {		
+	private Body[] bodies;
+	   	  	
+	public NBodySystem(){			
+		bodies = new Body[]{
+		      Body.sun(),		
+		      Body.jupiter(),
+		      Body.saturn(),
+		      Body.uranus(),
+		      Body.neptune()		      		      		      
+		   };
+		
+		double px = 0.0;
+		double py = 0.0;	
+		double pz = 0.0;				
+		for(int i=0; i < bodies.length; ++i) {			   		         					
+			px += bodies[i].vx * bodies[i].mass;
+			py += bodies[i].vy * bodies[i].mass;		
+			pz += bodies[i].vz * bodies[i].mass;				
+		}		
+		bodies[0].offsetMomentum(px,py,pz);
+	}
+						   	
+	public void advance(double dt) {
+	   double dx, dy, dz, distance, mag;	
+	
+		for(int i=0; i < bodies.length; ++i) {
+			for(int j=i+1; j < bodies.length; ++j) {	
+				dx = bodies[i].x - bodies[j].x;
+				dy = bodies[i].y - bodies[j].y;
+				dz = bodies[i].z - bodies[j].z;
+				
+				distance = Math.sqrt(dx*dx + dy*dy + dz*dz);				   
+				mag = dt / (distance * distance * distance);
+				
+				bodies[i].vx -= dx * bodies[j].mass * mag;
+				bodies[i].vy -= dy * bodies[j].mass * mag;
+				bodies[i].vz -= dz * bodies[j].mass * mag;
+				
+				bodies[j].vx += dx * bodies[i].mass * mag;
+				bodies[j].vy += dy * bodies[i].mass * mag;
+				bodies[j].vz += dz * bodies[i].mass * mag;
+			}
+		}		
+		
+		for(int i=0; i < bodies.length; ++i) {
+			bodies[i].x += dt * bodies[i].vx;
+			bodies[i].y += dt * bodies[i].vy;
+			bodies[i].z += dt * bodies[i].vz;
+		}		
+	}			
+	
+	public double energy(){		
+		double dx, dy, dz, distance;	
+		double e = 0.0;		   
+		
+		for (int i=0; i < bodies.length; ++i) {
+			e += 0.5 * bodies[i].mass * 
+			   ( bodies[i].vx * bodies[i].vx 
+			   + bodies[i].vy * bodies[i].vy 
+			   + bodies[i].vz * bodies[i].vz );
+			   
+			for (int j=i+1; j < bodies.length; ++j) {
+				dx = bodies[i].x - bodies[j].x;
+				dy = bodies[i].y - bodies[j].y;
+				dz = bodies[i].z - bodies[j].z;
+				
+				distance = Math.sqrt(dx*dx + dy*dy + dz*dz);
+				e -= (bodies[i].mass * bodies[j].mass) / distance;
+			}
+		}
+		return e;
+	}		      	   	   	      	   		   														           		
+}
+
+
+final class Body {
+   static final double PI = 3.141592653589793;	
+   static final double SOLAR_MASS = 4 * PI * PI;
+	static final double DAYS_PER_YEAR = 365.24;
+
+	public double x, y, z, vx, vy, vz, mass;
+	
+	public Body(){}	
+	
+	static Body jupiter(){
+	   Body p = new Body();
+	   p.x = 4.84143144246472090e+00;
+	   p.y = -1.16032004402742839e+00;
+	   p.z = -1.03622044471123109e-01;
+	   p.vx = 1.66007664274403694e-03 * DAYS_PER_YEAR;
+	   p.vy = 7.69901118419740425e-03 * DAYS_PER_YEAR;
+	   p.vz = -6.90460016972063023e-05 * DAYS_PER_YEAR;
+	   p.mass = 9.54791938424326609e-04 * SOLAR_MASS;	   	   	   
+	   return p;
+	}	
+	
+	static Body saturn(){
+	   Body p = new Body();
+	   p.x = 8.34336671824457987e+00;
+	   p.y = 4.12479856412430479e+00;
+	   p.z = -4.03523417114321381e-01;
+	   p.vx = -2.76742510726862411e-03 * DAYS_PER_YEAR;
+	   p.vy = 4.99852801234917238e-03 * DAYS_PER_YEAR;
+	   p.vz = 2.30417297573763929e-05 * DAYS_PER_YEAR;
+	   p.mass = 2.85885980666130812e-04 * SOLAR_MASS;	   	   	   
+	   return p;
+	}	
+	
+	static Body uranus(){
+	   Body p = new Body();
+	   p.x = 1.28943695621391310e+01;
+	   p.y = -1.51111514016986312e+01;
+	   p.z = -2.23307578892655734e-01;
+	   p.vx = 2.96460137564761618e-03 * DAYS_PER_YEAR;
+	   p.vy = 2.37847173959480950e-03 * DAYS_PER_YEAR;
+	   p.vz = -2.96589568540237556e-05 * DAYS_PER_YEAR;
+	   p.mass = 4.36624404335156298e-05 * SOLAR_MASS;		   	   	   
+	   return p;
+	}		
+
+	static Body neptune(){
+	   Body p = new Body();
+	   p.x = 1.53796971148509165e+01;
+	   p.y = -2.59193146099879641e+01;
+	   p.z = 1.79258772950371181e-01;
+	   p.vx = 2.68067772490389322e-03 * DAYS_PER_YEAR;
+	   p.vy = 1.62824170038242295e-03 * DAYS_PER_YEAR;
+	   p.vz = -9.51592254519715870e-05 * DAYS_PER_YEAR;
+	   p.mass = 5.15138902046611451e-05 * SOLAR_MASS;	   	   	   
+	   return p;
+	}
+	
+	static Body sun(){
+	   Body p = new Body();
+	   p.mass = SOLAR_MASS;	   	   	   
+	   return p;
+	}			
+	
+	Body offsetMomentum(double px, double py, double pz){
+	   vx = -px / SOLAR_MASS;
+	   vy = -py / SOLAR_MASS;
+	   vz = -pz / SOLAR_MASS;	   
+	   return this;   
+	}			           			
+}
+
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   contributed by Alexei Svitkine
+*/
+
+public class nsieve
+{
+   static int nsieve(int m, boolean[] isPrime)
+   {
+      for (int i=2; i <= m; i++) isPrime[i] = true;
+      int count = 0;
+
+      for (int i=2; i <= m; i++) {
+         if (isPrime[i]) {
+            for (int k=i+i; k <= m; k+=i) isPrime[k] = false;
+            count++;
+         }
+      }
+      return count;
+   }
+
+   public static String padNumber(int number, int fieldLen)
+   {
+      StringBuffer sb = new StringBuffer();
+      String bareNumber = "" + number;
+      int numSpaces = fieldLen - bareNumber.length();
+
+      for (int i = 0; i < numSpaces; i++)
+         sb.append(" ");
+
+      sb.append(bareNumber);
+
+      return sb.toString();
+   }
+
+   public static void main(String[] args)
+   {
+      int n = 2;
+      if (args.length > 0) n = Integer.parseInt(args[0]);
+      if (n < 2) n = 2;
+
+      int m = (1<<n)*10000;
+      boolean[] flags = new boolean[m+1];
+
+      System.out.println("Primes up to " + padNumber(m, 8) + " " + padNumber(nsieve(m,flags), 8));
+      m = (1<<n-1)*10000;
+      System.out.println("Primes up to " + padNumber(m, 8) + " " + padNumber(nsieve(m,flags), 8));
+      m = (1<<n-2)*10000;
+      System.out.println("Primes up to " + padNumber(m, 8) + " " + padNumber(nsieve(m,flags), 8));
+   }
+}
+/* The Computer Language Shootout
+http://shootout.alioth.debian.org/
+
+contributed by Alkis Evlogimenos
+*/
+
+import java.util.BitSet;
+
+public class nsievebits
+{
+   private static int nsieve(int m, BitSet bits) {
+      bits.set(0, m+1);
+
+      int count = 0;
+      for (int i = 2; i <= m; ++i) {
+         if (bits.get(i)) {
+         for (int j = i + i; j <=m; j += i)
+            bits.clear(j);
+            ++count;
+         }
+      }
+      return count;
+   }
+
+   public static String padNumber(int number, int fieldLen)
+   {
+      StringBuffer sb = new StringBuffer();
+      String bareNumber = "" + number;
+      int numSpaces = fieldLen - bareNumber.length();
+
+      for (int i = 0; i < numSpaces; i++)
+         sb.append(" ");
+
+      sb.append(bareNumber);
+
+      return sb.toString();
+   }
+
+   public static void main(String[] args)
+   {
+      int n = 2;
+      if (args.length > 0)
+         n = Integer.parseInt(args[0]);
+      if (n < 2)
+         n = 2;
+
+      int m = (1 << n) * 10000;
+      BitSet bits = new BitSet(m+1);
+      System.out.println("Primes up to " + padNumber(m, 8) + " " + padNumber(nsieve(m,bits), 8));
+
+      m = (1 << n-1) * 10000;
+      System.out.println("Primes up to " + padNumber(m, 8) + " " + padNumber(nsieve(m,bits), 8));
+
+      m = (1 << n-2) * 10000;
+      System.out.println("Primes up to " + padNumber(m, 8) + " " + padNumber(nsieve(m,bits), 8));
+   }
+}
+/* The Computer Language Benchmarks Game
+http://shootout.alioth.debian.org/
+
+contributed by Alkis Evlogimenos
+slightly modified by Pierre-Olivier Gaillard
+slightly modified by Klaus Friedel
+slightly modified by Daniel Fekete
+modified by Chad Whipkey -- converted to not use a class
+modified by Razi -- to make it work with GCJ by not using printf
+*/
+
+import java.util.Arrays;
+
+public final class nsievebits
+{
+    private static final int mask = 31;
+    private static final int shift = 5;
+
+    public static void main(String[] args) {
+        int n = 2;
+        if (args.length > 0)
+            n = Integer.parseInt(args[0]);
+        if (n < 2) n = 2;
+
+        int m = (1 << n) * 10000;
+        final int[] bits = new int[((m + 1) >> shift) + 1];
+        primes(n, bits);
+        primes(n - 1, bits);
+        primes(n - 2, bits);
+    }
+
+    static void primes(int n, int[] bits) {
+        final int m = (1 << n) * 10000;
+        Arrays.fill(bits, 0, ((m + 1) >> shift) + 1, -1);
+        int count = 0;
+        for (int i = 2; i <= m; i++)
+        {
+            if (((bits[i >> shift] >>> (i & mask)) & 1) != 0)
+            {
+                for (int j = i + i; j <= m; j += i)
+                    bits[j >> shift] &= ~(1 << (j & mask));
+                count ++;
+            }
+        } 
+
+       System.out.println("Primes up to " + pad(Integer.toString(m), 8, ' ') 
+                     +  " " + pad(Integer.toString(count), 8, ' '));
+    }
+
+    public static String pad(String s, int length, char pad)
+    {
+       if (s.length() >= length) return s;
+       StringBuilder buffer = new StringBuilder();
+       for (int i = length - s.length(); i > 0; --i) buffer.append(pad);
+       buffer.append(s);
+       return buffer.toString();
+    }
+}
+
+/* The Computer Language Shootout
+   http://shootout.alioth.debian.org/
+   contributed by Josh Goldfoot
+   modified by Isaac Gouy
+*/
+
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
+
+public class partialsums {
+   private static final double twothirds = 2.0/3.0;
+   private static final NumberFormat formatter = new DecimalFormat("#0.000000000");
+
+
+   public static void main(String[] args) {
+      int n = Integer.parseInt(args[0]);
+
+      double a1 = 0.0, a2 = 0.0, a3 = 0.0, a4 = 0.0, a5 = 0.0;
+      double a6 = 0.0, a7 = 0.0, a8 = 0.0, a9 = 0.0, alt = -1.0;
+
+      for (int k=1; k<=n; k++){
+         double k2 = (double)k * (double)k, k3 = k2 * (double)k;
+         double sk = Math.sin(k), ck = Math.cos(k);
+         alt = -alt;
+
+         a1 += Math.pow(twothirds,k-1);
+         a2 += 1.0/Math.sqrt(k);
+         a3 += 1.0/(k*(k+1.0));
+         a4 += 1.0/(k3 * sk*sk);
+         a5 += 1.0/(k3 * ck*ck);
+         a6 += 1.0/k;
+         a7 += 1.0/k2;
+         a8 += alt/k;
+         a9 += alt/(2.0*k -1.0);
+      }
+      System.out.println(formatter.format(a1) + "\t(2/3)^k");
+      System.out.println(formatter.format(a2) + "\tk^-0.5");
+      System.out.println(formatter.format(a3) + "\t1/k(k+1)");
+      System.out.println(formatter.format(a4) + "\tFlint Hills");
+      System.out.println(formatter.format(a5) + "\tCookson Hills");
+      System.out.println(formatter.format(a6) + "\tHarmonic");
+      System.out.println(formatter.format(a7) + "\tRiemann Zeta");
+      System.out.println(formatter.format(a8) + "\tAlternating Harmonic");
+      System.out.println(formatter.format(a9) + "\tGregory");
+   }
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+ 
+   contributed by Isaac Gouy
+*/
+
+import java.math.BigInteger;
+
+public class pidigits {
+   static final int L = 10;
+
+   public static void main(String args[]) { 
+      int n = Integer.parseInt(args[0]);
+      int j = 0;
+   
+      PiDigitSpigot digits = new PiDigitSpigot();
+      
+      while (n > 0){
+         if (n >= L){
+            for (int i=0; i<L; i++) System.out.print( digits.next() );
+            j += L;
+         } else {
+            for (int i=0; i<n; i++) System.out.print( digits.next() );
+            for (int i=n; i<L; i++) System.out.print(" ");  
+            j += n;   
+         }
+         System.out.print("\t:"); System.out.println(j);
+         n -= L;           
+      }               
+   }
+}
+
+
+class PiDigitSpigot {
+   Transformation z, x, inverse;            
+       
+   public PiDigitSpigot(){
+      z = new Transformation(1,0,0,1);
+      x = new Transformation(0,0,0,0);
+      inverse = new Transformation(0,0,0,0);
+   }   
+   
+   public int next(){
+      int y = digit();
+      if (isSafe(y)){ 
+         z = produce(y); return y;
+      } else {
+         z = consume( x.next() ); return next();   
+      }
+   }    
+      
+   public int digit(){
+      return z.extract(3);
+   }        
+   
+   public boolean isSafe(int digit){
+      return digit == z.extract(4);
+   }   
+   
+   public Transformation produce(int i){
+      return ( inverse.qrst(10,-10*i,0,1) ).compose(z);
+   }     
+      
+   public Transformation consume(Transformation a){
+      return z.compose(a);
+   }                   
+} 
+
+
+class Transformation {
+   BigInteger q, r, s, t;
+   int k;              
+       
+   public Transformation(int q, int r, int s, int t){
+      this.q = BigInteger.valueOf(q);
+      this.r = BigInteger.valueOf(r);
+      this.s = BigInteger.valueOf(s);
+      this.t = BigInteger.valueOf(t);                  
+      k = 0;
+   }
+   
+   public Transformation(BigInteger q, BigInteger r, BigInteger s, BigInteger t){
+      this.q = q;
+      this.r = r;
+      this.s = s;
+      this.t = t;                  
+      k = 0;
+   }        
+   
+   public Transformation next(){
+      k++;
+      q = BigInteger.valueOf(k);
+      r = BigInteger.valueOf(4 * k + 2);
+      s = BigInteger.valueOf(0);
+      t = BigInteger.valueOf(2 * k + 1); 
+      return this;                 
+   }      
+   
+   public int extract(int j){
+      BigInteger bigj = BigInteger.valueOf(j);
+      BigInteger numerator = (q.multiply(bigj)).add(r);
+      BigInteger denominator = (s.multiply(bigj)).add(t);                  
+      return ( numerator.divide(denominator) ).intValue();                    
+   }     
+   
+   public Transformation qrst(int q, int r, int s, int t){
+      this.q = BigInteger.valueOf(q);
+      this.r = BigInteger.valueOf(r);
+      this.s = BigInteger.valueOf(s);
+      this.t = BigInteger.valueOf(t); 
+      k = 0;  
+      return this;                             
+   }         
+  
+   public Transformation compose(Transformation a){      
+      return new Transformation(
+         q.multiply(a.q)
+         ,(q.multiply(a.r)).add( (r.multiply(a.t)) ) 
+         ,(s.multiply(a.q)).add( (t.multiply(a.s)) ) 
+         ,(s.multiply(a.r)).add( (t.multiply(a.t)) )                   
+         );                    
+   }          
+}
+
+
+  
+/* The Computer Language Shootout
+   http://shootout.alioth.debian.org/
+   contributed by Anthony Borla
+   contributed by Isaac Gouy
+*/
+
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
+
+public class recursive
+{
+  private static final NumberFormat nf = new DecimalFormat("#0.0");
+
+  public static void main(String args[])
+  {
+    int n = Integer.parseInt(args[0]);
+    System.out.println("Ack(3," + n + "): " + ack(3, n));
+    System.out.println("Fib(" + nf.format(27.0+n) + "): " + nf.format( fib(27.0+n) ));
+
+    n -= 1;
+    System.out.println("Tak(" + n*3 + "," + n*2 + "," + n + "): " + tak(n*3,n*2,n));
+    System.out.println("Fib(3): " + fib(3));
+    System.out.println("Tak(3.0,2.0,1.0): " + nf.format( tak(3.0,2.0,1.0) ));
+  }
+
+  public static int ack(int m, int n)
+  {
+    if (m == 0) return n + 1;
+    if (n == 0) return ack(m - 1, 1);
+    return ack(m - 1, ack(m, n - 1));
+  }
+
+  public static int fib(int n)
+  {
+    if (n < 2) return 1;
+    return fib(n - 2) + fib(n - 1);
+  }
+
+  public static double fib(double n)
+  {
+    if (n < 2.0) return 1.0;
+    return fib(n - 2.0) + fib(n - 1.0);
+  }
+
+  public static int tak(int x, int y, int z)
+  {
+    if (y >= x) return z;
+    return tak(tak(x - 1, y, z), tak(y - 1, z, x), tak(z - 1, x, y));
+  }
+
+  public static double tak(double x, double y, double z)
+  {
+    if (y >= x) return z;
+    return tak(tak(x - 1.0, y, z), tak(y - 1.0, z, x), tak(z - 1.0, x, y));
+  }
+}
+
+
+/* The Computer Language Shootout
+   http://shootout.alioth.debian.org/
+   contributed by Josh Goldfoot
+   based on the Nice entry by Isaac Guoy
+*/
+
+import java.io.*;
+import java.lang.*;
+import java.util.regex.*;
+
+public class regexdna {
+    
+    public regexdna() {
+    }
+
+    public static void main(String[] args) {
+        BufferedReader r = new BufferedReader(new InputStreamReader(System.in));
+        StringBuffer sb = new StringBuffer(10240);
+        char[] cbuf = new char[10240];
+        int charsRead = 0;
+        try {
+            while ((charsRead = r.read(cbuf, 0, 10240)) != -1) 
+                sb.append(cbuf, 0, charsRead);
+        } catch (java.io.IOException e) {
+            return;
+        }
+        String sequence = sb.toString();
+        
+        int initialLength = sequence.length();
+        sequence = Pattern.compile(">.*\n|\n").matcher(sequence).replaceAll("");
+        int codeLength = sequence.length();
+        
+        String[] variants = { "agggtaaa|tttaccct" ,"[cgt]gggtaaa|tttaccc[acg]", "a[act]ggtaaa|tttacc[agt]t", 
+                 "ag[act]gtaaa|tttac[agt]ct", "agg[act]taaa|ttta[agt]cct", "aggg[acg]aaa|ttt[cgt]ccct",                     
+                 "agggt[cgt]aa|tt[acg]accct", "agggta[cgt]a|t[acg]taccct", "agggtaa[cgt]|[acg]ttaccct" };
+        for (int i = 0; i < variants.length; i++) {
+            int count = 0;
+            Matcher m = Pattern.compile(variants[i]).matcher(sequence);
+            while (m.find())
+                count++;
+            System.out.println(variants[i] + " " + count);
+        }
+        
+        sequence = Pattern.compile("B").matcher(sequence).replaceAll("(c|g|t)");
+        sequence = Pattern.compile("D").matcher(sequence).replaceAll("(a|g|t)");
+        sequence = Pattern.compile("H").matcher(sequence).replaceAll("(a|c|t)");
+        sequence = Pattern.compile("K").matcher(sequence).replaceAll("(g|t)");
+        sequence = Pattern.compile("M").matcher(sequence).replaceAll("(a|c)");
+        sequence = Pattern.compile("N").matcher(sequence).replaceAll("(a|c|g|t)");
+        sequence = Pattern.compile("R").matcher(sequence).replaceAll("(a|g)");
+        sequence = Pattern.compile("S").matcher(sequence).replaceAll("(c|g)");
+        sequence = Pattern.compile("V").matcher(sequence).replaceAll("(a|c|g)");
+        sequence = Pattern.compile("W").matcher(sequence).replaceAll("(a|t)");
+        sequence = Pattern.compile("Y").matcher(sequence).replaceAll("(c|t)");
+        
+        System.out.println();
+        System.out.println(initialLength);
+        System.out.println(codeLength);
+        System.out.println(sequence.length());
+    }
+}
+/*
+ * The Computer Language Benchmarks Game
+ * http://shootout.alioth.debian.org/
+ * contributed by Anthony Donnefort
+ * slightly modified to read 82 bytes at a time by Razii
+ */
+
+import java.io.*;
+public class revcomp {
+   static final byte[] cmp = new byte[128];
+   static {
+      for (int i = 0; i < cmp.length; i++) cmp[i] = (byte) i;
+      cmp['t'] = cmp['T'] = 'A';
+      cmp['a'] = cmp['A'] = 'T';
+      cmp['g'] = cmp['G'] = 'C';
+      cmp['c'] = cmp['C'] = 'G';
+      cmp['v'] = cmp['V'] = 'B';
+      cmp['h'] = cmp['H'] = 'D';
+      cmp['r'] = cmp['R'] = 'Y';
+      cmp['m'] = cmp['M'] = 'K';
+      cmp['y'] = cmp['Y'] = 'R';
+      cmp['k'] = cmp['K'] = 'M';
+      cmp['b'] = cmp['B'] = 'V';
+      cmp['d'] = cmp['D'] = 'H';
+      cmp['u'] = cmp['U'] = 'A';
+   }
+
+   static class ReversibleByteArray extends java.io.ByteArrayOutputStream {
+      void reverse() throws Exception {
+         if (count > 0) {
+            int begin = 0, end = count - 1;
+            while (buf[begin++] != '\n');
+            while (begin <= end) {
+               if (buf[begin] == '\n') begin++;
+               if (buf[end] == '\n') end--;
+               if (begin <= end) {
+                  byte tmp = buf[begin];
+                  buf[begin++] = cmp[buf[end]];
+                  buf[end--] = cmp[tmp];
+               }
+            }
+            System.out.write(buf, 0, count);
+         }
+      }
+   }
+
+   public static void main(String[] args) throws Exception {
+      byte[] line = new byte[82];
+      int read;
+      ReversibleByteArray buf = new ReversibleByteArray();
+      while ((read = System.in.read(line)) != -1) {
+         int i = 0, last = 0;
+         while (i < read) {
+            if (line[i] == '>') {
+               buf.write(line, last, i - last);
+               buf.reverse();
+               buf.reset();
+               last = i;
+            }
+            i++;
+         }
+         buf.write(line, last, read - last);
+      }
+      buf.reverse();
+   }
+}
+
+  
+/*
+ The Great Computer Language Shootout
+ http://shootout.alioth.debian.org/
+ 
+ contributed by Java novice Jarkko Miettinen
+ modified ~3 lines of the original C#-version 
+ by Isaac Gouy
+ */
+ 
+import java.text.DecimalFormat;
+import java.text.NumberFormat; 
+
+public class spectralnorm
+{
+	
+	private static final NumberFormat nf = new DecimalFormat("#0.000000000");
+	
+	public static void main(String[] args) {
+		int n = 100;
+		if (args.length > 0) n = Integer.parseInt(args[0]);
+
+		System.out.println(nf.format(new spectralnorm().Approximate(n)));
+	}
+
+	private final double Approximate(int n) {
+		// create unit vector
+		double[] u = new double[n];
+		for (int i=0; i<n; i++) u[i] =  1;
+		
+		// 20 steps of the power method
+		double[] v = new double[n];
+		for (int i=0; i<n; i++) v[i] = 0;
+		
+		for (int i=0; i<10; i++) {
+			MultiplyAtAv(n,u,v);
+			MultiplyAtAv(n,v,u);
+		}
+		
+		// B=AtA         A multiplied by A transposed
+		// v.Bv /(v.v)   eigenvalue of v
+		double vBv = 0, vv = 0;
+		for (int i=0; i<n; i++) {
+			vBv += u[i]*v[i];
+			vv  += v[i]*v[i];
+		}
+		
+		return Math.sqrt(vBv/vv);
+	}
+	
+	
+	/* return element i,j of infinite matrix A */
+	private final double A(int i, int j){
+		return 1.0/((i+j)*(i+j+1)/2 +i+1);
+	}
+	
+	/* multiply vector v by matrix A */
+	private final void MultiplyAv(int n, double[] v, double[] Av){
+		for (int i=0; i<n; i++){
+			Av[i] = 0;
+			for (int j=0; j<n; j++) Av[i] += A(i,j)*v[j];
+		}
+	}
+	
+	/* multiply vector v by matrix A transposed */
+	private final void MultiplyAtv(int n, double[] v, double[] Atv){
+		for (int i=0;i<n;i++){
+			Atv[i] = 0;
+			for (int j=0; j<n; j++) Atv[i] += A(j,i)*v[j];
+		}
+	}
+	
+	/* multiply vector v by matrix A and then by matrix A transposed */
+	private final void MultiplyAtAv(int n, double[] v, double[] AtAv){
+		double[] u = new double[n];
+		MultiplyAv(n,v,u);
+		MultiplyAtv(n,u,AtAv);
+	}
+}
+// $Id: sumcol.java14,v 1.1 2006-04-01 03:23:57 igouy-guest Exp $
+// http://www.bagley.org/~doug/shootout/ 
+
+import java.io.*;
+import java.util.*;
+import java.text.*;
+
+public class sumcol {
+   public static void main(String[] args) {
+      int sum = 0;
+      String line;
+      try {
+         BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
+         while ((line = in.readLine()) != null) {
+            sum = sum + Integer.parseInt(line);
+         }
+      } catch (IOException e) {
+         System.err.println(e);
+         return;
+      }
+      System.out.println(Integer.toString(sum));
+   }
+}

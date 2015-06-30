@@ -1,0 +1,386 @@
+;;; -*- mode: scheme -*-
+;;; $Id: ackermann.stalin,v 1.1 2004-06-05 16:40:23 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(define (string->exact-integer string)
+ (let ((n (string->number string)))
+  (if (integer? n)
+      (if (exact? n)
+	  n
+	  (panic "STRING->EXACT-INTEGER yields non-EXACT-INTEGER"))
+      (panic "STRING->EXACT-INTEGER yields non-EXACT-INTEGER"))))
+
+(define (main args)
+  (let ((n (or (and (= (length args) 2) (string->number (cadr args))) 1)))
+    (print-list "Ack(3," n "): " (ack 3 n))))
+
+(define (ack m n)
+  (cond ((zero? m) (+ n 1))
+	((zero? n) (ack (- m 1) 1))
+	(else      (ack (- m 1) (ack m (- n 1))))))
+
+(define (print-list . items) (for-each display items) (newline))
+
+(main (vector->list argv))
+;;; -*- mode: scheme -*-
+;;; $Id: ary.stalin,v 1.1 2004-06-05 16:40:23 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+;;; this program is modified from:
+;;;   http://cm.bell-labs.com/cm/cs/who/bwk/interps/pap.html
+;;; Timing Trials, or, the Trials of Timing: Experiments with Scripting
+;;; and User-Interface Languages</a> by Brian W. Kernighan and
+;;; Christopher J. Van Wyk.
+
+(define (string->exact-integer string)
+ (let ((n (string->number string)))
+  (if (integer? n)
+      (if (exact? n)
+	  n
+	  (panic "STRING->EXACT-INTEGER yields non-EXACT-INTEGER"))
+      (panic "STRING->EXACT-INTEGER yields non-EXACT-INTEGER"))))
+
+(define (main args)
+  (let* ((n (or (and (= (length args) 2) (string->exact-integer (cadr args))) 1))
+	 (x (make-vector n 0))
+	 (y (make-vector n 0))
+	 (last (- n 1)))
+    (do ((i 0 (+ i 1)))
+	((= i n))
+      (vector-set! x i (+ i 1)))
+    (do ((k 0 (+ k 1)))
+	((= k 1000))
+      (do ((i last (- i 1)))
+	  ((< i 0))
+	(vector-set! y i (+ (vector-ref x i) (vector-ref y i)))))
+    (print-list (vector-ref y 0) " " (vector-ref y last))))
+
+(define (print-list . items) (for-each display items) (newline))
+
+(main (vector->list argv))
+;;; The Computer Language Benchmarks Game
+;;; http://shootout.alioth.debian.org/
+;;; contributed by Fabien D.
+
+(define (make-tree item depth)
+   (if (= depth 0)
+      (list item '() '())
+      (let ((new-depth (- depth 1))
+            (new-item (* item 2)))
+         (list item (make-tree (- new-item 1) new-depth) (make-tree new-item new-depth)))))
+
+
+(define (check-tree tree)
+   (let ((item (car tree))
+         (left (cadr tree))
+         (right (caddr tree)))
+
+      (if (null? left)
+         item
+         (+ item (- (check-tree left) (check-tree right))))))
+
+
+
+(define (iterate depth min-depth max-depth)
+   (let* ((iterations (expt 2 (- (+ max-depth min-depth) depth)))
+               (check (do ((i 1 (+ i 1)) (check 0))
+                          ((>= i (+ iterations 1)) check)
+                          (set! check (+ check (check-tree (make-tree i depth)) (check-tree (make-tree (- i) depth)))))))
+
+                          (begin
+                              (display (* iterations 2))
+                              (display "    trees of depth ")
+                              (display depth)
+                              (display "    check: ")
+                              (display check)
+                              (newline))))
+
+
+
+(define (main user-depth)
+   (let* ((min-depth 4)
+          (max-depth (max (+ min-depth 2) user-depth))
+          (stretch-depth (+ max-depth 1))
+          (long-lived (make-tree 0 max-depth)))
+
+      (begin
+         (display "stretch tree of depth ")
+         (display stretch-depth)
+         (display "    check: ")
+         (display (check-tree (make-tree 0 stretch-depth)))
+         (newline)
+
+         (do ((depth min-depth (+ depth 2)))
+             ((>= depth stretch-depth))
+             (iterate depth min-depth max-depth))
+
+         (display "long lived tree of depth ")
+         (display max-depth)
+         (display "    check: ")
+         (display (check-tree long-lived))
+         (newline)
+         (newline))))
+             
+
+(main (string->number (vector-ref argv 1)))
+;;; -*- mode: scheme -*-
+;;; $Id: fibo.stalin,v 1.3 2005-04-25 19:01:39 igouy-guest Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(define (string->exact-integer string)
+ (let ((n (string->number string)))
+  (if (integer? n)
+      (if (exact? n)
+	  n
+	  (panic "STRING->EXACT-INTEGER yields non-EXACT-INTEGER"))
+      (panic "STRING->EXACT-INTEGER yields non-EXACT-INTEGER"))))
+
+(define (main args)
+  (let ((n (or (and (= (length args) 2) (string->exact-integer (cadr args))) 1)))
+    (display (fib n))
+    (newline)))
+
+(define (fib n)
+  (cond ((< n 2) 1)
+	(else (+ (fib (- n 2)) (fib (- n 1))))))
+
+(main (vector->list argv))
+;;; -*- mode: scheme -*-
+;;; $Id: heapsort.stalin,v 1.1 2004-06-05 16:40:23 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(define IM   139968)
+(define IA     3877)
+(define IC    29573)
+
+(define LAST 42)
+(define (gen_random max)
+  (set! LAST (modulo (+ (* LAST IA) IC) IM))
+  (/ (* max LAST) IM))
+
+(define (heapsort n ra)
+  (let ((ir n)
+	(l (+ (bit-rsh n 1) 1))
+	(i 0)
+	(j 0)
+	(rra 0.0))
+    (bind-exit (return)
+	       ;; how to do an infinite loop in bigloo?
+	       ;; (while #t
+	       (do ((bar #t))
+		   ((= 1 0))
+		 (cond ((> l 1)
+			(set! l (- l 1))
+			(set! rra (vector-ref ra l)))
+		       (else
+			(set! rra (vector-ref ra ir))
+			(vector-set! ra ir (vector-ref ra 1))
+			(set! ir (- ir 1))
+			(cond ((= ir 1)
+			       (vector-set! ra 1 rra)
+			       (return #t)))))
+		 (set! i l)
+		 (set! j (bit-lsh l 1))
+		 ;; how to do a while loop in bigloo?
+		 ;; (while (<= j ir)
+		 (do ((foo #t))
+		     ((> j ir))
+		   (cond ((and (< j ir) (< (vector-ref ra j) (vector-ref ra (+ j 1))))
+			  (set! j (+ j 1))))
+		   (cond ((< rra (vector-ref ra j))
+			  (vector-set! ra i (vector-ref ra j))
+			  (set! i j)
+			  (set! j (+ j i)))
+			 (else
+			  (set! j (+ ir 1)))))
+		 (vector-set! ra i rra)))))
+
+(define (main args)
+  (let* ((n (or (and (= (length args) 2) (string->number (cadr args))) 1))
+	 (last (+ n 1))
+	 (ary (make-vector last 0)))
+    (do ((i 1 (+ i 1)))
+	((= i last))
+      (vector-set! ary i (gen_random 1.0)))
+    (heapsort n ary)
+    (display (format "~,10F\n" (vector-ref ary n)))))
+
+(main (vector->list argv))
+;;; -*- mode: scheme -*-
+;;; $Id: hello.stalin,v 1.2 2005-05-13 16:24:18 igouy-guest Exp $
+;;; http://www.bagley.org/~doug/shootout/ 
+
+(display "hello world") (newline)
+;;; -*- mode: scheme -*-
+;;; $Id: moments.stalin,v 1.1 2004-06-05 16:40:23 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(define (main args)
+  (let* ((sum 0.0)
+	 (numlist (let loop ((line (read-line)) (numlist '()))
+		    (cond ((eof-object? line) numlist)
+			  (else
+			   (let ((num (string->real line)))
+			     (set! sum (+ num sum))
+			     (loop (read-line) (cons num numlist))))))))
+    (let ((n (length numlist)))
+      (let ((mean (/ sum n))
+	    (average_deviation 0.0)
+	    (standard_deviation 0.0)
+	    (variance 0.0)
+	    (skew 0.0)
+	    (kurtosis 0.0)
+	    (median 0.0)
+	    (deviation 0.0))
+	(let loop ((nums numlist))
+	     (if (not (null? nums))
+		 (begin
+		   (set! deviation (- (car nums) mean))
+		   (set! average_deviation (+ average_deviation (abs deviation)))
+		   (set! variance (+ variance (expt deviation 2.0)))
+		   (set! skew (+ skew (expt deviation 3.0)))
+		   (set! kurtosis (+ kurtosis (expt deviation 4)))
+		   (loop (cdr nums)))))
+
+	(set! average_deviation (/ average_deviation (fixnum->flonum n)))
+	(set! variance (/ variance (- n 1)))
+	(set! standard_deviation (sqrt variance))
+
+	(cond ((> variance 0.0)
+	       (set! skew (/ skew (* n variance standard_deviation)))
+	       (set! kurtosis (- (/ kurtosis (* n variance variance))
+				 3.0))))
+
+	(set! numlist (sort numlist (lambda (x y) (<fl x y))))
+
+	(let ((mid (/ n 2)))
+	  (if (zero? (modulo n 2))
+	      (set! median (/ (+ (car (list-tail numlist mid))
+				 (car (list-tail numlist (- mid 1))))
+			      2.0))
+	    (set! median (car (list-tail numlist mid)))))
+      
+	
+	(set! standard_deviation (/ (round (* standard_deviation 1000000)) 1000000))
+
+        (display "n:                  ~D~n" n)
+	(display "median:             ~,6F~n" median)
+	(display "mean:               ~,6F~n" mean)
+	(display "average_deviation:  ~,6F~n" average_deviation)
+	(display "standard_deviation: ~,6F~n" standard_deviation)
+	(display "variance:           ~,6F~n" variance)
+	(display "skew:               ~,6F~n" skew)
+	(display "kurtosis:           ~,6F~n" kurtosis)))))
+
+(main (vector->list argv))
+;;; -*- mode: scheme -*-
+;;; $Id: nestedloop.stalin,v 1.1 2004-06-05 16:40:23 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(define (string->exact-integer string)
+ (let ((n (string->number string)))
+  (if (integer? n)
+      (if (exact? n)
+	  n
+	  (panic "STRING->EXACT-INTEGER yields non-EXACT-INTEGER"))
+      (panic "STRING->EXACT-INTEGER yields non-EXACT-INTEGER"))))
+
+(define (main args)
+  (let* ((n (or (and (= (length args) 2) (string->exact-integer (cadr args))) 1))
+	 (x 0))
+    (do ((a 0 (+ a 1)))
+	((= a n))
+      (do ((b 0 (+ b 1)))
+	  ((= b n))
+	(do ((c 0 (+ c 1)))
+	    ((= c n))
+	  (do ((d 0 (+ d 1)))
+	      ((= d n))
+	    (do ((e 0 (+ e 1)))
+		((= e n))
+	      (do ((f 0 (+ f 1)))
+		  ((= f n))
+		(set! x (+ x 1))))))))
+    (display x)
+    (newline)))
+
+(main (vector->list argv))
+;;; -*- mode: scheme -*-
+;;; $Id: reversefile.stalin,v 1.1 2004-06-05 16:40:23 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(include "QobiScheme")
+
+(let ((line (read-line)))
+  (cond ((eof-object? line) #f)
+	(else
+	 (reverse-input)
+	 (display line)
+	 (newline))))
+;;; -*- mode: scheme -*-
+;;; $Id: sieve.stalin,v 1.1 2004-06-05 16:40:23 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+;;; with help from Jeff Siskind
+
+(define (main args)
+  (let ((n (or (and (= (length args) 2) (string->number (cadr args))) 1))
+	(count 0)
+	(flags (make-vector 8192)))
+    (let loop ((iter n))
+      (if (> iter 0)
+	  (begin
+              (do ((i 0 (+ i 1))) ((>= i 8192)) (vector-set! flags i #t))
+	      (set! count 0)
+	      (do ((i 2 (+ 1 i)))
+		  ((>= i 8192))
+		(if (vector-ref flags i)
+		    (begin
+		      (do ((k (+ i i) (+ k i)))
+			  ((>= k 8192))
+			(vector-set! flags k #f))
+		      (set! count (+ 1 count)))))
+	    (loop (- iter 1)))))
+    (display "Count: ") (display count) (newline)))
+
+(main (vector->list argv))
+;;; -*- mode: scheme -*-
+;;; $Id: sumcol.stalin,v 1.1 2004-06-05 16:40:24 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(include "QobiScheme")
+
+(define (main args)
+  (let ((sum 0))
+    (let loop ((line (read-line)))
+      (cond ((eof-object? line) #f)
+	    (else
+	     (set! sum (+ sum (string->number line)))
+	     (loop (read-line)))))
+    (display sum) (newline)))
+
+(main (vector->list argv))
+
+;;; $Id: wc.stalin,v 1.1 2004-06-05 16:40:24 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+;;; based on code from Bengt Kleberg
+
+(include "QobiScheme")
+
+; x is a character
+; nl is number of newlines
+; nw is number of words
+; nc in number of chsracters
+
+(define wcport
+  (lambda (port)
+    (letrec ((wc (lambda (x nl nw nc inword)
+		   (if (eof-object? x)
+		       (begin (display nl) (display " ") (display nw)
+			      (display " ") (display nc) (newline))
+		       (let ((new-nl (if (char=? x #\newline) (+ nl 1) nl)))
+			 (if (char-whitespace? x)
+			     (wc (read-char port) new-nl (if inword (+ nw 1) nw) (+ nc 1) #f)
+			     (wc (read-char port) new-nl nw (+ nc 1) #t)))))))
+      (wc (read-char port) 0 0 0 #f))))
+
+(wcport (current-input-port))

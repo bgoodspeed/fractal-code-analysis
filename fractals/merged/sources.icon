@@ -1,0 +1,1314 @@
+# The Computer Language Shootout
+# http://shootout.alioth.debian.org/
+# modified by Charles Evans 2005/12/23
+    
+procedure main(argv)
+   num := argv[1];
+   write("Ack(3,", num, "): ", ack(3,num));
+end
+    
+procedure ack(m,n)
+   if (m = 0) then {
+            return(n + 1)
+   }
+   if (n = 0) then {
+            return(ack(m-1, 1))
+   }
+   return (ack(m-1, ack(m, n-1)))
+end
+# The Computer Language Shootout
+# http://shootout.alioth.debian.org/ 
+# contributed by Charles Evans 2005/12/23
+# windows: ack 9 requires set mstksize=500000
+    
+procedure main(argv)
+   num := argv[1];
+   write("Ack(3,", num, "): ", ack(3,num));
+end
+    
+procedure ack(m,n)
+   if (m = 0) then {
+            return(n + 1)
+   }
+   if (n = 0) then {
+            return(ack(m-1, 1))
+   }
+   return (ack(m-1, ack(m, n-1)))
+end
+# -*- mode: icon -*-
+# $Id: ary.icon,v 1.1 2004-05-22 07:27:00 bfulgham Exp $
+# http://www.bagley.org/~doug/shootout/
+
+procedure main(argv)
+    # local n, i, k, x, y, last
+    n := argv[1] | 1
+    x := list(n,0)
+    y := list(n,0)
+    every i := 1 to n do {
+	x[i] := i
+    }
+    every k := 0 to 999 do {
+	every i := n to 1 by -1 do {
+	    y[i] +:= x[i]
+	}
+    }
+    write(y[1], " ", y[n])
+end
+# The Computer Language Shootout Benchmarks
+#   http://shootout.alioth.debian.org/
+#
+#   contributed by Charles Evans  2005/12/23
+# 	based on C version by Kevin Carson
+#   compilation:
+#       icont BinaryTree.icn
+
+link printf
+
+record NewTreeNode(l,r,item)
+
+procedure ItemCheck(tree)
+if /tree.l then return tree.item
+else return tree.item + ItemCheck(tree.l) - ItemCheck(tree.r)
+end
+
+procedure BottomUpTree(item,depth)
+if depth > 0 then 
+   return NewTreeNode(BottomUpTree(2 * item - 1, depth - 1),
+	              BottomUpTree(2 * item, depth - 1),
+          	      item)
+else return NewTreeNode(,,item)
+end
+
+procedure main(argv) #{
+ local N, depth, minDepth, maxDepth, stretchDepth
+ local stretchTree, longLivedTree, tempTree, i, iterations, check
+    argc:=*argv
+    N := integer(argv[1])
+
+    minDepth := 4;
+
+    if ((minDepth + 2) > N) then 
+        maxDepth := minDepth + 2
+    else
+        maxDepth := N;
+
+    stretchDepth := maxDepth + 1;
+
+    stretchTree := BottomUpTree(0, stretchDepth);
+    printf("stretch tree of depth %d\t check: %d\n",
+           stretchDepth,ItemCheck(stretchTree));
+
+    stretchTree:=&null
+
+    longLivedTree := BottomUpTree(0, maxDepth);
+
+    every  (depth := minDepth to maxDepth by 2) do{
+
+        iterations := 2^( maxDepth - depth + minDepth);
+        check := 0;
+
+        every (i := 1 to  iterations)do{
+            tempTree := BottomUpTree(i, depth);
+            check +:= ItemCheck(tempTree);
+            tempTree := &null;
+
+            tempTree := BottomUpTree(-i, depth);
+            check +:= ItemCheck(tempTree);
+            tempTree := &null;
+        } #/* for(i := 1...) */
+
+        printf("%d\t trees of depth %d\t check: %d\n",
+               iterations * 2,depth,check);
+
+    } #/* for(depth := minDepth...) */
+
+    printf("long lived tree of depth %d\t check: %d\n",
+           maxDepth,ItemCheck(longLivedTree));
+#    write(&errout,&time) # p4-2g= 113sec, 104sec w $define
+    return 0;
+
+end # /*} main() */
+# The Computer Language Shootout
+# http://shootout.alioth.debian.org/
+# by Charles Evans
+# based on fasta.py, modified by Ian Osgood
+
+link printf
+
+procedure gen_random(max_)
+static last, ia, ic, im
+initial {
+last:=42
+ia:=3877
+ic:=29573
+im:=139968
+}
+    last := (last * ia + ic) % im
+    return (max_ * last) / im
+end
+
+procedure make_cumulative(table)
+local prob,x
+    prob := 0.0
+    every x:=!table do 
+       { prob +:= x[-1]
+        x[-1]:=prob
+	}
+end
+
+global alu, iub, homosapiens 
+
+procedure init()
+alu := 
+   "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG_
+   GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA_
+   CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT_
+   ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA_
+   GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG_
+   AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC_
+   AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA"
+
+iub := [
+    ["a", 0.27],
+    ["c", 0.12],
+    ["g", 0.12],
+    ["t", 0.27],
+
+    ["B", 0.02],
+    ["D", 0.02],
+    ["H", 0.02],
+    ["K", 0.02],
+    ["M", 0.02],
+    ["N", 0.02],
+    ["R", 0.02],
+    ["S", 0.02],
+    ["V", 0.02],
+    ["W", 0.02],
+    ["Y", 0.02]
+]
+
+homosapiens := [
+    ["a", 0.3029549426680],
+    ["c", 0.1979883004921],
+    ["g", 0.1975473066391],
+    ["t", 0.3015094502008]
+]
+end
+
+procedure make_random_fasta(id_, desc, table, n)
+local rn
+    printf( ">%s %s\n" ,id_, desc)
+    width := 60
+     make_cumulative(table) 
+# must do this once only per table
+    while n>0 do{
+	s:=""    
+	m:= width>=n | width
+	while *s<m & rn:=gen_random(1.0) & x:=!table & rn < x[-1]
+	   do s||:= x[1]
+	write(s)
+	n-:=width
+    }
+end
+
+procedure make_repeat_fasta(id_, desc, src, n)
+local s2,i
+    printf(">%s %s\n",id_, desc)
+    width := 60
+    i:=0
+    l := *src
+    s2 := src 
+    while *s2<l*2 do s2||:=src
+    while n>0 do{
+	m:= width>=n | width
+	write(s2[i+1 +:m])
+	if (i+:=m)>l then i-:=l
+	n-:=width
+    }
+end
+
+procedure main(argv)
+init()
+   n := integer(argv[1]) |
+        stop("Usage: fasta <N>")
+    make_repeat_fasta("ONE", "Homo sapiens alu", alu, n*2)
+    make_random_fasta("TWO", "IUB ambiguity codes", iub, n*3)
+    make_random_fasta("THREE", "Homo sapiens frequency", homosapiens, n*5)
+#write(&errout,">",&time) # 2.5m=146s
+end
+# -*- mode: icon -*-
+# $Id: fibo.icon,v 1.3 2005-04-25 19:01:38 igouy-guest Exp $
+# http://www.bagley.org/~doug/shootout/
+
+procedure main(argv)
+    n := argv[1] | 1;
+    write(fib(n));
+end
+
+procedure fib(n)
+    if (n < 2) then { return(1) }
+    return(fib(n-2) + fib(n-1))
+end
+# The Computer Language Shootout
+#   http://shootout.alioth.debian.org/
+# by Charles Evans
+# based on harmonic.nice contributed by Isaac Gouy
+
+link printf
+
+procedure main(argv)
+   n := integer(argv[1]);
+   d := 0; partialSum := 0.0;
+
+   every 1 to n do
+      partialSum +:= 1.0/(d+:=1);
+   printf("%.9r\n", partialSum);
+#write(&errout,&time) # 15sec while, 11sec every
+end
+# -*- mode: icon -*-
+# $Id: hash.icon,v 1.1 2004-05-23 05:06:51 bfulgham Exp $
+# http://www.bagley.org/~doug/shootout/
+
+procedure hexstring(i)
+    local s
+    if i = 0 then s := "0"
+    else {
+	s := ""
+	while i ~= 0 do {
+	    s := "0123456789abcdef"[iand(i,15) + 1] || s
+	    i := ishift(i,-4)
+	}
+    }
+    return s
+end
+
+procedure main(argv)
+    local n
+    local X
+    local c
+    local i
+    n := argv[1] | 1
+    X := table(0)
+    c := 0
+    every i := 1 to n do {
+	X[hexstring(i)] := i
+    }
+    every i := n to 1 by -1 do {
+	if (member(X,string(i))) then { c +:= 1 }
+    }
+    write(c)
+end
+# -*- mode: icon -*-
+# $Id: hash2.icon,v 1.1 2004-05-23 05:50:10 bfulgham Exp $
+# http://www.bagley.org/~doug/shootout/
+
+procedure main(argv)
+    n := argv[1] | 1
+    hash1 := table(0)
+    hash2 := table(0)
+    every i := 0 to 10000 do {
+	hash1["foo_"||string(i)] := i
+    }
+    every i := 1 to n do
+	every k := key(hash1) do
+	    hash2[k] +:= hash1[k]
+    write(hash1["foo_1"], " ", hash1["foo_9999"], " ",
+	  hash2["foo_1"], " ", hash2["foo_9999"])
+end
+# The Computer Language Shootout
+# http://shootout.alioth.debian.org/
+# modified by Charles Evans 2005/12/23
+
+link printf
+
+$define IM 139968
+$define IA 3877
+$define IC 29573
+
+procedure gen_random(max)
+    static LAST; initial LAST := 42;
+    repeat { suspend((max * (LAST := (LAST * IA + IC) % IM)) / IM) }
+end
+
+procedure heapsort(n, ra)
+    local l, j, ir, i, rra
+
+    l := ishift(n, -1) + 1
+    ir := n
+    repeat {
+        if (l > 1) then {
+	    l := l - 1
+            rra := ra[l]
+        } else {
+            rra := ra[ir]
+            ra[ir] := ra[1]
+	    ir := ir - 1
+            if (ir == 1) then {
+                ra[1] := rra
+                return
+            }
+        }
+        i := l
+        j := ishift(l, 1)
+        while (j <= ir) do {
+            if ((j < ir) & (ra[j] < ra[j+1])) then {
+		j := j + 1
+	    }
+            if (rra < ra[j]) then {
+                ra[i] := ra[j]
+		i := j
+                j := j + i
+            } else {
+                j := ir + 1
+            }
+        }
+        ra[i] := rra
+    }
+end
+
+procedure main(argv)
+    n := argv[1] | 1
+    ary := list(n)
+    every i := 1 to n do ary[i] := gen_random(1.0)
+    heapsort(n, ary)
+    printf("%.10r\n",ary[n])
+#write(&errout,&time) # 100000 in 7sec
+end
+# -*- mode: icon -*-
+# $Id: hello.icon,v 1.1 2004-05-23 07:03:09 bfulgham Exp $
+# http://www.bagley.org/~doug/shootout/
+
+procedure main(argv)
+    write("hello world")
+end
+# The Computer Language Shootout
+# http://shootout.alioth.debian.org/
+# by Charles Evans 2006-1-4
+
+link printf
+
+global seq, freq
+procedure calc_frequencies(len)
+local lt
+  lt:=\freq[len]|(freq[len]:=table(0))
+  if len=1 then every lt[!seq]+:=1
+  else every lt[seq[1 to *seq-len+1 +:len]]+:=1
+  return lt
+end
+
+procedure write_frequencies(len)
+local t,n,l,i,k,x
+n:=100.0/(1+*seq-len)
+t:=\freq[len] | calc_frequencies(len)
+l:=[]
+#write(n)
+#every k:=key(t) do write(t[k],"\t",t[k]*n,"\t",k)
+every k:=key(t) do 
+	put(l,sprintf("%17.13r %s",t[k]*n,k))
+l:=sort(l)
+while x:=pull(l) do 
+   printf("%s %.3r\n",x[-len:0],x[1:-len])
+write()
+end
+
+procedure write_count(s)
+t:=\freq[*s]|calc_frequencies(*s)
+write(t[s],"\t",s)
+end
+
+procedure main(argv)
+freq:=table()
+seq:=""
+while l:= read() & not( l ? =">THREE" )
+while l:= read() & not( l ? =">" ) do
+   l ? =";" | (seq||:=l)
+seq:=map(seq,&lcase,&ucase)
+write_frequencies(1)
+write_frequencies(2)
+write_count( "GGT")
+write_count( "GGTA")
+write_count( "GGTATT")
+write_count( "GGTATTTTAATT")
+write_count( "GGTATTTTAATTTATAGT")
+#write(&errout,&time) # fasta 250000 in fasta.250: 19sec
+end
+# -*- mode: icon -*-
+# $Id: lists.icon,v 1.1 2004-05-23 07:12:55 bfulgham Exp $
+# http://www.bagley.org/~doug/shootout/
+# based on code from Cheyenne Wills
+
+#  first create a list (L1) of integers from 1 through SIZE (SIZE is
+#  currently defined as 10000).
+
+#  copy L1 to L2 (can use any builtin list copy function, if
+#  available)
+
+#  remove each individual item from left side (head) of L2 and append
+#  to right side (tail) of L3 (preserving order). (L2 should be
+#  emptied by one item at a time as that item is appended to L3).
+
+#  remove each individual item from right side (tail) of L3 and append
+#  to right side (tail) of L2 (reversing list). (L3 should be emptied
+#  by one item at a time as that item is appended to L2).
+
+#  reverse L1 (preferably in place) (can use any builtin function for
+#  this, if available).
+
+#  check that first item of L1 is now == SIZE.
+
+#  and compare L1 and L2 for equality and return length of L1 (which
+#  should be equal to SIZE).
+
+procedure main(argv)
+    n := argv[1] | 1
+    every i := 1 to n do count := test_lists()
+    write(count)
+end
+
+procedure test_lists(args)
+	SIZE := 10000
+
+	L1 := list()
+	every put(L1,1 to SIZE)
+
+	L2 := copy(L1)
+
+	L3 := list()
+	while put(L3,get(L2))
+
+	while push(L2,pop(L3))
+
+	reverseL(L1)
+
+	if L1[1] ~= SIZE then write("Failed test")
+	
+	every i := 1 to SIZE do 
+		if L1[i] ~= L2[i] then write("L1 ~= L2")
+	
+	return(*L1)
+end
+
+# Reverse a list in place
+procedure reverseL(l)
+	ender := *l + 1
+	middle := integer(*l / 2)
+	every i := 1 to middle do 
+		l[i] :=: l[ender - i]
+end
+# ----------------------------------------------------------------------
+# The Great Computer Language Shootout
+# http://shootout.alioth.debian.org/
+#
+# Contributed by Anthony Borla
+# ----------------------------------------------------------------------
+
+$define ITERATIONS 50
+$define LIMIT_SQR 4.0
+
+$define NO 0
+$define YES 1
+
+procedure main(argv)
+  local N, x, y, bit_num, byte_acc, ZR, ZI, TR, TI, CR, CI, LIMIT_ADJ, OUTPUT, i
+
+  N := (argv[1] | 10) ; bit_num := 0 ; byte_acc := 0 ; OUTPUT := NO
+
+  write("P4\n", N, " ", N)
+
+  every y := 0 to (N - 1) do
+  {
+    every x := 0 to (N - 1) do
+    {
+      ZR := ZI := TR := TI := 0.0
+      CR := 2.0 * x / N - 1.5 ; CI := 2.0 * y / N - 1.0
+
+      LIMIT_ADJ := 1 ; i := 0
+
+      while i < ITERATIONS do
+      {
+        TR := ZR * ZR - ZI * ZI + CR ; TI := 2.0 * ZR * ZI + CI
+        ZR := TR ; ZI := TI
+
+        if ZR * ZR + ZI * ZI > LIMIT_SQR then { LIMIT_ADJ := 0 ; break }
+        
+        i +:= 1
+      }
+
+      bit_num +:= 1 ; if bit_num = 8 then OUTPUT := YES
+
+      byte_acc := byte_acc * 2 + LIMIT_ADJ
+
+      if x = (N - 1) & bit_num ~= 8 then
+      {
+        byte_acc := byte_acc * (2 ^ (8 - N % 8)) ; OUTPUT := YES
+      }
+
+      if OUTPUT = YES then
+      {
+        writes(char(byte_acc))
+        byte_acc := bit_num := 0 ; OUTPUT := NO
+      }
+    }
+  }
+
+end
+
+# The Computer Language Shootout
+# http://shootout.alioth.debian.org/
+# contributed by Charles Evans 1-1-2006
+
+procedure Link(coex)
+    local source
+    source:=&source # save caller
+    @\coex # activate next coexpr on 'list'
+    @source # 'call' back up
+    repeat (@\coex+1 | 1)@source 
+		# last on list sends 1 back up
+end
+
+procedure main(argv)
+ local N, coex, count,i
+ N:= argv[1] | 10
+# coex:=&null
+ every i:= 1 to 500 do
+ 	coex := create Link(coex)	 
+ @coex # each records caller, calls prev., calls back up.
+# write(&errout, &time) 
+ count := 0
+ every i := 1 to N do count := count + @coex 
+ write(count)
+# write(&errout, &time)# 2sec
+end
+# The Great Computer Language Shootout
+#   http://shootout.alioth.debian.org/
+# Icon moments
+# by Charles Evans 2005-12-24
+# based on moments.nice by Isaac Gouy
+
+link printf
+
+procedure main(argv)#{
+   num := 0.0; sum := 0.0; numbers:=[]
+   while ((line := read()))do{
+         num := +line;
+         sum +:= num;
+         put(numbers,num);
+   }
+   n := *numbers; if (n<1) then return;
+   mean := sum/n;
+   median := average_deviation := standard_deviation := variance := 0.0
+   skew := kurtosis := deviation := 0.0
+
+   every each:=!numbers do{
+      deviation := each - mean;
+      average_deviation +:= abs(deviation);
+      variance +:= deviation * deviation;
+      skew +:= deviation ^ 3;
+      kurtosis +:= deviation ^ 4;
+   }
+
+   average_deviation /:= n;
+   variance /:= (n - 1);
+   standard_deviation := sqrt(variance);
+   if (variance ~= 0.0) then{
+      skew /:= (n * variance * standard_deviation);
+      kurtosis := kurtosis/(n * variance * variance) - 3.0;
+   }
+
+   numbers:=sort(numbers)
+
+   mid := n/2;
+   if (n > 0) then
+      median := if(n % 2 ~= 0) then
+         numbers[mid+1] else (numbers[mid] + numbers[mid+1])/2.0;
+
+   writes("n:                  "); write(n);
+   printf("median:             %.6r\n" ,median)
+   printf("mean:               %.6r\n" ,mean)
+   printf("average_deviation:  %.6r\n" ,average_deviation)
+   printf("standard_deviation: %.6r\n" ,standard_deviation)
+   printf("variance:           %.6r\n" ,variance)
+   printf("skew:               %.6r\n" ,skew)
+   printf("kurtosis:           %.6r\n" ,kurtosis)
+write(&errout,&time)
+end
+# The Computer Language Shootout Benchmarks
+# http://shootout.alioth.debian.org/
+# by Charles Evans 2005-12-25
+# based on nbody.py by Kevin Carson
+#
+# - - - NOTE: this program uses printf, but 
+# both the debian stable and the latest official release are buggy,
+# and will cause this program to fail. 
+# - - - Please use the June 16, 2003 version, also uploaded to 
+# https://alioth.debian.org/tracker/index.php?func=detail&aid=302825&group_id=30402&atid=411005
+
+link printf
+
+$define pi 3.14159265358979323
+$define days_per_year  365.24
+global solar_mass, t
+
+
+procedure advance(bodies, dt)
+local i,b,j,b2,bdt_mass_x_mag,bdt2_mass_x_mag,dx,dy,dz,dtdistance3
+every i:=1 to *bodies do{
+        b := bodies[i]
+
+	every j:=i+1 to *bodies do{
+            b2 := bodies[j]
+
+            dx := b.x - b2.x
+            dy := b.y - b2.y
+            dz := b.z - b2.z
+            dtdistance3 := dt / (dx*dx + dy*dy + dz*dz)^1.5 # ^(.5*3)
+				bdt_mass_x_mag :=  b.mass * dtdistance3
+bdt2_mass_x_mag := b2.mass * dtdistance3
+# we should save each dt*b.mass while dt is constant
+            b.vx -:= dx * bdt2_mass_x_mag
+            b.vy -:= dy * bdt2_mass_x_mag
+            b.vz -:= dz *bdt2_mass_x_mag
+            b2.vx +:= dx *bdt_mass_x_mag
+            b2.vy +:= dy *bdt_mass_x_mag
+            b2.vz +:= dz *bdt_mass_x_mag
+        } # end every j
+    } # end every i
+    every b:=!bodies do{
+        b.x +:= dt * b.vx
+        b.y +:= dt * b.vy
+        b.z +:= dt * b.vz
+}# end every *bodies
+end
+
+procedure energy(bodies)
+local dx,dy,dz,distance,e
+    e := 0.0
+    every i:=1 to *bodies do{
+        b := bodies[i]
+
+        e +:= 0.5 * b.mass * (b.vx^2 + b.vy^2 + b.vz^2)
+
+	every j:=i+1 to *bodies do{
+            b2 := bodies[j]
+
+            dx := b.x - b2.x
+            dy := b.y - b2.y
+            dz := b.z - b2.z
+            distance := (dx*dx + dy*dy + dz*dz)^0.5
+
+            e -:= (b.mass * b2.mass) / distance
+	}
+    }
+    return e
+end
+
+global sun, jupiter, saturn, uranus, neptune
+
+procedure offset_momentum(bodies)
+local px,py,pz,b
+    px := py := pz := 0.0
+
+#    for b in bodies :
+    every b:=!bodies do{
+        px +:= b.vx * b.mass
+        py +:= b.vy * b.mass
+        pz +:= b.vz * b.mass
+    }
+    sun.vx := - px / solar_mass
+    sun.vy := - py / solar_mass
+    sun.vz := - pz / solar_mass
+    
+end
+
+record body(x,y,z,vx,vy,vz,mass)
+
+procedure init()
+sun := body()
+sun.x := sun.y := sun.z := sun.vx := sun.vy := sun.vz := 0.0
+sun.mass := solar_mass
+
+jupiter := body()
+jupiter.x := 4.84143144246472090e+00
+jupiter.y := -1.16032004402742839e+00
+jupiter.z := -1.03622044471123109e-01
+jupiter.vx := 1.66007664274403694e-03 * days_per_year
+jupiter.vy := 7.69901118419740425e-03 * days_per_year
+jupiter.vz := -6.90460016972063023e-05 * days_per_year
+jupiter.mass := 9.54791938424326609e-04 * solar_mass
+
+saturn := body()
+saturn.x := 8.34336671824457987e+00
+saturn.y := 4.12479856412430479e+00
+saturn.z := -4.03523417114321381e-01
+saturn.vx := -2.76742510726862411e-03 * days_per_year
+saturn.vy := 4.99852801234917238e-03 * days_per_year
+saturn.vz := 2.30417297573763929e-05 * days_per_year
+saturn.mass := 2.85885980666130812e-04 * solar_mass
+
+uranus := body()
+uranus.x := 1.28943695621391310e+01
+uranus.y := -1.51111514016986312e+01
+uranus.z := -2.23307578892655734e-01
+uranus.vx := 2.96460137564761618e-03 * days_per_year
+uranus.vy := 2.37847173959480950e-03 * days_per_year
+uranus.vz := -2.96589568540237556e-05 * days_per_year
+uranus.mass := 4.36624404335156298e-05 * solar_mass
+
+neptune := body()
+neptune.x := 1.53796971148509165e+01
+neptune.y := -2.59193146099879641e+01
+neptune.z := 1.79258772950371181e-01
+neptune.vx := 2.68067772490389322e-03 * days_per_year
+neptune.vy := 1.62824170038242295e-03 * days_per_year
+neptune.vz := -9.51592254519715870e-05 * days_per_year
+neptune.mass := 5.15138902046611451e-05 * solar_mass
+end # init
+
+procedure main(argv)
+    solar_mass := ( 4 * pi * pi)
+    init()
+    n := argv[1]| stop("Usage: nbody <N>")
+
+    bodies := [sun, jupiter, saturn, uranus, neptune]
+	# ^ must be after init()
+    offset_momentum(bodies)
+t:=0
+    printf( "%11.9r\n", energy(bodies))
+every t:= 1 to n do 
+	advance(bodies, 0.01)
+    printf( "%11.9r\n", energy(bodies))
+#write(energy(bodies))
+#write(&errout,&time)
+end
+# -*- mode: icon -*-
+# $Id: nestedloop.icon,v 1.1 2004-05-23 07:14:28 bfulgham Exp $
+# http://www.bagley.org/~doug/shootout/
+
+procedure main(argv)
+    local n, a, b, c, d, e, f, x
+    n := argv[1] | 1;
+    x := 0
+    every a := 1 to n do
+	every b := 1 to n do
+	    every c := 1 to n do
+		every d := 1 to n do
+		    every e := 1 to n do
+			every f := 1 to n do
+			    x +:= 1
+    write(x)
+end
+# The Computer Language Shootout
+# http://shootout.alioth.debian.org/
+# Icon sieve #2
+# contributed by Charles Evans 2005-12-25
+
+link printf
+
+procedure NSieve(m,flags)
+	count:=2 # skip 2 and 3
+	every \flags[i:=7 to m by 2] & i%3>0 do{
+		# remove all multiples of prime: i
+		every flags[i+i to m by i] := &null
+		count+:=1
+	}
+return count
+end
+
+procedure main(argv) #{
+n:=  2 <= +argv[1] | 2
+every m:=ishift(1,n - (0|1|2))*10000 do
+   printf ("Primes up to %8d %8d\n", m, NSieve (m,list(m,1)));
+#write(&errout,&time)# n=9: 12sec; #2:9sec
+end
+#  The Computer Language Shootout
+#  http://shootout.alioth.debian.org/
+#  by Charles Evans   2-11-06
+#  based on partialsums.lua by Mike Pall
+
+link printf
+
+procedure main(argv)
+  n := +(argv[1])
+  sum1:=1
+  sum2:= sum3:= sum4:= sum5:= sum6:= sum7 := 0
+  twothirds:= 2/3.0
+  every k:=1 to n do{
+    k2:= k*k;  k3 := k2*k
+    sk:= sin(k);  ck := cos(k)
+    sum1 +:= twothirds^k
+    sum2 +:= 1.0/sqrt(k)
+    sum3 +:= 1.0/(k*(k+1.0))
+    sum4 +:= 1.0/(k3*sk*sk)
+    sum5 +:= 1.0/(k3*ck*ck)
+    sum6 +:= 1.0/k
+    sum7 +:= 1.0/k2
+  }
+  printf("%.9r\t(2/3)^k\n", sum1)
+  printf("%.9r\tk^-0.5\n", sum2)
+  printf("%.9r\t1/k(k+1)\n", sum3)
+  printf("%.9r\tFlint Hills\n", sum4)
+  printf("%.9r\tCookson Hills\n", sum5)
+  printf("%.9r\tHarmonic\n", sum6)
+  printf("%.9r\tRiemann Zeta\n", sum7)
+
+sum := 0; every k:=1 to n-1 by 2 do sum +:= 1.0/k 
+every k:=2 to n by 2 do sum -:= 1.0/k 
+printf("%.9r\tAlternating Harmonic\n", sum) 
+
+sum := 0; every k:=1 to 2*n-1 by 4 do sum +:= 1.0/k 
+every k:=3 to 2*n by 4 do sum -:= 1.0/k 
+printf("%.9r\tGregory\n", sum) 
+write(&errout, &time)
+end
+# The Computer Language Shootout
+# http://shootout.alioth.debian.org/
+# by Charles Evans  2005/12/24
+# based on pidigits.pike by Marcus Comstedt
+
+link printf
+
+global k,z
+
+record rec(a,b,c,d)
+
+procedure compose(a, b)#{
+  return rec( a.a*b.a, a.a*b.b+a.b*b.d, a.c*b.a+a.d*b.c, a.c*b.b+a.d*b.d )
+end #}
+
+procedure extract(a, j)#{
+  return (a.a*j+a.b) / (a.c*j+a.d)
+end #}
+
+procedure pi_digits(c)
+local r,i,y#{
+  r:=""
+  every i:=1 to c do {
+    while((y := extract(z, 3)) ~= extract(z, 4)) do {
+      k+:=1
+      z := compose(z, rec(k, 4*k+2, 0, 2*k+1))
+    }
+    z := compose(rec(10, -10*y, 0, 1), z)
+    r ||:= y
+  }
+  return r
+end #} pi_digits
+
+
+procedure main(argv)#{
+  k := 0
+  z := rec( 1, 0, 0, 1 )
+  n := argv[1]|10
+  every i:=10 to n by 10 do
+	write(pi_digits(10),"\t:", i)
+  if(i < n)then
+    printf("%-10s\t:%d\n", pi_digits(n-i), n)
+write(&errout, &time)
+end #} main
+
+# -*- mode: icon -*-
+# $Id: random.icon,v 1.2 2005-12-24 05:57:14 igouy-guest Exp $
+# http://www.bagley.org/~doug/shootout/
+# modified by Charles Evans 2005/12/23
+
+link printf
+# in debian stable icon 9.4.2 icon-ipl
+
+$define IM 139968
+$define IA 3877
+$define IC 29573
+
+procedure gen_random(max)
+    static LAST; initial LAST := 42;
+    repeat { suspend((max * (LAST := (LAST * IA + IC) % IM)) / IM) }
+end
+
+procedure main(argv)
+    n := argv[1] | 1;
+    every i := 2 to n do gen_random(100.0)
+    # Icon has fixed number of output decimal points to 9, bogus!
+    printf("%.9r\n",gen_random(100.0))
+end
+# ----------------------------------------------------------------------
+# The Great Computer Language Shootout
+# http://shootout.alioth.debian.org/
+#
+# Code based on / inspired by existing, relevant Shootout submissions
+#
+# Contributed by Anthony Borla
+# ----------------------------------------------------------------------
+
+link printf
+
+procedure main(argv)
+  local N ; N := +(argv[1])
+
+  printf("Ack(3,%d): %d\n", N, ack(3, N))
+  printf("Fib(%.1r): %.1r\n", 27.0 + N, fib(27.0 + N))
+
+  N -:= 1
+  printf("Tak(%d,%d,%d): %d\n", N * 3, N * 2, N, tak(N * 3, N * 2, N))
+
+  printf("Fib(3): %d\n", fib(3))
+  printf("Tak(3.0,2.0,1.0): %.1r\n", tak(3.0, 2.0, 1.0))
+end
+
+# ---------------------------------
+
+procedure ack(x, y)
+  if x == 0 then return y + 1
+  if y == 0 then return ack(x - 1, 1)
+  return ack(x - 1, ack(x, y - 1))
+end
+
+# ---------------
+
+procedure fib(n)
+  if n < 2 then return 1
+  return fib(n - 2) + fib(n - 1)
+end
+
+# ---------------
+
+procedure tak(x, y, z)
+  if y < x then return tak(tak(x - 1, y, z), tak(y - 1, z, x), tak(z - 1, x, y))
+  return z
+end
+
+# The Computer Language Shootout
+# http://shootout.alioth.debian.org/
+# Icon  regex-dna
+# regex-dna#2.icn
+# contributed by Charles Evans 2005/12/24
+
+procedure main()
+seq:=""
+while seq||:=reads(,500000) 
+ilen := *seq
+
+map(seq) ? {seq:=""
+		 while seq ||:= (tab(upto('>\n')))
+		   do ="\n" | tab(find("\n")+1) 
+# \n is more frequent, so check for it alone for speed.
+	}
+clen := *seq
+
+variants := [
+      "agggtaaa|tttaccct",
+      "[cgt]gggtaaa|tttaccc[acg]",
+      "a[act]ggtaaa|tttacc[agt]t",
+      "ag[act]gtaaa|tttac[agt]ct",
+      "agg[act]taaa|ttta[agt]cct",
+      "aggg[acg]aaa|ttt[cgt]ccct",
+      "agggt[cgt]aa|tt[acg]accct",
+      "agggta[cgt]a|t[acg]taccct",
+      "agggtaa[cgt]|[acg]ttaccct"]
+every f:=!variants do 
+    write(f, " ", findeach(f, seq))
+
+subst :=[
+      "B" , "(c|g|t)", "D" , "(a|g|t)",   "H" , "(a|c|t)", "K" , "(g|t)",
+      "M" , "(a|c)",   "N" , "(a|c|g|t)", "R" , "(a|g)",   "S" , "(c|g)",
+      "V" , "(a|c|g)", "W" , "(a|t)",     "Y" , "(c|t)"]
+seq:=lmap(subst,seq)
+
+every write(""|ilen|clen|*seq)
+#write(&errout,&time) # 500k=2.2s,    2.5m=14.5s
+end # main
+
+
+
+procedure lmap(pairlist,str)
+local lt,ss,cs,c,st
+lt:=list(*&ascii); ss:=""
+
+while c:=map(pop(pairlist)) do {
+  *c=1 | stop("lmap got a search string not of length 1")
+  ss||:=c
+  lt[ord(c)]:=pop(pairlist)
+}
+cs:=cset(ss); st:=""
+str ? while st||:=tab(upto(cs)) | tab(0) 
+	do st||:= lt[ord(move(1))] | return st
+end # lmap
+
+
+procedure findeach(p,s)
+local pl, pat, firstc, c, pre, alt, post
+pl:=[]; c:=0
+p? while put(pl,tab(find("|")|0)) do ="|" | break
+
+every pat:=!pl do {
+post:=alt:=&null
+pat ? {pre:=tab(find("[")|0)
+	 ="[" & alt:=cset(tab(find("]"))) & ="]" & post:=tab(0)	 
+	}
+# for few chars before '[]' we should find the _tail_ first!
+
+s ? if /alt then every tab(find(pre)) do c+:=1
+    else if *pre>=*post then
+	 while tab(find(pre)) do
+		(=pre, tab(any(alt)), =post, c+:=1) | move(1) | break
+    else {  move(prealt:=*pre+1)
+		while tab(find(post)) do
+		   (((&subject[&pos -:prealt]) ? (=pre, any(alt))
+		    ),=post, c+:=1
+		   ) | move(1)
+    } # end else
+} # end every !pl
+
+return c
+end # findeach
+# -*- mode: icon -*-
+# $Id: regexmatch.icon,v 1.1 2004-05-23 07:14:28 bfulgham Exp $
+# http://www.bagley.org/~doug/shootout/
+# from Cheyenne Wills
+
+procedure main(argv)
+    n := \argv[1] | 1
+
+    lines := []
+    while put(lines,read())
+
+    counter := 0
+
+    start := '(' ++ &digits        # Define what starts a phone number
+
+    every i := 1 to n do {
+        every line := !lines do {
+            line ? {
+                tab(upto(start))   # Find a possible start...
+                    (
+
+                     ## Areacode
+                     (( ="(" & integer(areacode := move(3)) & =")" ) |
+                      (        integer(areacode := move(3)) )) &
+                     =" " &                         # followed by a space
+                     ## Exchange
+                     integer(exchange := move(3)) & # followed by 3 digits
+                     =(" " | "-") &                 # followed by space or dash
+                     ## Number
+                     integer(num := move(4)) &      # followed by 4 digits
+
+                     ( not any(&digits) | pos(0))   # followed by any non digit
+                                                    # or end of line
+                     ) &
+                         if i = n then              # Last time through??
+                             write(counter +:= 1,   # then write the output
+                                   ": (",areacode,") ",exchange,"-",num)
+            }
+        }
+    }
+end
+# The Computer Language Shootout
+# http://shootout.alioth.debian.org/
+# contributed by Charles Evans 1-1-2006
+# based on revcomp.py by Jacob Lee, Steven Bethard, et al
+
+procedure main()
+ l:=[]
+ while line:=read() do 
+      if line[1] == !">;" then {
+		wrap(reverse(poppend(l)),60)
+		write(line)
+	}
+      else
+  	  put(l,map(line,"ACBDGHKMNSRUTWVYacbdghkmnsrutwvy","TGVHCDMKNSYAAWBRTGVHCDMKNSYAAWBR"))
+ wrap(reverse(poppend(l)),60)
+# write(&errout, &time)
+# every write(&errout, &collections)
+end
+
+procedure wrap(s,width)
+ s ? while write( move(width)) | return pos(0)| write(tab(0))
+end
+
+procedure poppend(l)
+ local st
+ st:=""; *l>0 | fail
+ while st||:=pop(l) | return st
+end
+# -*- mode: icon -*-
+# $Id: reversefile.icon,v 1.1 2004-05-23 07:14:28 bfulgham Exp $
+# http://www.bagley.org/~doug/shootout/
+
+# Author:   Ralph E. Griswold
+# (http://www.cs.arizona.edu/icon/library/src/progs/revfile.icn)
+
+procedure main()
+   local lines
+   lines := []
+   every push(lines, !&input)
+   every write(!lines)
+end
+# -*- mode: icon -*-
+# $Id: sieve.icon,v 1.1 2004-05-23 07:14:28 bfulgham Exp $
+# http://www.bagley.org/~doug/shootout/
+
+procedure main(argv)
+    n := argv[1] | 1
+    every i := 1 to n do count := sieve()
+    write("Count: ", count)
+end
+
+# algorithm from a test program that is distributed with
+# the icon source
+
+procedure sieve()
+   local limit, s, i
+   limit := 8192
+   s := set()
+   every insert(s,1 to limit)
+   every member(s,i := 2 to limit) do
+      every delete(s,i + i to limit by i)
+   delete(s,1)
+   return(*s);
+end
+# ----------------------------------------------------------------------
+# The Great Computer Language Shootout
+# http://shootout.alioth.debian.org/
+#
+# Contributed by Anthony Borla
+# ----------------------------------------------------------------------
+
+link printf
+
+procedure main(argv)
+  local N ; N := +(argv[1]) | 100
+
+  printf("%.9r\n", approximate(N))
+end
+
+# ---------------------------------
+
+procedure approximate(n)
+  local u, v, vBv, vV, i ; u := list(n, 1.0) ; v := list(n, 0.0) ; vBv := 0.0 ; vV := 0.0
+
+  every i := 1 to 10 do { mulAtAv(n, u, v) ; mulAtAv(n, v, u) }
+  every i := 1 to n do { vBv +:= u[i] * v[i] ; vV +:= v[i] * v[i] }
+
+  return sqrt(vBv / vV)
+end
+
+# ---------------
+
+procedure A(i, j)
+  i -:= 1.0 ; j -:= 1.0
+  return 1.0 / ((i + j) * ( i + j + 1.0) / 2.0 + i + 1.0)
+end
+
+# ---------------
+
+procedure mulAv(n, v, av)
+  local i, j
+  every i := 1 to n do { av[i] := 0.0 ; every j := 1 to n do { av[i] +:= A(i, j) * v[j] } }
+end
+
+# ---------------
+
+procedure mulAtV(n, v, atv)
+  local i, j
+  every i := 1 to n do { atv[i] := 0.0 ; every j := 1 to n do { atv[i] +:= A(j, i) * v[j] } }
+end
+
+# ---------------
+
+procedure mulAtAv(n, v, atav)
+  local i, u ; u := list(n, 0.0)
+  mulAv(n, v, u) ; mulAtV(n, u, atav)
+end
+
+# -*- mode: icon -*-
+# $Id: spellcheck.icon,v 1.1 2004-05-23 07:14:28 bfulgham Exp $
+# http://www.bagley.org/~doug/shootout/
+
+procedure main(argv)
+    local dict
+    n := argv[1] | 1
+    dict := table(0)
+    f := open("Usr.Dict.Words") | {
+	write(&errout, "Can't open \"Usr.Dict.Words\"")
+	fail
+    }
+    while line := read(f) do line ? {
+	dict[line] := 1
+    }
+    close(f)
+    while line := read() do line ? {
+	if (not member(dict,line)) then {
+	    write(line)
+	}
+    }
+end    
+
+
+# -*- mode: icon -*-
+# $Id: strcat.icon,v 1.1 2004-05-23 07:14:28 bfulgham Exp $
+# http://www.bagley.org/~doug/shootout/
+
+procedure main(argv)
+    n := argv[1] | 1;
+    str := "";
+    every i := 1 to n do str ||:= "hello\n";
+    write(*str);
+end
+# -*- mode: icon -*-
+# $Id: sumcol.icon,v 1.1 2004-05-23 07:14:28 bfulgham Exp $
+# http://www.bagley.org/~doug/shootout/
+
+procedure main(argv)
+    sum := 0
+    while(sum +:= read())
+    write(sum)
+end
+# -*- mode: icon -*-
+# $Id: wc.icon,v 1.1 2004-05-23 07:14:28 bfulgham Exp $
+# http://www.bagley.org/~doug/shootout/
+
+procedure main(argv)
+    local nl, nw, nc, nonspaces
+    nl := nw := nc := 0
+    nonspaces := ~' \t'
+    while line := read() do line ? {
+	nl +:= 1
+	nc +:= 1 + *line
+	while tab(upto(nonspaces)) do {
+	    nw +:= 1
+	    tab(many(nonspaces))
+	}
+    }
+    write(nl, " ", nw, " ", nc)
+end
+# -*- mode: icon -*-
+# $Id: wordfreq.icon,v 1.2 2004-07-03 05:36:11 bfulgham Exp $
+# http://shootout.alioth.debian.org/
+
+procedure main(argv)
+    local wcount, buckets, w, c, pair, wl
+
+    wcount := table(0)
+    every wcount[words()] +:= 1
+
+    buckets := table()
+    every w := key(wcount) do {
+	c := wcount[w]
+	/ buckets[c] := list()
+	push(buckets[c], w)
+    }
+    buckets := sort(buckets,1)
+    while pair := pull(buckets) do {
+ 	c := pair[1]
+ 	wl := sort(pair[2],1)
+	while (write(right(c,7), " ", pull(wl)))
+    }
+end
+
+procedure words()
+    local line, word
+    while line := read() do {
+	line := map(line)
+	line ? while tab(upto(&letters)) do {
+	    word := tab(many(&letters))
+	    suspend(word)
+	}
+    }
+end

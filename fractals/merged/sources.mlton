@@ -1,0 +1,4492 @@
+(* The Computer Language Shootout
+ * http://shootout.alioth.debian.org/
+ *
+ * Ackermann using modular arithmetic.
+ *
+ * Author: Vesa Karvonen.
+ *)
+
+val (t,f) = let open StringCvt in (Word.fmt DEC,scanString (Word.scan DEC)) end
+fun ack(0w0,n)=n+0w1 | ack(m,n)=ack(m-0w1,if 0w0=n then 0w1 else ack(m,n-0w1))
+val n = valOf (f (hd (CommandLine.arguments ()))) handle _ => 0w9
+val _ = app print ["Ack(3,", t n, "): ", t (ack(0w3,n)), "\n"]
+(* -*- mode: sml -*-
+ * $Id: ary.mlton,v 1.4 2007-12-08 03:58:36 bfulgham Exp $
+ * http://www.bagley.org/~doug/shootout/
+ *)
+
+fun ary n =
+    let
+	val x = Array.array (n, 0)
+	val y = Array.array (n, 0)
+    in
+       Int.for (0, n, fn i => Array.update (x, i, i + 1));
+       Int.for (0, 1000, fn k =>
+		Int.forDown
+		(0, n, fn i =>
+		 Array.update (y, i, Array.sub (x, i) + Array.sub (y, i))));
+       print (Int.toString (Array.sub (y, 0)));
+       print " ";
+       print (Int.toString (Array.sub (y, n - 1)));
+       print "\n"
+    end;
+
+fun atoi s = case Int.fromString s of SOME num => num | NONE => 0;
+
+fun main (name, args) = 
+    let
+	val arg = hd (args @ ["1"])
+	val num = atoi arg
+    in
+	ary num;
+	OS.Process.success
+    end;
+
+val _ = main( CommandLine.name(), CommandLine.arguments() );
+(* binarytrees.mlton
+ *
+ * The Computer Language Shootout
+ * http://shootout.alioth.debian.org/
+ *
+ * Contributed by Troestler Christophe
+ * Ported to MLton/SML by sweeks@sweeks.com.
+ * Optimized and compressed by Vesa Karvonen.
+ * De-optimized by Isaac Gouy
+ *)
+datatype 'a tree = Nil | Node of 'a tree * 'a * 'a tree
+(* fun mk 0 i = Nil | mk d i = Node (mk (d-1) (i*2-1), i, mk (d-1) (i*2)) *)
+fun mk 0 i = Node (Nil, i, Nil) | mk d i = Node (mk (d-1) (i*2-1), i, mk (d-1) (i*2))
+fun chk Nil = 0 | chk (Node (l, i, r)) = i + chk l - chk r
+val n = valOf (Int.fromString (hd (CommandLine.arguments ()))) handle _ => 10
+val min' = 4
+val max' = Int.max (min' + 2, n)
+val stretch' = max' + 1
+val i2s = String.translate (fn #"~" => "-" | c => str c) o Int.toString
+fun msg h d t = app print [h, Int.toString d, "\t check: ", i2s t, "\n"]
+val () = msg "stretch tree of depth " stretch' (chk (mk stretch' 0))
+val longLivedTree = mk max' 0
+fun loopDepths d =
+    if d > max' then ()
+    else let val n = Word.toInt (Word.<< (0w1, Word.fromInt (max'-d+min')))
+             fun lp (i, c) = if i=n then c
+                             else lp (i+1, c + chk (mk d i) + chk (mk d (~i)))
+         in msg (Int.toString (2*n)^"\t trees of depth ") d (lp (0, 0))
+          ; loopDepths (d + 2) end
+val () = loopDepths min'
+val () = msg "long lived tree of depth " max' (chk longLivedTree)
+(* The Computer Language Shootout
+ * http://shootout.alioth.debian.org/
+ *
+ * Contributed by Vesa Karvonen.
+ *)
+
+(* abbreviations *)
+structure A=CommandLine and C=CML and I=Int and R=RunCML
+
+(* color manipulation *)
+datatype color = R | B | Y
+
+val compl = fn (B,B) => B | (B,R) => Y | (B,Y) => R | (R,B) => Y | (R,R) => R
+             | (R,Y) => B | (Y,B) => R | (Y,R) => B | (Y,Y) => Y
+
+(* creates the meeting place *)
+fun place n =
+   let val p = C.channel ()
+       fun lp 0 = (C.send (#1 (C.recv p), NONE) ; lp 0)
+         | lp n = let val ((a1, c1), (a2, c2)) = (C.recv p, C.recv p)
+                  in C.send (a1, SOME c2) ; C.send (a2, SOME c1) ; lp (n-1) end
+   in ignore (C.spawn (fn () => lp n)) ; p end
+
+(* creates an animal *)
+fun animal p m c = let val a = C.channel ()
+                       fun lp (n, c) = (C.send (p, (a, c))
+                                      ; case C.recv a of
+                                            NONE => C.send (m, n)
+                                          | SOME oc => lp (n+1, compl (c, oc)))
+                   in ignore (C.spawn (fn () => lp (0, c))) end
+
+(* driver *)
+fun go n () = let val (p, m) = (place n, C.channel ())
+              in foldl (fn (c, f) => (animal p m c ; f o (fn s => s+C.recv m)))
+                       (fn s => print (I.toString s^"\n")) [B, R, Y, B] 0 end
+
+val _ = R.doit (go(valOf(I.fromString(hd(A.arguments()))) handle _ => 1), NONE)
+(* -*- mode: sml -*-
+ * $Id: echo.mlton,v 1.5 2007-12-08 03:58:37 bfulgham Exp $
+ * http://www.bagley.org/~doug/shootout/
+ * based on Daniel Wang's version for SML/NJ.
+ * Heavily modified by Stephen Weeks.
+ *)
+structure Test : sig
+		    val main : (string * string list) -> OS.Process.status
+		 end = 	
+struct		
+
+exception Error of string
+    
+val data = "Hello there sailor\n"
+val dataSize = String.size data
+
+fun mkSocks () =
+   let
+      val server = INetSock.TCP.socket ()
+      val client = INetSock.TCP.socket ()
+      val _ = Socket.bind (server, INetSock.any 0)
+      val saddr = INetSock.fromAddr (Socket.Ctl.getSockName server)
+      val _ = Socket.listen (server, 2)
+      val _ = Socket.connect (client, INetSock.toAddr saddr)
+      val _ = INetSock.TCP.setNODELAY (server, true)
+      val _ = INetSock.TCP.setNODELAY (client, true)
+   in
+      {client = client,
+       server = server}
+   end
+
+fun recvBytes (sock, buf: Word8Array.array, bytesToRecv: int): int =
+   let
+      fun loop offset =
+	 let
+	    val r =
+	       Socket.recvArr (sock, Word8ArraySlice.slice (buf, offset, NONE))
+	 in
+	    if 0 = r
+	       then offset
+	    else
+	       let
+		  val offset = r + offset
+	       in
+		  if offset = bytesToRecv
+		     then offset
+		  else loop offset
+	       end
+	 end
+   in
+      loop 0
+   end
+
+fun closeSock s =
+   (Socket.shutdown (s, Socket.NO_RECVS_OR_SENDS)
+    ; Socket.close s)
+
+fun main (_, args) =
+   let
+      val num =
+	 case args of
+	    nil => 1
+	  | n::_ => valOf (Int.fromString n)
+      val {client = client_sock, server = server_sock} = mkSocks ()
+      fun server () =
+	 let
+	    val (sock, _) = Socket.accept server_sock
+	    val bufSize = dataSize
+	    val buf = Word8Array.array (bufSize, 0w0)
+	    fun loop numBytes =
+	       let
+		  val n = recvBytes (sock, buf, bufSize)
+	       in
+		  if n = 0
+		     then
+			(Posix.Process.wait ()
+			 ; TextIO.output (TextIO.stdOut,
+					  concat ["server processed ",
+						  Int.toString numBytes,
+						  " bytes\n"]))
+		  else
+		     (Socket.sendArr (sock, Word8ArraySlice.full buf)
+		      ; loop (numBytes + n))
+	       end
+	 in
+	    loop 0
+	 end
+      fun client () =
+	 let
+	    val dataSlice = Word8VectorSlice.full (Byte.stringToBytes data)
+	    val bufSize = dataSize
+	    val buf = Word8Array.array (bufSize, 0w0)
+	    fun loop n =
+	       if 0 = n
+		  then closeSock client_sock
+	       else
+		  let
+		     val _ = Socket.sendVec (client_sock, dataSlice)
+		     val reply = recvBytes (client_sock, buf, bufSize)
+		  in
+		     if data = Byte.unpackString (Word8ArraySlice.full buf)
+			then loop (n - 1)
+		     else raise Error "Didn't receive the same data"
+		  end
+	 in
+	    loop num
+	 end
+      val () =
+	 case Posix.Process.fork () of
+	    NONE => client ()
+	  | SOME pid => server ()
+   in
+      OS.Process.success
+   end
+
+end
+
+val _ = Test.main (CommandLine.name (), CommandLine.arguments ())
+(* -*- mode: sml -*-
+ * $Id: except.mlton,v 1.3 2007-12-08 03:58:37 bfulgham Exp $
+ * http://www.bagley.org/~doug/shootout/
+ * Translated from except.ocaml by Stephen Weeks
+ *)
+
+fun incr r = r := !r + 1
+fun print_endline s = (print s; print "\n")
+   
+exception HiException of int
+exception LoException of int
+
+val hi = ref 0
+val lo = ref 0
+
+fun blowup n =
+  if n mod 2 = 0 then raise (LoException n)
+  else raise (HiException n)
+
+fun lo_fun n =
+  blowup n
+  handle LoException ex => incr lo
+
+fun hi_fun n =
+  lo_fun n
+  handle HiException ex => incr hi
+
+fun some_fun n =
+  hi_fun n
+  handle x =>
+     (print_endline "Should not get here.";
+      raise x)
+
+fun atoi s = case Int.fromString s of SOME num => num | NONE => 0;
+fun printl [] = print "\n" | printl(h::t) = ( print h ; printl t );
+   
+fun main (name, args) =
+   let
+      val n = atoi (hd (args @ ["1"]))
+      val _ = for (0, n, some_fun)
+   in
+      printl ["Exceptions: HI=",
+	      Int.toString (!hi),
+	      " / LO=",
+	      Int.toString (!lo)];
+      OS.Process.success
+   end
+
+val _ = main( CommandLine.name(), CommandLine.arguments() )
+(* fannkuch.ml
+ *
+ * The Great Computer Language Shootout
+ * http://shootout.alioth.debian.org/
+ *
+ * Contributed by Troestler Christophe
+ * Translated to SML by sweeks@sweeks.com.
+ * Modified for new output requirements based on C# solution by
+ *   sweeks@sweeks.com.
+ *)
+
+val sub = Array.sub
+val update = Array.update
+
+fun countFlips perm =
+   let
+      fun loop c =
+	 let
+	    val k = sub (perm, 0)
+	 in
+	    if k = 0 then c
+	    else
+	       let
+		  val () = 
+		     for (0, k div 2 + 1, fn i =>
+			  let
+			     val k_i = k - i
+			     val perm_i = sub (perm, i)
+			  in
+			     update (perm, i, sub (perm, k_i))
+			     ; update (perm, k_i, perm_i)
+			  end)
+	       in
+		  loop (c + 1)
+	       end
+	 end
+   in
+      loop 0
+   end
+
+fun pfannkuchen n =
+  let
+     val perm = Array.array (n, 0)
+     val perm1 = Array.tabulate (n, fn i => i)
+     val count = Array.array (n, 0)
+     val maxFlips = ref 0
+     val m = n - 1
+     val check = ref 30
+     fun loop r =
+        let
+           val () =
+              if 0 = !check then ()
+              else
+                 (for (0, n, fn i =>
+                       print (Int.toString (sub (perm1, i) + 1)));
+                  print "\n";
+                  Int.dec check)
+           val () = for (0, r, fn i => update (count, i, i + 1))
+           val () =
+              if sub (perm1, 0) = 0 orelse sub (perm1, m) = m then ()
+              else
+                 let
+                    val () =
+                       for (0, n, fn i => update (perm, i, sub (perm1, i)))
+                    val flips = countFlips perm
+                 in
+                    if flips > !maxFlips then maxFlips := flips else ()
+                 end
+           fun loop' r =
+              if r = n then ()
+              else
+                 let
+                    val perm0 = sub (perm1, 0)
+                    val () = for (0, r, fn i =>
+                                  update (perm1, i, sub (perm1, i + 1)))
+                    val () = update (perm1, r, perm0)
+                    val () = update (count, r, sub (count, r) - 1)
+                 in
+                    if 0 < sub (count, r) then loop r else loop' (r + 1)
+                 end
+        in
+           loop' 1
+        end
+     val () = loop n
+  in
+     !maxFlips
+  end
+
+val n = valOf (Int.fromString (hd (CommandLine.arguments ()))) handle _ => 1
+
+val () = print (concat ["Pfannkuchen(", Int.toString n, ") = ",
+			Int.toString (pfannkuchen n), "\n"])
+(* fasta.sml
+ *
+ *   Generate and write random "DNA" sequences.
+ *
+ * Copyright (c) 2004 by The Fellowship of SML/NJ
+ *
+ * Author: Matthias Blume (blume@tti-c.org)
+ *
+ *)
+
+structure Test:sig val main:string*string list->OS.Process.status end = struct
+
+    val len = 60
+
+    infix 8 $ % val (op $, op %) = (Unsafe.Array.sub, Unsafe.CharVector.sub)
+    infix 3 <-  fun (a, i) <- x = Unsafe.Array.update (a, i, x)
+    fun x - y = Word.toIntX (Word.- (Word.fromInt x, Word.fromInt y))
+    fun succ x = Word.toIntX (Word.fromInt x + 0w1)
+
+    fun out s = TextIO.output (TextIO.stdOut, s)
+    fun out1 c = TextIO.output1 (TextIO.stdOut, c)
+    fun ssl(s,i,j) =
+	(TextIO.outputSubstr(TextIO.stdOut,Substring.substring(s,i,j));
+	 out1 #"\n")
+
+    (* word->real conversion *)
+    val wreal = real o Word.toIntX
+    (* the constants for the random number generator *)
+    val (M, A, C) = (0w139968, 0w3877, 0w29573)     val M' = 1.0 / wreal M
+
+    (* the random number generator *)
+    val random = let val l = ref 0w42
+		 in fn m=>let val c = (!l*A+C) mod M in l:=c; m*M'*wreal c end
+		 end
+
+    fun stretch s = if size s < len then stretch (s^s) else (s^s, size s)
+
+    (* calculate cumulative probabilities *)
+    fun mkCumul l =
+	let val (cl, pl) = ListPair.unzip l
+	    val (s, a) = (CharVector.fromList cl, Array.fromList pl)
+	    fun upd (i, p, s) = let val s = s+p in (a,i)<-s; s end
+	in ignore (Array.foldli upd 0.0 a); (s, a, Array.length a - 1) end
+
+    (* fixed sequence to be repeated *)
+    val alu = stretch "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG\
+		      \GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA\
+		      \CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT\
+		      \ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA\
+		      \GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG\
+		      \AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC\
+		      \AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA"
+
+    (* the bases with their probabilities *)
+    val homosapiens = mkCumul [(#"a", 0.3029549426680), (#"c", 0.1979883004921),
+			       (#"g", 0.1975473066391), (#"t", 0.3015094502008)]
+
+    val iub = mkCumul [(#"a",0.27), (#"c",0.12), (#"g",0.12), (#"t",0.27),
+		       (#"B",0.02), (#"D",0.02), (#"H",0.02), (#"K",0.02),
+		       (#"M",0.02), (#"N",0.02), (#"R",0.02), (#"S",0.02),
+		       (#"V",0.02), (#"W",0.02), (#"Y",0.02)]
+
+    (* select a random base *)
+    fun selRandom (s, a, n') =
+	let val r = random 1.0
+	    fun l i = if i >= n' orelse a$i > r then s%i else l (succ i)
+	in l 0 end
+
+    (* make a sequence by repeating a template *)
+    fun rptff (id, desc, (s, l), n) =
+	let fun lp (0, _) = ()
+	      | lp (n, k) =
+		  if n<len then ssl(s,k,n)
+		  else let val k' = k+len
+		       in ssl(s,k,len); lp(n-len, if k'>=l then k'-l else k')
+		       end
+	in app out [">", id, " ", desc, "\n"]; lp (n, 0) end
+
+    (* make random fasta fragment *)
+    fun rndff (id, desc, sa, n) =
+	let fun loop n = let val m = Int.min(n,len) in loop' (n-m,m) end
+	    and loop' (n, 0) = (out1 #"\n"; if n>0 then loop n else ())
+	      | loop' (n, m) = (out1 (selRandom sa); loop' (n,m-1))
+	in app out [">", id, " ", desc, "\n"]; loop n end
+
+    (* test harness *)
+    fun make' n = (rptff("ONE", "Homo sapiens alu", alu, n*2);
+		   rndff("TWO", "IUB ambiguity codes", iub, n*3);
+		   rndff("THREE", "Homo sapiens frequency", homosapiens, n*5);
+		   OS.Process.success)
+
+    (* driver *)
+    fun main (_, []) = make' 1
+      | main (_, arg :: _) = make' (getOpt (Int.fromString arg, 1))
+end
+
+val _ = Test.main (CommandLine.name (), CommandLine.arguments ())
+(* -*- mode: sml -*-
+ * $Id: fibo.mlton,v 1.5 2007-12-08 03:58:37 bfulgham Exp $
+ * http://www.bagley.org/~doug/shootout/
+ *)
+
+fun fib n = if n < 2 then 1 else fib (n-2) + fib (n-1)
+
+fun atoi s = case Int.fromString s of SOME num => num | NONE => 0;
+
+fun main(name, args) = 
+  let
+    val arg = hd(args @ ["1"]);
+    val num = atoi arg;
+    val fib = fib num;
+    val result = Int.toString fib;
+  in (
+      print result; print "\n";
+      OS.Process.success
+  ) end;
+
+val _ = main( CommandLine.name(), CommandLine.arguments() );
+(* harmonic.sml
+ *
+ * The Computer Language Shootout
+ * http://shootout.alioth.debian.org/
+ *
+ * Copyright (c) 2005 by The Fellowship of SML/NJ
+ *
+ * Author: Matthias Blume (blume@tti-c.org)
+ * Modified by sweeks@sweeks.com to run with MLton.
+ * Shortened by Vesa Karvonen.
+ *)
+
+val n = valOf (Int.fromString (hd (CommandLine.arguments ()))) handle _ => 1
+fun harm (i, d, s) = if i>n then s else harm (i+1, d+1.0, s+1.0/d)
+val _ = app print [Real.fmt (StringCvt.GEN (SOME 11)) (harm (2,2.0,1.0)), "\n"]
+(* -*- mode: sml -*-
+ * $Id: hash.mlton,v 1.4 2007-12-08 03:58:37 bfulgham Exp $
+ * http://www.bagley.org/~doug/shootout/
+ *)
+
+fun hashtest n =
+   let
+      val hx = HashTable.new {equals = op =,
+			      hash = String.hash,
+			      size = n}
+      val () = Int.for (1, n + 1, fn i =>
+			HashTable.insert (hx, Int.fmt StringCvt.HEX i, i))
+      val r = ref 0
+      val () =
+	 Int.forDown (1, n + 1, fn i =>
+		      if isSome (HashTable.peek (hx, Int.toString i))
+			 then Int.inc r
+		      else ())
+   in
+      !r
+   end
+
+fun atoi s = case Int.fromString s of SOME num => num | NONE => 0;
+
+fun main(name, args) = 
+    let
+	val arg = hd(args @ ["1"])
+	val num = atoi arg
+	val result = hashtest num
+    in
+	print (Int.toString result) ; print "\n" ;
+	OS.Process.success
+    end;
+
+val _ = main( CommandLine.name(), CommandLine.arguments() );
+(* -*- mode: sml -*-
+ * $Id: hash2.mlton,v 1.3 2007-12-08 03:58:37 bfulgham Exp $
+ * http://www.bagley.org/~doug/shootout/
+ * Modified by Stephen Weeks (back to MLton style).
+ * Modified by Daniel Wang.
+ *)
+
+fun hashtest2 n =
+    let
+       fun new () =
+	  HashTable.new {equals = op =, hash = String.hash, size = 10000}
+       val h1 = new ()
+       val h2 = new ()
+       fun doinserts1 i =
+	  if i = 10000
+	     then ()
+	  else
+	     let
+		val s = "foo_" ^ Int.toString i
+		val _ = HashTable.insert (h1, s, i)
+	     in
+		doinserts1 (i + 1)
+	     end
+       fun addinto (h, k, v) =
+	   let
+	      val r = HashTable.lookupOrInsert (h, k, fn _ => ref 0)
+	   in
+	      r := !r + v
+	   end
+	fun doinserts2 i =
+	    if i = n
+	       then ()
+	    else (HashTable.foreach (h1, fn (s, i) => addinto (h2, s, i))
+		  ; doinserts2 (i + 1))
+    in
+	doinserts1 0;
+	doinserts2 0;
+	print (Int.toString (HashTable.lookup (h1, "foo_1"))); print " ";
+	print (Int.toString (HashTable.lookup (h1, "foo_9999"))); print " ";
+	print (Int.toString (! (HashTable.lookup (h2, "foo_1")))); print " ";
+	print (Int.toString (! (HashTable.lookup (h2, "foo_9999"))));
+	print "\n"
+    end
+
+fun atoi s = case Int.fromString s of SOME num => num | NONE => 0;
+
+fun main(name, args) = 
+    let
+	val arg = hd(args @ ["1"])
+	val num = atoi arg
+    in
+	hashtest2 num;
+	OS.Process.success
+    end;
+
+
+val _ = main( CommandLine.name(), CommandLine.arguments() );
+(* -*- mode: sml -*-
+ * $Id: heapsort.mlton,v 1.2 2007-12-08 03:58:37 bfulgham Exp $
+ * http://www.bagley.org/~doug/shootout/
+ * Based on cdoe from Stephen Weeks, improved by Henry Cejtin.
+*)
+
+val sub = Array.sub
+val update = Array.update
+   
+local
+   val im = 139968
+   val ia =   3877
+   val ic =  29573
+   val last = ref 42
+   val scale = 1.0 / Real.fromInt im
+in
+   fun gen_random max =
+	  let val last' = (! last * ia + ic) mod im
+	  in last := last';
+	     max * scale * Real.fromInt last'
+	  end
+end
+
+fun heapSort (n, ra: real array) =
+       let fun inner (l, ir, rra) =
+                  let fun loop (i, j) =
+                             if j <= ir
+                                then let val j =
+                                                if j < ir
+                                                andalso sub (ra, j) < sub (ra, j + 1)
+                                                   then j + 1
+                                                   else j
+                                         val (i, j) =
+                                                if rra < sub (ra, j)
+                                                   then (update (ra, i, sub (ra, j));
+                                                         (j, j + j))
+                                                   else (i, ir + 1)
+                                     in loop (i, j)
+                                     end
+                                else update (ra, i, rra)
+                  in loop (l, l + l)
+                  end
+           fun outer1 l =
+                  let val l' = l - 1
+                  in if l' > 0
+                        then (inner (l', n, sub (ra, l'));
+                              outer1 l')
+                        else ()
+                  end
+           fun outer2 ir =
+                  let val rra = sub (ra, ir)
+                      val _ = update (ra, ir, sub (ra, 1))
+                      val ir = ir - 1
+                  in if ir = 1
+                        then update (ra, 1, rra)
+                        else (inner (1, ir, rra);
+                              outer2 ir)
+                  end
+       in outer1 (n div 2 + 1);
+          outer2 n
+       end
+
+fun atoi s = case Int.fromString s of SOME num => num | NONE => 0;
+fun printl [] = print "\n" | printl(h::t) = ( print h ; printl t );
+
+fun main (name, args) =
+       let val n = atoi (hd (args @ ["1"]))
+	   val ary = Array.tabulate (n + 1, fn _ => gen_random 1.0)
+       in heapSort (n, ary);
+	  print (concat [Real.fmt (StringCvt.FIX (SOME 10)) (sub (ary, n)),
+			 "\n"])
+       end
+
+val _ = main( CommandLine.name(), CommandLine.arguments() )
+(* -*- mode: sml -*-
+ * $Id: hello.mlton,v 1.2 2007-12-08 03:58:37 bfulgham Exp $
+ * http://www.bagley.org/~doug/shootout/
+ *)
+
+val _ = print "hello world\n"
+(* knucleotide.ml
+ *
+ * The Great Computer Language Shootout
+ * http://shootout.alioth.debian.org/
+ *
+ * Contributed by Troestler Christophe
+ * translated to MLton/SML by sweeks@sweeks.com.
+ *)
+
+structure H = HashTable
+(* [counts k dna] fills and return the hashtable [count] of
+ * k-nucleotide keys and count values for a particular reading-frame
+ * of length [k] of the string [dna].
+ *)
+fun counts (k, dna) =
+   let
+      val count = H.new {equals = op =, hash = String.hash, size = 0x40000}
+      val n = size dna + 1 - k
+      val () =
+	 for (0, n, fn i =>
+	      Int.inc
+	      (H.lookupOrInsert (count, String.substring (dna, i, k),
+				 fn () => ref 0)))
+   in
+      (n, count)
+   end
+
+(* [write_frequencies k dna] writes the frequencies for a
+ * reading-frame of length [k] sorted by descending frequency and then
+ * ascending k-nucleotide key.
+ *)
+fun compareFreq ((k1:string, f1:real), (k2, f2)) =
+   f1 > f2 orelse (Real.== (f1, f2) andalso String.<= (k1, k2))
+
+fun writeFrequencies (k, dna) =
+  let
+     val (n, cnt) = counts (k, dna)
+     val tot = Real.fromInt n
+     val frq =
+	Array.fromList (H.fold (cnt, [], fn (k, r, l) =>
+				(k, 100.0 * Real.fromInt (!r) / tot) :: l))
+     val _ = QuickSort.sortArray (frq, compareFreq)
+     val () =
+	Array.foreach (frq, fn (k, f) =>
+		       print (concat [k, " ",
+				      Real.fmt (StringCvt.FIX (SOME 3)) f,
+				      "\n"]))
+  in
+     print "\n"
+  end
+
+fun writeCount (seq, dna) =
+  let
+     val (_, cnt) = counts (size seq, dna)
+  in
+     print (concat [Int.toString (case H.peek (cnt, seq) of
+				     NONE => 0
+				   | SOME r => !r),
+		    "\t", seq, "\n"])
+  end
+
+structure Buffer:
+   sig
+      type t
+
+      val addLine: t * string -> t
+      val contents: t -> char array
+      val empty: t
+   end =
+   struct
+      datatype t = T of string list
+
+      val empty: t = T []
+
+      fun addLine (T xs, x) = T (x :: xs)
+
+      fun contents (T lines) =
+	 let
+	    val n = foldl (fn (s, n) => n + size s - 1) 0 lines
+	    val a = Array.array (n, #"\000")
+	    val _ =
+	       foldl (fn (s, i) =>
+		      let
+			 fun loop (i, j)  =
+			    if j < 0
+			       then i
+			    else (Array.update (a, i, String.sub (s, j))
+				  ; loop (i - 1, j - 1))
+		      in
+			 loop (i, String.size s - 2)
+		      end)
+	       (n - 1) lines
+	 in
+	    a
+	 end
+   end
+
+(* Extract DNA sequence "THREE" from stdin *)
+val dnaThree =
+  let
+     fun line () = TextIO.inputLine TextIO.stdIn
+     fun isThree s = String.substring (s, 0, 6) = ">THREE"
+     val () = while not (isThree (valOf (line ()))) do ()
+     fun loop () =
+	let
+	   val l = valOf (line ())
+	in
+	   if #";" = String.sub (l, 0)  (* Skip possible comment *)
+	      then loop ()
+	   else
+	      let
+		 fun loop (b, l) =
+		    let
+		       val b = Buffer.addLine (b, l)
+		    in
+		       case line () of
+			  NONE => b
+			| SOME l => 
+			     if #"<" = String.sub (l, 0)
+				then b
+			     else loop (b, l)
+		    end
+	      in
+		 loop (Buffer.empty, l)
+	      end
+	end
+     val a = Buffer.contents (loop ())
+  in
+     String.toUpper
+     (String.tabulate (Array.length a, fn i => Array.sub (a, i)))
+  end
+
+val () = writeFrequencies (1, dnaThree)
+val () = writeFrequencies (2, dnaThree)
+val () =
+   List.foreach
+   (["GGT", "GGTA", "GGTATT", "GGTATTTTAATT", "GGTATTTTAATTTATAGT"],
+    fn k => writeCount (k, dnaThree))
+   
+
+(* -*- mode: sml -*-
+ * $Id: lists.mlton,v 1.4 2007-12-08 03:58:37 bfulgham Exp $
+ * http://www.bagley.org/~doug/shootout/
+ * from Stephen Weeks
+ *)
+(* Translated from lists.ocaml. *)
+ 
+val sub = Array.sub
+val update = Array.update
+fun failwith s = raise Fail s
+
+structure Deque:
+  sig
+    type 'a t
+    exception Empty
+
+    val make: int * 'a -> 'a t
+    val iota: int -> int t
+
+    val is_empty: 'a t -> bool
+    val equal: ''a t * ''a t -> bool
+    val length: 'a t -> int
+    val nth: 'a t * int -> 'a
+
+    val push_front: 'a * 'a t -> unit
+    val push_back: 'a t * 'a -> unit
+
+    val take_front: 'a t -> 'a
+    val take_back: 'a t -> 'a
+
+    val copy: 'a t -> 'a t
+    val reverse: 'a t -> 'a t
+  end =
+  struct
+     type 'a t = {size: int ref,
+		  first: int ref,
+		  last: int ref,
+		  field: 'a array ref,
+		  fill: 'a}
+
+     local
+	fun make sel (d: 'a t) = sel d
+     in
+	fun fill z = make #fill z
+     end
+
+     local
+	fun make sel (d: 'a t) = !(sel d)
+     in
+	fun field z = make #field z
+	fun first z = make #first z
+	fun last z = make #last z
+	fun size z = make #size z
+     end
+
+     exception Empty
+
+     fun make (n, dummy) =
+	let
+	   val n = Int.max (n, 0)
+	   val nplus = Int.max (1, n)
+	in
+	   {size = ref nplus,
+	    first = ref (Int.quot (nplus, 2)),
+	    last = ref (Int.quot (nplus, 2) - 1),
+	    field = ref (Array.array (nplus, dummy)),
+	    fill = dummy}
+	end
+
+     fun iota i =
+	let
+	   val i = Int.max (0, i)
+	   val iplus = Int.max (1, i)
+	in
+	   {size = ref iplus,
+	    first = ref 0,
+	    last = ref (i - 1),
+	    field = ref (Array.tabulate (iplus, fn n => n + 1)),
+	    fill = i}
+	end
+
+     fun length buf = last buf - first buf + 1
+
+     fun is_empty buf = last buf < first buf
+
+     fun array_eq (arr1, off1, arr2, off2, i) =
+	let
+	   fun loop (off1, off2, i) =
+	      case i of
+		 0 => true
+	       | n =>
+		    sub (arr1, off1) = sub (arr2, off2)
+		    andalso loop (off1 + 1, off2 + 1, n - 1)
+	in loop (off1, off2, i)
+	end
+
+     fun equal (buf1, buf2) =
+	let
+	   val len = length buf1
+	in
+	   len = length buf2
+	   andalso array_eq (field buf1, first buf1,
+			     field buf2, first buf2,
+			     len)
+	end
+
+     fun nth (buf, n) =
+	if n < 0 orelse n >= length buf
+	   then failwith "nth"
+	else sub (field buf, first buf + n)
+
+     fun double_shift buf = 
+	let
+	   val new_size = size buf * 2
+	   val len = length buf
+	   val new_first = Int.quot (new_size - len, 2)
+	   val new_field = Array.array (new_size, fill buf)
+	   val _ =
+	      ArraySlice.copy {src = ArraySlice.slice (field buf,
+						       first buf,
+						       SOME len),
+			       dst = new_field,
+			       di = new_first}
+	in
+	   #size buf := new_size;
+	   #field buf := new_field;
+	   #first buf := new_first;
+	   #last buf := new_first + len - 1
+	end
+
+     fun push_front (elem, buf) =
+	let
+	   val _ = if first buf = 0 then double_shift buf else ()
+	   val new_first = first buf - 1
+	in
+	   update (field buf, new_first, elem);
+	   #first buf := new_first
+	end
+
+     fun push_back (buf, elem) =
+	let
+	   val _ = if last buf = size buf - 1 then double_shift buf else ()
+	   val new_last = last buf + 1
+	in
+	   update (field buf, new_last, elem);
+	   #last buf := new_last
+	end
+
+     fun take_front buf =
+	if is_empty buf
+	   then raise Empty
+	else
+	   let
+	      val old_first = first buf
+	   in
+	      #first buf := old_first + 1;
+	      sub (field buf, old_first)
+	   end
+
+     fun take_back buf =
+	if is_empty buf
+	   then raise Empty
+	else
+	   let
+	      val old_last = last buf
+	   in
+	      #last buf := old_last - 1;
+	      sub (field buf, old_last)
+	   end
+
+     fun copy buf =
+	let
+	   val len = length buf
+	   val new_buf = make (len, fill buf)
+	   val _ =
+	      ArraySlice.copy {src = ArraySlice.slice (field buf,
+						       first buf,
+						       SOME len),
+			       dst = field new_buf,
+			       di = 0}
+	in
+	   #first new_buf := 0;
+	   #last new_buf := len - 1;
+	   new_buf
+	end
+
+     fun reverse buf =
+	let
+	   val len = length buf 
+	   val fst = first buf
+	   val fld = field buf
+	   val new_buf = make (len, fill buf)
+	   val new_fld = field new_buf
+	   val _ = 
+	      for (0, len, fn i =>
+		   update (new_fld, len - i - 1, sub (fld, fst + i)))
+	in
+	   #first new_buf := 0;
+	   #last new_buf := len - 1;
+	   new_buf
+	end
+end
+
+open Deque
+
+fun empty () = iota 0
+
+val size = 10000
+
+fun test_lists () =
+  let
+     val d1 = iota size
+     val d2 = copy d1
+     val d3 = empty ()
+     val _ = for (0, length d2, fn _ => push_back (d3, take_front d2))
+     val _ = for (0, length d3, fn _ => push_back (d2, take_back d3))
+     val d1 = reverse d1
+     val _ = if size <> nth (d1, 0) then failwith "First test failed" else ()
+     val _ = if length d1 <> length d2 then failwith "Second test failed" else ()
+     val _ = if not (equal (d1, d2)) then failwith "Third test failed" else ()
+  in
+     length d1
+  end
+
+fun main (name, args) =
+  let
+     val n =
+	case Int.fromString (hd (args @ ["1"])) of
+	   NONE => 1
+	 | SOME n => n
+     val result = ref 0
+     val _ = for (0, n - 1, fn _ => result := test_lists ())
+  in
+     print (concat [Int.toString (!result), "\n"]);
+     OS.Process.success
+  end
+
+val _ = main( CommandLine.name(), CommandLine.arguments() )
+(* mandelbrot.sml
+ *
+ *   Mandelbrot (fractal generation) benchmark.
+ *     (Loosely based on the C version.)
+ *
+ * Copyright (c) 2004 by The Fellowship of SML/NJ
+ *
+ * Author: Matthias Blume (blume@tti-c.org)
+ * Modified and ported to MLton by Vesa Karvonen.
+ *)
+
+val (K, L2) = (50, 4.0)
+
+fun out b = TextIO.output1 (TextIO.stdOut, Byte.byteToChar b)
+
+fun mandel (h, w) =
+   let fun p (x, y) =
+          let val (Cr, Ci) = (real x*2.0/real w-1.5, real y*2.0/real h-1.0)
+              fun lp (r, i, k) =
+                  let val (r2, i2) = (r*r, i*i)
+                  in r2+i2 <= L2 andalso
+                     (k=0 orelse lp (r2-i2+Cr, (r+r)*i+Ci, k-1)) end
+          in lp (0.0, 0.0, K) end
+       fun xl (x, y, b, n) =
+          if x = w then (out (Word8.<< (b, n)) ; yl (y+1))
+          else let val (b, n) = if n=0w0 then (out b ; (0w0, 0w8)) else (b, n)
+               in xl (x+1, y, b+b+(if p (x, y) then 0w1 else 0w0), n-0w1) end
+       and yl y = if y < h then xl (0, y, 0w0, 0w8) else ()
+   in app print ["P4\n", Int.toString h, " ", Int.toString w, "\n"] ; yl 0 end
+
+val n = valOf (Int.fromString (hd (CommandLine.arguments ()))) handle _ => 600
+
+val _ = mandel (n, n)
+(* -*- mode: sml -*-
+ * $Id: matrix.mlton,v 1.3 2007-12-08 03:58:37 bfulgham Exp $
+ * http://www.bagley.org/~doug/shootout/
+ * from Stephen Weeks
+ *)
+(* Translated from matrix.ocaml. *)
+
+fun incr r = r := !r + 1
+fun for (start, stop, f) =
+   let
+      fun loop i =
+	 if i > stop
+	    then ()
+	 else (f i; loop (i + 1))
+   in
+      loop start
+   end
+
+structure Array2 =
+   struct
+      datatype 'a t = T of 'a array array
+
+      fun sub (T a, r, c) = Array.sub (Array.sub (a, r), c)
+      fun subr (T a, r) =
+	 let val a = Array.sub (a, r)
+	 in fn c => Array.sub (a, c)
+	 end
+      fun update (T a, r, c, x) = Array.update (Array.sub (a, r), c, x)
+      fun array (r, c, x) =
+	 T (Array.tabulate (r, fn _ => Array.array (c, x)))
+   end
+val sub = Array2.sub
+val update = Array2.update
+   
+val size = 30
+
+fun mkmatrix (rows, cols) =
+   let
+      val count = ref 1
+      val m = Array2.array (rows, cols, 0)
+   in
+      for (0, rows, fn i =>
+	   for (0, cols, fn j =>
+		(update (m, i, j, !count)
+		 ; incr count)));
+      m
+   end
+
+fun mmult (rows, cols, m1, m2, m3) =
+   for (0, rows, fn i =>
+	for (0, cols, fn j =>
+	     update (m3, i, j,
+		     let
+			val m1i = Array2.subr (m1, i)
+			fun loop (k, sum) =
+			   if k < 0
+			      then sum
+			   else loop (k - 1,
+				      sum + m1i k * sub (m2, k, j))
+		     in
+			loop (rows - 1, 0)
+		     end)))
+
+fun atoi s = case Int.fromString s of SOME num => num | NONE => 0;
+fun printl [] = print "\n" | printl(h::t) = ( print h ; printl t );
+
+fun main (name, args) =
+  let
+     val n = atoi (hd (args @ ["1"]))
+     val m1 = mkmatrix (size, size)
+     val m2 = mkmatrix (size, size)
+     val m3 = Array2.array (size, size, 0)
+     val _ = for (0, n - 1, fn _ => mmult (size, size, m1, m2, m3))
+     val _ = mmult (size, size, m1, m2, m3)
+  in
+     printl [Int.toString (sub (m3, 0, 0)),
+	     " ",
+	     Int.toString (sub (m3, 2, 3)),
+	     " ",
+	     Int.toString (sub (m3, 3, 2)),
+	     " ",
+	     Int.toString (sub (m3, 4, 4))];
+     OS.Process.success
+  end
+
+val _ = main( CommandLine.name(), CommandLine.arguments() )
+(*
+ * The Computer Language Shootout
+ * http://shootout.alioth.debian.org/
+ * Contributed by Vesa Karvonen
+ *
+ * Cheap concurrency on top of MLton's user level threads.
+ *)
+
+open MLton.Thread
+
+(* these should be in a library *)
+fun pop l = case !l of v::s => v before l := s
+fun push l v = l := v :: !l
+
+fun repeat n f x = if n<=0 then x else repeat (n-1) f (f x)
+
+(* an implementation of cooperative asynchronous message passing *)
+val rdy = ref ([] : Runnable.t list)
+fun newC () = (ref [], ref [])
+fun put (ms, gs) m =
+    case !gs of [] => push ms m
+              | g::s => switch (fn t => (push rdy (prepare (t, ()))
+                                       ; prepare (g, m) before gs := s))
+fun get (ms, gs) = case !ms of [] => switch (fn t => (push gs t ; pop rdy))
+                             | m::s => m before ms := s
+                                                        
+(* main program *)
+fun mkLink om = let val im = newC () fun lp () = (put om (1 + get im) ; lp ())
+                in push rdy (prepare (new lp, ())) ; im end
+val e = newC ()
+val b = repeat 500 mkLink e
+val n = valOf (Int.fromString (hd (CommandLine.arguments ())))
+val () = print (Int.toString (repeat n (fn s => (put b 0 ; s+get e)) 0)^"\n")
+(* The Great Computer Language Shootout
+ * http://shootout.alioth.debian.org/
+ *
+ * Contributed by Vesa Karvonen.
+ *)
+
+(* abbreviations *)
+structure A=CommandLine and C=CML and I=Int and R=RunCML
+
+(* utilities *)
+val (i2s, s2i) = (I.toString, I.fromString)
+fun repeat n f x = if n<=0 then x else repeat (n-1) f (f x)
+
+(* makes a link thread *)
+fun mkLink s = let val c = C.channel ()
+                   fun lp () = (C.send (s, C.recv c+1) ; lp ())
+               in ignore (C.spawn lp) ; c end
+
+(* driver *)
+fun go n m () =
+  let val (b, e) = let val e = C.channel () in (repeat m mkLink e, e) end
+  in print (i2s (repeat n (fn s => (C.send (b, 0) ; C.recv e+s)) 0)^"\n") end
+
+val _ = R.doit (go (valOf(s2i(hd(A.arguments()))) handle _ => 1) 500, NONE)
+(* -*- mode: sml -*-
+ * $Id: methcall.mlton,v 1.3 2007-12-08 03:58:38 bfulgham Exp $
+ * http://www.bagley.org/~doug/shootout/
+ * from Stephen Weeks
+ *)
+(* Based on methcall.gcc. *)
+
+structure Toggle =
+   struct
+      datatype 'a t = T of {
+			    state: 'a ref,
+			    value: 'a t -> 'a,
+			    activate: 'a t -> 'a t
+			    }
+
+      fun new state =
+	 T {state = ref state,
+	    value = fn T {state, ...} => !state,
+	    activate = fn this as T {state, ...} => (state := not(!state); this)}
+
+      fun activate (this as T {activate, ...}) = activate this
+      fun value (this as T {value, ...}) = value this
+   end
+
+structure Ntoggle =
+   struct
+      datatype 'a t = T of {
+			    state: 'a ref,
+			    value: 'a t -> 'a,
+			    activate: 'a t -> 'a t,
+			    countMax: int,
+			    counter: int ref
+			    }
+
+      fun new (state, countMax) =
+	 T {
+	    state = ref state,
+	    value = fn T {state, ...} => !state,
+	    activate = (fn this as T {state, counter, countMax, ...} =>
+			let
+			   val newCounter = 1 + !counter
+			   val _ = counter := newCounter
+			   val _ = 
+			      if !counter >= countMax
+				 then (state := not(!state);
+				       counter := 0)
+			      else ()
+			in
+			   this
+			end),
+	    countMax = countMax,
+	    counter = ref 0
+	    }
+
+      fun activate (this as T {activate, ...}) = activate this
+      fun value (this as T {value, ...}) = value this
+   end
+
+fun atoi s = case Int.fromString s of SOME num => num | NONE => 0
+fun printl [] = print "\n" | printl(h::t) = ( print h ; printl t )
+   
+fun main (name, args) =
+   let
+      val n = atoi (hd (args @ ["1"]))
+      val v = ref true
+      val tog = Toggle.new true
+      val _ = for (0, n, fn _ => v := Toggle.value (Toggle.activate tog))
+      val _ = print (if !v then "true\n" else "false\n")
+      val _ = v := true
+      val ntog = Ntoggle.new (!v, 3)
+      val _ = for (0, n, fn _ => v := Ntoggle.value (Ntoggle.activate ntog))
+      val _ = print (if !v then "true\n" else "false\n")
+   in
+      OS.Process.success
+   end
+
+val _ = main( CommandLine.name(), CommandLine.arguments() )
+(* -*- mode: sml -*-
+ * $Id: moments.mlton,v 1.4 2007-12-08 03:58:38 bfulgham Exp $
+ * http://www.bagley.org/~doug/shootout/
+ * From Stephen Weeks
+ * Modified by Dan Wang to be more functional and use SML/NJ library
+ * sorting function.
+ * Modified by Stephen Weeks to go back to using MLton library sorting function.
+ *)
+val ins = TextIO.stdIn
+
+fun loop (nums,sum) =
+   case TextIO.inputLine ins of
+      NONE => (nums,sum)
+    | SOME(instr) =>
+        (case instr of
+              "" => (nums,sum)
+	    | l => (case Real.fromString l of
+	          NONE => raise Fail "invalid input"
+	        | SOME num => loop(num::nums,sum+num)))
+
+fun printl [] = print "\n" | printl(h::t) = ( print h ; printl t )
+
+fun r2s (x: real): string =
+   if Real.== (x, 0.0) then "0.000000"
+   else String.translate
+     (fn #"~" => "-" | c => str c)
+     (Real.fmt (StringCvt.FIX (SOME 6)) x)
+      
+fun main(name, args) =  let
+  
+    val (nums,sum) = loop ([], 0.0) 
+    val nums = Array.fromList nums 
+    val n = Array.length nums
+    val n_float = real n
+    val mean = sum / n_float
+      
+    fun moments (x,{average_deviation,variance,skew,kurtosis}) = let
+      val deviation = x - mean
+      val average_deviation =
+	average_deviation + abs(deviation)
+      val dev2 = deviation * deviation
+      val variance = variance + dev2
+      val dev3 = dev2 * deviation
+      val skew = skew + dev3
+	val dev4 = dev3 * deviation
+	val kurtosis = kurtosis + dev4
+    in {average_deviation=average_deviation,
+	variance=variance,
+	skew=skew,
+	kurtosis=kurtosis}
+    end
+    val init = {average_deviation=0.0,
+		variance=0.0,
+		skew=0.0,
+		kurtosis=0.0}
+
+    val {average_deviation,variance,skew,kurtosis} =
+      Array.foldl moments init nums
+      
+    val average_deviation = average_deviation / n_float
+    val variance = variance /  real (n - 1);
+    val standard_deviation = Real.Math.sqrt (variance)
+    val {skew,kurtosis} =
+      if variance > 0.0
+	then {skew=skew / n_float / variance / standard_deviation,
+	      kurtosis=kurtosis / n_float / variance / variance - 3.0}
+      else {skew=skew,kurtosis=kurtosis}
+	
+    val _ = QuickSort.sortArray (nums, Real.<=)
+    val mid = Int.quot (n, 2)
+    val median =
+      if Int.rem (n, 2) = 1
+	then Array.sub (nums, mid)
+      else (Array.sub (nums, mid) + 
+	    Array.sub (nums, mid - 1)) / 2.0
+in
+  printl ["n:                  ", Int.toString n, "\n",
+	  "median:             ", r2s median, "\n",
+	  "mean:               ", r2s mean, "\n",
+	  "average_deviation:  ", r2s average_deviation, "\n",
+	  "standard_deviation: ", r2s standard_deviation, "\n",
+	  "variance:           ", r2s variance, "\n",
+	  "skew:               ", r2s skew, "\n",
+	  "kurtosis:           ", r2s kurtosis];
+  OS.Process.success
+end
+
+val _ = main( CommandLine.name(), CommandLine.arguments() );
+(* nbody.sml
+ *   The Computer Language Shootout
+ *   http://shootout.alioth.debian.org/
+ *   (Loosely based on the Oberon version.)
+ *
+ * Copyright (c) 2004 by The Fellowship of SML/NJ
+ *
+ * Author: Matthias Blume (blume@tti-c.org)
+ * Ported to MLton by Vesa Karvonen.
+ *)
+
+infix 8 $
+val op$ = Array.sub
+infix 3 <-
+fun (a, i) <- x = Array.update (a, i, x)
+
+val SOLAR_MASS = 4.0 * Math.pi * Math.pi
+val DAYS_PER_YEAR = 365.24
+
+(* sun, jupiter, saturn, neptune, uranus *)
+val bodies =
+    [(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0),
+     (4.84143144246472090, ~1.16032004402742839, ~1.03622044471123109e~1,
+      1.66007664274403694e~3, 7.69901118419740425e~3, ~6.90460016972063023e~5,
+      9.54791938424326609e~4),
+     (8.34336671824457987, 4.12479856412430479, ~4.03523417114321381e~1,
+      ~2.76742510726862411e~3, 4.99852801234917238e~3, 2.30417297573763929e~5,
+      2.85885980666130812e~4),
+     (1.28943695621391310e1, ~1.51111514016986312e1, ~2.23307578892655734e~1,
+      2.96460137564761618e~3, 2.37847173959480950e~3, ~2.96589568540237556e~5,
+      4.36624404335156298e~5),
+     (1.53796971148509165e1, ~2.59193146099879641e1, 1.79258772950371181e~1,
+      2.68067772490389322e~3, 1.62824170038242295e~3, ~9.51592254519715870e~5,
+      5.15138902046611451e~5)]
+
+val N = length bodies
+fun sm x = x * SOLAR_MASS
+fun dpy x = x * DAYS_PER_YEAR
+fun get sel = Array.fromList (map sel bodies)
+val (x, y, z) = (get #1, get #2, get #3)
+val (vx, vy, vz) = (get (dpy o #4), get (dpy o #5), get (dpy o #6))
+val m = get (sm o #7)
+
+(* one step *)
+fun advance dt =
+    let fun pl i = if i>=N then ()
+                   else ((x, i) <- x$i+dt*vx$i
+                       ; (y, i) <- y$i+dt*vy$i
+                       ; (z, i) <- z$i+dt*vz$i
+                       ; pl (i+1))
+        fun vl (i, j) =
+            if i>=N then pl 0
+            else if j>=N then vl (i+1, i+2)
+            else let val (dx, dy, dz) = (x$i-x$j, y$i-y$j, z$i-z$j)
+                     val dist = Math.sqrt(dx*dx+dy*dy+dz*dz)
+                     val mag = dt/(dist*dist*dist)
+                     val (mi, mj) = (m$i*mag, m$j*mag)
+                 in (vx, i) <- vx$i-dx*mj ; (vx, j) <- vx$j+dx*mi
+                  ; (vy, i) <- vy$i-dy*mj ; (vy, j) <- vy$j+dy*mi
+                  ; (vz, i) <- vz$i-dz*mj ; (vz, j) <- vz$j+dz*mi
+                  ; vl (i, j+1)
+                 end
+    in vl (0, 1) end
+
+(* calculate initial velocity for the sun *)
+fun offmoment () =
+    let fun %v = ~v / SOLAR_MASS
+        fun loop (i, px, py, pz) =
+            if i>=N then ((vx, 0) <- %px ; (vy, 0) <- %py ; (vz, 0) <- %pz)
+            else loop (i+1, px+vx$i*m$i, py+vy$i*m$i, pz+vz$i*m$i)
+    in loop (1, 0.0, 0.0, 0.0) end
+
+fun energy () =
+    let fun l (i, j, e) =
+            if j >= N then l0 (i+1, e)
+            else let val (dx, dy, dz) = (x$i-x$j, y$i-y$j, z$i-z$j)
+                     val dist = Math.sqrt(dx*dx+dy*dy+dz*dz)
+                 in l (i, j+1, e-m$i*m$j/dist) end
+        and l0 (i, e) =
+            if i>=N then e
+            else let val (x, y, z) = (vx$i, vy$i, vz$i)
+                 in l (i, i+1, e + 0.5*m$i*(x*x+y*y+z*z)) end
+    in l0 (0, 0.0) end
+
+fun addloop i = if i > 0 then (advance 0.01 ; addloop (i-1)) else ()
+
+fun pr x = app print [(String.translate (fn #"~" => "-" | c => str c) o
+                       Real.fmt (StringCvt.FIX (SOME 9))) x, "\n"]
+
+val n = valOf (Int.fromString (hd (CommandLine.arguments ()))) handle _ => 1
+
+val _ = (offmoment () ; pr (energy ()) ; addloop n ; pr (energy ()))
+(* -*- mode: sml -*-
+ * $Id: nestedloop.mlton,v 1.2 2007-12-08 03:58:38 bfulgham Exp $
+ * http://www.bagley.org/~doug/shootout/
+ * from Stephen Weeks
+ *)
+
+fun atoi s = case Int.fromString s of SOME num => num | NONE => 0
+
+fun main (name, args) = 
+  let
+    val arg = hd (args @ ["1"])
+    val n = atoi arg
+    fun f (ac, g) =
+       let
+	  fun loop (i, ac) =
+	     if i = 0
+		then ac
+	     else loop (i - 1, g ac)
+       in
+	  loop (n, ac)
+       end
+    val result =
+       f (0, fn x =>
+	  f (x, fn x =>
+	     f (x, fn x =>
+		f (x, fn x =>
+		   f (x, fn x =>
+		      f (x, fn x => x + 1))))))
+  in
+      print (Int.toString result); print "\n";
+      OS.Process.success
+  end
+
+val _ = main ( CommandLine.name (), CommandLine.arguments () );
+(* 
+ * The Computer Language Shootout
+ * http://shootout.alioth.debian.org/
+ * Contributed by sweeks@sweeks.com.
+ * Shortened by Vesa Karvonen.
+ *)
+
+fun lsl (i, j) = Word.toInt (Word.<< (Word.fromInt i, Word.fromInt j))
+val i2s = StringCvt.padLeft #" " 8 o Int.toString
+fun nsieve m =
+    let val s = Array.array (m + 1, true)
+        fun step (i, cnt) =
+            let fun whack j = if m < j then ()
+                              else (Array.update (s, j, false) ; whack (j + i))
+            in if m < i then cnt
+               else step (i + 1, if not (Array.sub (s, i)) then cnt
+                                 else (whack (lsl (i, 1)) ; cnt + 1)) end
+    in app print ["Primes up to ", i2s m, " ", i2s (step (2, 0)), "\n"] end
+val n = valOf (Int.fromString (hd (CommandLine.arguments ())))
+val _ = (nsieve (lsl (1, n) * 10000)
+       ; nsieve (lsl (1, n - 1) * 10000)
+       ; nsieve (lsl (1, n - 2) * 10000))
+(* nsieve-bits.sml
+ *
+ *   Good old Sieve of Eratosthenes (using bit array).
+ *
+ * Copyright (c) 2004 by The Fellowship of SML/NJ
+ *
+ * Author: Matthias Blume (blume@tti-c.org)
+ * Modified by sweeks@sweeks.com to run with MLton.
+ * Bug fixed, optimized and shortened by Vesa Karvonen.
+ *)
+
+(* abbreviations *)
+structure W=Word and W8=Word8 and A=Array and U=Unsafe.Array and S=StringCvt
+
+(* word <-> string *)
+val (s2w, w2s) = (S.scanString (W.scan S.DEC), S.padLeft #" " 8 o W.fmt S.DEC)
+
+(* bit indexing *)
+fun idx i = W.toIntX (W.>> (i, 0w3))
+fun bit i = W8.<< (0w1, W.andb (i, 0w7))
+
+(* bit test / set *)
+fun tst (a, i) = W8.andb (U.sub (a, idx i), bit i) <> 0w0
+fun set (a, i) = U.update (a, idx i, W8.orb (U.sub (a, idx i), bit i))
+
+(* sieve *)
+fun sieve n =
+    let val a = A.array (W.toIntX (W.>> (n+0w7, 0w3)), 0w0)
+        fun s (i, c) = let fun k j = if j>=n then () else (set (a,j) ; k (j+i))
+                       in if i>=n then c else if tst (a,i) then s (i+0w1, c)
+                                         else (k (i+i) ; s (i+0w1, c+0w1)) end
+    in app print ["Primes up to ", w2s n, " ", w2s (s (0w2, 0w0)), "\n"] end
+
+(* driver *)
+val n = valOf (s2w (hd (CommandLine.arguments ()))) handle _ => 0w9
+val _ = app (fn d => if d<=n then sieve (W.<<(0w1, n-d) * 0w10000) else ())
+            [0w0, 0w1, 0w2]
+(* -*- mode: sml -*-
+ * $Id: objinst.mlton,v 1.3 2007-12-08 03:58:38 bfulgham Exp $
+ * http://www.bagley.org/~doug/shootout/
+ * from Stephen Weeks
+ *)
+(* Based on objinst.gcc. *)
+
+structure Toggle =
+   struct
+      datatype 'a t = T of {
+			    state: 'a ref,
+			    value: 'a t -> 'a,
+			    activate: 'a t -> 'a t
+			    }
+
+      fun new state =
+	 T {state = ref state,
+	    value = fn T {state, ...} => !state,
+	    activate = fn this as T {state, ...} => (state := not(!state); this)}
+
+      fun activate (this as T {activate, ...}) = activate this
+      fun value (this as T {value, ...}) = value this
+   end
+
+structure Ntoggle =
+   struct
+      datatype 'a t = T of {
+			    state: 'a ref,
+			    value: 'a t -> 'a,
+			    activate: 'a t -> 'a t,
+			    countMax: int,
+			    counter: int ref
+			    }
+
+      fun new (state, countMax) =
+	 T {
+	    state = ref state,
+	    value = fn T {state, ...} => !state,
+	    activate = (fn this as T {state, counter, countMax, ...} =>
+			let
+			   val newCounter = 1 + !counter
+			   val _ = counter := newCounter
+			   val _ = 
+			      if !counter >= countMax
+				 then (state := not(!state);
+				       counter := 0)
+			      else ()
+			in
+			   this
+			end),
+	    countMax = countMax,
+	    counter = ref 0
+	    }
+
+      fun activate (this as T {activate, ...}) = activate this
+      fun value (this as T {value, ...}) = value this
+   end
+
+fun atoi s = case Int.fromString s of SOME num => num | NONE => 0
+fun printl [] = print "\n" | printl(h::t) = ( print h ; printl t )
+   
+fun main (name, args) =
+   let
+      val n = atoi (hd (args @ ["1"]))
+      val v = ref true
+      val tog = Toggle.new true
+      val _ = for (0, 5, fn _ =>
+		   print (if Toggle.value (Toggle.activate tog)
+			     then "true\n"
+			  else "false\n"))
+
+	      
+      val r = ref (Toggle.new false)
+      val _ = for (0, n, fn _ => r := Toggle.new true)
+      val _ = Toggle.activate (!r)
+
+
+      val _ = print "\n"
+      val ntog = Ntoggle.new (true, 3)
+      val _ = for (0, 8, fn _ =>
+		   print (if Ntoggle.value (Ntoggle.activate ntog)
+			     then "true\n"
+			  else "false\n"))
+
+
+      val r2 = ref (Ntoggle.new (true, 3))
+      val _ = for (0, n, fn _ => r2 := Ntoggle.new (true, 3))
+      val _ = Ntoggle.activate (!r2)
+
+   in
+      OS.Process.success
+   end
+
+val _ = main( CommandLine.name(), CommandLine.arguments() )
+(* The Computer Language Shootout
+   http://shootout.alioth.debian.org/
+   contributed by Scott Cruzen
+*)
+
+open Real.Math
+
+val n = valOf (Int.fromString (hd (CommandLine.arguments())))
+
+fun nsum (i,f1,r1,f2,r2,f3,r3,f4,r4,f5,r5,f6,r6,f7,r7,f8,r8,f9,r9,a:real) =
+   let val k = Real.fromInt i in
+      if i <= n then nsum (i + 1, f1, f1 (k - 1.0, r1), f2, f2 (k, r2), f3, f3 (k, r3),
+         f4, f4 (k, r4), f5, f5 (k, r5), f6, f6 (k, r6), f7, f7 (k, r7),
+         f8, f8 (k, r8, a), f9, f9 (k, r9, a), ~a)
+      else
+         [f1 (k - 1.0, r1), r2, r3, r4, r5, r6, r7, r8, r9] end
+
+val _ = map (fn (s,x) => print(concat[Real.fmt (StringCvt.FIX (SOME 9)) x,"\t",s,"\n"]))
+   (ListPair.zip (["(2/3)^k", "k^-0.5", "1/k(k+1)", "Flint Hills", "Cookson Hills",
+                   "Harmonic", "Riemann Zeta", "Alternating Harmonic", "Gregory"],
+      nsum (1, (fn (k, r) => r + pow(2.0 / 3.0, k)), 0.0,
+         (fn (k, r) => r + 1.0 / sqrt k), 0.0,
+         (fn (k, r) => r + 1.0 / (k * (k + 1.0))), 0.0,
+         (fn (k, r) => r + 1.0 / (k * k * k * sin k * sin k)), 0.0,
+         (fn (k, r) => r + 1.0 / (k * k * k * cos k * cos k)), 0.0,
+         (fn (k, r) => r + 1.0 / k), 0.0, (fn (k, r) => r + 1.0 / (k * k)), 0.0,
+         (fn (k, r, a) => r + a / k), 0.0,
+         (fn (k, r, a) => r + a / (2.0 * k - 1.0)), 0.0, 1.0)))
+(* The Computer Language Shootout
+   http://shootout.alioth.debian.org/
+   contributed by Scott Cruzen
+*)
+
+fun floor_ev (q,r,s,t) x:IntInf.int = IntInf.div ((q * x + r),(s * x + t))
+
+fun comp (q,r,s,t) (q',r',s',t') : (IntInf.int * IntInf.int * IntInf.int * IntInf.int) =
+   (q * q' + r * s',  q * r' + r * t',
+    s * q' + t * s',  s * r' + t * t')
+
+fun next z = floor_ev z 3
+fun safe z n = n = floor_ev z 4
+fun prod z n = comp (10, ~10 * n, 0, 1) z
+fun cons z k =
+   comp z (IntInf.fromInt k, IntInf.fromInt (2*(2*k+1)), 0, IntInf.fromInt (2*k+1))
+
+fun digit k z n row col =
+   if n > 0 then
+      let val y = next z in
+         if safe z y then
+            if col = 10 then 
+               let val row = row + 10 in
+                  print("\t:" ^ IntInf.toString row ^ "\n" ^ IntInf.toString y);
+                  digit k (prod z y) (n-1) row 1
+               end
+            else
+               ( print (IntInf.toString y)
+               ; digit k (prod z y) (n-1) row (col+1))
+         else digit (k+1) (cons z k) n row col
+      end
+   else
+      print(String.implode(List.tabulate((10 - IntInf.toInt col), fn x => #" "))
+           ^ "\t:" ^ IntInf.toString (row + col) ^ "\n")
+
+fun digits n = digit 1 (1,0,0,1) n 0 0
+
+val () = digits (valOf (Int.fromString (hd (CommandLine.arguments()))))
+(* process.sml
+ * 
+ *   Build chain of N threads that relay an int value.
+ *
+ * Copyright (c) 2004 by The Fellowship of SML/NJ
+ *
+ * Author: Matthias Blume (blume@tti-c.org)
+ * Ported to MLton by sweeks@sweeks.com
+ *)
+structure Test:sig val main:string*string list->OS.Process.status end = struct
+
+    (* build the chain *)
+    fun build (0, c) = c
+      | build (n, s) = let val p = CML.channel ()
+			   fun sp () = (CML.send (s, CML.recv p + 1); sp ())
+		       in ignore (CML.spawn sp); build (n-1, p) end
+
+    (* Last thread, this is really the N+1st thread -- contrary to
+     * the prose of the problem description, but in accordance with the
+     * supposedly correct output: *)
+    fun mklast () =
+	let fun out s = TextIO.output (TextIO.stdOut, s)
+	    val p = CML.channel ()
+	    fun sp () = (out (Int.toString (CML.recv p) ^ "\n"); sp ())
+	in ignore (CML.spawn sp); p end
+
+    (* the driver *)
+    fun doit n () = CML.send (build (n, mklast ()), 0)
+    fun main' n = (RunCML.doit (doit n, NONE); OS.Process.success)
+    fun main (_, []) = main' 1
+      | main (_, arg :: _) = main' (getOpt (Int.fromString arg, 1))
+end
+
+val _ =
+   OS.Process.exit (Test.main (CommandLine.name (), CommandLine.arguments ()))
+(* -*- mode: sml -*-
+ * $Id: prodcons.mlton,v 1.7 2007-12-08 03:58:38 bfulgham Exp $
+ * http://www.bagley.org/~doug/shootout/ 
+ * from Stephen Weeks
+ *)
+(* Translated from prodcons.ocaml. *)
+
+fun print s = () (* Primitive.Stdio.print s *)
+
+structure Queue:
+   sig
+      type 'a t
+
+      val new: unit -> 'a t
+      val enque: 'a t * 'a -> unit
+      val deque: 'a t -> 'a option
+   end =
+   struct
+      datatype 'a t = T of {front: 'a list ref, back: 'a list ref}
+
+      fun new () = T {front = ref [], back = ref []}
+
+      fun enque (T {back, ...}, x) = back := x :: !back
+
+      fun deque (T {front, back}) =
+	 case !front of
+	    [] => (case !back of
+		      [] => NONE
+		    | l => let val l = rev l
+			   in case l of
+			      [] => raise Fail "deque"
+			    | x :: l => (back := []; front := l; SOME x)
+			   end)
+	  | x :: l => (front := l; SOME x) 
+   end
+
+structure Thread:
+   sig
+      val exit: unit -> 'a
+      val run: unit -> unit
+      val spawn: (unit -> unit) -> unit
+      val yield: unit -> unit
+      structure Mutex:
+	 sig
+	    type t
+
+	    val new: unit -> t
+	    val lock: t * string -> unit
+	    val unlock: t -> unit
+	 end
+      structure Condition:
+      	 sig
+	    type t
+	       
+	    val new: unit -> t
+	    val signal: t -> unit
+	    val wait: t * Mutex.t -> unit
+	 end
+   end =
+   struct
+      open MLton.Itimer
+      open MLton.Signal
+      open MLton.Thread
+
+      structure Thread = MLton.Thread
+
+      val topLevel: Thread.Runnable.t option ref = ref NONE
+
+      local
+	 val threads: Thread.Runnable.t Queue.t = Queue.new ()
+      in
+	 fun ready (t): unit = Queue.enque (threads, t)
+	 fun next () =
+	    case Queue.deque threads of
+	       NONE => (print "switching to toplevel\n"
+			; valOf (!topLevel))
+	     | SOME t => t
+      end
+
+      fun 'a exit (): 'a = switch (fn _ => next ())
+      
+      fun new (f: unit -> unit): Thread.Runnable.t =
+	 Thread.prepare (Thread.new (fn () => ((f () handle _ => exit ())
+					       ; exit ())),
+			 ())
+	 
+      fun schedule (t: Thread.Runnable.t): Thread.Runnable.t =
+	 (print "scheduling\n"
+	  ; ready t
+	  ; next ())
+
+      fun yield (): unit =
+	 switch (fn t => schedule (prepare (t, ())))
+
+      val spawn = ready o new
+
+      fun setItimer t =
+	 MLton.Itimer.set (MLton.Itimer.Real,
+		     {value = t,
+		      interval = t})
+
+      fun run (): unit =
+         let
+	    val which = MLton.Itimer.Real;
+	    val signal = MLton.Itimer.signal which;
+	 in
+	 (switch (fn t =>
+		  (topLevel := SOME (prepare (t, ()))
+		   ; new (fn () =>
+			  (MLton.Signal.setHandler
+			   (signal, Handler.handler schedule)
+			   ; setItimer (Time.fromMilliseconds 20)))))
+	  ; setItimer Time.zeroTime
+	  ; MLton.Signal.setHandler (signal, MLton.Signal.Handler.ignore)
+	  ; topLevel := NONE)
+	  end
+	 
+      structure Mutex =
+	 struct
+	    datatype t = T of {locked: bool ref,
+			       waiting: Thread.Runnable.t Queue.t}
+	       
+	    fun new () =
+	       T {locked = ref false,
+		  waiting = Queue.new ()}
+
+	    fun lock (T {locked, waiting, ...}, name) =
+	       let
+		  fun loop () =
+		     (print (concat [name, " lock looping\n"])
+		      ; Thread.atomicBegin ()
+		      ; if !locked
+			   then (print "mutex is locked\n"
+				 ; switch (fn t =>
+					   (Thread.atomicEnd ()
+					    ; Queue.enque (waiting,
+							   prepare (t, ()))
+					    ; next ()))
+				 ; loop ())
+			else (print "mutex is not locked\n"
+			      ; locked := true
+			      ; Thread.atomicEnd ()))
+	       in loop ()
+	       end
+	    
+	    fun safeUnlock (T {locked, waiting, ...}) =
+	       (locked := false
+		; (case Queue.deque waiting of
+		      NONE => ()
+		    | SOME t => (print "unlock found waiting thread\n"
+				 ; ready t)))
+
+	    fun unlock (m: t) =
+	       (print "unlock atomicBegin\n"
+		; Thread.atomicBegin ()
+		; safeUnlock m
+		; Thread.atomicEnd ())
+	 end
+
+      structure Condition =
+	 struct
+	    datatype t = T of {waiting: Thread.Runnable.t Queue.t}
+
+	    fun new () = T {waiting = Queue.new ()}
+
+	    fun wait (T {waiting, ...}, m) =
+	       (switch (fn t =>
+			(Mutex.safeUnlock m
+			 ; print "wait unlocked mutex\n"
+			 ; Queue.enque (waiting, prepare (t, ()))
+			 ; next ()))
+		; Mutex.lock (m, "wait"))
+
+	    fun signal (T {waiting, ...}) =
+	       case Queue.deque waiting of
+		  NONE => ()
+		| SOME t => ready t
+	 end
+
+   end
+
+structure Mutex = Thread.Mutex
+structure Condition = Thread.Condition
+
+val count = ref 0
+val data = ref 0
+val produced = ref 0
+val consumed = ref 0
+val m = Mutex.new ()
+val c = Condition.new ()
+
+fun producer n =
+   for (0, n, fn i =>
+	(print (concat ["producer acquiring lock ", Int.toString i, "\n"])
+	 ; Mutex.lock (m, "producer")
+	 ; print "producer acquired lock\n"
+	 ; while !count = 1 do Condition.wait (c, m)
+	 ; print "producer passed condition\n"
+	 ; data := i
+	 ; count := 1
+	 ; Condition.signal c
+	 ; print "producer releasing lock\n"
+	 ; Mutex.unlock m
+	 ; print "producer released lock\n"
+	 ; produced := !produced + 1))
+
+fun consumer n =
+   let val i = ref 0
+   in
+      while !i <> n do
+	 (print (concat ["consumer acquiring lock ", Int.toString (!i), "\n"])
+	  ; Mutex.lock (m, "consumer")
+	  ; print "consumer acquired lock\n"
+	  ; while !count = 0 do Condition.wait (c, m)
+	  ; i := !data
+	  ; count := 0
+	  ; Condition.signal c
+	  ; print "consumer releasing lock\n"
+	  ; Mutex.unlock m
+	  ; print "consumer released lock\n"
+	  ; consumed := !consumed + 1)
+   end
+
+fun atoi s = case Int.fromString s of SOME num => num | NONE => 0
+fun printl [] = TextIO.print "\n" | printl (h::t) = ( TextIO.print h ; printl t )
+
+fun main (name, args) =
+   let
+      val n = atoi (hd (args @ ["1"]))
+      val p = Thread.spawn (fn () => producer n)
+      val c = Thread.spawn (fn () => consumer n)
+      val _ = Thread.run ()
+      val _ = Posix.Process.sleep (Time.fromSeconds 1)
+      val _ = printl [Int.toString (!produced),
+		      " ",  
+		      Int.toString (!consumed)]
+   in
+      ()
+   end
+
+val _ = main ( CommandLine.name (), CommandLine.arguments () )
+(* random.sml
+ *
+ *   Floating-point random number generator + test loop.
+ *
+ * Copyright (c) 2004 by The Fellowship of SML/NJ
+ *
+ * Author: Matthias Blume (blume@tti-c.org)
+ * Modified and ported to MLton by Vesa Karvonen.
+ *)
+
+(* the constants *)
+val (M, A, C) = (0w139968, 0w3877, 0w29573)
+
+(* floating format, word->real conversion *)
+val (f9, wreal) = (Real.fmt (StringCvt.FIX (SOME 9)), real o Word.toIntX)
+
+(* the loop *)
+fun lp (0w0, s, m) = m * wreal s / wreal M
+  | lp (n,   s, m) = lp (n-0w1, (s * A + C) mod M, m)
+
+(* the driver *)
+val n = valOf (Int.fromString (hd (CommandLine.arguments ()))) handle _ => 1
+val _ = app print [f9 (lp (Word.fromInt n, 0w42, 100.0)), "\n"]
+(* The Great Computer Language Shootout
+ * http://shootout.alioth.debian.org/
+ * contributed by Jon Harrop, 2005
+ * substantially stylistically modified by sweeks@sweeks.com, with no
+ *   major speed change, only a slight speedup, probably due to using a vector
+ *   instead of a list for "group" scenes.
+ *)
+
+fun real n = Real.fromInt n
+val delta = 0.00000001
+val infinity = Real.posInf
+
+structure Vec =
+   struct
+      datatype t = T of real * real * real
+
+      val origin = T (0.0, 0.0, 0.0)
+
+      fun scale (T (x, y, z), s) = T (s * x, s * y, s * z)
+
+      fun dot (T (x1, y1, z1), T (x2, y2, z2)) = x1 * x2 + y1 * y2 + z1 * z2
+
+      fun length v = Math.sqrt (dot (v, v))
+
+      fun unitise v = scale (v, 1.0 / length v)
+
+      local
+	 fun make f (T (x1, y1, z1), T (x2, y2, z2)) =
+	    T (f (x1, x2), f (y1, y2), f (z1, z2))
+      in
+	 val op + = make (op +)
+	 val op - = make (op -)
+      end
+   end
+
+structure Sphere =
+   struct
+      datatype t = T of {center: Vec.t, radius: real}
+   end
+
+structure Ray =
+   struct
+      datatype t = T of {dir: Vec.t, orig: Vec.t}
+
+      local
+	 fun disc (T {dir, orig}, Sphere.T {center, radius}) =
+	    let
+	       val v = Vec.- (center, orig)
+	       val b = Vec.dot (v, dir)
+	    in
+	       (b, b * b - Vec.dot (v, v) + radius * radius)
+	    end
+      in
+	 fun doesHitSphere (r, s): bool =
+	    let
+	       val (b, disc) = disc (r, s)
+	    in
+	       disc >= 0.0 andalso b + Math.sqrt disc >= 0.0
+	    end
+	 fun hitSphere (r, s): real =
+	    let
+	       val (b, disc) = disc (r, s)
+	    in
+	       if disc < 0.0 then infinity
+	       else let
+		       val disc = Math.sqrt disc
+		    in
+		       let
+			  val t2 = b + disc
+		       in
+			  if t2 < 0.0 then infinity
+			  else
+			     let
+				val t1 = b - disc
+			     in
+				if t1 > 0.0 then t1 else t2
+			     end
+		       end
+		    end
+	    end
+      end
+   end
+
+structure Scene =
+   struct
+      datatype t =
+	 Group of {bound: Sphere.t,
+		   scenes: t vector}
+       | Sphere of Sphere.t
+
+      fun doesIntersect (s: t, r: Ray.t): bool =
+	 let
+	    val rec loop: t -> bool =
+	       fn Group {bound, scenes} =>
+	             Ray.doesHitSphere (r, bound)
+		     andalso Vector.exists loop scenes
+		|  Sphere s => Ray.doesHitSphere (r, s)
+	 in
+	    loop s
+	 end
+	 
+      val intersect: t * Ray.t -> real * Vec.t =
+	 fn (scene, r as Ray.T {orig, dir}) =>
+	 let
+	    fun loop (scene, (l, n)) =
+	       case scene of
+		  Group {bound, scenes} =>
+		     if l <= Ray.hitSphere (r, bound)
+			then (l, n)
+		     else Vector.foldl loop (l, n) scenes
+		| Sphere (sphere as Sphere.T {center, ...}) =>
+		     let
+			val l' = Ray.hitSphere (r, sphere)
+			open Vec
+		     in
+			if l' >= l then (l, n)
+			else (l', unitise (orig + scale (dir, l') - center))
+		     end
+	 in
+	    loop (scene, (infinity, Vec.origin))
+	 end
+
+      val negLight = Vec.unitise (Vec.T (1.0, 3.0, ~2.0))
+
+      val rayTrace: t * Ray.t -> real =
+	 fn (scene, ray as Ray.T {dir, orig}) =>
+	 let
+	    val (lambda, n) = intersect (scene, ray)
+	 in
+	    if lambda >= infinity then 0.0
+	    else
+	       let
+		  val g = Vec.dot (n, negLight)
+	       in
+		  if g <= 0.0 then 0.0
+		  else
+		     let
+			open Vec
+			val orig = orig + scale (dir, lambda) + scale (n, delta)
+		     in
+			if doesIntersect (scene,
+					  Ray.T {dir = negLight, orig = orig})
+			   then 0.0
+			else g
+		     end
+	       end
+	 end
+
+      fun bound (s: t, sphere as Sphere.T {center = c, radius = r}): Sphere.t =
+	 case s of
+	    Group {scenes, ...} => Vector.foldl bound sphere scenes
+	  | Sphere (Sphere.T {center = c', radius = r'}) =>
+	       Sphere.T {center = c,
+			 radius = Real.max (r, Vec.length (Vec.- (c, c')) + r')}
+
+      fun create (level, r, v: Vec.t): t =
+	 let
+	    val obj = Sphere (Sphere.T {center = v, radius = r})
+	 in
+	    if level = 1 then obj
+	    else
+	       let
+		  val r' = 3.0 * r / Math.sqrt 12.0
+		  fun aux (x', z') =
+		     create (level - 1, 0.5 * r, Vec.+ (v, Vec.T (~x', r', z')))
+		  val scenes =
+(*		     Vector.fromList [aux (r', r'), aux (~r', r'),
+ *				      aux (r', ~r'), aux (~r', ~r'), obj]
+ *)
+		     Vector.fromList [obj, aux (~r', ~r'), aux (r', ~r'),
+				      aux (~r', r'), aux (r', r')]
+		  val bound =
+		     Vector.foldl bound
+		     (Sphere.T {center = Vec.+ (v, Vec.T (0.0, r, 0.0)),
+				radius = 0.0})
+		     scenes
+	       in
+		  Group {bound = bound, scenes = scenes}
+	       end
+	 end
+   end
+
+fun fold2 (n, ac, f) =
+   Int.fold (0, n, ac, fn (y, ac) =>
+	     let
+		val y = real y
+	     in
+		Int.fold (0, n, ac, fn (x, ac) => f (real x, y, ac))
+	     end)
+
+fun for2 (n, f) = fold2 (n, (), fn (x, y, ()) => f (x, y))
+
+fun eyeRay (scene, n, ss, x, y, g, dx, dy) =
+   let
+      val dir = Vec.unitise (Vec.T (x + dx / ss, y + dy / ss, n))
+   in
+      g + Scene.rayTrace (scene, Ray.T {dir = dir,
+					orig = Vec.T (0.0, 0.0, ~4.0)})
+   end
+
+fun pixel (scene, n, ss, x, y) =
+    let
+       val (x, y) = (x - n / 2.0, (n - 2.0) / 2.0 - y)
+       val g = fold2 (ss, 0.0, fn (dx, dy, g) =>
+		      eyeRay (scene, n, real ss, x, y, g, dx, dy))
+    in
+       print (str (chr (Real.round (255.0 * g / real (ss * ss)))))
+    end
+
+val () =
+   let
+      val level = 6
+      val n = getOpt (Int.fromString (List.hd (CommandLine.arguments ())), 256)
+      val ss = 4
+      val scene = Scene.create (level, 1.0, Vec.T (0.0, ~1.0, 0.0))
+      val s = Int.toString n
+      val () = print (concat ["P5\n", s, " ", s, "\n255\n"])
+      val n' = real n
+   in
+      for2 (n, fn (x, y) => pixel (scene, n', ss, x, y))
+   end
+(* The Great Computer Language Shootout
+ * http://shootout.alioth.debian.org/
+ * contributed by Jon Harrop, 2005
+ * Compile: mlton raytracer.sml
+ *)
+
+val delta = Math.sqrt (Real.nextAfter(1.0, 2.0) - 1.0)
+val infinity = Real.posInf
+type vec = real * real * real
+infix 7 *| fun s *| (x, y, z) : vec = (s*x, s*y, s*z)
+infix 6 +| fun (x1, y1, z1) +| (x2, y2, z2) : vec = (x1+x2, y1+y2, z1+z2)
+infix 6 -| fun (x1, y1, z1) -| (x2, y2, z2) : vec = (x1-x2, y1-y2, z1-z2)
+fun dot (x1, y1, z1) (x2, y2, z2) : real = x1*x2 + y1*y2 + z1*z2
+fun unitise r = (1.0 / Real.Math.sqrt (dot r r)) *| r
+datatype scene = Sphere of vec * real | Group of vec * real * scene list
+fun length r = Math.sqrt(dot r r)
+fun ray_sphere orig dir center radius =
+    let val v = center -| orig val b = dot v dir
+	val disc = b * b - dot v v + radius * radius in
+	if disc < 0.0 then infinity else
+	let val disc = Real.Math.sqrt disc
+	    val t2 = b + disc in
+	    if t2 < 0.0 then infinity else
+	    let val t1 = b - disc in if t1 > 0.0 then t1 else t2 end
+	end
+    end
+fun sray_sphere orig dir center radius =
+    let val v = center -| orig val b = dot v dir
+        val disc = b * b - dot v v + radius * radius in
+	if disc < 0.0 then false else b + Math.sqrt disc >= 0.0
+    end
+fun intersect orig dir scene =
+    let fun aux (Sphere (center, radius), (l, n)) =
+	    let val l' = ray_sphere orig dir center radius in
+		if l' >= l then (l, n) else
+		(l', unitise (orig +| l' *| dir -| center))
+	    end
+	  | aux (Group (center, radius, scenes), (l, n)) =
+	    if ray_sphere orig dir center radius >= l then (l, n)
+	    else foldl aux (l, n) scenes in
+	aux (scene, (infinity, (0.0, 0.0, 0.0))) end
+fun sintersect orig dir scene =
+    let fun aux (Sphere (center, radius)) =
+	    sray_sphere orig dir center radius
+	  | aux (Group (center, radius, scenes)) =
+	    sray_sphere orig dir center radius andalso List.exists aux scenes
+    in aux scene end
+val neg_light = unitise (1.0, 3.0, ~2.0)
+fun ray_trace orig dir scene =
+    let val (lambda, n) = intersect orig dir scene in
+	if lambda >= infinity then 0.0 else
+	let val g = dot n neg_light in
+	    if g <= 0.0 then 0.0 else
+	    let val orig = orig +| lambda *| dir +| delta *| n in
+		if sintersect orig neg_light scene then 0.0 else g
+	    end
+	end
+    end
+fun bound (Sphere (c', r'), (c, r)) = (c, Real.max(r, (length (c -| c') + r')))
+  | bound (Group (_, _, l), (c, r)) = foldl bound (c, r) l
+fun create level r (x, y, z) =
+    let val obj = Sphere ((x, y, z), r) in
+	if level = 1 then obj else
+	let val r' = 3.0 * r / Real.Math.sqrt 12.0
+	    fun aux x' z' = create (level-1) (0.5 * r) (x-x', y+r', z+z')
+	    val objs = [obj, aux (~r') (~r'), aux r' (~r'),
+			aux (~r') r', aux r' r']
+	    val (c, r) = foldl bound ((x, y+r, z), 0.0) objs in
+	    Group (c, r, objs)
+	end
+    end
+fun loop f accu (x, y, n) =
+    if y=n then accu else
+    if x=n then loop f accu (0, y+1, n) else
+    loop f (f accu (real x) (real y)) (x+1, y, n)
+fun eye_ray scene n ss x y g dx dy =
+    let val dir = unitise (x + dx/ss, y + dy/ss, n) in
+	g + ray_trace (0.0, 0.0, ~4.0) dir scene
+    end
+fun pixel scene n ss () x y =
+    let val (x, y) = (x - n / 2.0, (n - 2.0) / 2.0 - y)
+	val g = loop (eye_ray scene n (real ss) x y) 0.0 (0, 0, ss) in
+	print (String.str(Char.chr(Real.round (255.0 * g / real (ss*ss)))))
+    end
+val () =
+    let val level = 6
+	val n = getOpt(Int.fromString (List.hd (CommandLine.arguments ())), 256)
+	val ss = 4 and scene = create 6 1.0 (0.0, ~1.0, 0.0) in
+	(fn s => print ("P5\n"^s^" "^s^"\n255\n")) (Int.toString n);
+	loop (pixel scene (real n) ss) () (0, 0, n)
+    end
+(* The Computer Language Shootout
+   http://shootout.alioth.debian.org/
+   contributed by Scott Cruzen
+*)
+
+fun ack x y = if x = 0 then y + 1 else if y = 0 then ack (x - 1) 1 else ack (x - 1) (ack x (y - 1))
+
+fun fib n = if n < 2 then 1 else fib (n - 2) + fib (n - 1)
+
+fun fibr n = if n < 2.0 then 1.0 else fibr (n - 2.0) + fibr (n - 1.0)
+
+fun tak x y z = if y < x then tak (tak (x - 1.0) y z) (tak (y - 1.0) z x) (tak (z - 1.0) x y) else z
+
+fun taki x y z = if y < x then taki (taki (x - 1) y z) (taki (y - 1) z x) (taki (z - 1) x y) else z
+
+val a = valOf (Int.fromString (hd (CommandLine.arguments())))
+val b = a - 1 val c = 27.0 + Real.fromInt a
+val ifmt = Int.toString val rfmt = Real.fmt (StringCvt.FIX (SOME 1)) 
+
+val _ = (print (concat ["Ack(3," , ifmt a ,"): ", ifmt (ack 3 a), "\n"])
+        ; print (concat ["Fib(", rfmt c, "): " , rfmt (fibr c), "\n"])
+        ; print (concat ["Tak(", ifmt (b*3), ",", ifmt (b*2), ",", ifmt b, "): ",
+            ifmt (taki (b*3) (b*2) b), "\n"])
+        ; print (concat ["Fib(3): " ,ifmt (fib 3), "\n"])
+        ; print (concat ["Tak(3.0,2.0,1.0): " , rfmt (tak 3.0 2.0 1.0), "\n"]))
+(* -*- mode: sml -*-
+ * $Id: regexmatch.mlton,v 1.5 2007-12-08 03:58:38 bfulgham Exp $
+ * http://www.bagley.org/~doug/shootout/
+ * from Stephen Weeks
+ *)
+
+fun ++ (r: int ref): int =
+   let
+      val n = 1 + !r
+      val _ = r := n
+   in n
+   end
+
+structure Int =
+   struct
+      open Int
+
+      type t = int
+	 
+       
+   end
+
+structure Array2 =
+   struct
+      open Array2
+
+      type 'a t = 'a array
+
+      val new = array
+
+      fun tabulate (r, c, f) = Array2.tabulate RowMajor (r, c, f)
+
+      fun foreachi (a, f) =
+	 appi RowMajor f {base = a, row = 0, col = 0,
+			  nrows = NONE, ncols = NONE}
+   end
+
+structure Vector =
+   struct
+      open Vector
+
+      fun exists (v, f) =
+	 Int.exists (0, length v, fn i => f (sub (v, i)))
+      fun foreach (v, f) = app f v
+      fun foreachi (v, f) = appi f v
+      fun new (n, x) = tabulate (n, fn _ => x)
+      fun new1 x = new (1, x)
+   end
+
+structure List =
+   struct
+      open List
+
+      fun foreach (l, f) = app f l
+
+      fun fold (l, b, f) = foldl f b l
+
+      fun appendRev (l1, l2) = fold (l1, l2, op ::)
+
+      fun push (r, x) = r := x :: !r
+
+      fun keepAll (l, f) = filter f l
+
+      fun peek (l, f) = find f l
+
+      fun insert (l, x, op <=) =
+	 let
+	    fun loop (l, ac) =
+	       case l of
+		  [] => appendRev (ac, [x])
+		| x' :: l' =>
+		     if x <= x'
+			then appendRev (ac, x :: l)
+		     else loop (l', x' :: ac)
+	 in loop (l, [])
+	 end
+   end
+
+structure Array =
+   struct
+      open Array
+ 
+      fun indices (a: bool array): int vector =
+	 let
+	    val n = Array.length a
+	    val numTrue =
+	       let
+		  fun loop (i, count) =
+		     if i = n
+			then count
+		     else loop (i + 1,
+				if Array.sub (a, i)
+				   then count + 1
+				else count)
+	       in loop (0, 0)
+	       end
+	    val next = ref 0
+	    fun loop i =
+	       if Array.sub (a, i)
+		  then (next := i + 1; i)
+	       else loop (i + 1)
+	 in Vector.tabulate (numTrue, fn _ => loop (!next))
+	 end
+   end
+
+structure Char =
+   struct
+      open Char
+	 
+      val fromInt = chr
+      val toInt = ord
+   end
+
+structure String =
+   struct
+      open String
+
+      type t = string
+	 
+      fun contains (s: t, c: char): bool =
+	 Int.exists (0, size s, fn i => c = sub (s, i))
+   end
+
+val numChars: int = 128
+
+structure Regexp =
+   struct
+      datatype t =
+	 AnchorStart
+       | CharSet of char -> bool
+       | Or of t list
+       | Seq of t list
+       | Star of t
+   end
+
+structure Stack:
+   sig
+      type 'a t
+
+      val clear: 'a t -> unit
+      val exists: 'a t * ('a -> bool) -> bool
+      val foreach: 'a t * ('a -> unit) -> unit
+      val new: int * 'a -> 'a t
+      val push: 'a t * 'a -> unit
+   end =
+   struct
+      datatype 'a t = T of {elts: 'a array,
+			    size: int ref}
+
+      fun new (size: int, dummy: 'a): 'a t =
+	 T {elts = Array.new (size, dummy),
+	    size = ref 0}
+
+      fun push (T {elts, size}, x) =
+	 let
+	    val n = !size
+	    val _ = Array.update (elts, n, x)
+	    val _ = size := n + 1
+	 in ()
+	 end
+
+      fun exists (T {elts, size, ...}, f) =
+	 Int.exists (0, !size, fn i => f (Array.sub (elts, i)))
+	 
+      fun foreach (T {elts, size}, f) =
+	 Int.for (0, !size, fn i => f (Array.sub (elts, i)))
+
+      fun clear (T {size, ...}) = size := 0
+   end
+
+(* Non-deterministic Finite Automaton. *)
+structure NFA:
+   sig
+      (* The states in an NFA are indexed from 0 to n-1, where n is the number
+       * of states.
+       *)
+      type state = int
+
+      (* State i is final iff Array.sub (final, i).
+       * The outgoing states from state i on input char c are given by
+       * Array2.sub (next, i, Char.ord c).
+       * anchorStarts is sorted in increasing order of state index.
+       *)
+      datatype t = T of {anchorStarts: state list,
+			 final: bool array,
+			 seen: bool array, (* used for matching. *)
+			 stack1: int Stack.t, (* used for matching. *)
+			 stack2: int Stack.t, (* used for matching. *)
+			 start: state,
+			 next: state vector Array2.t}
+	 
+      val fromRegexp: Regexp.t -> t
+      val match: {nfa: t,
+		  string: string,
+		  startPos: int,
+		  anchorStart: bool} -> int option
+      val numStates: t -> int
+   end =
+   struct
+      type state = int
+      datatype t = T of {anchorStarts: state list,
+			 final: bool array,
+			 seen: bool array,
+			 stack1: int Stack.t,
+			 stack2: int Stack.t,
+			 start: state,
+			 next: state vector Array2.t}
+
+      fun numStates (T {next, ...}) = Array2.nRows next
+
+
+      (* Simulating an NFA with two stacks and a bit vector, as in Algorithm 3.4
+       * (page 126) of Compilers: Principles, Techniques, and Tools by Aho,
+       * Sethi, and Ullman.
+       *)
+      fun match {anchorStart: bool,
+		 nfa as T {anchorStarts, final, seen, stack1, stack2, start,
+			   next},
+		 startPos,
+		 string = s}: int option =
+	 let
+	    val numStates = numStates nfa
+	    val n = String.size s
+	    val _ = Array.modify (seen, fn _ => false)
+	    fun loop (current: state Stack.t,
+		      nextStates: state Stack.t,
+		      i: int,
+		      last: int option): int option =
+	       let
+		  val last = 
+		     if Stack.exists (current, fn s => Array.sub (final, s))
+			then SOME i
+		     else last
+	       in
+		  if numStates = 0 orelse i = n
+		     then (Stack.clear stack1
+			   ; Stack.clear stack2
+			   ; last)
+		  else
+		     let
+			val _ = Array.modify (seen, fn _ => false)
+			val c = Char.toInt (String.sub (s, i))
+			val _ =
+			   Stack.foreach (current, fn s =>
+					  Vector.foreach
+					  (Array2.sub (next, s, c),
+					   fn s' =>
+					   if Array.sub (seen, s')
+					      then ()
+					   else (Array.update (seen, s', true)
+						 ; Stack.push (nextStates, s'))))
+			val _ = Stack.clear current
+		     in loop (nextStates, current, i + 1, last)
+		     end
+	       end
+	    val _ = Stack.push (stack1, start)
+	    val _ =
+	       if anchorStart
+		  then List.foreach (anchorStarts, fn s =>
+				     Stack.push (stack1, s))
+	       else ()
+	 in
+	    loop (stack1, stack2, startPos, NONE)
+	 end
+
+      (* This conversion from a regular expression to an NFA is based on
+       * Section 3.9 (pages 134 -- 140) of Compilers: Principles, Techniques,
+       * and Tools by Aho, Sethi, and Ullman.
+       *
+       * It creates one NFA state for each CharSet (called a "position") that is
+       * in the regexp.  There is also one extra state for the start state.
+       * It adds edges as in rules 1 and 2 (page 138) for the followpos function.
+       *)
+      fun fromRegexp (r: Regexp.t): t =
+	 let
+	    fun loop (r, ac) =
+	       let open Regexp
+	       in case r of
+		  AnchorStart => ac + 1
+		| CharSet _ => ac + 1
+		| Or rs => List.fold (rs, ac, loop)
+		| Seq rs => List.fold (rs, ac, loop)
+		| Star r => loop (r, ac)
+	       end
+	    val numPos = loop (r, 0)
+	    val numStates = numPos + 1
+	    val start = numPos
+	    val posCounter = ref ~1
+	    val follow = Array2.new (numStates, numStates, false)
+	    val posChars = Array2.tabulate (numPos, numChars, fn _ => false)
+	    local
+	       datatype t = T of bool vector (* of length numPos *)
+	    in
+	       fun contains (T v, s) = Vector.sub (v, s)
+	       val empty: t = T (Vector.new (numPos, false))
+	       fun union (T v, T v'): t =
+		  T (Vector.tabulate (numPos, fn i =>
+				      Vector.sub (v, i)
+				      orelse Vector.sub (v', i)))
+	       fun singleton (i: int): t =
+		  T (Vector.tabulate (numPos, fn j => i = j))
+	       fun foreach (T v, f) =
+		  Vector.foreachi (v, fn (i, b) => if b then f i else ())
+	    end
+	    val anchorStarts = ref []
+	    (* The following loop fills in follow and posChars. *)
+	    fun loop r =
+	       case r of
+		  Regexp.AnchorStart =>
+		     let
+			val i = ++ posCounter
+			val _ = List.push (anchorStarts, i)
+			val first = singleton i
+		     in
+			{first = first,
+			 last = first,
+			 nullable = false}
+		     end
+		| Regexp.CharSet f =>
+		     let
+			val i = ++ posCounter
+			val _ =
+			   Int.for (0, numChars, fn c =>
+				    if f (Char.chr c)
+				       then Array2.update (posChars, i, c, true)
+				    else ())
+			val first = singleton i
+		     in {first = first,
+			 last = first,
+			 nullable = false}
+		     end
+		| Regexp.Or rs =>
+		     List.fold
+		     (rs, {first = empty,
+			   last = empty,
+			   nullable = false},
+		      fn (r, {first = f, last = l, nullable = n}) =>
+		      let
+			 val {first = f', last = l', nullable = n'} =
+			    loop r
+		      in
+			 {first = union (f, f'),
+			  last = union (l, l'),
+			  nullable = n orelse n'}
+		      end)
+		| Regexp.Seq rs =>
+		     List.fold
+		     (rs, {first = empty,
+			   last = empty,
+			   nullable = true},
+		      fn (r, {first = f, last = l, nullable = n}) =>
+		      let
+			 val {first = f', last = l', nullable = n'} =
+			    loop r
+			 val _ =
+			    foreach
+			    (l, fn s =>
+			     foreach
+			     (f', fn s' => Array2.update (follow, s, s', true)))
+		      in
+			 {first = if n then union (f, f') else f,
+			  last = if n' then union (l, l') else l',
+			  nullable = n andalso n'}
+		      end)
+		| Regexp.Star r =>
+		     let
+			val {first = f, last = l, nullable = n} = loop r
+			val _ =
+			   foreach
+			   (l, fn s =>
+			    foreach
+			    (f, fn s' => Array2.update (follow, s, s', true)))
+		     in
+			{first = f, last = l, nullable = true}
+		     end
+	    val {first, last, nullable} = loop r
+	    (* Any anchor starts in first should be anchor starts.
+	     * This also reverses anchorStarts so they are in order.
+	     *)
+	    val anchorStarts =
+	       List.fold (!anchorStarts, [], fn (s, ac) =>
+			  if contains (first, s) then s :: ac else ac)
+	    (* The positions in first are all reachable from the start state. *)
+	    val _ = foreach (first, fn i =>
+			     Array2.update (follow, start, i, true))
+	    (* The positions in last are all final states. *)
+	    val final = Array.array (numStates, false)
+	    val _ = foreach (last, fn i => Array.update (final, i, true))
+	    (* The start state is final if the whole regexp is nullable. *)
+	    val _ = if nullable then Array.update (final, start, true) else ()
+	    (* Now c1ompute the transition table. *)
+	    val a = Array.new (numStates, false)
+	    val next =
+	       Array2.tabulate
+	       (numStates, numChars, fn (i, c) =>
+		let
+		   val _ =
+		      Int.for (0, numStates, fn j => Array.update (a, j, false))
+		   val _ =
+		      Int.for
+		      (0, numPos, fn j =>
+		       if Array2.sub (follow, i, j)
+			  andalso Array2.sub (posChars, j, c)
+			  then Array.update (a, j, true)
+		       else ())
+		in Array.indices a
+		end)
+	 in
+	    T {anchorStarts = anchorStarts,
+	       final = final,
+	       next = next,
+	       seen = Array.new (numStates, false),
+	       stack1 = Stack.new (numStates, ~1),
+	       stack2 = Stack.new (numStates, ~1),
+	       start = start}
+	 end
+      
+   end
+
+structure DFA:
+   sig
+      type t
+
+      val fromNFA: NFA.t -> t
+      val match: {dfa: t,
+		  string: string,
+		  startPos: int,
+		  anchorStart: bool} -> int option
+      val minimize: t -> t
+   end =
+   struct
+      (* The states in a DFA are indexed from 0 to n-1, where n is the number
+       * of states.
+       *)
+      type state = int
+	 
+      (* State i is final iff Array.sub (final, i).
+       * The outgoing state from state i on input char c is
+       * Array2.sub (next, i, Char.ord c).
+       *)
+      datatype t = T of {anchorStart: state,
+			 dead: bool array,
+			 final: bool array,
+			 next: state Array2.t,
+			 start: state}
+
+      fun numStates (T {next, ...}): int = Array2.nRows next
+
+
+      fun match {dfa as T {anchorStart = ancSt, dead, final, start, next},
+		 string as s,
+		 startPos: int,
+		 anchorStart: bool}: int option =
+	 let
+	    val n = String.size s
+	    fun loop (i: int, state: int, last: int option): int option =
+	       let
+		  val last =
+		     if Array.sub (final, state)
+			then SOME i
+		     else last
+	       in
+		  if Array.sub (dead, state) orelse i = n
+		     then last
+		  else loop (i + 1,
+			     Array2.sub (next, state,
+					 Char.toInt (String.sub (s, i))),
+			     last)
+	       end
+	 in loop (startPos,
+		  if anchorStart then ancSt else start,
+		     NONE)
+	 end
+
+      fun dead (numStates, final, next) =
+	 Array.tabulate
+	 (numStates, fn i =>
+	  not (Array.sub (final, i))
+	  andalso Int.forall (0, numChars, fn c =>
+			      i = Array2.sub (next, i, c)))
+	 
+      (* This DFA minimization algorithm is based on algorithm 3.6 (page 142)
+       * of Compilers: Principles, Techniques, and Tools by Aho, Sethi, and
+       * Ullman. 
+       *
+       * It maintains an array, r, that stores for each state s the
+       * representative of the class to which s belongs.
+       * It repeatedly refines an equivalence relation, represented by a list
+       * of classes, where each class is a list of states (i.e. ints).
+       *)
+      fun minimize (dfa as T {anchorStart, final, start, next, ...}): t =
+	 let
+	    val numStates = numStates dfa
+	    type class = int list
+	    type classes = class list
+	    val repCounter = ref ~1
+	    val change = ref false
+	    fun newRep () = (change := true; ++ repCounter)
+	    val finRep = newRep ()
+	    val nonfinRep = newRep ()
+	    val r = Array.tabulate (numStates, fn i =>
+				    if Array.sub (final, i)
+				       then finRep
+				    else nonfinRep)
+	    fun rep s = Array.sub (r, s)
+	    fun trans (s, c) = rep (Array2.sub (next, s, c))
+	    fun refine (class: class, ac: classes): classes =
+	       let
+		  val r =
+		     List.fold
+		     (class, [], fn (state, classes) =>
+		      let
+			 fun loop (classes, ac) =
+			    case classes of
+			       [] =>
+				  (case ac of
+				      [] => [{class = [state],
+					      old = state}]
+				    | _ => 
+					 let
+					    val s = newRep ()
+					    val _ = Array.update (r, state, s)
+					 in {class = [state],
+					     old = state} :: ac
+					 end)
+			     | (z as {class, old}) :: classes =>
+				  if Int.forall
+				     (0, numChars, fn c =>
+				      trans (old, c) = trans (state, c))
+				     then
+					(Array.update (r, state, rep old)
+					 ; {class = state :: class,
+					    old = old} :: (List.appendRev
+							   (classes, ac)))
+				  else loop (classes, z :: ac)
+		      in loop (classes, [])
+		      end)
+	       in List.fold (r, ac, fn ({class, ...}, ac) =>
+			     case class of
+				[_] => ac
+			      | _ => class :: ac)
+	       end
+	    fun refineAll (classes: classes): unit =
+	       case classes of
+		  [] => ()
+		| _ =>
+		     let
+			val _ = change := false
+			val classes =
+			   List.fold (classes, [], fn (class, ac) =>
+				      case class of
+					 [_] => ac
+				       | _ => refine (class, ac))
+		     in if !change
+			   then refineAll classes
+			else ()
+		     end
+	    val (fin, nonfin) =
+	       Int.fold (0, numStates, ([], []), fn (i, (f, n)) =>
+			 if Array.sub (final, i)
+			    then (i :: f, n)
+			 else (f, i :: n))
+	    val _ = refineAll [fin, nonfin]
+	    val numStates' = 1 + !repCounter
+	    (* Compute reachable states. *)
+	    val reached = Array.new (numStates', false)
+	    fun visit (s: int (* an old state *)): unit =
+	       let
+		  val s' = rep s
+	       in
+		  if Array.sub (reached, s')
+		     then ()
+		  else (Array.update (reached, s', true)
+			; Int.for (0, numChars, fn c =>
+				   visit (Array2.sub (next, s, c))))
+	       end
+	    val _ = visit start
+	    val _ = visit anchorStart
+	    (* Compute new representatives. *)
+	    val c = ref ~1
+	    val newR = Array.tabulate (numStates', fn s =>
+				       if Array.sub (reached, s)
+					  then ++ c
+				       else ~1)
+	    val numStates' = 1 + !c
+	    val _ = Array.modify (r, fn s => Array.sub (newR, s))
+	    val next' = Array2.new (numStates', numChars, ~1)
+	    val _ =
+	       Array2.foreachi
+	       (next, fn (s, c, s') =>
+		Array2.update (next', rep s, c, rep s'))
+	    val final' = Array.array (numStates', false)
+	    val _ =
+	       Array.foreachi
+	       (final, fn (i, b) =>
+		if b then Array.update (final', rep i, true) else ())
+	 in T {anchorStart = rep anchorStart,
+	       dead = dead (numStates', final', next'),
+	       final = final',
+	       start = rep start,
+	       next = next'}
+	 end
+
+      (* This is the usual "subset construction", as in algorithm 3.2 (page 118)
+       * of Compilers: Principles, Techniques, and Tools by Aho, Sethi, and
+       * Ullman.
+       *
+       * It associates each (reachable) set of states in the nfa with a single
+       * state in the DFA.
+       *)
+      fun fromNFA (nfa as NFA.T {anchorStarts, final, start, next, ...}) =
+	 let
+	    (* Sets of states are represented as sorted vectors. *)
+	    type states = state vector
+	    val counter = ref ~1
+	    type work = {states: states,
+			 state: int,
+			 out: int vector option ref}
+	    val cache: work list ref = ref []
+	    val todo: work list ref = ref []
+	    fun statesToState (ss: states): int =
+	       case List.peek (!cache, fn {states, ...} => ss = states) of
+		  NONE =>
+		     let
+			val state = ++ counter
+			val work = {out = ref NONE,
+				    state = state,
+				    states = ss}
+			val _ = List.push (cache, work)
+			val _ = List.push (todo, work)
+		     in
+			state
+		     end
+		| SOME {state, ...} => state
+	    local
+	       val seen = Array.array (NFA.numStates nfa, false)
+	    in
+	       fun loop () =
+		  case !todo of
+		     [] => ()
+		   | {states, out, ...} :: rest =>
+			(todo := rest
+			 ; out := (SOME
+				   (Vector.tabulate
+				    (numChars, fn c =>
+				     let
+					val _ =
+					   Array.modify (seen, fn _ => false)
+					val _ = 
+					   Vector.foreach
+					   (states, fn s =>
+					    Vector.foreach
+					    (Array2.sub (next, s, c), fn s' =>
+					     Array.update (seen, s', true)))
+				     in statesToState (Array.indices seen)
+				     end)))
+			 ; loop ())
+	    end
+	    (* This call to statesToState initializes the worklist. *)
+	    val start' = statesToState (Vector.new1 start)
+	    val anchorStart' =
+	       statesToState
+	       (Vector.fromList (List.insert (anchorStarts, start, op <=)))
+	    val _ = loop ()
+	    val numStates = 1 + !counter
+	    val next' = Array2.new (numStates, numChars, ~1)
+	    val final' = Array.new (numStates, false)
+	    val _ =
+	       List.foreach
+	       (!cache, fn {states, state = i, out, ...}: work =>
+		let
+		   val _ =
+		      Vector.foreachi
+		      (valOf (! out), fn (c, j) =>
+		       Array2.update (next', i, c, j))
+		   val _ =
+		      if Vector.exists (states, fn s => Array.sub (final, s))
+			 then Array.update (final', i, true)
+		      else ()
+		in ()
+		end)
+	    val dead' = dead (numStates, final', next')
+	 in T {anchorStart = anchorStart',
+	       dead = dead',
+	       final = final',
+	       start = start',
+	       next = next'}
+	 end
+
+   end
+
+structure Regexp:
+   sig
+      structure Compiled:
+	 sig
+	    type t
+
+	    (* find returns the longest of the leftmost matches. *)
+	    val find: t * string -> {start: int, length: int} option
+	 end
+
+      type t
+
+      val anchorStart: t
+      val any: t
+      val char: char -> t
+      val compileDFA: t -> Compiled.t
+      val compileNFA: t -> Compiled.t
+      val digit: t
+      val nonDigit: t
+      val notOneOf: string -> t
+      val oneOf: string -> t
+      val or: t list -> t
+      val seq: t list -> t
+      val star: t -> t
+   end =
+   struct
+      open Regexp
+
+      val anchorStart = AnchorStart
+      val isChar = CharSet
+      fun isNotChar f = isChar (not o f)
+      fun char c = isChar (fn c' => c = c')
+      val or = Or
+      val seq = Seq
+      val star = Star
+
+      val any = isChar (fn _ => true)
+
+      fun oneOf s = isChar (fn c => String.contains (s, c))
+      fun notOneOf s = isNotChar (fn c => String.contains (s, c))
+      val digs = "0123456789"
+      val digit = oneOf digs
+      val nonDigit = notOneOf digs
+
+      val empty = Or [] (* Empty Language. *)
+      val emptyString = Seq [] (* Language containing the empty string only. *)
+
+	 
+      structure Compiled =
+	 struct
+	    datatype t =
+	       DFA of DFA.t
+	     | NFA of NFA.t
+
+	    fun find (c: t, s: string) =
+	       let
+		  val n = String.size s
+		  fun loop (i: int, anchorStart: bool) =
+		     if i = n
+			then NONE
+		     else
+			let
+			   val res =
+			      case c of
+				 DFA dfa =>
+				    DFA.match {dfa = dfa,
+					       string = s,
+					       startPos = i,
+					       anchorStart = anchorStart}
+			       | NFA nfa =>
+				    NFA.match {nfa = nfa,
+					       string = s,
+					       startPos = i,
+					       anchorStart = anchorStart}
+			in
+			   case res of
+			      NONE => loop (i + 1, false)
+			    | SOME finish => SOME {start = i,
+						   length = finish - i}
+			end
+	       in loop (0, true)
+	       end
+	 end
+
+      fun compileDFA r =
+	 Compiled.DFA (DFA.minimize (DFA.fromNFA (NFA.fromRegexp r)))
+      fun compileNFA r =
+	 Compiled.NFA (NFA.fromRegexp r)
+   end
+
+local
+   open Regexp
+in
+   val d = digit
+   val eol = char #"#"
+   val space = oneOf " \t"
+   val r =
+      seq [or [anchorStart, notOneOf "0123456789("],
+	   or [seq [char #"(", d, d, d, char #")"],
+	       seq [d, d, d]],
+	   char #" ",
+	   d, d, d,
+	   oneOf " -",
+	   d, d, d, d,
+	   or [eol, nonDigit]]
+(*   val comp = Regexp.compileNFA r *)
+   val comp = Regexp.compileDFA r
+end
+
+fun incr (r: int ref) = r := !r + 1
+
+val ins = TextIO.stdIn
+
+val phones =
+   let
+      fun loop lines =
+	 case TextIO.inputLine ins of
+	    NONE => rev lines
+	  | SOME(str) =>
+	    (case str of
+	        "" => rev lines
+	      | line => loop (line :: lines))
+   in loop []
+   end
+
+fun printl [] = print "\n" | printl(h::t) = ( print h ; printl t )
+
+(* Based on regexmatch.ocaml. *)
+   
+local
+   val form = "(...) ...-...."
+   val a = CharArray.tabulate (String.size form, fn i =>
+			       String.sub (form, i))
+in
+   fun checkPhone (mustPrint: bool, cnt: int ref, line: string) =
+      case Regexp.Compiled.find (comp, line) of
+	 NONE => ()
+       | SOME {start = pos, ...} =>
+	    let
+	       fun blit (src, dst, length) =
+		  let
+		     val stop = src + length
+		     fun loop (src, dst) =
+			if src = stop
+			   then ()
+			else (CharArray.update (a, dst,
+						String.sub (line, src))
+			      ; loop (src + 1, dst + 1))
+		  in
+		     loop (src, dst)
+		  end
+	       val (o1, o2, o3) =
+		  if #"(" = String.sub (line, pos)
+		     then (1, 6, 10)
+		  else if #"(" = String.sub (line, pos + 1)
+			  then (2, 7, 11)
+		       else if Char.isDigit (String.sub (line, pos))
+			       then (0, 4, 8)
+			    else (1, 5, 9)
+	       val _ = blit (pos + o1, 1, 3)
+	       val _ = blit (pos + o2, 6, 3)
+	       val _ = blit (pos + o3, 10, 4)
+	       val _ =
+		  if mustPrint
+		     then printl [Int.toString (!cnt), ": ", CharArray.vector a]
+		  else ()
+	       val _ = incr cnt
+	    in
+	       ()
+	    end
+end
+
+fun doit (mustPrint: bool): unit =
+   let
+      val cnt = ref 1
+   in
+      List.foreach (phones, fn line => checkPhone (mustPrint, cnt, line))
+   end
+
+fun atoi s = case Int.fromString s of SOME num => num | NONE => 0
+   
+fun main (name, args) =
+   let
+      val n = atoi (hd (args @ ["1"]))
+      val _ = Int.for (1, n, fn _ => doit false)
+      val _ = doit true
+   in ()
+   end
+
+val _ = main( CommandLine.name(), CommandLine.arguments() )
+(* reverse-complement.mlton
+ *
+ * The Great Computer Language Shootout
+ * http://shootout.alioth.debian.org/
+ *
+ * contributed by Troestler Christophe
+ * translated by sweeks@sweeks.com for MLton/SML from the OCaml version
+ *)
+
+val complement =
+  let
+     val cplt = Array.tabulate (256, chr)
+     fun u (c, c') = Array.update (cplt, ord c, c')
+     val () =
+	List.app
+	(fn (c1, c2) =>
+	 (u (c1, c2); u (c2, c1)
+	  ; u (Char.toLower c1, c2); u (Char.toLower c2, c1)))
+	[(#"A",#"T"), (#"C",#"G"), (#"B",#"V"), (#"D",#"H"), (#"K",#"M"),
+	 (#"R",#"Y")]
+  in
+     fn c => Array.sub (cplt, ord c)
+  end
+
+(* [reverse s] reverse-complement the string [s] in place. *)
+fun reverse (s: char array): unit =
+  let
+     fun rev (i, j) =
+	if i >= j
+	   then ()
+	else
+	   let
+	      val si = Array.sub (s, i)
+	      val () = Array.update (s, i, complement (Array.sub (s, j)))
+	      val () = Array.update (s, j, complement si)
+	   in
+	      rev (i + 1, j - 1)
+	   end
+  in
+     rev (0, Array.length s - 1)
+  end
+
+fun printFasta (dna: char array): unit =
+  let
+     fun output1 c = TextIO.output1 (TextIO.stdOut, c)
+     val n = Array.length dna
+     fun grab i =
+	if i = n
+	   then ()
+	else
+	   let 
+	      fun loop (i, count) =
+		 if 0 = count 
+		    then (output1 #"\n"; grab i)
+		 else (output1 (Array.sub (dna, i)); loop (i + 1, count - 1))
+	   in
+	      loop (i, Int.min (n - i, 60))
+	   end
+  in
+     grab 0
+  end
+
+structure Buffer:
+   sig
+      type t
+
+      val addLine: t * string -> t
+      val contents: t -> char array
+      val empty: t
+   end =
+   struct
+      datatype t = T of string list
+
+      val empty: t = T []
+
+      fun addLine (T xs, x) = T (x :: xs)
+
+      fun contents (T lines) =
+	 let
+	    val n = foldl (fn (s, n) => n + size s - 1) 0 lines
+	    val a = Array.array (n, #"\000")
+	    val _ =
+	       foldl (fn (s, i) =>
+		      let
+			 fun loop (i, j)  =
+			    if j < 0
+			       then i
+			    else (Array.update (a, i, String.sub (s, j))
+				  ; loop (i - 1, j - 1))
+		      in
+			 loop (i, String.size s - 2)
+		      end)
+	       (n - 1) lines
+	 in
+	    a
+	 end
+   end
+
+fun one (b: Buffer.t): unit =
+   let
+      val a = Buffer.contents b
+      val () = reverse a
+   in
+      printFasta a
+   end
+   
+fun loop (b: Buffer.t) =
+   case TextIO.inputLine TextIO.stdIn of
+      NONE => one b
+    | SOME line => 
+	 if size line > 0 andalso String.sub (line, 0) = #">"
+	    then (one b; print line; loop Buffer.empty)
+	 else loop (Buffer.addLine (b, line))
+
+val () = loop Buffer.empty
+
+
+(* -*- mode: sml -*-
+ * $Id: reversefile.mlton,v 1.4 2007-12-08 03:58:38 bfulgham Exp $
+ * http://www.bagley.org/~doug/shootout/
+ * from Tom 7
+ *)
+
+val bufsize = 4096
+val rdbufsize = 4096
+
+val stdout = Posix.FileSys.wordToFD 0w1
+val stdin = Posix.FileSys.wordToFD 0w0
+
+datatype block = END
+               | MORE of int ref * Word8Array.array * block
+
+val buff = Unsafe.Word8Array.create rdbufsize
+
+fun out END = ()
+  | out (MORE (ir as ref i, a, next)) =
+  let in
+    Posix.IO.writeArr (stdout, Word8ArraySlice.slice(a, i, NONE));
+    out next
+  end
+
+fun rd (start, len, count, b) =
+  if (start + len) >= count then 
+    (* done with this block. 
+       Copy from start to the end of the array into
+       buff, then return the starting index into buff. *)
+    let in
+      Word8ArraySlice.copy {src=Word8ArraySlice.slice(buff, start, SOME(len)),
+                            dst=buff, di=0};
+      (b, len)
+    end
+  else
+    if Unsafe.Word8Array.sub(buff, start + len) = 0w10 then
+      (* found newline *)
+      case b of
+	 END => raise Fail "unexpected END"
+       | MORE(ir as ref i, a, _) =>
+        if i > len then
+            let in
+              (* enough room *)
+              Word8ArraySlice.copy {src=Word8ArraySlice.slice(buff, start, SOME(len + 1)),
+	                            dst=a, di=(i - len - 1)};
+              ir := i - (len + 1);
+              
+              rd(start + len + 1, 0, count, b)
+            end
+          else (* not enough room *)
+            let
+              (* going to need a new buffer *)
+              val na = Unsafe.Word8Array.create bufsize
+              val l = (len + 1) - i
+            in
+              (* put the tail in whatever room is left *)
+	      Word8ArraySlice.copy {src=Word8ArraySlice.slice(buff, (start + len + 1) -i, SOME(i)),
+	                            dst=a, di= 0 };
+              (* put the head in a new buffer *)
+              Word8ArraySlice.copy {src=Word8ArraySlice.slice(buff, start, SOME(l)),
+	                            dst=na, di=bufsize - l };
+              ir := 0;
+              rd(start + len + 1, 0, count, MORE(ref (bufsize - l), na, b))
+            end
+	else rd (start, len + 1, count, b)
+	
+fun loop (b, s) =
+  let 
+    val count = Posix.IO.readArr (stdin, Word8ArraySlice.slice(buff, s, SOME(rdbufsize-s)))
+    val (bb, bs) = rd (0, s, count + s, b)
+  in
+    case count of
+      0 => out bb
+    | _ => loop (bb, bs)
+  end
+
+fun main(name, args) =
+    ( loop (MORE(ref bufsize, Unsafe.Word8Array.create bufsize, END), 0);
+      OS.Process.success);
+
+val _ = main( CommandLine.name(), CommandLine.arguments() );
+
+(* -*- mode: sml -*-
+ * $Id: sieve.mlton,v 1.2 2007-12-08 03:58:38 bfulgham Exp $
+ * http://www.bagley.org/~doug/shootout/
+ * with help from Stephen Weeks
+ *)
+
+val size = 8193
+
+val flags = Array.array (size, false)
+
+fun init () =
+   let
+      fun loop i =
+	 if i < size
+	    then (Array.update (flags, i, true); loop (i + 1))
+	 else ()
+   in loop 2
+   end
+
+fun do_elts (i, count) =
+  if i < size
+     then
+	if Array.sub (flags, i)
+	   then
+	      let
+		 fun loop k = 
+		    if k < size
+		       then (Array.update (flags, k, false); loop (k + i))
+		    else ()
+	      in loop (i + i); do_elts(i + 1,count + 1)
+	      end
+	else do_elts (i + 1, count)
+  else count
+
+fun printl [] = print "\n" | printl(h::t) = ( print h ; printl t )
+fun atoi s = case Int.fromString s of SOME num => num | NONE => 0
+
+fun doit () = (init (); do_elts (2, 0))
+   
+fun repeat i =
+   if i = 0
+      then doit ()
+   else (doit (); repeat (i - 1))
+
+fun main(name, param_list) =  let
+	val arg = hd(param_list @ ["1"]);
+	val num = atoi arg
+	val count = repeat (num - 1)
+    in  printl ["Count: ", Int.toString count];
+	OS.Process.success
+    end
+
+val _ = main( CommandLine.name(), CommandLine.arguments() );
+(*
+ *
+ * The Great Computer Language Shootout
+ * http://shootout.alioth.debian.org/
+ *
+ * Contributed by Sebastien Loisel
+ * Cleanup by Troestler Christophe
+ * Translated to SML by sweeks@sweeks.com
+ *)
+
+val sub = Array.sub
+val update = Array.update
+
+fun eval_A (i, j) = 1.0 / Real.fromInt ((i+j)*(i+j+1) div 2+i+1)
+   
+fun eval_A_times_u (u, v) =
+  let
+     val n = Array.length v
+  in
+     for (0, n, fn i =>
+	  (update (v, i, 0.0)
+	   ; for (0, n, fn j =>
+		  update (v, i, sub (v, i) + eval_A (i, j) * sub (u, j)))))
+  end
+
+fun eval_At_times_u (u, v) =
+   let
+      val n = Array.length v
+   in
+      for (0, n, fn i =>
+	   (update (v, i, 0.0)
+	    ; for (0, n, fn j =>
+		   update (v, i, sub (v, i) + eval_A (j, i) * sub (u, j)))))
+   end
+
+fun eval_AtA_times_u (u, v) =
+   let
+      val w = Array.array (Array.length u, 0.0)
+   in
+      eval_A_times_u (u, w)
+      ; eval_At_times_u (w, v)
+   end
+
+val n = valOf (Int.fromString (hd (CommandLine.arguments ()))) handle _ => 1
+val u = Array.array (n, 1.0)
+val v = Array.array (n, 0.0)
+val () = for (0, 10, fn _ => (eval_AtA_times_u (u, v); eval_AtA_times_u (v, u)))
+
+val vv = ref 0.0
+val vBv = ref 0.0
+val () =
+   for (0, n, fn i =>
+	(vv := !vv + sub (v, i) * sub (v, i)
+	; vBv := !vBv + sub (u, i) * sub (v, i)))
+
+val () = print (concat [Real.fmt (StringCvt.FIX (SOME 9))
+			(Real.Math.sqrt (!vBv / !vv)),
+			"\n"])
+(* -*- mode: sml -*-
+ * $Id: spellcheck.mlton,v 1.4 2007-12-08 03:58:39 bfulgham Exp $
+ * http://www.bagley.org/~doug/shootout/
+ *)
+
+open TextIO;
+
+fun chop str = String.substring (str, 0, (String.size str) - 1);
+
+fun spellcheck () =
+    let
+	val dict = HashTable.new {hash = String.hash,
+				  equals = op =,
+				  size = 40000}
+    in
+	let val din = openIn "Usr.Dict.Words"
+	    fun init_dict din dict =
+	        case inputLine din of
+		    NONE => ()
+		  | SOME(instr) => ( HashTable.insert (dict, chop instr, 1);
+                                     init_dict din dict )
+	in
+	    init_dict din dict
+	end;
+
+	let fun check_words dict =
+	    case inputLine stdIn of
+	        NONE => ()
+	      | SOME(instr) =>
+	          let val word = chop instr
+		  in
+		    case HashTable.peek (dict, word) of
+			SOME _ => ()
+		      | NONE => (print word ; print "\n");
+		    check_words dict
+		  end
+	in
+	    check_words dict
+	end handle EndOfFile => ()
+    end
+
+fun atoi s = case Int.fromString s of SOME num => num | NONE => 0;
+
+fun main(name, args) = 
+    let
+	val arg = hd(args @ ["1"])
+	val num = atoi arg
+    in
+	spellcheck ();
+	OS.Process.success
+    end;
+
+
+val _ = main( CommandLine.name(), CommandLine.arguments() );
+(* -*- mode: sml -*-
+ * $Id: strcat.mlton,v 1.4 2007-12-08 03:58:39 bfulgham Exp $
+ * http://www.bagley.org/~doug/shootout/
+ * from Stephen Weeks
+ *)
+
+fun atoi s = case Int.fromString s of SOME num => num | NONE => 0
+fun printl [] = print "\n" | printl(h::t) = ( print h ; printl t )
+
+val stuff = "hello\n"
+
+structure Buffer:
+   sig
+      type 'a t
+
+      val add: 'a t * 'a array -> unit
+      val length: 'a t -> int
+      val new: 'a -> 'a t
+   end =
+   struct
+      datatype 'a t = T of {dummy: 'a,
+			    length: int ref,
+			    elts: 'a array ref}
+
+      fun add (T {dummy, elts, length}, a) =
+	 let
+	    val l = !length
+	    val e = !elts
+	    val en = Array.length e
+	    val an = Array.length a
+	    val e =
+	       if l + an >= en
+		  then
+		     let
+			val e = Array.tabulate (2 * en, fn i =>
+						if i < l
+						   then Array.sub (e, i)
+						else dummy)
+			val _ = elts := e
+		     in e
+		     end
+	       else e
+	    val _ =
+	       Array.copy {src = a, dst = e, di = l}
+	    val _ = length := l + an
+	 in ()
+	 end
+
+      fun new (dummy: 'a) = T {dummy = dummy,
+			       length = ref 0,
+			       elts = ref (Array.array (32, dummy))}
+
+      fun length (T {length, ...}) = !length
+   end
+
+fun main (name, args) =
+   let
+      val stuff =
+	 Array.tabulate (String.size stuff, fn i => String.sub (stuff, i))
+      val n = atoi (hd (args @ ["1"]))
+      val b = Buffer.new #"\000"
+      val _ = for (0, n, fn _ => Buffer.add (b, stuff))
+      val _ = printl [Int.toString (Buffer.length b)]
+   in
+      ()
+   end
+
+val _ = main( CommandLine.name(), CommandLine.arguments() )
+(* -*- mode: sml -*-
+ * $Id: sumcol.mlton,v 1.5 2007-12-08 03:58:39 bfulgham Exp $
+ * http://shootout.alioth.debian.org/
+ *)
+
+fun sumlines sum =
+   case TextIO.inputLine TextIO.stdIn of
+      NONE => print (concat [Int.toString sum, "\n"])
+    | SOME str => sumlines (sum + (Option.valOf (Int.fromString str)))
+	
+val _ = sumlines 0
+fun tak (x: real, y, z) =
+   if y >= x then z
+   else tak (tak (x - 1.0, y, z), tak (y - 1.0, z, x), tak (z - 1.0, x, y))
+val n = valOf (Real.fromString (hd (CommandLine.arguments ())))
+val r = tak (3.0 * n, 2.0 * n, n)
+val () = print (concat [Real.fmt (StringCvt.FIX (SOME 1)) r, "\n"])
+(* tcpecho.sml
+ *
+ * The Great Computer Language Shootout
+ * http://shootout.alioth.debian.org/
+ *
+ * Contributed by Troestler Christophe
+ * Translated to SML by sweeks@sweeks.com
+ *)
+
+val m = 6400
+
+val bufferSize = 4096
+val port = 11000
+
+fun buf size = Word8ArraySlice.full (Word8Array.array (size, 0w0))
+val replySize = 64
+val reply = buf replySize
+val request = buf 64
+
+(* Return [false] if EOF is reached *)
+fun read (sock, buf, n) =
+   let
+      fun loop n =
+	 n <= 0 orelse
+	 let
+	    val r = Socket.recvArr (sock,
+				    Word8ArraySlice.slice
+				    (buf, 0, SOME (Int.min (n, bufferSize))))
+	 in
+	    r > 0 andalso loop (n - r)
+	 end
+   in
+      loop n
+   end
+
+fun server sock =
+  let
+     val b = Word8Array.array (bufferSize, 0w0)
+     val (s, _) = Socket.accept sock
+     val () =
+	while Socket.recvArr (s, Word8ArraySlice.full b) > 0
+	   do ignore (Socket.sendArr (s, reply))
+     val () = Socket.close s
+     val () = Socket.close sock
+  in
+     ()
+  end
+
+fun client n =
+  let
+     val b = Word8Array.array (bufferSize, 0w0)
+     val replies = ref 0
+     val bytes = ref 0 (* useless but mandated by spec *)
+     val sock = INetSock.TCP.socket ()
+     val () =
+	Socket.connect
+	(sock, INetSock.toAddr (NetHostDB.addr
+				(valOf (NetHostDB.getByName "127.0.0.1")),
+				port))
+     val () =
+	for (0, n, fn _ =>
+	     (ignore (Socket.sendArr (sock, request))
+	      ; ignore (read (sock, b, replySize))
+	      ; bytes := !bytes + replySize
+	      ; replies := 1 + !replies))
+     val () = Socket.close sock
+  in
+     print (concat ["replies: ", Int.toString (!replies),
+		    "\tbytes: ", Int.toString (!bytes), "\n"])
+  end
+
+val n = m * (valOf (Int.fromString (hd (CommandLine.arguments ())))
+	     handle _ => 10)
+val sock = INetSock.TCP.socket ()
+val () = Socket.Ctl.setREUSEADDR (sock, true)
+val () = Socket.bind (sock, INetSock.any port)
+val () = Socket.listen (sock, 1)
+val () =
+   case Posix.Process.fork () of
+      NONE => server sock
+    | SOME pid => (client n; ignore (Posix.Process.wait ()))
+(* tcprequest.sml 
+ *
+ * The Great Computer Language Shootout
+ * http://shootout.alioth.debian.org/
+ *
+ * Contributed by Troestler Christophe
+ * Translated to SML by sweeks@sweeks.com
+ *
+ *)
+
+val m = 100
+
+val bufferSize = 4096
+val port = 11000
+
+fun buf size = Word8ArraySlice.full (Word8Array.array (size, 0w0))
+val replySize = 4096
+val reply = buf replySize
+val request = buf 64
+
+(* Return [false] if EOF is reached *)
+fun read (sock, buf, n) =
+   let
+      fun loop n =
+	 n <= 0 orelse
+	 let
+	    val r = Socket.recvArr (sock,
+				    Word8ArraySlice.slice
+				    (buf, 0, SOME (Int.min (n, bufferSize))))
+	 in
+	    r > 0 andalso loop (n - r)
+	 end
+   in
+      loop n
+   end
+
+fun server sock =
+  let
+     val b = Word8Array.array (bufferSize, 0w0)
+     val (s, _) = Socket.accept sock
+     val () =
+	while Socket.recvArr (s, Word8ArraySlice.full b) > 0
+	   do ignore (Socket.sendArr (s, reply))
+     val () = Socket.close s
+     val () = Socket.close sock
+  in
+     ()
+  end
+
+fun client n =
+  let
+     val b = Word8Array.array (bufferSize, 0w0)
+     val replies = ref 0
+     val bytes = ref 0 (* useless but mandated by spec *)
+     val sock = INetSock.TCP.socket ()
+     val () =
+	Socket.connect
+	(sock, INetSock.toAddr (NetHostDB.addr
+				(valOf (NetHostDB.getByName "127.0.0.1")),
+				port))
+     val () =
+	for (0, n, fn _ =>
+	     (ignore (Socket.sendArr (sock, request))
+	      ; ignore (read (sock, b, replySize))
+	      ; bytes := !bytes + replySize
+	      ; replies := 1 + !replies))
+     val () = Socket.close sock
+  in
+     print (concat ["replies: ", Int.toString (!replies),
+		    "\tbytes: ", Int.toString (!bytes), "\n"])
+  end
+
+val n = m * (valOf (Int.fromString (hd (CommandLine.arguments ())))
+	     handle _ => 10)
+val sock = INetSock.TCP.socket ()
+val () = Socket.Ctl.setREUSEADDR (sock, true)
+val () = Socket.bind (sock, INetSock.any port)
+val () = Socket.listen (sock, 1)
+val () =
+   case Posix.Process.fork () of
+      NONE => server sock
+    | SOME pid => (client n; ignore (Posix.Process.wait ()))
+(* The Great Computer Language Shootout
+ * http://shootout.alioth.debian.org/
+ *
+ * Contributed by Vesa Karvonen.
+ *)
+
+(* abbreviations *)
+structure A=Word8Array and B=Word8ArraySlice and N=INetSock and H=NetHostDB
+      and S=Socket and I=Int and F=IntInf and C=CommandLine
+val (i2s, s2i, f2s, i2f) = (I.toString, I.fromString, F.toString, F.fromInt)
+
+(* configuration *)
+val (host, port, reqSize, bufSize) = ("127.0.0.1", 11000, 64, 1024)
+val proto = [(2, 64), (7, 4096), (1, 409600)]
+
+(* completes a recvArr/sendArr operation *)
+fun `f a 0 s = ()
+  | `f a n s = `f a (n-f (s, B.slice (a, I.max (0, A.length a-n), NONE))) s
+
+(* completing send/recv operations; the recv buffer is also created here *)
+val (send, recv) = (`S.sendArr, `S.recvArr (A.array (bufSize, 0w0)))
+
+(* client *)
+fun msg (r, b) = app print ["replies: ", i2s r, "\tbytes: ", f2s b, "\n"]
+
+(* keeps invoking f x until it succeeds *)
+fun noFail f x = f x handle _ => noFail f x
+
+fun cli n =
+  let val (s, send) = (N.TCP.socket (), send (A.array (reqSize, 0w0)) reqSize)
+      fun lp (n, z, r, b) =
+          if 0=n then (r, b) else (send s; recv z s; lp (n-1, z, r+1, b+i2f z))
+  in noFail S.connect (s, N.toAddr (H.addr (valOf (H.getByName host)), port))
+   ; msg (foldl (fn ((m, z), (r, b)) => lp (m*n, z, r, b)) (0, 0) proto)
+   ; S.close s end
+
+(* server *)
+fun ser n =
+  let val s = let val s = N.TCP.socket ()
+              in S.Ctl.setREUSEADDR (s, true) ; S.bind (s, N.any port)
+               ; S.listen (s, 1) ; #1 (S.accept s) before S.close s end
+      fun lp (n, z, rep) =
+          if 0=n then () else (recv reqSize s; send rep z s; lp (n+1, z, rep))
+  in app (fn (m, z) => lp (m*n, z, A.array (z, 0w0))) proto ; S.close s end
+
+(* dispatch client / server *)
+val _ = case valOf(s2i(hd(C.arguments()))) of n => (if 0<n then cli else ser) n
+(* tcprequest.sml 
+ *
+ * The Great Computer Language Shootout
+ * http://shootout.alioth.debian.org/
+ *
+ * Contributed by Troestler Christophe
+ * Translated to SML by sweeks@sweeks.com
+ *)
+
+val m = 1
+
+val bufferSize = 4096
+val port = 11000
+
+fun buf size = Word8ArraySlice.full (Word8Array.array (size, 0w0))
+val replySize = 409600
+val reply = buf replySize
+val request = buf 64
+
+(* Return [false] if EOF is reached *)
+fun read (sock, buf, n) =
+   let
+      fun loop n =
+	 n <= 0 orelse
+	 let
+	    val r = Socket.recvArr (sock,
+				    Word8ArraySlice.slice
+				    (buf, 0, SOME (Int.min (n, bufferSize))))
+	 in
+	    r > 0 andalso loop (n - r)
+	 end
+   in
+      loop n
+   end
+
+fun server sock =
+  let
+     val b = Word8Array.array (bufferSize, 0w0)
+     val (s, _) = Socket.accept sock
+     val () =
+	while Socket.recvArr (s, Word8ArraySlice.full b) > 0
+	   do ignore (Socket.sendArr (s, reply))
+     val () = Socket.close s
+     val () = Socket.close sock
+  in
+     ()
+  end
+
+fun client n =
+  let
+     val b = Word8Array.array (bufferSize, 0w0)
+     val replies = ref 0
+     val bytes = ref 0 (* useless but mandated by spec *)
+     val sock = INetSock.TCP.socket ()
+     val () =
+	Socket.connect
+	(sock, INetSock.toAddr (NetHostDB.addr
+				(valOf (NetHostDB.getByName "127.0.0.1")),
+				port))
+     val () =
+	for (0, n, fn _ =>
+	     (ignore (Socket.sendArr (sock, request))
+	      ; ignore (read (sock, b, replySize))
+	      ; bytes := !bytes + replySize
+	      ; replies := 1 + !replies))
+     val () = Socket.close sock
+  in
+     print (concat ["replies: ", Int.toString (!replies),
+		    "\tbytes: ", Int.toString (!bytes), "\n"])
+  end
+
+val n = m * (valOf (Int.fromString (hd (CommandLine.arguments ())))
+	     handle _ => 10)
+val sock = INetSock.TCP.socket ()
+val () = Socket.Ctl.setREUSEADDR (sock, true)
+val () = Socket.bind (sock, INetSock.any port)
+val () = Socket.listen (sock, 1)
+val () =
+   case Posix.Process.fork () of
+      NONE => server sock
+    | SOME pid => (client n; ignore (Posix.Process.wait ()))
+(* 
+ * The Computer Language Benchmarks Game
+ * http://shootout.alioth.debian.org/
+ * contributed by kaustuv Chaudhuri
+ *)
+
+fun setup nThreads N =
+    let
+      val res = CML.channel ()
+
+      fun ringT ((inn, inc), (oun, ouc)) =
+          let
+            fun loop () =
+                (case CML.recv inc of
+                   0 => CML.send (res, inn)
+                 | n => (CML.send (ouc, n - 1);
+                         loop ()))
+          in
+            CML.spawn loop
+          end
+
+      val chans as c0 :: c1s =
+            List.tabulate (nThreads, fn n => (n + 1, CML.channel ()))
+
+      val threads = ListPair.map ringT (chans, c1s @ [c0])
+    in
+      CML.send (#2 c0, N);
+      TextIO.print (Int.toString (CML.recv res) ^ "\n")
+    end
+
+fun doit N = RunCML.doit (fn () => setup 503 N, NONE)
+
+val _ = (doit o Option.valOf o Int.fromString o List.hd o CommandLine.arguments) ()
+(* -*- mode: sml -*-
+ * $Id: wc.mlton,v 1.2 2007-12-08 03:58:39 bfulgham Exp $
+ * http://www.bagley.org/~doug/shootout/
+ * from Stephen Weeks
+ *)
+(* Translated from wc.ocaml. *)
+
+fun incr r = r := !r + 1
+   
+val nl = ref 0
+val nw = ref 0
+val nc = ref 0
+val max = 4096
+val buf = Word8Array.array (max, 0w0)
+val sub = Word8Array.sub
+
+fun readblock scanfun =
+   let
+      val nread = Posix.IO.readArr (Posix.FileSys.stdin,
+				    Word8ArraySlice.slice(buf, 0, NONE))
+   in
+      if nread = 0
+	 then ()
+      else (nc := !nc + nread;
+	    scanfun (0, nread))
+   end
+
+val c2b = Byte.charToByte
+val newline = c2b #"\n"
+val space = c2b #" "
+val tab = c2b #"\t"
+
+fun scan_out_of_word (i, n) =
+   if i < n
+      then
+	 let
+	    val c = sub (buf, i)
+	 in
+	    if c = newline
+	       then (incr nl; scan_out_of_word (i + 1, n))
+	    else if c = space orelse c = tab
+		    then scan_out_of_word (i + 1, n)
+		 else (incr nw; scan_in_word (i + 1, n))
+	 end
+   else readblock scan_out_of_word
+
+and scan_in_word (i, n) =
+  if i < n then
+     let
+	val c = sub (buf, i)
+     in
+	if c = newline
+	   then (incr nl; scan_out_of_word (i + 1, n))
+	else if c = space orelse c = tab
+		then scan_out_of_word (i + 1, n)
+	     else scan_in_word (i + 1, n)
+     end
+  else readblock scan_in_word
+
+fun printl [] = print "\n" | printl(h::t) = ( print h ; printl t )
+   
+fun main (name, args) =
+  let
+    val _ =
+        (scan_out_of_word (0, 0);
+	printl [Int.toString (!nl), " ", Int.toString (!nw), " ", Int.toString (!nc)])
+  in
+    OS.Process.success
+  end
+
+val _ = main( CommandLine.name(), CommandLine.arguments() )
+(* -*- mode: sml -*- 
+ * $Id: wordfreq.mlton,v 1.6 2007-12-08 03:58:39 bfulgham Exp $
+ * http://shootout.alioth.debian.org/
+ * from Stephen Weeks
+ *
+ *)
+
+fun incr r = r := 1 + !r
+val sub = Array.sub
+val update = Array.update
+   
+signature HASH_SET =
+   sig
+      type 'a t
+
+      val foreach: 'a t * ('a -> unit) -> unit
+      (* lookupOrInsert (s, h, p, f)  looks in the set s for an entry with hash h
+       * satisfying predicate p.  If the entry is there, it is returned.
+       * Otherwise, the function f is called to create a new entry, which is
+       * inserted and returned.
+       *)
+      val lookupOrInsert: 'a t * word * ('a -> bool) * (unit -> 'a) -> 'a
+      val new: {hash: 'a -> word} -> 'a t
+      val size: 'a t -> int
+   end
+
+structure HashSet: HASH_SET =
+struct
+
+datatype 'a t =
+   T of {buckets: 'a list array ref,
+	 hash: 'a -> word,
+	 mask: word ref,
+	 numItems: int ref}
+
+val initialSize: int = 65536
+val initialMask: word = Word.fromInt initialSize - 0w1
+
+fun 'a new {hash}: 'a t =
+   T {buckets = ref (Array.array (initialSize, [])),
+      hash = hash,
+      numItems = ref 0,
+      mask = ref initialMask}
+
+fun size (T {numItems, ...}) = !numItems
+fun numBuckets (T {buckets, ...}) = Array.length (!buckets)
+
+fun index (w: word, mask: word): int =
+   Word.toInt (Word.andb (w, mask))
+   
+fun resize (T {buckets, hash, mask, ...}, size: int, newMask: word): unit =
+   let
+      val newBuckets = Array.array (size, [])
+   in Array.app (fn r =>
+		 List.app (fn a =>
+			       let val j = index (hash a, newMask)
+			       in Array.update
+				  (newBuckets, j,
+				   a :: Array.sub (newBuckets, j))
+			       end) r) (!buckets)
+      ; buckets := newBuckets
+      ; mask := newMask
+   end
+   	       
+fun maybeGrow (s as T {buckets, mask, numItems, ...}): unit =
+   let
+      val n = Array.length (!buckets)
+   in if !numItems * 4 > n
+	 then resize (s,
+		      n * 2,
+		      (* The new mask depends on growFactor being 2. *)
+		      Word.orb (0w1, Word.<< (!mask, 0w1)))
+      else ()
+   end
+
+fun peekGen (T {buckets = ref buckets, mask, ...}, w, p, no, yes) =
+   let
+      val j = index (w, !mask)
+      val b = Array.sub (buckets, j)
+   in case List.find p b of
+      NONE => no (j, b)
+    | SOME a => yes a
+   end
+
+fun lookupOrInsert (table as T {buckets, numItems, ...}, w, p, f) =
+   let
+      fun no (j, b) =
+	 let val a = f ()
+	    val _ = incr numItems
+	    val _ = Array.update (!buckets, j, a :: b)
+	    val _ = maybeGrow table
+	 in a
+	 end
+   in peekGen (table, w, p, no, fn x => x)
+   end
+
+fun foreach (T {buckets, ...}, f) =
+   Array.app (fn r => List.app f r) (!buckets)
+
+end
+
+structure Buffer:
+   sig
+      type t
+
+      val add: t * Word8.word -> unit
+      val clear: t -> unit
+      val contents: t -> string
+      val new: int -> t
+   end =
+   struct
+      datatype t = T of {elts: Word8Array.array ref,
+			 size: int ref}
+
+      fun contents (T {elts, size, ...}) =
+	 Byte.bytesToString
+	 (Word8ArraySlice.vector
+	  (Word8ArraySlice.slice (!elts, 0, SOME (!size))))
+
+      fun clear (T {size, ...}) = size := 0
+
+      fun new (bufSize) =
+	 T {elts = ref (Word8Array.array (bufSize, 0w0)),
+	    size = ref 0}
+
+      fun add (T {elts, size}, x) =
+	 let
+	    val s = !size
+	    val _ = size := s + 1
+	    val a = !elts
+	    val n = Word8Array.length a
+	 in
+	    if s = n
+	       then
+		  let
+		     val a' =
+			Word8Array.tabulate
+			(2 * n, fn i =>
+			 if i < n then Word8Array.sub (a, i) else 0w0)
+		     val _ = elts := a'
+		     val _ = Word8Array.update (a', s, x)
+		  in ()
+		  end
+	    else Word8Array.update (a, s, x)
+	 end
+   end
+
+structure Quicksort:
+   sig
+      val quicksort: 'a array * ('a * 'a -> bool) -> unit
+   end =
+   struct
+      fun assert (s, f: unit -> bool) =
+	 if true orelse f ()
+	    then ()
+	 else raise Fail (concat ["assert: ", s])
+
+      fun forall (low, high, f) =
+	 let
+	    fun loop i = i > high orelse (f i andalso loop (i + 1))
+	 in
+	    loop low
+	 end
+
+      fun fold (l, u, state, f) =
+	 let
+	    fun loop (i, state) =
+	       if i > u
+		  then state
+	       else loop (i + 1, f (i, state))
+	 in
+	    loop (l, state)
+	 end
+
+      (* Check if entries in a[lo ... hi] are sorted. *)
+      fun 'a isSorted (a: 'a array,
+		       lo: int,
+		       hi: int,
+		       op <= : 'a * 'a -> bool) =
+	 let
+	    fun loop (i, x) =
+	       i > hi
+	       orelse let
+			 val y = sub (a, i)
+		      in
+			 x <= y andalso loop (i + 1, y)
+		      end
+	 in
+	    lo >= hi orelse loop (lo + 1, sub (a, lo))
+	 end
+
+      (* From page 284 of Numerical Recipes in C. *)
+      local
+	 open Word
+	 val seed = ref 0w13
+      in
+	 fun rand () =
+	    let
+	       val res = 0w1664525 * !seed + 0w1013904223
+	       val _ = seed := res
+	    in
+	       toIntX res
+	    end
+      end
+
+      fun randInt (lo, hi) = lo + Int.mod (rand(), hi - lo + 1)
+
+      (* insertion sort based on page 108 of Programming Pearls, by Bentley. *)
+      fun insertionSort (a: 'a array, op <= : 'a * 'a -> bool): unit =
+	 let
+	    fun x i = sub (a, i)
+	 in
+	    for (1, Array.length a, fn i =>
+		 let
+		    val _ =
+		       assert ("insertionSort1", fn () =>
+			       isSorted (a, 0, i - 1, op <=))
+		    val t = x i
+		    fun sift (j: int) =
+		       (assert ("insertionSort2", fn () =>
+				isSorted (a, 0, j - 1, op <=)
+				andalso isSorted (a, j + 1, i, op <=)
+				andalso forall (j + 1, i, fn k => t <= x k))
+			; if j > 0
+			     then
+				let
+				   val j' = j - 1
+				   val z = x j'
+				in if t <= z
+				      then (update (a, j, z);
+					    sift j')
+				   else j
+				end
+			  else j)
+		    val _ = update (a, sift i, t)
+		 in ()
+		 end)
+	 end
+
+      (* quicksort based on page 112 of Programming Pearls, by Bentley. *)
+      fun 'a quicksort (a: 'a array, op <= : 'a * 'a -> bool): unit =
+	 let
+	    fun x i = Array.sub (a, i)
+	    fun swap (i, j) =
+	       let
+		  val t = x i
+		  val _ = update (a, i, x j)
+		  val _ = update (a, j, t)
+	       in ()
+	       end
+	    val cutoff = 20
+	    fun qsort (l: int, u: int): unit =
+	       if u - l > cutoff
+		  then
+		     let
+			val _ = swap (l, randInt (l, u))
+			val t = x l
+			val m =
+			   fold
+			   (l + 1, u, l, fn (i, m) =>
+			    (assert
+			     ("qsort", fn () =>
+			      forall (l + 1, m, fn k => x k <= t)
+			      andalso forall (m + 1, i - 1, fn k => not (x k <= t)))
+			     ; if x i <= t
+				  then (swap (m + 1, i)
+					; m + 1)
+			       else m))
+			val _ = swap (l, m)
+			val _ = qsort (l, m - 1)
+			val _ = qsort (m + 1, u)
+		     in ()
+		     end
+	       else ()
+	    val max = Array.length a - 1
+	    val _ = qsort (0, max)
+	    val _ = insertionSort (a, op <=)  
+	 in
+	    ()
+	 end
+   end
+
+structure Test : sig
+    val main : (string * string list) -> OS.Process.status
+end = struct
+
+(* This hash function is taken from pages 56-57 of
+ * The Practice of Programming by Kernighan and Pike.
+ *)
+fun hash (s: string): word =
+   let
+      val n = String.size s
+      fun loop (i, w) =
+	 if i = n
+	    then w
+	 else Word.fromInt (Char.ord (String.sub (s, i))) + Word.* (w, 0w31)
+   in
+      loop (0, 0w0)
+   end
+
+fun hash (s: string): word =
+   let
+      val n = String.size s
+      fun loop (i, w) =
+	 if i = n
+	    then w
+	 else loop (i + 1,
+		    Word.fromInt (Char.ord (String.sub (s, i)))
+		       + Word.* (w, 0w31))
+   in
+      loop (0, 0w0)
+   end
+
+(* Based on wordfreq.ocaml. *)
+
+val max = 4096
+val buf = Word8Array.array (max, 0w0)
+val count: {hash: word,
+	    word: string,
+	    count: int ref} HashSet.t = HashSet.new {hash = #hash}
+val wbuf = Buffer.new 64
+
+val c2b = Byte.charToByte
+fun scan_words (i, n, inword) =
+  if i < n
+     then
+	let
+	   val c = Word8Array.sub (buf, i)
+	in
+	   if c2b #"a" <= c andalso c <= c2b #"z"
+	      then (Buffer.add (wbuf, c);
+		    scan_words (i + 1, n, true))
+	   else
+	      if c2b #"A" <= c andalso c <= c2b #"Z"
+		 then
+		    (Buffer.add (wbuf, c + 0w32);
+		     scan_words (i + 1, n, true))
+	      else
+		 if inword
+		    then 
+		       let
+			  val w = Buffer.contents wbuf
+			  val h = hash w
+		       in
+			  incr (#count
+				(HashSet.lookupOrInsert
+				 (count, h,
+				  fn {hash, word, ...} =>
+				  hash = h andalso word = w,
+				  fn () => {hash = h, word = w, count = ref 0})));
+			  Buffer.clear wbuf;
+			  scan_words (i + 1, n, false)
+		       end
+		 else scan_words (i + 1, n, false)
+	end
+  else
+     let
+	val nread =
+	   Posix.IO.readArr (Posix.FileSys.stdin, Word8ArraySlice.full buf)
+     in
+	if nread = 0
+	   then ()
+	else scan_words (0, nread, inword)
+     end
+
+fun printl [] = print "\n" | printl(h::t) = ( print h ; printl t )
+
+fun rightJustify (s: string, width: int) =
+   let
+      val n = String.size s
+   in concat [CharVector.tabulate (width - n, fn _ => #" "), s]
+   end
+
+fun main (name, args) =
+   let
+	val _ = scan_words (0, 0, false)
+	val a = Array.array (HashSet.size count, (0, ""))
+	val i = ref 0
+	val _ = HashSet.foreach (count, fn {word, count, ...} =>
+			 (Array.update (a, !i, (!count, word)); incr i))
+	val _ = Quicksort.quicksort (a, fn ((c, w), (c', w')) =>
+			     c > c' orelse c = c' andalso w >= w')
+	val _ = Array.app (fn (c, w) =>
+		   printl [rightJustify (Int.toString c, 7), " ", w]) a
+   in
+      OS.Process.success
+   end
+end
+
+val _ = Test.main( CommandLine.name(), CommandLine.arguments() )

@@ -1,0 +1,2749 @@
+/* The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+ 
+   contributed by Jarkko Miettinen
+   steady state approximation by Isaac Gouy
+*/
+
+public class binarytrees {
+
+   public static void main(String[] args){
+      for (int i=0; i<65; ++i) binarytrees.program_main(args,false);
+      binarytrees.program_main(args,true);
+   }
+
+   private final static int minDepth = 4;
+   
+   public static void program_main(String[] args, boolean isWarm){
+      int n = 0;
+      if (args.length > 0) n = Integer.parseInt(args[0]);
+      
+      int maxDepth = (minDepth + 2 > n) ? minDepth + 2 : n;
+      int stretchDepth = maxDepth + 1;
+      
+      int check = (TreeNode.bottomUpTree(0,stretchDepth)).itemCheck();
+      if (isWarm)
+         System.out.println("stretch tree of depth "+stretchDepth+"\t check: " + check);
+      
+      TreeNode longLivedTree = TreeNode.bottomUpTree(0,maxDepth);
+      
+      for (int depth=minDepth; depth<=maxDepth; depth+=2){
+         int iterations = 1 << (maxDepth - depth + minDepth);
+         check = 0;
+         
+         for (int i=1; i<=iterations; i++){
+            check += (TreeNode.bottomUpTree(i,depth)).itemCheck();
+            check += (TreeNode.bottomUpTree(-i,depth)).itemCheck();
+         }
+         if (isWarm)
+            System.out.println((iterations*2) + "\t trees of depth " + depth + "\t check: " + check);
+      }
+      if (isWarm)
+         System.out.println("long lived tree of depth " + maxDepth + "\t check: "+ longLivedTree.itemCheck());
+   }
+   
+   
+   private static class TreeNode
+   {
+      private TreeNode left, right;
+      private int item;
+      
+      TreeNode(int item){
+         this.item = item;
+      }
+      
+      private static TreeNode bottomUpTree(int item, int depth){
+         if (depth>0){
+            return new TreeNode(
+                  bottomUpTree(2*item-1, depth-1)
+                  , bottomUpTree(2*item, depth-1)
+                  , item
+            );
+         }
+         else {
+            return new TreeNode(item);
+         }
+      }
+      
+      TreeNode(TreeNode left, TreeNode right, int item){
+         this.left = left;
+         this.right = right;
+         this.item = item;
+      }
+      
+      private int itemCheck(){
+         // if necessary deallocate here
+         if (left==null) return item;
+         else return item + left.itemCheck() - right.itemCheck();
+      }
+   }
+}
+/* The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+
+   contributed by Michael Barker
+   based on a contribution by Luzius Meisser
+*/
+
+/**
+ * This implementation uses standard Java threading (native threads).
+ * 
+ * This implementation simply adds the new functionality to the orginal 
+ * implementation by Luzius Meisser from old chameneos shootout.  The interesting
+ * part of this implementation, is that while a creature is waiting it does not
+ * block its thread, rather it spins in a loop using a Thread.yield().
+ */
+public class chameneosredux {
+
+    enum Colour {
+        blue,
+        red,
+        yellow
+    }
+        
+    private static Colour doCompliment(Colour c1, Colour c2) {
+        switch (c1) {
+        case blue:
+            switch (c2) {
+            case blue:
+                return Colour.blue;
+            case red:
+                return Colour.yellow;
+            case yellow:
+                return Colour.red;
+            }
+        case red:
+            switch (c2) {
+            case blue:
+                return Colour.yellow;
+            case red:
+                return Colour.red;
+            case yellow:
+                return Colour.blue;
+            }
+        case yellow:
+            switch (c2) {
+            case blue:
+                return Colour.red;
+            case red:
+                return Colour.blue;
+            case yellow:
+                return Colour.yellow;
+            }
+        }
+        
+        throw new RuntimeException("Error");
+    }
+
+    static class MeetingPlace {
+        
+        private int meetingsLeft;
+
+        public MeetingPlace(int meetings) {
+            this.meetingsLeft = meetings;
+        }
+        
+        private Colour firstColour = null;
+        private int firstId = 0;
+        Future<Pair> current;
+        
+        public Pair meet(int id, Colour c) throws Exception {
+            Future<Pair> newPair;
+            synchronized (this) {
+                if (meetingsLeft == 0) {
+                    throw new Exception("Finished");
+                } else {
+                    if (firstColour == null) {
+                        firstColour = c;
+                        firstId = id;
+                        current = new Future<Pair>();
+                    } else {
+                        Colour newColour = doCompliment(c, firstColour);
+                        current.setItem(new Pair(id == firstId, newColour));
+                        firstColour = null;
+                        meetingsLeft--;
+                    }
+                    newPair = current;
+                }
+            }
+            return newPair.getItem();
+            
+        }
+    }
+        
+    public static class Future<T> {
+
+        private volatile T t;
+
+        public T getItem() {
+            while (t == null) {
+                Thread.yield();
+            }
+            return t;
+        }
+
+        // no synchronization necessary as assignment is atomic
+        public void setItem(T t) {
+            this.t = t;
+        }
+    }    
+    
+    static class Creature implements Runnable {
+
+        private final MeetingPlace place;
+        private int count = 0;
+        private int sameCount = 0;
+        private Colour colour;
+        private int id;
+
+        public Creature(MeetingPlace place, Colour colour) {
+            this.place = place;
+            this.id = System.identityHashCode(this);
+            this.colour = colour;
+        }
+        
+        public void run() {
+            try {
+                
+                while (true) {
+                    Pair p = place.meet(id, colour);
+                    colour = p.colour;
+                    if (p.sameId) {
+                        sameCount++;
+                    }
+                    count++;
+                }
+                
+            } catch (Exception e) {}
+        }
+        
+        public int getCount() {
+            return count;
+        }
+        
+        public String toString() {
+            return String.valueOf(count) + getNumber(sameCount);
+        }
+    }    
+    
+    private static void run(int n, boolean isWarm, Colour...colours) {
+        MeetingPlace place = new MeetingPlace(n);
+        Creature[] creatures = new Creature[colours.length];
+        for (int i = 0; i < colours.length; i++) {
+            if (isWarm) System.out.print(" " + colours[i]);
+            creatures[i] = new Creature(place, colours[i]);
+        }
+        if (isWarm) System.out.println();
+        Thread[] ts = new Thread[colours.length];
+        for (int i = 0; i < colours.length; i++) {
+            ts[i] = new Thread(creatures[i]);
+            ts[i].start();
+        }
+        
+        for (Thread t : ts) {
+            try {
+                t.join();
+            } catch (InterruptedException e) {
+            }
+        }
+        
+        int total = 0;
+        for (Creature creature : creatures) {
+            if (isWarm) System.out.println(creature);
+            total += creature.getCount();
+        }
+        if (isWarm) System.out.println(getNumber(total));
+        if (isWarm) System.out.println();
+    }
+
+    public static void main(String[] args){
+        for (int i=0; i<65; ++i) chameneosredux.program_main(args,false);
+        chameneosredux.program_main(args,true);
+    }
+    
+    public static void program_main(String[] args, boolean isWarm) {
+        
+        int n = 600;
+        try {
+            n = Integer.parseInt(args[0]);
+        } catch (Exception e) {
+        }
+
+        if (isWarm){        
+           printColours();
+           System.out.println();
+        }
+        run(n, isWarm, Colour.blue, Colour.red, Colour.yellow);
+        run(n, isWarm, Colour.blue, Colour.red, Colour.yellow, Colour.red, Colour.yellow, 
+                Colour.blue, Colour.red, Colour.yellow, Colour.red, Colour.blue);
+    }    
+
+    public static class Pair {
+        public final boolean sameId;
+        public final Colour colour;
+
+        public Pair(boolean sameId, Colour c) {
+            this.sameId = sameId;
+            this.colour = c;
+        }
+    }
+    
+    private static final String[] NUMBERS = {
+        "zero", "one", "two", "three", "four", "five", 
+        "six", "seven", "eight", "nine"
+    };
+    
+    private static String getNumber(int n) {
+        StringBuilder sb = new StringBuilder();
+        String nStr = String.valueOf(n);
+        for (int i = 0; i < nStr.length(); i++) {
+            sb.append(" ");
+            sb.append(NUMBERS[Character.getNumericValue(nStr.charAt(i))]);
+        }
+        
+        return sb.toString();
+    }
+    
+    private static void printColours() {
+        printColours(Colour.blue, Colour.blue);
+        printColours(Colour.blue, Colour.red);
+        printColours(Colour.blue, Colour.yellow);
+        printColours(Colour.red, Colour.blue);
+        printColours(Colour.red, Colour.red);
+        printColours(Colour.red, Colour.yellow);
+        printColours(Colour.yellow, Colour.blue);
+        printColours(Colour.yellow, Colour.red);
+        printColours(Colour.yellow, Colour.yellow);
+    }
+    
+    private static void printColours(Colour c1, Colour c2) {
+        System.out.println(c1 + " + " + c2 + " -> " + doCompliment(c1, c2));
+    }
+    
+    
+}
+/* The Computer Language Benchmarks Game
+http://shootout.alioth.debian.org/
+
+contributed by Matthieu Bentot
+based on a contribution by Michael Barker
+based on a contribution by Luzius Meisser
+*/
+
+/**
+* This implementation uses standard Java threading (native threads).
+*
+* This implementation changes the one contributed by Michael Barker (itself based on the original
+* implementation by Luzius Meisser from old chameneos shootout) to
+* - operate in constant memory: everything is allocated during initialisation;
+* - change the Thread.yield() into a plain spinlock.
+*/
+
+public class chameneosredux {
+
+   enum Colour {
+      blue,
+      red,
+      yellow
+   }
+
+   static CreatureValue doCompliment(CreatureValue original, Colour c2, CreatureValue blue, CreatureValue red, CreatureValue yellow) {
+      Colour c1=original.colour;
+      if (c1==c2) return original;
+      
+      switch (c1) {
+         case blue:
+            return c2==Colour.red ? yellow : red;
+         case red:
+            return c2==Colour.blue ? yellow: blue;
+         case yellow:
+            return c2==Colour.blue ? red : blue;
+      }
+
+      throw new RuntimeException("Error");
+   }
+
+   static final class MeetingPlace {
+
+      private int meetingsLeft;
+
+      private CreatureValue firstValue=null;
+      
+      public MeetingPlace(int meetings) {
+         this.meetingsLeft = meetings;
+      }
+
+      public void meet(Creature creature) throws Exception {
+         CreatureValue creatureValue=creature.value, firstValue;
+         
+         synchronized(this) {
+            if (meetingsLeft==0) throw new Exception("Finished");
+            
+            firstValue=this.firstValue;
+
+            if (firstValue==null) {
+               this.firstValue=creature.value;
+               creature.value=null;
+            } else {
+               this.firstValue=null;
+               meetingsLeft--;
+            }
+         }
+         
+         // Wait for the other (or not, depending)
+         if (firstValue==null) {
+            while((firstValue=creature.value)==null) {} // Spin lock: creature.value is volatile
+         } else {
+            firstValue.creature.value=creatureValue; // Release spin lock
+         }
+         
+         // Update creature
+         creature.value=doCompliment(creatureValue, firstValue.colour, creature.blue, creature.red, creature.yellow);
+         creature.count++;
+         if (creature==firstValue.creature) creature.sameCount++;
+      }
+   }
+
+   static final class CreatureValue {
+      
+      final Creature creature;
+      
+      final Colour colour;
+      
+      CreatureValue(Creature creature, Colour colour) {
+         this.creature=creature;
+         this.colour=colour;
+      }
+
+   }
+   
+   static final class Creature extends Thread {
+
+      private final MeetingPlace place;
+      
+      private volatile CreatureValue value;
+      
+      private int count=0, sameCount=0;      
+
+      final CreatureValue blue, red, yellow;
+      
+      public Creature(MeetingPlace place, Colour colour) {
+         this.place = place;
+         this.value = new CreatureValue(this, colour);
+         blue=new CreatureValue(this, Colour.blue);
+         red=new CreatureValue(this, Colour.red);
+         yellow=new CreatureValue(this, Colour.yellow);
+      }
+
+      public void run() {
+         try {
+            for(;;) {
+               place.meet(this);
+            }
+         } catch (Exception e) {
+         }
+      }
+
+      public int getCount() {
+         return count;
+      }
+
+      public String toString() {
+         return String.valueOf(count) + getNumber(sameCount);
+      }
+   }
+
+   private static void run(int n,boolean isWarm, Colour...colours) {
+      // Initialise
+      MeetingPlace place = new MeetingPlace(n);
+      
+      Creature creatures[] = new Creature[colours.length];
+      for (int i = 0; i < creatures.length; i++) {
+         if (isWarm) System.out.print(" " + colours[i]);
+         creatures[i] = new Creature(place, colours[i]);
+      }
+      
+      if (isWarm) System.out.println();
+      
+      // Start creatures
+      for (int i = 0; i < creatures.length; i++) {
+         creatures[i].start();
+      }
+
+      // Wait...
+      int total = 0;
+      for (int i = 0; i < creatures.length; i++) {
+         Creature creature=creatures[i];
+         try {
+            creature.join();
+         } catch (InterruptedException e) {
+         }
+         if (isWarm) System.out.println(creature);
+         total += creature.getCount();
+      }
+
+      // Print result
+      if (isWarm) System.out.println(getNumber(total));
+      if (isWarm) System.out.println();
+   }
+
+   public static void main(String[] args){
+      for (int i=0; i<65; ++i) chameneosredux.program_main(args,false);
+      chameneosredux.program_main(args,true);
+   }
+
+   public static void program_main(String[] args, boolean isWarm) {
+      int n = 600;
+      try {
+         n = Integer.parseInt(args[0]);
+      } catch (Exception e) {
+      }
+
+        if (isWarm){        
+           printColours();
+           System.out.println();
+        }
+      
+      run(n, isWarm, Colour.blue, Colour.red, Colour.yellow);
+      run(n, isWarm, Colour.blue, Colour.red, Colour.yellow, Colour.red, Colour.yellow, Colour.blue, Colour.red, Colour.yellow, Colour.red, Colour.blue);
+   }
+
+   private static final String NUMBERS[] = { "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine" };
+
+   private static String getNumber(int n) {
+      StringBuilder sb = new StringBuilder(80);
+      String nStr = String.valueOf(n);
+      for (int i = 0; i < nStr.length(); i++) {
+         sb.append(' ').append(NUMBERS[Character.getNumericValue(nStr.charAt(i))]);
+      }
+
+      return sb.toString();
+   }
+
+   private static void printColours() {
+      CreatureValue blue=new CreatureValue(null, Colour.blue), red=new CreatureValue(null, Colour.red), yellow=new CreatureValue(null, Colour.yellow);
+      printColours(blue, Colour.blue, blue, red, yellow);
+      printColours(blue, Colour.red, blue, red, yellow);
+      printColours(blue, Colour.yellow, blue, red, yellow);
+      printColours(red, Colour.blue, blue, red, yellow);
+      printColours(red, Colour.red, blue, red, yellow);
+      printColours(red, Colour.yellow, blue, red, yellow);
+      printColours(yellow, Colour.blue, blue, red, yellow);
+      printColours(yellow, Colour.red, blue, red, yellow);
+      printColours(yellow, Colour.yellow, blue, red, yellow);
+   }
+
+   private static void printColours(CreatureValue c1, Colour c2, CreatureValue blue, CreatureValue red, CreatureValue yellow) {
+      System.out.println(c1.colour + " + " + c2 + " -> " + doCompliment(c1, c2, blue, red, yellow).colour);
+   }
+
+}
+/*
+* The Computer Language Benchmarks Game
+* http://shootout.alioth.debian.org/
+*
+* Based on contribution of Eckehard Berns
+* Based on code by Heiner Marxen
+* and the ATS version by Hongwei Xi
+* convert to Java by The Anh Tran
+  steady state approximation by Isaac Gouy
+*/
+
+import java.util.concurrent.atomic.AtomicInteger;
+
+public final class fannkuch implements Runnable
+{
+   public static void main(String[] args){
+      for (int i=0; i<65; ++i) fannkuch.program_main(args,false);
+      fannkuch.program_main(args,true);
+   }
+
+    private final int n;
+    private final int[] flip_max_arr;
+    private final AtomicInteger remain_task = new AtomicInteger(0);
+    
+    public static void program_main(String[] args, boolean isWarm)
+    {
+        int x = (args.length > 0) ? Integer.parseInt(args[0]) : 7;
+        fannkuch f = new fannkuch(x);
+        int flips = f.fank_game(isWarm);
+        if (isWarm)
+           System.out.format("Pfannkuchen(%d) = %d\n", x, flips);
+    }
+    
+    public fannkuch(int N)
+    {
+        n = N;
+        // hold flip_count result for each swap index
+        flip_max_arr = new int[n];
+    }
+    
+    private final int fank_game(boolean isWarm)
+    {
+        Thread[] th = new Thread[Runtime.getRuntime().availableProcessors()];
+        for (int i = 0; i < th.length; i++)
+        {
+            th[i] = new Thread(this);
+            th[i].start();
+        }
+        
+        if (isWarm)
+           print_30_permut();
+        
+        for (Thread t : th)
+        {
+            try {
+                t.join();
+            }
+            catch (InterruptedException ie)
+            {   }
+        }
+        
+        int mx = 0;
+        for (int i : flip_max_arr)
+            if (mx < i)
+                mx = i;
+        return mx;
+    }
+    
+    // In order to divide tasks 'equally' for many threads, permut generation
+    // strategy is different than that of original single thread.
+    // this function will 'correctly' print first 30 permutations
+    private final void print_30_permut()
+    {
+        // declare and initialize
+        final int[] permutation = new int[n];
+        for ( int i = 0; i < n; i++ )
+        {
+            permutation[i] = i;
+            System.out.print((1 + i));
+        }
+        System.out.println();
+        
+        final int[] perm_remain = new int[n];
+        for ( int i = 1; i <= n; i++ )
+            perm_remain[i -1] = i;
+        
+        int numPermutationsPrinted = 1;
+        for ( int pos_right = 2; pos_right <= n; pos_right++ )
+        {
+            int pos_left = pos_right -1;
+            do
+            {
+                // rotate down perm[0..prev] by one
+                next_perm(permutation, pos_left);
+                
+                if (--perm_remain[pos_left] > 0)
+                {
+                    if (numPermutationsPrinted++ < 30)
+                    {
+                        for (int i = 0; i < n; ++i)
+                            System.out.print((1 + permutation[i]));
+                        System.out.println();
+                    }
+                    else
+                        return;
+                    
+                    for ( ; pos_left != 1; --pos_left)
+                        perm_remain[pos_left -1] = pos_left;
+                }
+                else
+                    ++pos_left;
+            } while (pos_left < pos_right);
+        }
+    }
+    
+    public void run()
+    {
+        final int[] permutation = new int[n];
+        final int[] perm_remain = new int[n];
+        final int[] perm_flip = new int[n];
+
+        int pos_right;
+        while ((pos_right = remain_task.getAndIncrement()) < (n - 1))
+        {
+            int flip_max = 0;
+
+            for (int i = 0; i < n - 1; i++)
+                permutation[i] = i;
+
+            permutation[pos_right] = (n - 1);
+            permutation[n - 1] = (pos_right);
+
+            for (int i = 1; i <= n; i++)
+                perm_remain[i - 1] = i;
+
+            int pos_left = n - 2;
+            while (pos_left < n - 1)
+            {
+                // rotate down perm[0..r] by one
+                next_perm(permutation, pos_left);
+
+                if (--perm_remain[pos_left] > 0)
+                {
+                    for (; pos_left != 1; --pos_left)
+                        perm_remain[pos_left - 1] = pos_left;
+
+                    if ((permutation[0] != 0) && (permutation[n - 1] != (n - 1)))
+                    {
+                        System.arraycopy(permutation, 0, perm_flip, 0, n);
+                        int flipcount = count_flip(perm_flip);
+                        if (flip_max < flipcount)
+                            flip_max = flipcount;
+                    }
+                }
+                else
+                    pos_left++;
+            }
+
+            // update max_flip foreach flipping position
+            flip_max_arr[pos_right] = flip_max;
+        }
+    }
+
+
+    // Take a permut array, continuously flipping until first element is '1'
+    // Return flipping times
+    private static final int count_flip(final int[] perm_flip)
+    {
+        // cache first element, avoid swapping perm[0] and perm[k]
+        int v0 = perm_flip[0];
+        int tmp;
+
+        int flip_count = 0;
+        do
+        {
+            for (int i = 1, j = v0 - 1; i < j; ++i, --j)
+            {
+                tmp = perm_flip[i];
+                perm_flip[i] = perm_flip[j];
+                perm_flip[j] = tmp;
+            }
+
+            tmp = perm_flip[v0];
+            perm_flip[v0] = v0;
+            v0 = tmp;
+
+            flip_count++;
+        } while (v0 != 0); // first element == '1' ?
+
+        return flip_count;
+    }
+
+    // Return next permut, by rotating elements [0 - position] one 'step'
+    // next_perm('1234', 2) -> '2314'
+    private static final void next_perm(final int[] permutation, int position)
+    {
+        int perm0 = permutation[0];
+
+        for (int i = 0; i < position; ++i)
+            permutation[i] = permutation[i + 1];
+        permutation[position] = perm0;
+    }
+}
+/*
+ * The Computer Language Benchmarks Game
+ * http://shootout.alioth.debian.org/
+ *
+ * Contributed by Oleg Mazurov, June 2010
+   steady state approximation by Isaac Gouy
+ *
+ */
+
+import java.util.concurrent.atomic.AtomicInteger;
+
+public final class fannkuchredux implements Runnable
+{
+    private static final int NCHUNKS = 150;
+    private static       int CHUNKSZ;
+    private static       int NTASKS;
+    private static int n;
+    private static int[] Fact;
+    private static int[] maxFlips;
+    private static int[] chkSums;
+    private static AtomicInteger taskId;
+    
+    int[] p, pp, count;
+
+    void print()
+    {
+        for ( int i = 0; i < p.length; i++ ) {
+            System.out.print( p[i] + 1 );
+        }
+        System.out.println();
+    }
+
+    void firstPermutation( int idx )
+    {
+        for ( int i=0; i<p.length; ++i ) {
+           p[i] = i;
+        }
+
+        for ( int i=count.length-1; i>0; --i ) {
+            int d = idx / Fact[i];
+            count[i] = d;
+            idx = idx % Fact[i];
+
+            System.arraycopy( p, 0, pp, 0, i+1 );
+            for ( int j=0; j<=i; ++j ) {
+                p[j] = j+d <= i ? pp[j+d] : pp[j+d-i-1];
+            }
+        }
+    }
+
+    boolean nextPermutation()
+    {
+        int first = p[1];
+        p[1] = p[0];
+        p[0] = first;
+        
+        int i=1; 
+        while ( ++count[i] > i ) {
+            count[i++] = 0;
+            int next = p[0] = p[1];
+            for ( int j=1; j<i; ++j ) {
+                p[j] = p[j+1];
+            }
+            p[i] = first;
+            first = next;
+        }
+        return true;
+    }
+
+    int countFlips()
+    {
+        int flips = 1;
+	int first = p[0];
+        if ( p[first] != 0 ) {
+            System.arraycopy( p, 0, pp, 0, pp.length );
+            do {
+                 ++flips;
+                 for ( int lo = 1, hi = first - 1; lo < hi; ++lo, --hi ) {
+                    int t = pp[lo];
+                    pp[lo] = pp[hi];
+                    pp[hi] = t;
+                 }
+                 int t = pp[first];
+                 pp[first] = first;
+                 first = t;
+            } while ( pp[first] != 0 );
+        }
+	return flips;
+    }
+
+    void runTask( int task )
+    {
+        int idxMin = task*CHUNKSZ;
+        int idxMax = Math.min( Fact[n], idxMin+CHUNKSZ );
+
+	firstPermutation( idxMin );
+
+        int maxflips = 1;
+        int chksum = 0;
+        for ( int i=idxMin;; ) {
+
+            if ( p[0] != 0 ) {
+                int flips = countFlips();
+                maxflips = Math.max( maxflips, flips );
+		chksum += i%2 ==0 ? flips : -flips;
+            }
+
+	    if ( ++i == idxMax ) {
+	        break;
+	    }
+
+            nextPermutation();
+        }
+	maxFlips[task] = maxflips;
+	chkSums[task]  = chksum;
+    }
+
+    public void run()
+    {
+        p     = new int[n];
+        pp    = new int[n];
+        count = new int[n];        
+
+        int task;
+        while ( ( task = taskId.getAndIncrement() ) < NTASKS ) {
+	    runTask( task );
+        }
+    }
+
+    static void printResult( int n, int res, int chk, boolean isWarm )
+    {
+        if (isWarm)
+            System.out.println( chk+"\nPfannkuchen("+n+") = "+res );
+    }
+
+
+   public static void main(String[] args){
+      for (int i=0; i<65; ++i) fannkuchredux.program_main(args,false);
+      fannkuchredux.program_main(args,true);
+   }
+
+    public static void program_main( String[] args, boolean isWarm )
+    {        
+        n = args.length > 0 ? Integer.parseInt( args[0] ) : 12;
+        if ( n < 0 || n > 12 ) {         // 13! won't fit into int
+            printResult( n, -1, -1, isWarm );
+            return;
+        }
+        if ( n <= 1 ) {
+            printResult( n, 0, 0, isWarm );
+            return;
+        }
+
+        Fact = new int[n+1];
+        Fact[0] = 1;
+        for ( int i=1; i<Fact.length; ++i ) {
+            Fact[i] = Fact[i-1] * i;
+        }
+        
+        CHUNKSZ = (Fact[n] + NCHUNKS - 1) / NCHUNKS;
+	NTASKS = (Fact[n] + CHUNKSZ - 1) / CHUNKSZ;
+        maxFlips = new int[NTASKS];
+        chkSums  = new int[NTASKS];
+        taskId = new AtomicInteger(0);
+
+        int nthreads = Runtime.getRuntime().availableProcessors();
+        Thread[] threads = new Thread[nthreads];
+        for ( int i=0; i<nthreads; ++i ) {
+            threads[i] = new Thread( new fannkuchredux() );
+            threads[i].start();
+        }
+        for ( Thread t : threads ) {
+            try {
+                t.join();
+            }
+            catch ( InterruptedException e ) {}
+        }
+        
+        int res = 0;
+        for ( int v : maxFlips ) {
+            res = Math.max( res, v );
+        }
+        int chk = 0;
+        for ( int v : chkSums ) {
+            chk += v;
+        }
+        
+        printResult( n, res, chk, isWarm );
+    }
+}
+/* The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+
+   contributed by Isaac Gouy
+   converted to Java by Oleg Mazurov
+   steady state approximation by Isaac Gouy
+*/
+
+public class fannkuchredux
+{
+   public static void main(String[] args){
+      for (int i=0; i<65; ++i) fannkuchredux.program_main(args,false);
+      fannkuchredux.program_main(args,true);
+   }
+
+   public static int fannkuch(int n, boolean isWarm) {
+      int[] perm = new int[n];
+      int[] perm1 = new int[n];
+      int[] count = new int[n];
+      int maxFlipsCount = 0;
+      int permCount = 0;
+      int checksum = 0;
+
+      for(int i=0; i<n; i++) perm1[i] = i;
+      int r = n;
+
+      while (true) {
+
+         while (r != 1){ count[r-1] = r; r--; }
+
+         for(int i=0; i<n; i++) perm[i] = perm1[i];
+         int flipsCount = 0;
+         int k;
+
+         while ( !((k=perm[0]) == 0) ) {
+            int k2 = (k+1) >> 1;
+            for(int i=0; i<k2; i++) {
+               int temp = perm[i]; perm[i] = perm[k-i]; perm[k-i] = temp;
+            }
+            flipsCount++;
+         }
+
+         maxFlipsCount = Math.max(maxFlipsCount, flipsCount);
+         checksum += permCount%2 == 0 ? flipsCount : -flipsCount;
+
+         // Use incremental change to generate another permutation
+         while (true) {
+            if (r == n) {
+               if (isWarm)
+	          System.out.println( checksum );
+	       return maxFlipsCount;
+	    }
+            int perm0 = perm1[0];
+            int i = 0;
+            while (i < r) {
+               int j = i + 1;
+               perm1[i] = perm1[j];
+               i = j;
+            }
+            perm1[r] = perm0;
+
+            count[r] = count[r] - 1;
+            if (count[r] > 0) break;
+            r++;
+         }
+
+         permCount++;
+      }
+   }
+
+   public static void program_main(String[] args, boolean isWarm) {
+      int n = 7;
+      if (args.length > 0) n = Integer.parseInt(args[0]);
+      int pf = fannkuch(n,isWarm);
+      if (isWarm)
+         System.out.println("Pfannkuchen("+n+") = "+pf);
+   }
+}
+/* The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+ 
+   contributed by Stefan Krause
+   slightly modified by Chad Whipkey
+   parallelized by Colin D Bennett 2008-10-04
+   reduce synchronization cost by The Anh Tran
+   steady state approximation by Isaac Gouy
+  */
+
+//package mandelbrot;
+
+import java.io.*;
+import java.io.IOException;
+import java.util.concurrent.atomic.AtomicInteger;
+
+public final class mandelbrot
+{
+   public static void main(String[] args) throws Exception {
+      for (int i=0; i<65; ++i) mandelbrot.program_main(args,false);
+      mandelbrot.program_main(args,true);
+   }
+
+
+    public static void program_main(String[] args, boolean isWarm) throws Exception
+    {
+        int size = 200;
+        if (args.length >= 1)
+            size = Integer.parseInt(args[0]);
+        
+        if (isWarm)
+           System.out.format("P4\n%d %d\n", size, size);
+        
+        int width_bytes = size /8 +1;
+        byte[][] output_data = new byte[size][width_bytes];
+        int[] bytes_per_line = new int[size];
+        
+        Compute(size, output_data, bytes_per_line);
+        
+        if (isWarm){
+           BufferedOutputStream ostream = new BufferedOutputStream(System.out);
+           for (int i = 0; i < size; i++)
+              ostream.write(output_data[i], 0, bytes_per_line[i]);
+           ostream.close();
+        }
+    }
+    
+    private static final void Compute(final int N, final byte[][] output, final int[] bytes_per_line)
+    {
+        final double inverse_N = 2.0 / N;
+        final AtomicInteger current_line = new AtomicInteger(0);
+        
+        final Thread[] pool = new Thread[Runtime.getRuntime().availableProcessors()];
+        for (int i = 0; i < pool.length; i++)
+        {
+            pool[i] = new Thread()
+            {
+                public void run()
+                {
+                    int y;
+                    while ((y = current_line.getAndIncrement()) < N)
+                    {
+                        byte[] pdata = output[y];
+                        
+                        int bit_num = 0;
+                        int byte_count = 0;
+                        int byte_accumulate = 0;
+                        
+                        double Civ = (double)y * inverse_N - 1.0;
+                        for (int x = 0; x < N; x++)
+                        {
+                            double Crv = (double)x * inverse_N - 1.5;
+                            
+                            double Zrv = Crv;
+                            double Ziv = Civ;
+                            
+                            double Trv = Crv * Crv;
+                            double Tiv = Civ * Civ;
+                            
+                            int i = 49;
+                            do
+                            {
+                                Ziv = (Zrv * Ziv) + (Zrv * Ziv) + Civ;
+                                Zrv = Trv - Tiv + Crv;
+                                
+                                Trv = Zrv * Zrv;
+                                Tiv = Ziv * Ziv;
+                            } while ( ((Trv + Tiv) <= 4.0) && (--i > 0));
+
+                            byte_accumulate <<= 1;
+                            if (i == 0)
+                                byte_accumulate++;
+                            
+                            if (++bit_num == 8)
+                            {
+                                pdata[ byte_count++ ] = (byte)byte_accumulate;
+                                bit_num = byte_accumulate = 0;
+                            }
+                        } // end foreach column
+                        
+                        if (bit_num != 0)
+                        {
+                            byte_accumulate <<= (8 - (N & 7));
+                            pdata[ byte_count++ ] = (byte)byte_accumulate;
+                        }
+                        
+                        bytes_per_line[y] = byte_count;
+                    } // end while (y < N)
+                } // end void run()
+            }; // end inner class definition
+            
+            pool[i].start();
+        }
+        
+        for (Thread t : pool)
+        {
+            try
+            {
+                t.join();
+            }
+            catch (InterruptedException e)
+            {
+                e.printStackTrace();
+            }
+        }
+    }
+}
+/* The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+   transliterated from C++ (Ben St. John) and D (Michael Deardeuff) by Amir K aka Razii
+   steady state approximation by Isaac Gouy
+*/
+
+
+import java.util.*;
+
+public final class meteor
+{
+    static final int X = 0;
+    static final int Y = 1;
+    static final int N_DIM = 2;
+
+    static final int EVEN = 0;
+    static final int ODD = 1;
+    static final int N_PARITY = 2;
+
+    static final int GOOD = 0;
+    static final int BAD = 1;
+    static final int ALWAYS_BAD = 2;
+
+    static final int OPEN    = 0;
+    static final int CLOSED  = 1;
+    static final int N_FIXED = 2;
+
+    static final int MAX_ISLAND_OFFSET = 1024;
+    static final int N_COL = 5;
+    static final int N_ROW = 10;
+    static final int N_CELL = N_COL * N_ROW;
+    static final int N_PIECE_TYPE = 10;
+    static final int N_ORIENT = 12;
+
+
+//-- Globals -------------------------
+    static IslandInfo[] g_islandInfo = new IslandInfo [MAX_ISLAND_OFFSET];
+    static int g_nIslandInfo = 0;
+    static OkPieces[][] g_okPieces = new OkPieces [N_ROW][N_COL];
+
+    static final int g_firstRegion[] = {
+        0x00, 0x01, 0x02, 0x03,   0x04, 0x01, 0x06, 0x07,
+        0x08, 0x01, 0x02, 0x03,   0x0c, 0x01, 0x0e, 0x0f,
+
+        0x10, 0x01, 0x02, 0x03,   0x04, 0x01, 0x06, 0x07,
+        0x18, 0x01, 0x02, 0x03,   0x1c, 0x01, 0x1e, 0x1f
+    };
+
+    static final int g_flip[] = {
+        0x00, 0x10, 0x08, 0x18, 0x04, 0x14, 0x0c, 0x1c,
+        0x02, 0x12, 0x0a, 0x1a, 0x06, 0x16, 0x0e, 0x1e,
+
+        0x01, 0x11, 0x09, 0x19, 0x05, 0x15, 0x0d, 0x1d,
+        0x03, 0x13, 0x0b, 0x1b, 0x07, 0x17, 0x0f, 0x1f,
+    };
+
+    static final int[] s_firstOne = {
+        0, 0, 1, 0,   2, 0, 1, 0,
+        3, 0, 1, 0,   2, 0, 1, 0,
+
+        4, 0, 1, 0,   2, 0, 1, 0,
+        3, 0, 1, 0,   2, 0, 1, 0,
+    };
+
+    static int getMask(int iPos) {
+        return (1 << (iPos));
+    }
+
+    static int floor(int top, int bot) {
+        int toZero = top / bot;
+        // negative numbers should be rounded down, not towards zero;
+        if ((toZero * bot != top) && ((top < 0) != (bot <= 0)))
+            toZero--;
+
+        return toZero;
+    }
+
+    static int getFirstOne(int v) {
+        int startPos = 0;
+        if (v == 0)
+            return 0;
+
+        int iPos = startPos;
+        int mask = 0xff << startPos;
+        while ((mask & v) == 0) {
+            mask <<= 8;
+            iPos += 8;
+        }
+        int result = (mask & v) >> iPos;
+        int resultLow = result & 0x0f;
+        if (resultLow != 0)
+            iPos += s_firstOne[resultLow];
+        else
+            iPos += 4 + s_firstOne[result >> 4];
+
+        return iPos;
+    }
+
+    static int countOnes(int v) {
+        int n = 0;
+        while (v != 0) {
+            n++;
+            v = v & (v - 1);
+        }
+
+        return n;
+    }
+
+
+    static int flipTwoRows(int bits) {
+        int flipped = g_flip[bits >> N_COL] << N_COL;
+        return (flipped | g_flip[bits & Board.TOP_ROW]);
+    }
+
+    static void markBad(IslandInfo info, int mask, int eo, boolean always) {
+        info.hasBad[eo][OPEN] |= mask;
+        info.hasBad[eo][CLOSED] |= mask;
+
+        if (always)
+            info.alwaysBad[eo] |= mask;
+    }
+
+    static void initGlobals() {
+        for (int i = 0; i < MAX_ISLAND_OFFSET; i++)
+        {
+            g_islandInfo[i] = new IslandInfo();
+        }
+
+        for (int i = 0; i < N_ROW; i++)
+        {
+            for (int j = 0; j < N_COL; j++)
+                g_okPieces[i][j] = new OkPieces();
+        }
+    }
+
+
+//-- Classes -------------------------;
+
+    static class OkPieces {
+        byte[] nPieces = new byte[N_PIECE_TYPE];
+        int[][] pieceVec = new int[N_PIECE_TYPE][N_ORIENT];
+    }
+
+
+    static class IslandInfo {
+        int[][] hasBad  =  new int[N_FIXED][N_PARITY];
+        int[][] isKnown =  new int[N_FIXED][N_PARITY];
+        int[] alwaysBad =  new int[N_PARITY];
+    }
+
+
+    static class Soln {
+        static final int NO_PIECE = -1;
+
+        boolean isEmpty() {
+            return (m_nPiece == 0);
+        }
+        void popPiece() {
+            m_nPiece--;
+            m_synched = false;
+        }
+        void pushPiece(int vec, int iPiece, int row) {
+            SPiece p = m_pieces[m_nPiece++];
+            p.vec = vec;
+            p.iPiece = (short) iPiece;
+            p.row = (short) row;
+        }
+
+        Soln() {
+            m_synched = false;
+            m_nPiece = 0;
+            init();
+        }
+
+        class SPiece {
+            int vec;
+            short iPiece;
+            short row;
+            SPiece() {}
+            SPiece(int avec, int apiece, int arow) {
+                vec = avec;
+                iPiece = (short)apiece;
+                row = (short)arow;
+            }
+            SPiece(SPiece other) {
+                vec = other.vec;
+                iPiece = other.iPiece;
+                row = other.row;
+            }
+        }
+
+        SPiece[] m_pieces = new SPiece [N_PIECE_TYPE];
+        int m_nPiece;
+        byte[][] m_cells = new byte [N_ROW][N_COL];
+        boolean m_synched;
+
+        void init() {
+            for (int i = 0; i < N_PIECE_TYPE; i++)
+                m_pieces[i] = new SPiece();
+        }
+        Soln (int fillVal) {
+            init();
+            m_nPiece = 0;
+            fill(fillVal);
+        }
+        public Soln clone2() {
+            Soln s = new Soln();
+            for (int i = 0; i < m_pieces.length; i++)
+                s.m_pieces[i] = new SPiece(m_pieces[i]);
+
+            s.m_nPiece = m_nPiece;
+            //System.arraycopy(m_cells, 0, s.m_cells, 0, N_CELL);
+            for (int i = 0; i < N_ROW; i++)
+            {
+                for (int j = 0; j < N_COL; j ++)
+                {
+                    s.m_cells[i][j] = m_cells[i][j];
+                }
+            }
+
+            s.m_synched = m_synched;
+            return s;
+        }
+
+        void fill(int val) {
+            m_synched = false;
+            for (int i = 0; i < N_ROW; i++)
+            {
+                for (int j = 0; j < N_COL; j++)
+                    m_cells[i][j] = (byte) val;
+            }
+        }
+
+        public String toString()  {
+            StringBuffer result = new StringBuffer(N_CELL * 2);
+
+            for (int y = 0; y < N_ROW; y++) {
+                for (int x = 0; x < N_COL; x++) {
+                    int val = m_cells[y][x];
+                    //if (val == NO_PIECE) result.append('.');
+                    {
+                        result.append(val);
+                    }
+                    result.append(' ');
+                }
+                result.append('\n');
+
+                // indent every second line
+                if (y % 2 == 0)
+                    result.append(" ");
+            }
+            return result.toString();
+        }
+
+        void setCells() {
+            if (m_synched)
+                return;
+
+            for (int iPiece = 0; iPiece < m_nPiece; iPiece++) {
+                SPiece p = m_pieces[iPiece];
+                int vec = p.vec;
+                byte pID = (byte) p.iPiece;
+                int rowOffset = p.row;
+
+                int nNewCells = 0;
+                for (int y = rowOffset; y < N_ROW; y++) {
+                    for (int x = 0; x < N_COL; x++) {
+                        if ((vec & 1) != 0) {
+                            m_cells[y][x] = pID;
+                            nNewCells++;
+                        }
+                        vec >>= 1;
+                    }
+                    if (nNewCells == Piece.N_ELEM)
+                        break;
+                }
+            }
+            m_synched = true;
+        }
+
+        boolean lessThan(Soln r) {
+            if (m_pieces[0].iPiece != r.m_pieces[0].iPiece) {
+                return m_pieces[0].iPiece < r.m_pieces[0].iPiece;
+            }
+
+            setCells();
+            r.setCells();
+
+            for (int y = 0; y < N_ROW; y++) {
+                for (int x = 0; x < N_COL; x++) {
+                    int lval = m_cells[y][x];
+                    int rval = r.m_cells[y][x];
+
+                    if (lval != rval)
+                        return (lval < rval);
+                }
+            }
+
+            return false;
+        }
+
+        void spin(Soln spun) {
+            setCells();
+
+            for (int y = 0; y < N_ROW; y++) {
+                for (int x = 0; x < N_COL; x++) {
+                    byte flipped = m_cells[N_ROW - y - 1][N_COL - x - 1];
+                    spun.m_cells[y][x] = flipped;
+                }
+            }
+
+
+            spun.m_pieces[0].iPiece = m_pieces[N_PIECE_TYPE - 1].iPiece;
+            spun.m_synched = true;
+        }
+    }
+
+
+//-----------------------
+    static class Board {
+        static final int L_EDGE_MASK = 
+                                       ((1 <<  0) | (1 <<  5) | (1 << 10) | (1 << 15) |
+                                        (1 << 20) | (1 << 25) | (1 << 30));
+        static final int R_EDGE_MASK = L_EDGE_MASK << 4;
+        static final int TOP_ROW = (1 << N_COL) - 1;
+        static final int ROW_0_MASK =
+            TOP_ROW | (TOP_ROW << 10) | (TOP_ROW << 20) | (TOP_ROW << 30);
+        static final int ROW_1_MASK = ROW_0_MASK << 5;
+        static final int BOARD_MASK = (1 << 30) - 1;
+
+        static int getIndex(int x, int y) {
+            return y * N_COL + x;
+        }
+
+        Soln m_curSoln;
+        Soln m_minSoln;
+        Soln m_maxSoln;
+        int m_nSoln;
+
+        Board () {
+            m_curSoln = new Soln(Soln.NO_PIECE);
+            m_minSoln = new Soln(N_PIECE_TYPE);
+            m_maxSoln = new Soln(Soln.NO_PIECE);
+            m_nSoln = (0);
+        }
+
+        static boolean badRegion(int[] toFill, int rNew)
+        {
+            // grow empty region, until it doesn't change any more;
+            int region;
+            do {
+                region = rNew;
+
+                // simple grow up/down
+                rNew |= (region >> N_COL);
+                rNew |= (region << N_COL);
+
+                // grow right/left
+                rNew |= (region & ~L_EDGE_MASK) >> 1;
+                rNew |= (region & ~R_EDGE_MASK) << 1;
+
+                // tricky growth
+                int evenRegion = region & (ROW_0_MASK & ~L_EDGE_MASK);
+                rNew |= evenRegion >> (N_COL + 1);
+                rNew |= evenRegion << (N_COL - 1);
+                int oddRegion = region & (ROW_1_MASK & ~R_EDGE_MASK);
+                rNew |= oddRegion >> (N_COL - 1);
+                rNew |= oddRegion << (N_COL + 1);
+
+                // clamp against existing pieces
+                rNew &= toFill[0];
+            }
+            while ((rNew != toFill[0]) && (rNew != region));
+
+            // subtract empty region from board
+            toFill[0] ^= rNew;
+
+            int nCells = countOnes(toFill[0]);
+            return (nCells % Piece.N_ELEM != 0);
+        }
+
+        static int hasBadIslands(int boardVec, int row)
+        {
+            // skip over any filled rows
+            while ((boardVec & TOP_ROW) == TOP_ROW) {
+                boardVec >>= N_COL;
+                row++;
+            }
+
+            int iInfo = boardVec & ((1 << 2 * N_COL) - 1);
+            IslandInfo info = g_islandInfo[iInfo];
+
+            int lastRow = (boardVec >> (2 * N_COL)) & TOP_ROW;
+            int mask = getMask(lastRow);
+            int isOdd = row & 1;
+
+            if ((info.alwaysBad[isOdd] & mask) != 0)
+                return BAD;
+
+            if ((boardVec & (TOP_ROW << N_COL * 3)) != 0)
+                return calcBadIslands(boardVec, row);
+
+            int isClosed = (row > 6) ? 1 : 0;
+
+            if ((info.isKnown[isOdd][isClosed] & mask) != 0)
+                return (info.hasBad[isOdd][isClosed] & mask);
+
+            if (boardVec == 0)
+                return GOOD;
+
+            int hasBad = calcBadIslands(boardVec, row);
+
+            info.isKnown[isOdd][isClosed] |= mask;
+            if (hasBad != 0)
+                info.hasBad[isOdd][isClosed] |= mask;
+
+            return hasBad;
+        }
+        static int calcBadIslands(int boardVec, int row)
+        {
+            int[] toFill = {~boardVec};
+            if ((row & 1) != 0) {
+                row--;
+                toFill[0] <<= N_COL;
+            }
+
+            int boardMask = BOARD_MASK;
+            if (row > 4) {
+                int boardMaskShift = (row - 4) * N_COL;
+                boardMask >>= boardMaskShift;
+            }
+            toFill[0] &= boardMask;
+
+            // a little pre-work to speed things up
+            int bottom = (TOP_ROW << (5 * N_COL));
+            boolean filled = ((bottom & toFill[0]) == bottom);
+            while ((bottom & toFill[0]) == bottom) {
+                toFill[0] ^= bottom;
+                bottom >>= N_COL;
+            }
+
+            int startRegion;
+            if (filled || (row < 4))
+                startRegion = bottom & toFill[0];
+            else {
+                startRegion = g_firstRegion[toFill[0] & TOP_ROW];
+                if (startRegion == 0)  {
+                    startRegion = (toFill[0] >> N_COL) & TOP_ROW;
+                    startRegion = g_firstRegion[startRegion];
+                    startRegion <<= N_COL;
+                }
+                startRegion |= (startRegion << N_COL) & toFill[0];
+            }
+
+            while (toFill[0] != 0)    {
+                if (badRegion(toFill, startRegion))
+                    return ((toFill[0]!=0) ? ALWAYS_BAD : BAD);
+                int iPos = getFirstOne(toFill[0]);
+                startRegion = getMask(iPos);
+            }
+
+            return GOOD;
+        }
+        static void calcAlwaysBad() {
+            for (int iWord = 1; iWord < MAX_ISLAND_OFFSET; iWord++) {
+                IslandInfo isleInfo = g_islandInfo[iWord];
+                IslandInfo flipped = g_islandInfo[flipTwoRows(iWord)];
+
+                for (int i = 0, mask = 1; i < 32; i++, mask <<= 1) {
+                    int boardVec = (i << (2 * N_COL)) | iWord;
+                    if ((isleInfo.isKnown[0][OPEN] & mask) != 0)
+                        continue;
+
+                    int hasBad = calcBadIslands(boardVec, 0);
+                    if (hasBad != GOOD) {
+                        boolean always = (hasBad==ALWAYS_BAD);
+                        markBad(isleInfo, mask, EVEN, always);
+
+                        int flipMask = getMask(g_flip[i]);
+                        markBad(flipped, flipMask, ODD, always);
+                    }
+                }
+                flipped.isKnown[1][OPEN] =  -1;
+                isleInfo.isKnown[0][OPEN] = -1;
+            }
+        }
+
+        static boolean hasBadIslandsSingle(int boardVec, int row)
+        {
+            int[] toFill = {~boardVec};
+            boolean isOdd = ((row & 1) != 0);
+            if (isOdd) {
+                row--;
+                toFill[0] <<= N_COL; // shift to even aligned
+                toFill[0] |= TOP_ROW;
+            }
+
+            int startRegion = TOP_ROW;
+            int lastRow = TOP_ROW << (5 * N_COL);
+            int boardMask = BOARD_MASK; // all but the first two bits
+            if (row >= 4)
+                boardMask >>= ((row - 4) * N_COL);
+            else if (isOdd || (row == 0))
+                startRegion = lastRow;
+
+            toFill[0] &= boardMask;
+            startRegion &= toFill[0];
+
+            while (toFill[0] != 0)    {
+                if (badRegion(toFill, startRegion))
+                    return true;
+                int iPos = getFirstOne(toFill[0]);
+                startRegion = getMask(iPos);
+            }
+
+            return false;
+        }
+
+        void genAllSolutions(int boardVec, int placedPieces, int row)
+        {
+            while ((boardVec & TOP_ROW) == TOP_ROW) {
+                boardVec >>= N_COL;
+                row++;
+            }
+            int iNextFill = s_firstOne[~boardVec & TOP_ROW];
+            OkPieces allowed = g_okPieces[row][iNextFill];
+
+            int iPiece = getFirstOne(~placedPieces);
+            int pieceMask = getMask(iPiece);
+            for (; iPiece < N_PIECE_TYPE; iPiece++, pieceMask <<= 1)
+            {
+                if ((pieceMask & placedPieces) != 0)
+                    continue;
+
+                placedPieces |= pieceMask;
+                for (int iOrient = 0; iOrient < allowed.nPieces[iPiece]; iOrient++) {
+                    int pieceVec = allowed.pieceVec[iPiece][iOrient];
+
+                    if ((pieceVec & boardVec) != 0)
+                        continue;
+
+                    boardVec |= pieceVec;
+
+                    if ((hasBadIslands(boardVec, row)) != 0) {
+                        boardVec ^= pieceVec;
+                        continue;
+                    }
+
+                    m_curSoln.pushPiece(pieceVec, iPiece, row);
+
+                    // recur or record solution
+                    if (placedPieces != Piece.ALL_PIECE_MASK)
+                        genAllSolutions(boardVec, placedPieces, row);
+                    else
+                        recordSolution(m_curSoln);
+
+                    boardVec ^= pieceVec;
+                    m_curSoln.popPiece();
+                }
+
+                placedPieces ^= pieceMask;
+            }
+        }
+
+        void recordSolution(Soln s) {
+            m_nSoln += 2;
+
+            if (m_minSoln.isEmpty()) {
+                m_minSoln = m_maxSoln = s.clone2();
+                return;
+            }
+
+            if (s.lessThan(m_minSoln))
+                m_minSoln = s.clone2();
+            else if (m_maxSoln.lessThan(s))
+                m_maxSoln = s.clone2();
+
+            Soln spun = new Soln();
+            s.spin(spun);
+            if (spun.lessThan(m_minSoln))
+                m_minSoln = spun;
+            else if (m_maxSoln.lessThan(spun))
+                m_maxSoln = spun;
+        }
+    }
+
+//----------------------
+    static class Piece {
+        class Instance {
+            long m_allowed;
+            int m_vec;
+            int m_offset;
+        }
+
+        static final int N_ELEM = 5;
+        static final int ALL_PIECE_MASK = (1 << N_PIECE_TYPE) - 1;
+        static final int SKIP_PIECE = 5;
+
+        static final int BaseVecs[] = {
+            0x10f, 0x0cb, 0x1087, 0x427, 0x465,
+            0x0c7, 0x8423, 0x0a7, 0x187, 0x08f
+        };
+
+        static Piece[][] s_basePiece = new Piece [N_PIECE_TYPE][N_ORIENT];
+
+        Instance[] m_instance = new Instance [N_PARITY];
+
+        void init() {
+            for (int i = 0; i < N_PARITY; i++)
+                m_instance[i] = new Instance();
+        }
+        Piece() {
+            init();
+        }
+
+        static {
+            for (int i = 0; i < N_PIECE_TYPE; i++) {
+                for (int j = 0; j < N_ORIENT; j++)
+                    s_basePiece[i][j] = new Piece();
+            }
+        }
+        static void setCoordList(int vec, int[][] pts) {
+            int iPt = 0;
+            int mask = 1;
+            for (int y = 0; y < N_ROW; y++) {
+                for (int x = 0; x < N_COL; x++) {
+                    if ((mask & vec) != 0) {
+                        pts[iPt][X] = x;
+                        pts[iPt][Y] = y;
+
+                        iPt++;
+                    }
+                    mask <<= 1;
+                }
+            }
+        }
+
+        static int toBitVector(int[][] pts) {
+            int y, x;
+            int result = 0;
+            for (int iPt = 0; iPt < N_ELEM; iPt++) {
+                x = pts[iPt][X];
+                y = pts[iPt][Y];
+
+                int pos = Board.getIndex(x, y);
+                result |= (1 << pos);
+            }
+
+            return result;
+        }
+
+        static void shiftUpLines(int[][] pts, int shift) {
+
+            for (int iPt = 0; iPt < N_ELEM; iPt++) {
+                if ((pts[iPt][Y] & shift & 0x1) != 0)
+                    (pts[iPt][X])++;
+                pts[iPt][Y] -= shift;
+            }
+        }
+
+        static int shiftToX0(int[][] pts, Instance instance, int offsetRow)
+        {
+            int x, y, iPt;
+            int xMin = pts[0][X];
+            int xMax = xMin;
+            for (iPt = 1; iPt < N_ELEM; iPt++) {
+                x = pts[iPt][X];
+                y = pts[iPt][Y];
+
+                if (x < xMin)
+                    xMin = x;
+                else if (x > xMax)
+                    xMax = x;
+            }
+
+            int offset = N_ELEM;
+            for (iPt = 0; iPt < N_ELEM; iPt++) {
+
+                pts[iPt][X] -= xMin;
+
+                if ((pts[iPt][Y] == offsetRow) && (pts[iPt][X] < offset))
+                    offset = pts[iPt][X];
+            }
+
+            instance.m_offset = offset;
+            instance.m_vec = toBitVector(pts);
+            return xMax - xMin;
+        }
+
+        void setOkPos(int isOdd, int w, int h) {
+            Instance p = m_instance[isOdd];
+            p.m_allowed = 0;
+            long posMask = 1L << (isOdd * N_COL);
+
+            for (int y = isOdd; y < N_ROW - h; y+=2, posMask <<= N_COL) {
+                if ((p.m_offset) != 0)
+                    posMask <<= p.m_offset;
+
+                for (int xPos = 0; xPos < N_COL - p.m_offset; xPos++, posMask <<= 1) {
+
+                    if (xPos >= N_COL - w)
+                        continue;
+
+                    int pieceVec = p.m_vec << xPos;
+
+                    if (Board.hasBadIslandsSingle(pieceVec, y))
+                        continue;
+
+                    p.m_allowed |= posMask;
+                }
+            }
+        }
+
+        static void genOrientation(int vec, int iOrient, Piece target)
+        {
+            int[][] pts = new int[N_ELEM][N_DIM];
+            setCoordList(vec, pts);
+
+            int y, x, iPt;
+            int rot = iOrient % 6;
+            int flip = iOrient >= 6 ? 1 : 0;
+            if (flip != 0) {
+                for (iPt = 0; iPt < N_ELEM; iPt++)
+                    pts[iPt][Y] = -pts[iPt][Y];
+            }
+
+            while ((rot--) != 0) {
+                for (iPt = 0; iPt < N_ELEM; iPt++) {
+                    x = pts[iPt][X];
+                    y = pts[iPt][Y];
+
+                    int xNew = floor((2 * x - 3 * y + 1), 4);
+                    int yNew = floor((2 * x + y + 1), 2);
+                    pts[iPt][X] = xNew;
+                    pts[iPt][Y] = yNew;
+                }
+            }
+
+            int yMin = pts[0][Y];
+            int yMax = yMin;
+            for (iPt = 1; iPt < N_ELEM; iPt++) {
+                y = pts[iPt][Y];
+
+                if (y < yMin)
+                    yMin = y;
+                else if (y > yMax)
+                    yMax = y;
+            }
+            int h = yMax - yMin;
+            Instance even = target.m_instance[EVEN];
+            Instance odd = target.m_instance[ODD];
+
+            shiftUpLines(pts, yMin);
+            int w = shiftToX0(pts, even, 0);
+            target.setOkPos(EVEN, w, h);
+            even.m_vec >>= even.m_offset;
+
+            shiftUpLines(pts, -1);
+            w = shiftToX0(pts, odd, 1);
+            odd.m_vec >>= N_COL;
+            target.setOkPos(ODD, w, h);
+            odd.m_vec >>= odd.m_offset;
+        }
+
+        static void genAllOrientations() {
+            for (int iPiece = 0; iPiece < N_PIECE_TYPE; iPiece++) {
+                int refPiece = BaseVecs[iPiece];
+                for (int iOrient = 0; iOrient < N_ORIENT; iOrient++) {
+                    Piece p = s_basePiece[iPiece][iOrient];
+                    genOrientation(refPiece, iOrient, p);
+                    if ((iPiece == SKIP_PIECE)  && (((iOrient / 3) & 1) != 0))
+                        p.m_instance[0].m_allowed = p.m_instance[1].m_allowed = 0;
+                }
+            }
+            for (int iPiece = 0; iPiece < N_PIECE_TYPE; iPiece++) {
+                for (int iOrient = 0; iOrient < N_ORIENT; iOrient++) {
+                    long mask = 1;
+                    for (int iRow = 0; iRow < N_ROW; iRow++) {
+                        Instance p = getPiece(iPiece, iOrient, (iRow & 1));
+                        for (int iCol = 0; iCol < N_COL; iCol++) {
+                            OkPieces allowed = g_okPieces[iRow][iCol];
+                            if ((p.m_allowed & mask) != 0) {
+                                allowed.pieceVec[iPiece][allowed.nPieces[iPiece]] = p.m_vec << iCol;
+                                (allowed.nPieces[iPiece])++;
+                            }
+
+                            mask <<= 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        static Instance getPiece(int iPiece, int iOrient, int iParity) {
+            return s_basePiece[iPiece][iOrient].m_instance[iParity];
+        }
+    }
+
+
+//-- Main ---------------------------
+
+   public static void main(String[] args){
+      for (int i=0; i<65; ++i) meteor.program_main(args,false);
+      meteor.program_main(args,true);
+   }
+
+    public static void program_main(String[] args, boolean isWarm) {
+        if (args.length > 2)
+            System.exit(-1); // spec says this is an error;
+
+        initGlobals();
+        Board b = new Board();
+        Piece.genAllOrientations();
+        Board.calcAlwaysBad();
+        b.genAllSolutions(0, 0, 0);
+
+        if (isWarm){
+           System.out.println(b.m_nSoln + " solutions found\n");
+           System.out.println(b.m_minSoln);
+           System.out.println(b.m_maxSoln);
+        }
+    }
+}
+/* The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+
+   contributed by Mark C. Lewis
+   modified slightly by Chad Whipkey
+   steady state approximation by Isaac Gouy
+*/
+
+public final class nbody {
+
+   public static void main(String[] args){
+      for (int i=0; i<65; ++i) nbody.program_main(args,false);
+      nbody.program_main(args,true);
+   }
+
+    public static void program_main(String[] args, boolean isWarm) {
+        int n = Integer.parseInt(args[0]);
+
+        NBodySystem bodies = new NBodySystem();
+
+        double e = bodies.energy();
+        if (isWarm) System.out.printf("%.9f\n", e);
+        for (int i=0; i<n; ++i)
+           bodies.advance(0.01);
+        e = bodies.energy();
+        if (isWarm) System.out.printf("%.9f\n", bodies.energy());
+    }
+}
+
+final class NBodySystem {
+   private Body[] bodies;
+
+   public NBodySystem(){
+      bodies = new Body[]{
+            Body.sun(),
+            Body.jupiter(),
+            Body.saturn(),
+            Body.uranus(),
+            Body.neptune()
+         };
+
+      double px = 0.0;
+      double py = 0.0;
+      double pz = 0.0;
+      for(int i=0; i < bodies.length; ++i) {
+         px += bodies[i].vx * bodies[i].mass;
+         py += bodies[i].vy * bodies[i].mass;
+         pz += bodies[i].vz * bodies[i].mass;
+      }
+      bodies[0].offsetMomentum(px,py,pz);
+   }
+
+   public void advance(double dt) {
+
+      for(int i=0; i < bodies.length; ++i) {
+            Body iBody = bodies[i];
+         for(int j=i+1; j < bodies.length; ++j) {
+                double dx = iBody.x - bodies[j].x;
+            double dy = iBody.y - bodies[j].y;
+            double dz = iBody.z - bodies[j].z;
+
+                double dSquared = dx * dx + dy * dy + dz * dz;
+                double distance = Math.sqrt(dSquared);
+                double mag = dt / (dSquared * distance);
+
+            iBody.vx -= dx * bodies[j].mass * mag;
+            iBody.vy -= dy * bodies[j].mass * mag;
+            iBody.vz -= dz * bodies[j].mass * mag;
+
+            bodies[j].vx += dx * iBody.mass * mag;
+            bodies[j].vy += dy * iBody.mass * mag;
+            bodies[j].vz += dz * iBody.mass * mag;
+         }
+      }
+
+        for ( Body body : bodies) {
+         body.x += dt * body.vx;
+         body.y += dt * body.vy;
+         body.z += dt * body.vz;
+      }
+   }
+
+   public double energy(){
+      double dx, dy, dz, distance;
+      double e = 0.0;
+
+      for (int i=0; i < bodies.length; ++i) {
+            Body iBody = bodies[i];
+            e += 0.5 * iBody.mass *
+                 ( iBody.vx * iBody.vx
+                   + iBody.vy * iBody.vy
+                   + iBody.vz * iBody.vz );
+
+         for (int j=i+1; j < bodies.length; ++j) {
+                Body jBody = bodies[j];
+                dx = iBody.x - jBody.x;
+            dy = iBody.y - jBody.y;
+            dz = iBody.z - jBody.z;
+
+            distance = Math.sqrt(dx*dx + dy*dy + dz*dz);
+            e -= (iBody.mass * jBody.mass) / distance;
+         }
+      }
+      return e;
+   }
+}
+
+
+final class Body {
+   static final double PI = 3.141592653589793;
+   static final double SOLAR_MASS = 4 * PI * PI;
+   static final double DAYS_PER_YEAR = 365.24;
+
+   public double x, y, z, vx, vy, vz, mass;
+
+   public Body(){}
+
+   static Body jupiter(){
+      Body p = new Body();
+      p.x = 4.84143144246472090e+00;
+      p.y = -1.16032004402742839e+00;
+      p.z = -1.03622044471123109e-01;
+      p.vx = 1.66007664274403694e-03 * DAYS_PER_YEAR;
+      p.vy = 7.69901118419740425e-03 * DAYS_PER_YEAR;
+      p.vz = -6.90460016972063023e-05 * DAYS_PER_YEAR;
+      p.mass = 9.54791938424326609e-04 * SOLAR_MASS;
+      return p;
+   }
+
+   static Body saturn(){
+      Body p = new Body();
+      p.x = 8.34336671824457987e+00;
+      p.y = 4.12479856412430479e+00;
+      p.z = -4.03523417114321381e-01;
+      p.vx = -2.76742510726862411e-03 * DAYS_PER_YEAR;
+      p.vy = 4.99852801234917238e-03 * DAYS_PER_YEAR;
+      p.vz = 2.30417297573763929e-05 * DAYS_PER_YEAR;
+      p.mass = 2.85885980666130812e-04 * SOLAR_MASS;
+      return p;
+   }
+
+   static Body uranus(){
+      Body p = new Body();
+      p.x = 1.28943695621391310e+01;
+      p.y = -1.51111514016986312e+01;
+      p.z = -2.23307578892655734e-01;
+      p.vx = 2.96460137564761618e-03 * DAYS_PER_YEAR;
+      p.vy = 2.37847173959480950e-03 * DAYS_PER_YEAR;
+      p.vz = -2.96589568540237556e-05 * DAYS_PER_YEAR;
+      p.mass = 4.36624404335156298e-05 * SOLAR_MASS;
+      return p;
+   }
+
+   static Body neptune(){
+      Body p = new Body();
+      p.x = 1.53796971148509165e+01;
+      p.y = -2.59193146099879641e+01;
+      p.z = 1.79258772950371181e-01;
+      p.vx = 2.68067772490389322e-03 * DAYS_PER_YEAR;
+      p.vy = 1.62824170038242295e-03 * DAYS_PER_YEAR;
+      p.vz = -9.51592254519715870e-05 * DAYS_PER_YEAR;
+      p.mass = 5.15138902046611451e-05 * SOLAR_MASS;
+      return p;
+   }
+
+   static Body sun(){
+      Body p = new Body();
+      p.mass = SOLAR_MASS;
+      return p;
+   }
+
+   Body offsetMomentum(double px, double py, double pz){
+      vx = -px / SOLAR_MASS;
+      vy = -py / SOLAR_MASS;
+      vz = -pz / SOLAR_MASS;
+      return this;
+   }
+}
+
+/**
+ * The Computer Language Benchmarks Game
+ * http://shootout.alioth.debian.org/
+ * contributed by Mike Pall
+ * java port by Stefan Krause
+*/
+
+
+public class pidigits {
+   
+   final GmpInteger q = new GmpInteger(), r = new GmpInteger(),
+   s = new GmpInteger(), t = new GmpInteger(); 
+   final GmpInteger u = new GmpInteger(), v = new GmpInteger(),
+   w = new GmpInteger(); 
+
+   int i, k, c; 
+   int digit;
+   int d;
+   StringBuffer strBuf = new StringBuffer(20);
+   final int n;
+   
+   private pidigits(int n)
+   {
+      this.n=n;
+   }
+   
+   private void compose_r(int bq, int br, int bs, int bt)
+   {
+     u.mul(r, bs);
+     r.mul(r, bq);
+     v.mul(t, br);
+     r.add(r, v);
+     t.mul(t, bt);
+     t.add(t, u);
+     s.mul(s, bt);
+     u.mul(q, bs);
+     s.add(s, u);
+     q.mul(q, bq);
+   }
+
+   /* Compose matrix with numbers on the left. */
+   private void compose_l(int bq, int br, int bs, int bt)
+   {
+     r.mul(r, bt);
+     u.mul(q, br);
+     r.add(r, u);
+     u.mul(t, bs);
+     t.mul(t, bt);
+     v.mul(s, br);
+     t.add(t, v);
+     s.mul(s, bq);
+     s.add(s, u);
+     q.mul(q, bq);
+   }
+
+   /* Extract one digit. */
+   private int extract(int j)
+   {
+     u.mul(q, j);
+     u.add(u, r);
+     v.mul(s, j);
+     v.add(v, t);
+     w.div(u, v);
+     return w.intValue();
+   }
+
+   /* Print one digit. Returns 1 for the last digit. */
+   private boolean prdigit(int y, boolean isWarm)
+   {
+      strBuf.append(y);
+      if (++i % 10 == 0 || i == n) {
+         if (i%10!=0) for (int j=10-(i%10);j>0;j--) { strBuf.append(" "); }
+         strBuf.append("\t:");
+         strBuf.append(i);
+         if (isWarm) System.out.println(strBuf);
+         strBuf = new StringBuffer(20);
+      }
+      return i == n;
+   }
+
+   /* Generate successive digits of PI. */
+   void pidigits(boolean isWarm)
+   {
+     int k = 1;
+     d = 0;
+     i = 0;
+     q.set(1);
+     r.set(0);
+     s.set(0);
+     t.set(1);
+     for (;;) {
+       int y = extract(3);
+       if (y == extract(4)) {
+         if (prdigit(y,isWarm)) return;
+         compose_r(10, -10*y, 0, 1);
+       } else {
+         compose_l(k, 4*k+2, 0, 2*k+1);
+         k++;
+       }
+     }
+   }
+      
+   public static void main(String[] args){
+      pidigits m = new pidigits(Integer.parseInt(args[0]));
+      for (int i=0; i<65; ++i) m.pidigits(false);
+      m.pidigits(true);
+
+      System.exit(0);
+   }
+}
+
+
+
+class GmpInteger {
+   
+   // Public methods
+   
+   public GmpInteger() {
+      mpz_init();
+   }
+
+   public GmpInteger(int value) {
+      this();
+      mpz_set_si(pointer, value);
+   }
+   
+   public void set(int value) { mpz_set_si(pointer, value); }
+
+   public void mul(GmpInteger src, int val) { mpz_mul_si(pointer, src.pointer, val); }
+   
+   public void add(GmpInteger op1, GmpInteger op2) { mpz_add(pointer, op1.pointer, op2.pointer); }
+   
+   public void div(GmpInteger op1, GmpInteger op2) { mpz_tdiv_q(pointer, op1.pointer, op2.pointer); }
+   
+   public int intValue() { return mpz_get_si(pointer); }
+   
+   public double doubleValue() { return mpz_get_d(pointer); } 
+
+   // Non public stuff
+   
+   static {
+      System.loadLibrary("jgmplib");
+   }
+   private long pointer;
+   
+   protected void finalize()  {
+      mpz_clear(pointer);
+   }
+   
+   private native void mpz_init();
+
+   private native void mpz_clear(long src);
+
+   private static native void mpz_mul_si(long dest, long src,
+         int val);
+
+   private static native void mpz_add(long dest, long src,
+         long src2);
+
+   private static native void mpz_tdiv_q(long dest, long src,
+         long src2);
+
+   private static native void mpz_set_si(long src, int value);
+
+   private static native int mpz_get_si(long src);
+
+   private static native double mpz_get_d(long src);
+}
+/**
+ * The Computer Language Benchmarks Game
+ * http://shootout.alioth.debian.org/
+
+   contributed by Mike Pall
+   java port by Stefan Krause
+   Data Parallel adaptation by Sassa NF
+*/
+
+import java.util.concurrent.*;
+
+public class pidigits {
+   final static int FOUR = 0, BQ = 1, BR = 2, BT = 3, // plain int values
+                    // GMP integers
+                    V = 4, ER1 = 5, Q1 = 6, R1 = 7, T1 = 8, U1 = 9,
+                    ES1 = 10, ER = 11, 
+                    Q = 12, R = 13, T = 14, U = 15; // these are always available
+
+   final static int SPIN = 1000;
+
+   long [] values = new long[ 16 ];
+   Semaphore [] sema = new Semaphore[ values.length ];
+   Semaphore allDone = new Semaphore( 0 );
+   Semaphore moreWork = new Semaphore( 0 );
+   final static int ADD = 0, MUL = 1, DIV_Q_R = 2;
+
+   ExecutorService executor = Executors.newFixedThreadPool( 3 );
+
+   int i;
+   StringBuilder strBuf = new StringBuilder(20);
+   final int n;
+
+   private pidigits(int n)
+   {
+      this.n=n;
+   }
+
+   public static void acquire( Semaphore s, int permits )
+   {
+     int i = SPIN;
+     while( !s.tryAcquire( permits ) ) if ( --i <= 0 ) break;
+
+     // now, if i <= 0, then the semaphore is definitely not acquired
+     if ( i <= 0 )
+     {
+       try
+       {
+         s.acquire( permits );
+       }
+       catch( Exception e )
+       {}
+     }
+   }
+
+   public class exec implements Runnable
+   {
+     exec [] seq_tasks;
+     int instr, dest, op1, op2, op3 = -1;
+
+     public exec( exec[] tasks )
+     {
+       seq_tasks = tasks;
+     }
+
+     public exec( int ins, int d, int o1, int o2 )
+     {
+       instr = ins; dest = d; op1 = o1; op2 = o2;
+     }
+
+     public exec( int ins, int d, int o1, int o2, int o3 )
+     {
+       this( ins, d, o2, o3 ); op3 = o1;
+     }
+
+     public void run()
+     {
+       _run();
+       acquire( moreWork, 1 ); // leave the thread spinning until more work arrives - unparking takes ages on some boxes
+     }
+
+     public void _run()
+     {
+       if ( seq_tasks != null )
+       {
+         for( exec r: seq_tasks ) r._run();
+         allDone.release();
+         return;
+       }
+
+       // the while loop makes sure the thread doesn't get preempted - don't care about the CPU going wild; it would be idle otherwise anyway
+       acquire( sema[ op1 ], 1 ); sema[ op1 ].release();
+       acquire( sema[ op2 ], 1 ); sema[ op2 ].release();
+
+       if ( instr == MUL )
+       {
+         GmpUtil.mpz_mul_si( values[ dest ], values[ op1 ], (int)values[ op2 ] );
+       }
+       else if ( instr == ADD )
+       {
+         GmpUtil.mpz_add( values[ dest ], values[ op1 ], values[ op2 ] );
+       }
+       else if ( instr == DIV_Q_R )
+       {
+         GmpUtil.mpz_tdiv_qr( values[ dest ], values[ op3 ], values[ op1 ], values[ op2 ] );
+         sema[ op3 ].release();
+       }
+
+       sema[ dest ].release();
+     }
+   };
+
+   // compose_r = ( q,r; s,t ) = ( bq, br; bs, bt ) x (q,r; s,t)
+   // bs == 0, hence s == 0 and multiplications involving bs and s aren't here (br*s, bt*s)
+   // bt == 1 hence multiplications involving bt aren't here (s*bt, t*bt)
+
+   // compose_l = ( q,r; s,t ) = (q,r; s,t) x ( bq, br; bs, bt )
+   // extract = ( q*3 + r )/( s*3 + t ) compared to ( q*4 + r )/( s*4 + t )
+   // the latter is the same as computing quotient and remainder of ( q*4 + r )/( s*4 + t ); if the remainder is greater or equal to q,
+   // then the quotient is the same as of ( 3*q + r )/( s*3 + t ) since s==0
+   final exec[] COMPOSE_R = new exec[]{ 
+                         new exec( new exec[]{ new exec( MUL, Q1, Q, BQ ),
+                                                   new exec( MUL, U1, Q1, FOUR ) } ), // now U is always Q*4
+                         new exec( new exec[]{ new exec( MUL, V, T, BR ),
+                                                   new exec( ADD, R1, R1, V ) } ),
+                         new exec( new exec[]{ new exec( MUL, R1, R, BQ ) } )
+                                              };
+
+   final exec[] COMPOSE_L = new exec[]{ 
+                         // digit extraction logic here
+                         new exec( new exec[]{ new exec( ADD, ES1, U, R ),
+                                                   new exec( DIV_Q_R, ER, ER1, ES1, T ) } ), // DIV_Q_R is approx the same cost as two muls
+                                                   // so this splits the work roughly equally
+                         // compose_l
+                         new exec( new exec[]{ new exec( MUL, R1, R, BT ),
+                                                   new exec( ADD, R1, R1, V ) } ),
+                         new exec( new exec[]{ new exec( MUL, V, Q, BR ),
+                                                   new exec( MUL, T1, T, BT ) } ),
+                         new exec( new exec[]{ new exec( MUL, Q1, Q, BQ ),
+                                                   new exec( MUL, U1, Q1, FOUR ) } ) // now U is always Q*4
+                                              };
+
+
+   private boolean multi_threaded_compute( exec[] code, int bq, int br, int bt, boolean compare )
+   {
+     allDone.drainPermits();
+
+     for( int i = BQ; i < Q; ++i ) sema[ i ].drainPermits();
+
+     values[ BQ ] = bq;
+     sema[ BQ ].release();
+     values[ BR ] = br;
+     sema[ BR ].release();
+     values[ BT ] = bt;
+     sema[ BT ].release();
+
+     for( int i = compare ? 1: 0; i < code.length; ++i )
+     {
+       executor.execute( code[ i ] ); // we are one thread, so skip code[ 0 ], if comparing the remainder is needed
+       moreWork.release();
+     }
+
+     if ( !compare ) return false;
+
+     code[ 0 ]._run();
+     boolean r = GmpUtil.mpz_cmp( values[ ER1 ], values[ Q ] ) >= 0; // ER1 >= Q means the remainder of (4*q+r)/t contains q,
+                                                                // and the quotient is the same as (3*q+r)/t
+     acquire( allDone, code.length );
+
+     return r;
+   }
+
+   /* Print one digit. Returns 1 for the last digit. */
+   private boolean prdigit(int y, boolean isWarm)
+   {
+      strBuf.append(y);
+      if (++i % 10 == 0 || i == n) {
+         if (i%10!=0) for (int j=10-(i%10);j>0;j--) { strBuf.append(" "); }
+         strBuf.append("\t:");
+         strBuf.append(i);
+        if (isWarm) System.out.println(strBuf);
+        strBuf.setLength( 0 ); // clear the contents
+      }
+      return i == n;
+   }
+
+   /* Generate successive digits of PI. */
+   void pidigits(boolean isWarm)
+   {
+     int k = 1;
+     for( int i = V; i < values.length; ++i ) values[ i ] = GmpUtil.mpz_init();
+
+     GmpUtil.mpz_set_si( values[ Q ], 1 );
+     GmpUtil.mpz_set_si( values[ T ], 1 );
+     GmpUtil.mpz_set_si( values[ R ], 0 );
+     GmpUtil.mpz_set_si( values[ U ], 4 ); // U = Q*4 - invariant
+     values[ FOUR ] = 4;
+     for( int i = 0; i < sema.length; ++i ) sema[ i ] = new Semaphore( 0 ); // these are initially unavailable
+     sema[ Q ].release(); // these are always avalable
+     sema[ R ].release();
+     sema[ FOUR ].release();
+     sema[ T ].release();
+     sema[ U ].release();
+     i = 0;
+     for (;;) {
+       if ( multi_threaded_compute( COMPOSE_L, k, 4*k+2, 2*k+1, true ) ) {
+         int y = GmpUtil.mpz_get_si( values[ ER ] );
+       
+         multi_threaded_compute( COMPOSE_R, 10, -10*y, 1, false ); // compare == false - computation is in background; foreground thread can print 
+         boolean r = prdigit(y,isWarm);
+         acquire( allDone,  COMPOSE_R.length ); // wait for the COMPOSE_R to complete
+
+         if ( r ) {
+           for( int i = V; i < values.length; ++i ) GmpUtil.mpz_clear( values[ i ] ); // don't have to be this nice in a one-shot run
+           return;
+         }
+       } else {
+         long g = values[ T ];
+         values[ T ] = values[ T1 ];
+         values[ T1 ] = g; // to save on init/GC costs
+         k++;
+       }
+       long g = values[ Q ];
+       values[ Q ] = values[ Q1 ];
+       values[ Q1 ] = g;
+       g = values[ R ];
+       values[ R ] = values[ R1 ];
+       values[ R1 ] = g;
+       g = values[ U1 ];
+       values[ U1 ] = values[ U ];
+       values[ U ] = g;
+     }
+   }
+
+   public static void main(String[] args){
+      pidigits m = new pidigits(Integer.parseInt(args[0]));
+      for (int i=0; i<65; ++i) m.pidigits(false);
+      m.pidigits(true);
+
+      System.exit(0);
+   }
+
+}
+
+class GmpUtil {
+   static {
+      System.loadLibrary("jpargmp");
+   }
+   static native long mpz_init();
+
+   static native void mpz_clear(long src);
+
+   static native void mpz_mul_si(long dest, long src,
+         int val);
+
+   static native void mpz_add(long dest, long src,
+         long src2);
+
+   static native void mpz_set_si(long src, int value);
+
+   static native int mpz_get_si(long src);
+
+   static native int mpz_cmp(long dest, long src);
+
+   static native void mpz_tdiv_qr(long q, long r, long n,
+         long d);
+}
+/*
+The Computer Language Benchmarks Game
+http://shootout.alioth.debian.org/
+ 
+Based on C# entry by Isaac Gouy
+contributed by Jarkko Miettinen
+Parallel by The Anh Tran
+steady state approximation by Isaac Gouy
+ */
+
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
+import java.util.concurrent.CyclicBarrier;
+
+public class spectralnorm
+{
+   public static void main(String[] args){
+      for (int i=0; i<65; ++i) spectralnorm.program_main(args,false);
+      spectralnorm.program_main(args,true);
+   }
+
+    private static final NumberFormat formatter = new DecimalFormat ("#.000000000");
+    
+    public static void program_main (String[] args, boolean isWarm)
+    {
+        int n = 1000;
+        if (args.length > 0) n = Integer.parseInt (args[0]);
+        
+        double answer = spectralnormGame (n);
+
+        if (isWarm)
+           System.out.println (formatter.format(answer) );
+    }
+    
+    
+    private static final double spectralnormGame (int n)
+    {
+        // create unit vector
+        double[] u = new double[n];
+        double[] v = new double[n];
+        double[] tmp = new double[n];
+        
+        for (int i = 0; i < n; i++)
+            u[i] = 1.0;
+        
+        // get available processor, then set up syn object
+        int nthread = Runtime.getRuntime ().availableProcessors ();
+        Approximate.barrier = new CyclicBarrier (nthread);
+        
+        int chunk = n / nthread;
+        Approximate[] ap = new Approximate[nthread];
+        
+        for (int i = 0; i < nthread; i++)
+        {
+            int r1 = i * chunk;
+            int r2 = (i < (nthread -1)) ? r1 + chunk : n;
+            
+            ap[i] = new Approximate (u, v, tmp, r1, r2);
+        }
+        
+        
+        double vBv = 0, vv = 0;
+        for (int i = 0; i < nthread; i++)
+        {
+            try
+            {
+                ap[i].join ();
+                
+                vBv += ap[i].m_vBv;
+                vv += ap[i].m_vv;
+            }
+            catch (Exception e)
+            {
+                e.printStackTrace ();
+            }
+        }
+        
+        return Math.sqrt (vBv/vv);
+    }
+    
+    
+    private static class Approximate extends Thread
+    {
+        private static CyclicBarrier barrier;
+        
+        private double[] _u;
+        private double[] _v;
+        private double[] _tmp;
+        
+        private int range_begin, range_end;
+        private double m_vBv = 0, m_vv = 0;
+        
+        
+        public Approximate (double[] u, double[] v, double[] tmp, int rbegin, int rend)
+        {
+            super ();
+            
+            _u = u;
+            _v = v;
+            _tmp = tmp;
+            
+            range_begin = rbegin;
+            range_end = rend;
+            
+            start ();
+        }
+        
+        public void run ()
+        {
+            // 20 steps of the power method
+            for (int i = 0; i < 10; i++)
+            {
+                MultiplyAtAv (_u, _tmp, _v);
+                MultiplyAtAv (_v, _tmp, _u);
+            }
+            
+            for (int i = range_begin; i < range_end; i++)
+            {
+                m_vBv += _u[i] * _v[i];
+                m_vv  += _v[i] * _v[i];
+            }
+        }
+        
+        /* return element i,j of infinite matrix A */
+        private final static double eval_A (int i, int j)
+        {
+            int div = ( ((i+j) * (i+j+1) >>> 1) +i+1 );
+            return 1.0 / div;
+        }
+        
+        /* multiply vector v by matrix A, each thread evaluate its range only */
+        private final void MultiplyAv (final double[] v, double[] Av)
+        {
+            for (int i = range_begin; i < range_end; i++)
+            {
+                double sum = 0;
+                for (int j = 0; j < v.length; j++)
+                    sum += eval_A (i, j) * v[j];
+                
+                Av[i] = sum;
+            }
+        }
+        
+        /* multiply vector v by matrix A transposed */
+        private final void MultiplyAtv (final double[] v, double[] Atv)
+        {
+            for (int i = range_begin; i < range_end; i++)
+            {
+                double sum = 0;
+                for (int j = 0; j < v.length; j++)
+                    sum += eval_A (j, i) * v[j];
+                
+                Atv[i] = sum;
+            }
+        }
+        
+        /* multiply vector v by matrix A and then by matrix A transposed */
+        private final void MultiplyAtAv (final double[] v, double[] tmp, double[] AtAv)
+        {
+            try
+            {
+                MultiplyAv (v, tmp);
+                // all thread must syn at completion
+                barrier.await ();
+                MultiplyAtv (tmp, AtAv);
+                // all thread must syn at completion
+                barrier.await ();
+            }
+            catch (Exception e)
+            {
+                e.printStackTrace ();
+            }
+        }
+    }
+}

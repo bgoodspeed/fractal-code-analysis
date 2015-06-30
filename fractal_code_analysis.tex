@@ -1,0 +1,469 @@
+\documentclass[12pt]{article}
+%\usepackage{natbib}
+\usepackage[numbers]{natbib}
+\usepackage{amsthm}
+\usepackage[toc,page]{appendix}
+\usepackage{color}
+\usepackage{graphicx}
+\usepackage{tabularx}
+\usepackage{caption}
+
+\usepackage{longtable}
+\usepackage[]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{fullpage}
+\usepackage{coqdoc}
+\usepackage{amsmath,amssymb}
+\usepackage{listings}
+
+
+\DeclareGraphicsExtensions{.pdf,.png,.jpg}
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\DeclareCaptionFormat{listing}{#1#2#3}
+\captionsetup[lstlisting]{format=listing,singlelinecheck=false} 
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+\newtheorem{mydef}{Definition}
+
+
+
+\begin{document}
+
+\title{Self-Affinity in Source Code : A Programmer Metric}
+\author{Ben  Goodspeed}
+
+\maketitle
+\pagebreak
+
+
+%TODO consider whether to make all interpretation speculative
+%TODO use the benchmark stuff from alioth (lang shootout thing) for further study
+%TODO look into 'voice', passive vs active in all cases.  see which is 'right' for a given journal.
+\begin{abstract}
+%TODO abstract here
+Fractal self-affinity of source code text is calculated by multifractal detrending analysis.  This affinity is discussed in the context of software quality and complexity metrics.  It is focused on the programmer's view of the source code.  It is shown to have language independence properties, but suffers in universal applicability.  Deliberate inattention to semantics of the source language shows both benefits and detriments to the utility of the affinity as a metric.
+\end{abstract}
+
+\tableofcontents
+\listoffigures
+
+\pagebreak
+\section{Introduction}
+Some source code is easy to follow (and thus easy to maintain, to fix and to extend).  Other code is not easy to follow.  Programmers have an intuition for detecting "bad" \cite{Feathers:WEWLC:04, 
+Martin:CleanCode:08}
+ code.  Sometimes this is due to certain patterns (often called "smells" \cite{Fowler:Refactoring:99}) within the source code.
+
+\lstset{language=C}
+
+\begin{figure}[h]
+\centering
+\begin{minipage}[b]{0.40\linewidth}
+\begin{lstlisting}[frame=single][caption=My caption]
+long simple(int a) {
+     long b = a * 300;
+     return a + b + 2;
+}
+\end{lstlisting} 
+
+\caption{Simple Code}
+\label{fig:minipage1}
+\end{minipage}
+\quad
+\begin{minipage}[b]{0.55\linewidth}
+\begin{lstlisting}[frame=single]
+long complex(int a, int b, long c) {
+     if (a == b) {
+         while(b) {
+#ifdef CONST         
+             continue;
+#else
+             if (c == a) return -1;
+#endif
+        }  }
+    return 0;
+}
+\end{lstlisting} 
+\caption{Complex Code}
+\label{fig:minipage2}
+\end{minipage}
+\end{figure}
+
+Notice that the code on the left looks easy to follow, whereas the code on the right looks more difficult to comprehend.
+This intuition is valuable as it gives a sense of when code will be difficult to change, or where changes may have unintended consequences.  However, the qualitative nature of these descriptions makes it difficult to compare between two programmers judgments of code.  Many software complexity metrics have been described intending to make this value judgment more quantitative (for example \cite{Radjenovic:SoftwareMetrics:13, McCabe:SoftwareComplexity:76, Concas:FractalSoftware:06, Valverde:SmallWorlds:03}), and some of these are discussed in section \ref{RelatedWork}.
+
+
+The main problem is making a judgment call about qualitative things explicit and consistent across languages, platforms and between different people.
+
+If an intuition or judgment about source code is not numerical and reproducible by other people, we can't compare the results.  Two pieces of bad code are both just "bad", we can't use it to make precise what is bad about them, or describe exactly how "bad".
+
+We would like to be able to assign a normalized (in this case between 0.5 and 1) numeric value to the complexity of a piece of code.  We want this value to be applicable to whatever portion of the code we analyze, whether considering the source file in its entirety or just a single method.  In a related sense, we'd like to know if the characterization we get from examining a single method is representative of the whole.
+
+This sense of multi-scale similarity is at the core of fractal analysis \cite{Peitgen:FractalsForClassroom:91}
+\cite{Kantelhardt:DFA:01}.
+
+Since there are so many programming languages, evaluating which one might be suitable for a given task is a challenge.  The reality of modern programming is that very few current projects are mono-linguistic, but rather they are often polyglot.
+
+For example there is currently a trend towards web-based delivery of software.  Given the popularity of the platform, a number of languages and frameworks exist to develop these web applications.  Python and Django, Ruby and Rails, Java and JSP, C\# and ASP.net.  
+
+Regardless of the choice of base language, a given project will  likely use several languages, including the general purpose language (Python, Ruby, etc), a data manipulation language (SQL, Redis, AWS), Javascript (directly, or as an emitted output from Coffeescript etc), and possibly a template language (like JSP, HAML, etc).  Because of this any complexity/quality metric that can only examine a single language will fall short of characterizing the whole system.  Even if metrics exist for each component language, comparing their outputs is akin to comparing apples and oranges.  Likewise combining them into a single, overall metric, provides a similar challenge.
+%TODO footnotes for pages for all above techs
+%TODO define acronyms
+A separate issue is the removal of localized complexity/quality issues.  If we wish to make an overall judgment of quality (unless we use an armada/slowest ship metaphor), we need to remove incidental, local sources of complexity.
+
+In this paper we introduce a new complexity metric based on fractal dimension analysis with the following advantages:
+\begin{itemize}
+\item It is language-independent, as evidenced by the results in Appendix \ref{FullResultsOther};
+\item It is well-suited to characterizing fundamentally complex phenomena as described in section \ref{DetailsAnalyses};
+\item It analyzes the source code language at the level that programmers see it per the extractions described in section \ref{DetailsExtractions};
+\item It uses a fractal analysis capable of removing more localized trends than related methods used in prior work described in section \ref{RelatedWork}.
+\end{itemize}
+
+
+
+\section{Using Fractal Dimension as a Metric}
+The main idea of this paper is that fractal analysis of source code text (as it stands) is a worthwhile metric for software complexity. 
+
+Some specific points of this approach: keep the structure intact, examine the source the way a maintenance programmer would be forced to do it,  with the indentation/comments/short variables and other artifacts that tend to be discarded during analysis.
+
+\begin{figure}[h]
+\centering
+\begin{minipage}[b]{0.40\linewidth}
+\includegraphics[width=1.0\linewidth, height=5cm]{source-code-img.png}
+
+\caption{Zoomed Code}
+\label{fig:zoomed}
+\end{minipage}
+\quad
+\begin{minipage}[b]{0.55\linewidth}
+\includegraphics[width=1.0\linewidth, height=5cm]{source-code-img-sideways.png}
+
+\caption{Rotated Code
+\newline
+Rotated code defines a time series with the value at time index $i$ equal to the length of line $i$.
+}
+\label{fig:rotated}
+\end{minipage}
+\end{figure}
+
+
+In this approach we look at the shape of the code.   We use the line lengths (shown in figure \ref{fig:rotated})  as they exist in the source code to create a time series .  We include comments, indentation, blank lines and other potentially skewing portions of a source code file.  The details of the approaches taken are discussed in section \ref{DetailsExtractions}.  These extractions are chosen because we want to preserve the structure as a programmer would encounter it.  We do not want to analyze the program as the system would encounter it (e.g. after compilation, as would be used in static or dynamic analysis, see section \ref{RelatedWork} for more information).  
+
+%TODO why is the cumulative sum taken?
+Once we have a time series, we obtain the cumulative sum (by removing the mean values, because this allows long term persistence trends to be measured, this technique is typical for this type of analysis \cite{Suteanu:ArticWind:14, Suteanu:AirTemps:14}).  These are shown in the graphs in section \ref{DetailsResults} and Appendices \ref{FullResults} \& \ref{FullResultsOther}.  On these, we perform an analysis to see how space filling the curve is, and plot it on a dual logarithmic scale to compare it to an expected power law relationship (as performed in \cite{Kantelhardt:DFA:01}, \cite{Suteanu:AirTemps:14}, and \cite{Suteanu:ArticWind:14}).  To do this we use "detrended flucuation analysis" (DFA) as described in \cite{Kantelhardt:DFA:01} and detailed in section \ref{DetailsAnalyses}.  We choose this because of the detrending features of the analysis (detrending means to remove localized trends), allowing us to analyze the file as a whole, removing trends local to individual functions.  
+
+
+The analysis gives us an exponent $H$, the "H Value", a variability and confidence level $R$ that the fluctuation value $F(s)$ relates to $s$ (the source line number).  These values are summarized in section \ref{DetailsResults} and the meaning \& derivation of the "H value" are given in section \ref{DFAHValue} .  
+
+%TODO H-value should be defined or forward reference to the next TODO
+
+\section{The Details}
+We obtain the results in section \ref{DetailsResults} using the process described in this section.  A summary of the full data sets is in appendices \ref{FullResults} and \ref{FullResultsOther}.  The selection criteria for data set selection is in section \ref{DetailsCorpora}.
+
+According to the work by Radjenovic in his survey of software metrics \cite{Radjenovic:SoftwareMetrics:13}, past metrics have been tested against varying size codebases.  In the survey a small codebase to test on would encompass less than 50,000 lines of code, and a large codebase would be more than 250,000.  We examine approximately 80,000 lines, a reasonable corpus by the standards of the survey.
+
+The remainder of this section details the processes used to obtain the result tables and plots shown in the appendices.
+\subsection{Corpora}\label{DetailsCorpora}
+
+%TODO footnote openbsd
+The selected C source code all comes from the OpenBSD system.  The rationale for selecting this system is that it is a small project (small team), it is mostly built in the same language, it is open source (and thus the source is available), the source covers user applications (like bash), compilers (like gcc), devices (like pci network devices) and network services like the nginx web service.
+
+The selection criteria are summarized as follows:
+\begin{itemize}
+\item openbsd is focused on security and code quality;
+\item single codebase all bundled together;
+\item single language all chosen files are written in C;
+\item length: all files are between 3500 and 3600 lines of code.;
+\item broad source types: compilers, device drivers, utilities, network services.
+\end{itemize}
+
+We additionally analyze source code from Ruby, C\#, Java, HTML and Javascript projects (results in appendix \ref{FullResultsOther}), as evidence of the claim of language independence.  The interpretation in section \ref{DetailsInterpretation} is based largely on the C source from OpenBSD however (to avoid clouding the issue with too many apples versus oranges comparisons).
+
+\subsection{Extractions}\label{DetailsExtractions}
+We extract the time series by simply measuring the length of each line.  Consider the simple program in figure \ref{fig:ExampleCode}.  This program would yield the time series in figure \ref{fig:ExampleTimeSeries}.
+
+\begin{figure}[h]
+\centering
+\begin{minipage}[b]{0.45\linewidth}
+\begin{lstlisting}[frame=single]
+int main(void) {
+	return 0;
+}
+\end{lstlisting}
+
+\caption{Example Code}
+\label{fig:ExampleCode}
+\end{minipage}
+\quad
+\begin{minipage}[b]{0.45\linewidth}
+\begin{center}
+
+\begin{quote}
+1, 17 \\
+2, 18 \\
+3, 2
+\end{quote}
+\end{center}
+
+\caption{Example Time Series}
+\label{fig:ExampleTimeSeries}
+\end{minipage}
+\end{figure}
+
+The values denote the line number followed by the number of characters on the line.  The last value "$3,2$" may be surprising, but the line contains the invisible end-of-file character.  Likewise, the other lines contain the invisible newline character, adding 1 to their character count.  Another possibly surprising value is that line 2 has 18 characters.  In this case, the indentation is composed of space characters.  Sometimes these are tab characters, which can be expanded to varying sizes depending on the settings of the editor being used to view the code.
+
+Due to this variability, the extractions are performed with 4 configurations:
+\begin{itemize}
+\item \textbf{Naive}: the whole source file is processed as it is stated.   Tab characters, leading and trailing spaces, and other non-printed characters are left intact.
+\item \textbf{Tab3}: tab characters are expanded to a fixed size of three blank spaces.
+\item \textbf{Tab8}: tab characters are expanded to a fixed size of eight blank spaces.
+\item \textbf{Trim}: all "whitespace" characters, including both tab characters and blank spaces are stripped from the beginning and end of each line.
+\end{itemize}
+
+The "Naive" configuration is justified by the fact that the unedited source code is precisely the artifact encountered by developers during maintenance or modification.  The tab-expanding configurations "Tab3" and "Tab8" are performed to examine the impact of changing tab expansion settings (which can be configured by users in their editors or IDEs).  Finally, the "Trim" configuration is used to completely remove whitespace, and thus examine purely the textual information content of each line.  The variance induced in the measurements (described in section \ref{DetailsAnalyses}) can be found in appendices \ref{FullResultsVariance} and \ref{FullResultsOtherVariance}.  A discussion of the impact of these choices is given in section \ref{DetailsResultsVariance}.
+
+%TODO describe the time series for the sample program if it was tabs under the 4 configs.
+
+\subsection{Analyses}\label{DetailsAnalyses}
+
+
+We use the method for detrending fluctuation analysis described in detail by Kantelhardt in \cite{Kantelhardt:DFA:01} using a matlab implementation developed by Suteanu for use in his analysis of wind and temperature patterns in \cite{Suteanu:AirTemps:14} and \cite{Suteanu:ArticWind:14}. 
+
+The four configurations described in the previous section (\ref{DetailsExtractions}) each yield a time series.  
+
+We transform the time series into a cumulative sum, by calculating the average "height" of the time series, and subtracting it from each point.  These graphs are shown in appendices \ref{FullResults} and \ref{FullResultsOther}, and selected results highlighted in section \ref{DetailsResultsGraphs}.  
+
+%TODO need to check this description with Dr. S.
+Next the results are "detrended".  In the Kantelhardt paper, the detrending is always performed according to an "order", which defines the degree of the polynomial we fit to each segment.  This is done by repeatedly building a sliding segment, and find a best-fit polynomial to the points in the segment.  The series of polynomials according to the segments are then connected into a single composite function.  The function $F(s)$ associates the fluctuation with the scale $s$.  The precise details are in \cite{Kantelhardt:DFA:01} and the source code is in appendix \ref{SourceCodeMatlab}.  This function is then plotted on a logarithmic scale (on both the scale axis and the fluctuation axis), the full set of plots is available in appendices \ref{FullResults} and \ref{FullResultsOther}, and selected exemplars are given in section \ref{DetailsResults}.
+
+Finally, a linear regression is performed to find the "H-value"\footnote{Note in the DFA world this value is different from other fractal dimension H-values, named by Mandelbrot in honor of Harold  Hurst} (the slope of the curve on the log-log scale), the confidence interval and "R-value" for each fluctuation versus scale plot.  The results are given in full the table in appendices \ref{FullResults} and \ref{FullResultsOther}, and their implications are discussed in section \ref{DetailsInterpretation}.
+
+\label{DFAHValue}
+The H-Value is derived as follows.  If we take $U(i)$ to be the time series data obtained from the rotated source code (normalized by subtracting the average line length), then we can take the cumulative sum $Q(i) = \sum\limits_{j=1}^i U(j)$.  For each segment $m$ of the sum, we denote the weighted average $w_{s,m} = Q_m(i) - P_{m,N}(i)$, where $P_{m,N}$ denotes the best-fit polynomial of degree $N$ for the segment $m$.  In this analysis $N$ is always 2 (that is, we use the best fitting quadratic).  From here the weighted average is taken, removing any negative values: $F^2_s(m) = <w^2_{s,m}(i)>$.  For each of the $r$ segments of length $s$ we obtain $F(s) = [ r^{-1} \sum\limits_{m=1}^r F^2_s(m)]^{1/2}$.  If this fluctuation function $F$ is proportional to the segment size $s$ per $F^N(s) \propto S^H$, then:
+
+\begin{quote}
+[T]he exponent $H$ characterizes the long-range correlations over the scale range spanned by
+$s$ for which this power law is valid. [...] If $H > 0.5$, the pattern is
+persistent, i.e., increases (decreases) in the time series tend to be followed by further
+increases (decreases). \cite{Suteanu:AirTemps:14}
+\end{quote}
+
+Readers interested in the exact details of DFA analysis can consult \cite{Suteanu:AirTemps:14}, \cite{Kantelhardt:DFA:01}, or view the Matlab source code used in Appendix \ref{SourceCodeMatlab}.
+%TODO the forward referencing is a little repetitive, worth using?
+%TODO define H value in detail here w/ appropriate citation
+
+\section{Results}\label{DetailsResults}
+
+Following the procedure in sections \ref{DetailsExtractions} and \ref{DetailsAnalyses}, we find that some files give a strong long-term scaling pattern, others lack long-term scaling, and some give poor results from this type of analysis.
+
+The full analysis table is given in Appendices \ref{FullResults}, \ref{FullResultsOther} and \ref{FullResultsBenchmarks}.  The H-values range from 0.56351 (xilinx, naive) to 0.83862 (rcparse, naive), with confidence intervals ranging from 0.0056327 (recog, tab3) to 0.052436 (rcparse, naive), and R-Values between (rcparse, naive) and 0.99974 (recog, tab3).
+
+\subsubsection{Table - DFA2 Analysis results per source file}
+\begin{longtable}{l l r r r}
+\textbf{Filename} & \textbf{Type} & \textbf{H} & \textbf{+/-} & \textbf{R} \\
+
+{gnu/usr.bin/gcc/gcc/recog} & tab3 & 0.59492 & 0.0056327 & 0.99974 \\
+{gnu/usr.bin/perl/hv} & tab8 & 0.70414 & 0.008119 & 0.99961 \\
+{gnu/usr.bin/binutils/binutils/rcparse} & naive & 0.83862 & 0.052436 & 0.98867 \\
+
+
+
+\end{longtable}
+
+The first two results exhibit a strong R-value (correlation coefficient), with minimal confidence intervals, yet quite different H-values (implying a different persistence of long term scaling).
+
+It is interesting to note that some of the outliers in the OpenBSD corpus correspond to source files automatically generated by parser-generators like Lex and Yacc. %TODO footnote these?
+
+
+\subsubsection{Table - DFA2 Variability}\label{DetailsResultsVariance}
+We observe the variance of the H-value, confidence interval and R-value across each of the four configurations.  The maximal variability for each value is shown below.
+
+\begin{longtable}{l r}
+\textbf{Filename} &  \textbf{H} \\
+
+{usr.sbin/bgpd/rde} & 0.16517000000000004  \\
+\end{longtable}
+This shows the "rde" file exhibits quite a substantial variation of observed H-values, and the highest observed variation.  See appendix \ref{FullResultsVariance} for full table. 
+\begin{longtable}{l l r r r}
+\textbf{Filename} & \textbf{Type} & \textbf{H} & \textbf{+/-} & \textbf{R} \\
+
+{usr.sbin/bgpd/rde} & naive & 0.61891 & 0.0097795 & 0.99927 \\
+{usr.sbin/bgpd/rde} & trim & 0.59715 & 0.0099081 & 0.99919 \\
+{usr.sbin/bgpd/rde} & tab3 & 0.66746 & 0.013262 & 0.99884 \\
+{usr.sbin/bgpd/rde} & tab8 & 0.76232 & 0.016056 & 0.9987 \\
+\end{longtable}
+We see values ranging from 0.59715 in the "trim" configuration, to 0.76232 in the "tab8" configuration (recall this means that tab characters are expanded to 8 characters).
+
+
+\begin{longtable}{l r}
+\textbf{Filename} &  \textbf{+/-} \\
+{sys/dev/pci/if/oce} & 0.024596999999999997  \\
+\end{longtable}
+This shows the "oce" file has a variance of roughly 0.0246 in the confidence interval.
+
+\begin{longtable}{l l r r r}
+\textbf{Filename} & \textbf{Type} & \textbf{H} & \textbf{+/-} & \textbf{R} \\
+{sys/dev/pci/if/oce} & tab8 & 0.65203 & 0.014539 & 0.99854 \\
+{sys/dev/pci/if/oce} & tab3 & 0.65598 & 0.028076 & 0.99465 \\
+{sys/dev/pci/if/oce} & naive & 0.67102 & 0.036174 & 0.99154 \\
+{sys/dev/pci/if/oce} & trim & 0.67623 & 0.039136 & 0.99027 \\
+\end{longtable}
+The values range from +/- 0.0145 to +/- 0.039, for the "tab8" and "trim" configurations respectively.
+
+\begin{longtable}{l r}
+\textbf{Filename} &  \textbf{R} \\
+{gnu/gcc/gcc/config/cris/cris} & 0.005229999999999957  \\
+\end{longtable}
+Turning to the R-value, we find that the maximal variance is only about 0.005, which suggests the correlation of the fluctuation and the scale of the analysis (between 10 to 1100 lines) is not significantly impacted by the choice of tab expansion or whitespace trimming.
+
+
+
+\subsubsection{Graphs}\label{DetailsResultsGraphs}
+\begin{center}
+\includegraphics[width=1.0\linewidth, height=5cm]{{gnu_usr.bin_gcc_gcc_recog_c_tab3_time_series}.png}
+\includegraphics[width=1.0\linewidth, height=5cm]{{gnu_usr.bin_gcc_gcc_recog_c_tab3_log_log}.png}
+\end{center}
+This shows a high correlation coefficient, corresponding to a mild long-term persistence.
+\begin{center}
+\includegraphics[width=1.0\linewidth, height=5cm]{{gnu_usr.bin_perl_hv_c_tab8_time_series}.png}
+\includegraphics[width=1.0\linewidth, height=5cm]{{gnu_usr.bin_perl_hv_c_tab8_log_log}.png}
+\end{center}
+
+This shows a high correlation coefficient, corresponding to a more substantial long term persistence.
+\begin{center}
+\includegraphics[width=1.0\linewidth, height=5cm]{{gnu_usr.bin_binutils_binutils_rcparse_c_naive_time_series}.png}
+\includegraphics[width=1.0\linewidth, height=5cm]{{gnu_usr.bin_binutils_binutils_rcparse_c_naive_log_log}.png}
+\end{center}
+
+This shows an example of poor correlation coefficient, suggesting the linear curve fit is not entirely accurate.
+
+
+\subsection{Interpretation}\label{DetailsInterpretation}
+
+The three cases shown in section \ref{DetailsResults}, tells us about the long term persistence of the fluctuation.  In order to provide meaningful comparisons between observed H-values, we focus our studies on the source code files which yield confidence intervals strictly better than 0.02.  This leaves us with about half of the sources for study\footnote{ "gnu/usr.bin/gcc/gcc/recog.c",
+"gnu/gcc/gcc/recog.c",
+"gnu/usr.bin/perl/hv.c",
+"usr.sbin/bgpd/rde.c",
+"sys/dev/audio.c",
+"gnu/gcc/gcc/config/cris/cris.c",
+"gnu/usr.bin/
+gcc/gcc/config/mcore/mcore.c",
+"gnu/gcc/gcc/dbxout.c",
+"gnu/usr.bin/gcc/gcc/java/expr.c",
+"sys/dev/ic/mpi.c",
+"sys/dev/pci/if-san-xilinx.c", and
+"sys/arch/arm/arm/pmap7.c"}.
+
+Restricted thusly, we find the H-values range between 0.58113 for "gnu/gcc/gcc/config/cris/cris.c" and 0.69928 for "gnu/usr.bin/perl/hv.c".
+
+In order to provide an interpretation of the range of values observed we examine the source files directly and find the following observations of high H-value source files:
+
+\begin{itemize}
+\item many make extensive use of macros, which in some cases flatten looping and conditional constructs;
+\item many make use of strict formatting guidelines, such as line limiting to 80 columns (a standard terminal width);
+\item relatively large numbers of shorter functions;
+\item limited nesting of constructs;
+\item limited usage of preprocessor directives (outside of macro expansions), specifically: few calls to "\#ifdef" and related expansions;
+\item detailed comments in full paragraph form (as opposed to terse notes)
+\item lines manually and explicitly lengthened by using backslashes as a line continuation character in C, repeated space or tab characters to align variable declarations.
+\end{itemize}
+
+On the other hand, when we examine source files with a low H-value we find:
+\begin{itemize}
+\item frequent usage of boolean connectives (such as "||" for OR, "\&\&" for AND, etc);
+\item frequent usage of bitwise operators (such as "<<" for shifting, etc);
+\item frequent use of the case/switch operator.
+
+\end{itemize}
+
+Interestingly, the lower the H-value, the higher the long term persistence is to be expected.
+
+In summary:
+\begin{itemize}
+\item complexity, how likely is it that another block of code will not look like the current one.
+\item scaling, how likely is it that the module will have the same jaggedness if you look at larger and larger blocks.
+\end{itemize}
+
+\section{Related Work}\label{RelatedWork}
+
+The most well-known software complexity metric is due to McCabe \cite{McCabe:SoftwareComplexity:76}.
+Looking at the C source files with a confidence interval below 0.02, we find no correlation between H-values and averaged McCabe complexity.  This suggests the fractal dimension of a text source is not directly related to the number of paths through the code (i.e. the number of conditional statements or loops is not the determining factor).  A summary of the averaged McCabe values along with H-values is given in appendix \ref{McCabeAveraged}.
+
+
+Per the discussion in the comprehensive survey \cite{Radjenovic:SoftwareMetrics:13} by Radjenovic many software quality metrics focus on connectivity in an object-oriented sense.  That is to say they frequently rely on measuring coupling between components by virtue of inheritance, polymorphism, composition of objects, implementation of interfaces and other aspects of software design that only apply to object oriented programming.  These approaches rule out evaluation of procedural (such as C), or functional (such as Haskell) languages. 
+
+
+Other metrics like McCabe's cyclomatic complexity focus on branching and looping (to determine paths through the code).  These are more general and apply well to both procedural and object oriented code.  However they fall flat in handling non-imperative languages, including functional languages like Haskell or declarative goal-driven languages like Prolog.   It is also worth noting that cyclomatic complexity is an unbounded/non-normalized measure.  This makes it difficult to compare source files as a whole, as it really measures the individual functions - longer files are much more likely to report a higher overall complexity.  Taking the average across all the functions gives a semi-normalized value, but it is still not strictly bounded.
+
+
+There have been past efforts to use fractal dimension metrics to quantify software systems, most notably \cite{Concas:FractalSoftware:06} and \cite{Valverde:SmallWorlds:03}.  However both of these systems require object oriented programming languages as they operate on the graph implicit in the connections and coupling between components.  Concas' work makes use of the "box counting" method of fractal analysis, which is not intended to remove localized trends in the shape of the fractal.
+
+The metrics identified by Radjenovic's survey and the fractal based metrics by Concas and Valverde all compare source code written in the same source language.  Our approach is capable of comparing program sources written in different languages.
+
+% TODO static/dynamic analysis?
+
+
+\section{Conclusion and Future Work}
+
+The scaling results we have found in this work suggest an interesting source of new knowledge is available with this line of research.  Some examples of future work might include:
+\begin{itemize}
+\item Examining the same algorithm implemented in multiple languages/across paradigms (functional vs OO vs procedural etc).  The implementations would need to be considered idiomatic to the language to be meaningful.
+\item Examining a similar type of project in different languages (e.g. DB driven web application in python/django, ruby/rails, C\#/MVC).
+\item Examining similar type of program in the same language (e.g. redhat linux vs debian linux versus openbsd versus freebsd, etc).
+\item Comparing tested projects to untested (projects with a thorough test suite vs ones that are not automatically tested).
+\item Comparing projects considered good or bad according to other software quality metrics (perhaps according to existing metrics or by evaluation by professional programmers, e.g. works considered "beautiful" \cite{Wilson:BeautifulCode:07})
+\end{itemize}
+
+In summary, this approach permits cross-language comparisons, it makes no assumptions about the paradigm of the languages being evaluated; it requires no knowledge of the semantic content of the source; it is normalized and bounded; and it takes into account all the text items encountered by real-world maintainers (indentation, comments, long or short variable names).  
+
+One the other hand, our approach is truly unaware of semantic structure of the source.  It is also weaker because of inconsistent applicability, including certain files that simply show no persistent scaling properties, whether strong or weak; and because interpretation of the nature of the complexity being measured is challenging.
+
+\subsection{Acknowledgments}
+I would like to thank Dr. Cristian Suteanu for both sparking this idea during a lecture on pattern analysis and for being extremely generous with his time afterwards to help develop the ideas contained here, the Matlab code to perform the DFA analysis, and for helping me understand how to interpret the results.
+I would also like to thank Dr. Konstantinidis for spurring on this research idea.
+\newpage
+\bibliographystyle{acm}
+\bibliography{research}
+
+\newpage
+%\begin{appendices}
+%\section{Full Results - C}\label{FullResults}
+%\input{fractal_full_results.tex}
+
+%\section{Full Results - Other Languages}\label{FullResultsOther}
+%\input{fractal_full_results_others.tex}
+
+%\section{Full Results - Benchmarks Game}\label{FullResultsBenchmarks}
+%\input{fractal_full_results_benchmarks_game.tex}
+
+
+%\section{McCabe Complexity}
+%\input{fractal_mccabe.tex}
+
+%\section{Source Code}
+%\input{fractal_sources.tex}
+
+%\end{appendices}
+
+
+\end{document}

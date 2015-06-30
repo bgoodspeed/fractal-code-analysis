@@ -1,0 +1,399 @@
+(* ackermann.cm
+ *
+ *   Testing recursive calls using the Ackermann function.
+ *
+ * Copyright (c) 2004 by The Fellowship of SML/NJ
+ *
+ * Author: Matthias Blume (blume@tti-c.org)
+ *)
+library
+	structure Test
+is
+	$/basis.cm
+	$/smlnj-lib.cm
+	ackermann.sml
+(* ary.cm
+ *
+ *   Testing array access.
+ *
+ * Copyright (c) 2004 by The Fellowship of SML/NJ
+ *
+ * Author: Matthias Blume (blume@tti-c.org)
+ *)
+library
+	structure Test
+is
+	$/basis.cm
+	$/smlnj-lib.cm
+	ary.sml
+(* echo.cm
+ *
+ *   Echo test.
+ *
+ * Copyright (c) 2004 by The Fellowship of SML/NJ
+ *
+ * Author: Matthias Blume (blume@tti-c.org)
+ *)
+library structure Test is $/basis.cm echo.sml
+(* except.cm
+ *
+ *   Timing exception handling.
+ *
+ * Copyright (c) 2004 by The Fellowship of SML/NJ
+ *
+ * Author: Matthias Blume (blume@tti-c.org)
+ *)
+library
+	structure Test
+is
+	$/basis.cm
+	$/smlnj-lib.cm
+	except.sml
+(* fannkuch.cm
+ *
+ *   The "Pfannkuchen flipping" benchmark.
+ *
+ * Copyright (c) 2004 by The Fellowship of SML/NJ
+ *
+ * Author: Matthias Blume (blume@tti-c.org)
+ *)
+library structure Test is $/basis.cm $/smlnj-lib.cm fannkuch.sml
+(* fasta.cm
+ *
+ *   Generate and write random "DNA" sequences.
+ *
+ * Copyright (c) 2004 by The Fellowship of SML/NJ
+ *
+ * Author: Matthias Blume (blume@tti-c.org)
+ *)
+library structure Test is $/basis.cm fasta.sml
+(* fibo.cm
+ *
+ *   f(0)=f(1)=1, f(n+2)=f(n+1)+f(n)
+ *
+ * Copyright (c) 2005 by The Fellowship of SML/NJ
+ *
+ * Author: Matthias Blume (blume@tti-c.org)
+ *)
+library structure Test is $/basis.cm fibo.sml
+(* harmonic.cm
+ *
+ *   Naive sum of harmonic series.
+ *
+ * Copyright (c) 2005 by The Fellowship of SML/NJ
+ *
+ * Author: Matthias Blume (blume@tti-c.org)
+ *)
+library structure Test is $/basis.cm $/smlnj-lib.cm harmonic.sml
+(* hash.cm
+ *
+ *   Hashtable access.
+ *
+ *)
+library
+        structure Test
+is
+        $/basis.cm
+        $/smlnj-lib.cm
+        hash.sml
+(* hash2.cm
+ *
+ *   Repeated hashtable updates.
+ *
+ * Copyright (c) 2004 by The Fellowship of SML/NJ
+ *
+ * Author: Matthias Blume (blume@tti-c.org)
+ *)
+library
+	structure Test
+is
+	$/basis.cm
+	$/smlnj-lib.cm
+	hash2.sml
+(* heapsort.cm
+ *
+ *   Use heapsort to sort a random array of 64-bit floating-point numbers.
+ *
+ * Copyright (c) 2004 by The Fellowship of SML/NJ
+ *
+ * Author: Matthias Blume (blume@tti-c.org)
+ *)
+library structure Test is $/basis.cm heapsort.sml
+(* hello.cm
+ *
+ *   Startup test.
+ *
+ * Copyright (c) 2004 by The Fellowship of SML/NJ
+ *
+ * Author: Matthias Blume (blume@tti-c.org)
+ *)
+library structure Test is $/basis.cm hello.sml
+(* lists.cm
+ *
+ *   Add and remove from both ends of the list.
+ *
+ *)
+library
+        structure Test
+is
+        $/basis.cm
+        $/smlnj-lib.cm
+        lists.sml
+(* mandelbrot.cm
+ *
+ *   Mandelbrot (fractal generation) benchmark.
+ *
+ * Copyright (c) 2004 by The Fellowship of SML/NJ
+ *
+ * Author: Matthias Blume (blume@tti-c.org)
+ *)
+library structure Test is $/basis.cm mandelbrot.sml
+(* matrix.cm
+ *
+ *   Matrix multiplication with integers.
+ *
+ * Copyright (c) 2004 by The Fellowship of SML/NJ
+ *
+ * Author: Matthias Blume (blume@tti-c.org)
+ *)
+library
+	structure Test
+is
+	$/basis.cm
+	matrix.sml
+(* message.cm
+ *
+ *   Build chain of 3000 threads that relay an int value,
+ *   send N messages up the chain.
+ *
+ * Copyright (c) 2004 by The Fellowship of SML/NJ
+ *
+ * Author: Matthias Blume (blume@tti-c.org)
+ *)
+library structure Test is $cml/cml.cm $cml/basis.cm message.sml
+library structure Test is $/basis.cm methcall.sml
+(* moments.cm
+ *
+ *   Calculate some statistics for univariate data samples.
+ *
+ * Copyright (c) 2004 by The Fellowship of SML/NJ
+ *
+ * Author: Matthias Blume (blume@tti-c.org)
+ *)
+library structure Test is $/basis.cm $/smlnj-lib.cm moments.sml
+library structure Test is $/basis.cm $/smlnj-lib.cm nbody.sml
+(* nestedloop.cm
+ *
+ *   Nested loop benchmark.
+ *
+ * Copyright (c) 2004 by The Fellowship of SML/NJ
+ *
+ * Author: Matthias Blume (blume@tti-c.org)
+ *)
+library
+	structure Test
+is
+	$/basis.cm
+	nestedloop.sml
+(* nsieve.cm
+ *
+ *   Good old Sieve of Eratosthenes. (Based on the OCaml version.)
+ *
+ * Copyright (c) 2004 by The Fellowship of SML/NJ
+ *
+ * Author: Matthias Blume (blume@tti-c.org)
+ *)
+library structure Test is $/basis.cm $/smlnj-lib.cm nsieve.sml
+(* nsieve-bits.cm
+ *
+ *   Good old Sieve of Eratosthenes (using bit array).
+ *
+ * Copyright (c) 2004 by The Fellowship of SML/NJ
+ *
+ * Author: Matthias Blume (blume@tti-c.org)
+ *)
+library structure Test is $/basis.cm $/smlnj-lib.cm nsievebits.sml
+library structure Test is $/basis.cm objinst.sml
+(* partialsums.cm
+ *
+ *   Naive iterative summation: power, sin, cos
+ *
+ * Author: Anthony Borla (ajborla@bigpond.com)
+ *
+ *)
+library
+	structure Test
+is
+	$/basis.cm
+	$/smlnj-lib.cm
+	partialsums.sml
+
+(* spigot.cm
+ *
+ *   Generating digits of PI using unbounded spigot algorithm.
+ *
+ * Copyright (c) 2004 by The Fellowship of SML/NJ
+ *
+ * Author: Matthias Blume (blume@tti-c.org)
+ *)
+library structure Test is $/basis.cm pidigits.sml
+(* process.cm
+ *
+ *   Build chain of N threads that relay an int value.
+ *
+ * Copyright (c) 2004 by The Fellowship of SML/NJ
+ *
+ * Author: Matthias Blume (blume@tti-c.org)
+ *)
+library structure Test is $cml/cml.cm $cml/basis.cm process.sml
+(* prodcons.cm
+ *
+ *   Producer-Consumer using Concurrent ML.
+ *
+ * Copyright (c) 2004 by The Fellowship of SML/NJ
+ *
+ * Author: Matthias Blume (blume@tti-c.org)
+ *)
+library
+	structure Test
+is
+	$cml/cml.cm
+	$cml/basis.cm
+	$cml-lib/smlnj-lib.cm
+	prodcons.sml
+(* random.cm
+ *
+ *   Floating-point random number generator + test loop.
+ *
+ * Copyright (c) 2004 by The Fellowship of SML/NJ
+ *
+ * Author: Matthias Blume (blume@tti-c.org)
+ *)
+library structure Test is $/basis.cm random.sml
+(* recursive.cm
+ *
+ *   Naive recursive algorithms: ack, fib, tak
+ *
+ * Author: Anthony Borla (ajborla@bigpond.com)
+ *
+ *)
+library
+	structure Test
+is
+	$/basis.cm
+	$/smlnj-lib.cm
+	recursive.sml
+
+(* regexmatch.cm
+ *
+ * http://shootout.alioth.debian.org/
+ *
+ * Created by Christophe Troestler
+ *)
+library structure Test is $/basis.cm $/smlnj-lib.cm regexmatch.sml
+(* reversefile.cm
+ *
+ *   Output lines in reverse order.
+ *
+ * Copyright (c) 2004 by The Fellowship of SML/NJ
+ *
+ * Author: Matthias Blume (blume@tti-c.org)
+ *)
+library
+	structure Test
+is
+	$/basis.cm
+	reversefile.sml
+(* sieve.cm
+ *
+ *   Sieve prime numbers.
+ *
+ *)
+library
+        structure Test
+is
+        $/basis.cm
+        $/smlnj-lib.cm
+        sieve.sml
+(* partialsums.cm
+ * Author: Anthony Borla (ajborla@bigpond.com)
+ *)
+library
+	structure Test
+is
+	$/basis.cm
+	$/smlnj-lib.cm
+	spectralnorm.sml
+(* spellcheck.cm
+ *
+ *   Checking for presence of words in a dictionary.
+ *
+ * Copyright (c) 2004 by The Fellowship of SML/NJ
+ *
+ * Author: Matthias Blume (blume@tti-c.org)
+ *)
+library structure Test is $/basis.cm $/smlnj-lib.cm spellcheck.sml
+(* strcat.cm
+ *
+ *   Repeated string(-buffer) concatenation.
+ *
+ * Copyright (c) 2004 by The Fellowship of SML/NJ
+ *
+ * Author: Matthias Blume (blume@tti-c.org)
+ *)
+library
+	structure Test
+is
+	$/basis.cm
+	strcat.sml
+(* sumcol.cm
+ *
+ *   Sum a column of integers read from stdin.
+ *
+ * Copyright (c) 2004 by The Fellowship of SML/NJ
+ *
+ * Author: Matthias Blume (blume@tti-c.org)
+ *)
+library
+	structure Test
+is
+	$/basis.cm
+	$/smlnj-lib.cm
+	sumcol.sml
+(* takfp.cm
+ *
+ *   Floating-point Takeuchi function.
+ *
+ * Copyright (c) 2004 by The Fellowship of SML/NJ
+ *
+ * Author: Matthias Blume (blume@tti-c.org)
+ *)
+library structure Test is $/basis.cm $/smlnj-lib.cm takfp.sml
+(* wc.cm
+ *
+ *   Word count.
+ *
+ * Copyright (c) 2004 by The Fellowship of SML/NJ
+ *
+ * Author: Matthias Blume (blume@tti-c.org)
+ *)
+library
+	structure Test
+is
+	$/basis.cm
+	$/smlnj-lib.cm
+	wc.sml
+(* wordfreq.cm
+ *
+ *   Count word frequency and produce sorted listing.
+ *
+ * Copyright (c) 2004 by The Fellowship of SML/NJ
+ *
+ * Author: Matthias Blume (blume@tti-c.org)
+ *)
+library
+	structure Test
+is
+	$/basis.cm
+	$/smlnj-lib.cm
+	wordfreq.sml

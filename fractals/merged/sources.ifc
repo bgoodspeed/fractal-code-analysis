@@ -1,0 +1,3761 @@
+! -*- mode: f90 -*-
+!
+! $Id: ackermann.ifc,v 1.4 2007-12-04 06:32:37 bfulgham Exp $ ; $Name:  $
+!
+! Ackermann function implementation
+! Simon Geard, 30/11/04
+!
+! Building info.
+! ==============
+!
+! Linux  - using the Intel Fortran90 compiler:
+!
+!          ifort ackermann.f90 -O3 -static-libcxa -o ackermann
+!
+!
+program ackermann
+  implicit none
+  integer result, num
+  character(len=2) argv
+
+  call getarg(1,argv)
+  read(argv,*) num
+  result = ack(3,num)
+  write(*,'(2(a,i0))') 'Ack(3,',num,'): ',result
+
+contains
+
+  ! The Ackermann function itself
+  recursive integer function ack(m, n) result(iack)
+    integer, intent(in) :: m,n
+    if (m == 0) then
+       iack = n+1
+    else if(n == 0) then
+       iack = ack(m-1, 1)
+    else
+       iack = ack(m-1, ack(m, n-1))
+    end if    
+  end function ack
+  
+end program ackermann
+! -*- mode: f90 -*-
+!
+! $Id: ary.ifc,v 1.3 2007-12-04 06:32:37 bfulgham Exp $ ; $Name:  $
+!
+! Array access function implementation
+! Simon Geard, 1/12/04
+!
+! Building info.
+! ==============
+!
+! Linux  - using the Intel Fortran90 compiler:
+!
+!          ifort array.f90 -O3 -static-libcxa -o array
+!
+program array
+  implicit none
+  integer result, num, i, k
+  character(len=8) argv
+  integer, dimension(:), allocatable :: x, y
+
+  call getarg(1,argv)
+  read(argv,'(I4)') num
+
+  allocate(x(0:num-1))
+  allocate(y(0:num-1))
+
+  x = (/ (i+1,i=0,num-1) /)
+  y = (/ (0,i=0,num-1) /)
+
+  do k=0,999
+     do i=num-1,0,-1
+        y(i) = y(i) + x(i)
+     end do
+  end do
+
+  write(*,'(i4,a,i7)') y(0),' ',y(num-1)
+
+  deallocate(x)
+  deallocate(y)
+
+end program array
+! -*- mode: f90 -*-
+!
+! $Id: binarytrees.ifc,v 1.14 2007-12-04 06:32:37 bfulgham Exp $ ; $Name:  $
+!
+! The Computer Language Shootout Benchmarks
+! http://shootout.alioth.debian.org/
+
+! contributed by Steve Decker
+! based on the C version by Kevin Carson
+! compilation:
+!    gfortran -O3 -fomit-frame-pointer -funroll-loops binarytrees.f90
+!
+! This implementation does not need TR15581
+!
+module b_tree
+  implicit none
+  save
+
+  integer, parameter :: short = selected_int_kind(1)
+
+  type treeNode
+     integer :: item
+     type(treeNode), pointer :: left
+     type(treeNode), pointer :: right
+  end type treeNode
+
+contains
+
+  subroutine NewTreeNode(left, right, item, node)
+    type(treeNode), target, intent(in) :: left, right
+    integer, intent(in) :: item
+    type(treeNode), pointer :: node
+
+    allocate(node)
+    node = treeNode(item, left, right)
+  end subroutine NewTreeNode
+
+  recursive function ItemCheck(tree) result (check)
+    type(treeNode), pointer :: tree
+    integer :: check
+
+    if (.not. associated(tree%left)) then
+       check = tree%item
+    else
+       check = tree%item + ItemCheck(tree%left) - ItemCheck(tree%right)
+    end if
+    deallocate(tree)
+  end function ItemCheck
+
+  recursive subroutine BottomUpTree(item, depth, node)
+    integer, intent(in) :: item
+    integer(kind=short), intent(in) :: depth
+    type(treeNode), pointer :: node
+
+    type(treeNode), pointer :: left, right
+
+    nullify(left, right)
+
+    if (depth > 0) then
+       call BottomUpTree(2 * item - 1, depth - 1_short, left)
+       call BottomUpTree(2 * item, depth - 1_short, right)
+    end if
+    call NewTreeNode(left, right, item, node)
+  end subroutine BottomUpTree
+end module b_tree
+
+program binarytrees
+  use b_tree
+  implicit none
+
+  integer(kind=short), parameter :: minDepth = 4_short
+  character,           parameter :: tab = achar(9)
+
+  integer :: i, iterations, check
+  integer(kind=short) :: N, depth, maxDepth, stretchDepth
+  character(len=2) :: argv
+  type(treeNode), pointer :: stretchTree => null(), longLivedTree => null(),  &
+                             tempTree => null()
+
+  call get_command_argument(1, argv)
+  read (argv, "(i2)") N
+
+  maxDepth = max(minDepth + 2_short, N)
+
+  stretchDepth = maxDepth + 1_short
+  call BottomUpTree(0, stretchDepth, stretchTree)
+  write(*,"(2(a,i0))") "stretch tree of depth ", stretchDepth,  &
+       tab//" check: ", ItemCheck(stretchTree)
+
+  call BottomUpTree(0, maxDepth, longLivedTree)
+  
+  do depth = minDepth, maxDepth, 2
+     iterations = 2**(maxDepth - depth + minDepth)
+     check = 0
+     do i = 1, iterations
+        call BottomUpTree(i, depth, tempTree)
+        check = check + ItemCheck(tempTree)
+        
+        call BottomUpTree(-i, depth, tempTree)
+        check = check + ItemCheck(tempTree)
+     end do
+     write(*,"(2(i0,a),i0)") iterations*2, tab//" trees of depth ", depth,  &
+          tab//" check: ", check
+  end do
+
+  write(*,"(2(a,i0))") "long lived tree of depth ", maxDepth,  &
+       tab//" check: ", ItemCheck(longLivedTree)
+end program binarytrees
+! The Great Computer Language Shootout
+! http://shootout.alioth.debian.org/
+!
+! contributed by Steve Decker
+! based on the D version by Dave Fladebo
+! revised for new specification
+! compilation:
+!    gfortran -O3 -fomit-frame-pointer fannkuch.f90
+!    ifort -O3 -ipo -static fannkuch.f90
+
+program fannkuch
+  implicit none
+
+  integer :: n, i, r, flips, temp, j, k, maxFlipsCount = 0, curPerm = 1
+  character(len=2) :: argv
+  integer, dimension(:), allocatable :: perm, perm1, cnt
+
+  call get_command_argument(1, argv)
+  read (argv, *) n
+
+  allocate(perm(n), perm1(n), cnt(n))
+
+  ! Initialize permutation
+  perm1 = (/ (i, i = 1, n) /)
+
+  r = n + 1
+  outer: do  ! For all n! permutations
+     if (curPerm <= 30) then
+        curPerm = curPerm + 1
+        write(*,"(99(i0))") perm1
+     end if
+     do while (r > 2)
+        cnt(r-1) = r
+        r = r - 1
+     end do
+     if (perm1(1) > 1 .and. perm1(n) < n) then
+        perm = perm1
+
+        i = perm(1)
+        flips = 0
+        do while (i > 1)  ! Perform flips until first element is 1
+           temp = perm(i)
+           perm(i) = i
+           i = temp
+           j = 2; k = i - 1
+           do while (j < k)
+              temp = perm(j)
+              perm(j) = perm(k)
+              perm(k) = temp
+              j = j + 1; k = k - 1
+           end do
+           flips = flips + 1  ! Count number of flips
+        end do
+
+        if (flips > maxFlipsCount) maxFlipsCount = flips
+     end if
+     do  ! Produce next permutation
+        if (r == n+1) then
+           write(*,"(2(a,i0))") "Pfannkuchen(", n, ") = ", maxFlipsCount
+           exit outer
+        end if
+
+        temp = perm1(1)
+        i = 1
+        do while (i < r)
+           j = i + 1
+           perm1(i) = perm1(j)
+           i = j
+        end do
+        perm1(r) = temp
+        ! perm1(1:r) = cshift(perm1(1:r),1)
+        ! could replace the previous 8 lines, but this is much slower.
+
+        cnt(r) = cnt(r) - 1
+        if (cnt(r) > 1) exit
+        r = r + 1
+     end do
+  end do outer
+end program fannkuch
+! The Computer Language Benchmarks Game
+! http://shootout.alioth.debian.org/
+!
+! converted to fortran by Gilbert Brietzke on 31. Januar 2011
+! from C-code by Joseph Piché as a conversion
+! from Java version by Oleg Mazurov and Isaac Gouy
+
+program fannkuch
+
+  implicit none
+
+  integer :: n,checksum,maxFlipsCount
+  character(len=2) :: arg
+  character(len=10) :: out
+  call get_command_argument(1,arg);read(arg,'(I2)')n
+  call fannkuchredux(n,checksum,maxFlipsCount)
+  write(out,'(I10)') checksum;
+  write(*,'(A)') trim(adjustl(out))
+  write(out,'(I10)') maxFlipsCount;
+  write(*,'(A)') 'Pfannkuchen('//trim(adjustl(arg))//') = '//trim(adjustl(out))
+
+contains
+
+  subroutine fannkuchredux(n,checksum,maxFlipsCount)
+    implicit none
+    integer, intent(in) :: n
+    integer, intent(out) :: maxFlipsCount,checksum
+    integer :: perm(0:n-1),perm1(0:n-1),icount(0:n-1);
+    integer :: i,r,temp,k,perm0,permCount = 0,flipsCount = 0;
+    checksum = 0;  maxFlipsCount = 0;
+    do i = 0,n-1
+       perm1(i)= i;
+    enddo
+    r=n
+    do while (.true.)
+       do while (r /= 1)
+          icount(r-1)=r; r=r-1;
+       end do
+       perm = perm1; flipsCount = 0;
+       do while (perm(0)/=0) 
+          k = perm(0)
+          do  i=0,ishft(k+1,-1)-1
+             temp = perm(i); perm(i) = perm(k-i); perm(k-i) = temp;
+          enddo
+          flipsCount = flipsCount + 1;
+       end do
+       maxFlipsCount = max(maxFlipsCount,flipsCount);
+       if (modulo(permCount,2) == 0)then
+          checksum = checksum + flipsCount
+       else
+          checksum = checksum - flipsCount
+       end if
+       do while (.true.)
+          if (r==n) return
+          perm0 = perm1(0); i = 0;
+          do while (i < r) 
+             perm1(i) = perm1(i + 1); i = i + 1;
+          end do
+          perm1(r) = perm0;
+          icount(r) = icount(r) - 1;
+          if (icount(r) > 0) exit;
+          r = r + 1;
+       end do
+       permCount = permCount + 1;
+    end do
+  end subroutine fannkuchredux
+  
+end program fannkuch
+! -*- mode: f90 -*-
+!
+! $Id: fasta.ifc,v 1.5 2007-12-04 06:32:38 bfulgham Exp $ ; $Name:  $
+!
+! The Great Computer Language Shootout
+! http://shootout.alioth.debian.org/
+!
+! fasta implementation - translated from the lua program
+! contributed by Simon Geard, 18/1/05
+!
+! Building info.
+! ==============
+!
+! Linux  - using the Intel Fortran90 compiler:
+!
+!          ifort fasta.f90 -O3 -static-libcxa -o fasta
+!
+! Run
+! ===
+!          fasta 1000
+
+program fasta
+
+ implicit none
+  integer num, m
+  character(len=8) argv
+  logical, dimension(:), allocatable :: flags
+  integer, parameter :: IM = 139968
+  integer, parameter :: IA = 3877
+  integer, parameter :: IC = 29573
+  character(len=*), parameter :: alu = &
+'GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG' // &
+'GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA' // &
+'CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT' // &
+'ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA' // &
+'GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG' // &
+'AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC' // &
+'AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA'
+
+  type pair
+     character(len=1) c
+     real*8 p
+  end type pair
+  type(pair), dimension(15) :: iub
+  type(pair), dimension(4)  :: homosapiens
+  homosapiens = (/ pair('a', 0.3029549426680d0), &
+                   pair('c', 0.1979883004921d0), &
+                   pair('g', 0.1975473066391d0), &
+                   pair('t', 0.3015094502008d0) /)
+  call makeCumulative(homosapiens)
+  
+  iub = (/ pair('a', 0.27d0), &
+           pair('c', 0.12d0), &
+           pair('g', 0.12d0), &
+           pair('t', 0.27d0), &
+           pair('B', 0.02d0), &
+           pair('D', 0.02d0), &
+           pair('H', 0.02d0), &
+           pair('K', 0.02d0), &
+           pair('M', 0.02d0), &
+           pair('N', 0.02d0), &
+           pair('R', 0.02d0), &
+           pair('S', 0.02d0), &
+           pair('V', 0.02d0), &
+           pair('W', 0.02d0), &
+           pair('Y', 0.02d0) /)
+  call makeCumulative(iub)
+
+  call getarg(1,argv)
+  read(argv,*) num
+ 
+
+  call makeRepeatFasta('ONE','Homo sapiens alu',alu,num*2)
+
+  call makeRandomFasta('TWO','IUB ambiguity codes',iub,num*3)
+
+  call makeRandomFasta('THREE','Homo sapiens frequency',homosapiens,num*5)
+
+     
+contains
+
+  real*8 function getRandom (maxval)
+    real*8, intent(in) :: maxval
+    integer, save :: last = 42
+
+    last = mod(last * IA + IC, IM)
+    getRandom = maxval * last / IM
+
+  end function getRandom
+
+  subroutine makeCumulative(a)
+     type(pair), dimension(:), intent(inout) :: a
+     integer i
+     real*8 :: cp
+     
+     cp = 0.0d0
+     do i=1,size(a)
+        cp = cp + a(i)%p
+        a(i)%p = cp
+     end do
+  end subroutine makeCumulative
+  
+  character(len=1) function selectRandom(a)
+      type(pair), dimension(:), intent(inout) :: a
+     integer i
+     real*8 :: r
+     
+     r = getRandom(1.0d0)
+     selectRandom = 'J'
+     do i=1,size(a)
+        if (r < a(i)%p) then
+           selectRandom = a(i)%c
+           return
+        end if
+     end do
+  
+  end function selectRandom
+  
+  subroutine makeRandomFasta(id,desc,a,n)
+     character(len=*), intent(in) :: id
+     character(len=*), intent(in) :: desc
+     type(pair), dimension(:), intent(inout) :: a
+     integer, intent(in) :: n
+     integer :: todo, i
+     integer, parameter :: length = 60
+     character(len=length) :: buff
+
+     write(*,'(4a)') '>',id,' ',desc
+     todo = n
+     do
+        if (todo <= 0) exit
+        if (todo < length) then
+           m = todo
+        else
+           m = length
+        end if
+        do i=1,m
+           buff(i:i) = selectRandom(a)
+        end do
+        write(*,'(a)') buff(1:m)
+        todo = todo - length
+     end do
+  end subroutine makeRandomFasta
+
+  subroutine makeRepeatFasta(id,desc,s,n)
+     character(len=*), intent(in) :: id
+     character(len=*), intent(in) :: desc
+     character(len=*), intent(in) :: s
+     integer, intent(in) :: n
+     integer :: todo, i, j, k, kn
+     integer, parameter :: length = 60
+     character(len=length) :: buff
+     intrinsic len
+
+     write(*,'(4a)') '>',id,' ',desc
+     todo = n; k = 1; kn = len(s)
+     do
+        if (todo <= 0) exit
+        if (todo < length) then
+           m = todo
+        else
+           m = length
+        end if
+        do j=1,m
+           if (k > kn) then
+              k = 1
+           endif
+           buff(j:j) = s(k:k)
+           k = k + 1
+        end do
+        write(*,'(a)') buff(1:m)
+        todo = todo - length
+     end do
+
+  end subroutine makeRepeatFasta
+
+end program fasta
+! The Computer Language Benchmarks Game
+! http://shootout.alioth.debian.org/
+!
+! Contributed by Jason Blevins
+! Adapted from the C version by Petr Prokhorenkov
+
+program fasta
+  implicit none
+
+  integer, parameter :: IM = 139968
+  integer, parameter :: IA = 3877
+  integer, parameter :: IC = 29573
+
+  integer, parameter :: LINE_LEN = 60
+  integer, parameter :: LOOKUP_SIZE = 4096
+  real, parameter :: LOOKUP_SCALE = real(LOOKUP_SIZE - 1)
+
+  type :: random_t
+     integer :: state = 42
+  end type random_t
+
+  type :: amino_acid_t
+     character(len=1) :: sym
+     real :: prob
+     real :: cprob_lookup = 0.d0
+  end type amino_acid_t
+
+  type(amino_acid_t), dimension(15) :: amino_acid = (/ &
+       amino_acid_t('a', 0.27), &
+       amino_acid_t('c', 0.12), &
+       amino_acid_t('g', 0.12), &
+       amino_acid_t('t', 0.27), &
+       amino_acid_t('B', 0.02), &
+       amino_acid_t('D', 0.02), &
+       amino_acid_t('H', 0.02), &
+       amino_acid_t('K', 0.02), &
+       amino_acid_t('M', 0.02), &
+       amino_acid_t('N', 0.02), &
+       amino_acid_t('R', 0.02), &
+       amino_acid_t('S', 0.02), &
+       amino_acid_t('V', 0.02), &
+       amino_acid_t('W', 0.02), &
+       amino_acid_t('Y', 0.02)  &
+       /)
+
+  type(amino_acid_t), dimension(4) :: homo_sapiens = (/ &
+       amino_acid_t('a', 0.3029549426680), &
+       amino_acid_t('c', 0.1979883004921), &
+       amino_acid_t('g', 0.1975473066391), &
+       amino_acid_t('t', 0.3015094502008)  &
+       /)
+
+  character(len=*), parameter :: alu = &
+       "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTG" // &
+       "GGAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGA" // &
+       "GACCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAA" // &
+       "AATACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAAT" // &
+       "CCCAGCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAAC" // &
+       "CCGGGAGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTG" // &
+       "CACTCCAGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA"
+
+  character(len=60) :: arg
+  integer :: n
+  type(random_t) :: rand
+
+  if (command_argument_count() > 0) then
+     call get_command_argument(1, arg)
+     read(arg, *) n
+  else
+     n = 512
+  end if
+
+  call repeat(">ONE Homo sapiens alu", n*2)
+  call randomize(amino_acid, ">TWO IUB ambiguity codes", n*3, rand)
+  call randomize(homo_sapiens, ">THREE Homo sapiens frequency", n*5, rand)
+
+contains
+
+  ! Special version with result rescaled to LOOKUP_SCALE.
+  function random_next_lookup(random)
+    type(random_t), intent(inout) :: random
+    real :: random_next_lookup
+    random%state = mod(random%state*IA + IC, IM)
+    random_next_lookup = random%state * (LOOKUP_SCALE / IM)
+  end function random_next_lookup
+
+  subroutine repeat(title, n)
+    character(len=*), intent(in) :: title
+    integer, intent(in) :: n
+    integer, parameter :: length = len(alu)
+    character(len=length+LINE_LEN) :: buffer
+    integer :: nn, pos, bytes
+
+    nn = n
+    pos = 1
+
+    buffer(1:length) = alu
+    buffer(length+1:) = alu
+
+    print '(a)', title
+    do while (nn > 1)
+       if (nn > LINE_LEN) then
+          bytes = LINE_LEN
+       else
+          bytes = nn
+       end if
+
+       print '(a)', buffer(pos:pos+bytes-1)
+       pos = pos + bytes
+       if (pos > length) then
+          pos = pos - length
+       end if
+       nn = nn - bytes
+    end do
+  end subroutine repeat
+
+  subroutine fill_lookup(lookup, amino_acid)
+    integer, dimension(:), intent(out) :: lookup
+    type(amino_acid_t), dimension(:), intent(inout) :: amino_acid
+    real :: p
+    integer :: i, j
+
+    p = 0.d0
+
+    do i = 1, size(amino_acid)
+       p = p + amino_acid(i)%prob
+       amino_acid(i)%cprob_lookup = p*LOOKUP_SCALE
+    end do
+
+    ! Prevent rounding error.
+    amino_acid(size(amino_acid))%cprob_lookup = LOOKUP_SIZE - 1.d0
+
+    j = 1
+    do i = 1, LOOKUP_SIZE
+       do while (amino_acid(j)%cprob_lookup < i - 1)
+          j = j + 1
+       end do
+       lookup(i) = j
+    end do
+  end subroutine fill_lookup
+
+  subroutine randomize(amino_acid, title, n, rand)
+    type(amino_acid_t), dimension(:), intent(inout) :: amino_acid
+    character(len=*), intent(in) :: title
+    integer, intent(in) :: n
+    type(random_t), intent(inout) :: rand
+    integer, dimension(LOOKUP_SIZE) :: lookup
+    character(len=LINE_LEN) :: line_buffer
+    integer :: i, j, u
+    real :: r
+
+    call fill_lookup(lookup, amino_acid)
+
+    print '(a)', title
+
+    j = 1
+    do i = 1, n
+       r = random_next_lookup(rand)
+       u = lookup(int(r)+1)
+       do while (amino_acid(u)%cprob_lookup < r)
+          u = u + 1
+       end do
+
+       line_buffer(j:j) = amino_acid(u)%sym
+
+       if (j == LINE_LEN) then
+          print '(a)', line_buffer
+          j = 1
+       else
+          j = j + 1
+       end if
+    end do
+    if (j > 1) then
+       print '(a)', line_buffer(1:j-1)
+    end if
+  end subroutine randomize
+
+end program fasta
+! -*- mode: f90 -*-
+!
+! $Id: fibo.ifc,v 1.5 2007-12-04 06:32:38 bfulgham Exp $ ; $Name:  $
+!
+! Fibonacci function implementation
+! Simon Geard, 3/12/04
+!
+! Building info.
+! ==============
+!
+! Linux  - using the Intel Fortran90 compiler:
+!
+!          ifort fibonacci.f90 -O3 -static-libcxa -o fibonacci
+!
+program fibonacci
+  implicit none
+  integer result, num
+  character(len=2) argv
+
+  call getarg(1,argv)
+  read(argv,*) num
+  result = fibo(num)
+  write(*,'(i0)') result
+
+contains
+
+  ! The Fibonacci function itself
+  recursive integer function fibo(n) result(ifabo)
+    integer, intent(in) :: n
+    if(n < 2) then
+       ifabo = 1
+    else
+       ifabo = fibo(n-1) + fibo(n-2)
+    end if
+  end function fibo
+  
+end program fibonacci
+
+! -*- mode: f90 -*-
+!
+! $Id: harmonic.ifc,v 1.5 2007-12-04 06:32:38 bfulgham Exp $ ;$Name:  $
+!
+! The Great Computer Language Shootout 
+! http://shootout.alioth.debian.org/
+! 
+! Written by S.J.Geard 27/02/2005, adapted from the Lua program
+!
+! ifort harmonic.f90 -O3 -static-libcxa -o harmonic
+!
+! Correct output for 10,000,000 is 16.695311366
+!
+program harmonic
+  implicit none
+  integer :: i, n
+  real*8  :: partialSum = 0.0d0
+  character(len=9) argv
+  call getarg(1,argv)
+  read(argv,'(i8)') n
+  do i=1,n
+     partialSum = partialSum + (1.0d0/i)
+  end do
+  write(*,'(f0.9)') partialSum
+end program harmonic
+! -*- mode: f90 -*-
+!
+! $Id: heapsort.ifc,v 1.3 2007-12-04 06:32:38 bfulgham Exp $ ; $Name:  $
+!
+! heapsort function implementation
+! Simon Geard, 3/12/04
+!
+! Building info.
+! ==============
+!
+! Linux  - using the Intel Fortran90 compiler:
+!
+!          ifort matrix.f90 -O3 -static-libcxa -o matrix
+!
+program heapSort
+  implicit none
+  integer, parameter :: IM = 139968
+  integer, parameter :: IA = 3877
+  integer, parameter :: IC = 29573
+  integer, parameter :: msize = 30
+  real*8, dimension(:), allocatable :: ary
+  integer :: i, k, num
+  character(len=8) argv
+  intrinsic matmul
+
+  call getarg(1,argv)
+  read(argv,*) num
+  if (num == 0) num = 1
+
+
+  ! create an array of N random doubles
+  allocate(ary(num))
+  ary = (/(getRandom(1.0d0),i=1,num)/)
+
+  ! heap sort
+  call hsort(num, ary)
+
+  write(*,'(f12.10)') ary(num)
+
+  deallocate(ary)
+
+contains
+  real*8 function getRandom(mval)
+    real*8, intent(in) :: mval
+    integer, save :: last = 42
+    last = mod(last * IA + IC , IM)
+    getRandom = mval * last / IM 
+  end function getRandom
+
+  subroutine hsort(n, ra)
+    integer, intent(in) :: n
+    real*8, dimension(:), intent(inout) :: ra
+    integer :: i, j, ir, l
+    real*8 rra
+    intrinsic ishft
+
+    l = ishft(n,-1)
+    ir = n
+    do
+       if (l > 1) then
+          l = l-1
+          rra = ra(l)
+       else
+          rra = ra(ir)
+          ra(ir) = ra(1)
+          ir = ir-1
+          if (ir == 1) then
+             ra(1) = rra
+             return
+          end if
+       end if
+       i = l
+       j = ishft(l,1)
+       do
+          if (j > ir) exit
+          if (j < ir .and. ra(j) < ra(j+1)) then
+             j = j+1
+          end if
+          if (rra < ra(j)) then
+             ra(i) = ra(j)
+             i = j
+             j = j+i
+          else
+             j = ir + 1
+          end if
+       end do
+       ra(i) = rra
+ end do
+
+end subroutine hsort
+
+end program heapSort
+! -*- mode: f90 -*-
+!
+! $Id: hello.ifc,v 1.3 2007-12-04 06:32:38 bfulgham Exp $ ; $Name:  $
+!
+! Hello World program
+! Simon Geard, 30/11/04
+!
+! Building info.
+! ==============
+!
+! Linux  - using the Intel Fortran90 compiler:
+!
+!          ifort ackermann.f90 -O3 -static-libcxa -o ackermann
+!
+! WinXP  - Compaq Visual Fortran 6.6c
+!
+!          f90 ackermann.f90 /link /libpath:"d:\Program Files\Microsoft Visual Studio\df98\lib"
+!
+! Cygwin - g95 compiler
+!
+!          g95 ackermann.f90 -o ackermann.exe
+!
+program hello
+  implicit none
+  write(*,'(a)') 'hello world'
+end program hello
+
+! vim: ts=4 ft=fortran
+! -*- mode: f90 -*-
+!
+! The Computer Language Shootout Benchmarks
+! http://shootout.alioth.debian.org/
+!
+! contributed by Steve Decker
+! using the hash function posted by Rich Townsend to comp.lang.fortran
+! on 5 October 2005.
+! compilation:
+!    g95 -O1 knucleotide.f90
+!    ifort -O3 -ip knucleotide.f90
+!
+! This implementation requires TR15581
+
+module knuc_mod
+  implicit none
+  private
+  public :: init_table, read_frame, keys_of_given_len, cnt
+
+  integer, parameter :: MaxWordLen = 18
+
+  type, public :: key
+     integer                   :: count = 0
+     character(len=MaxWordLen) :: word = ""
+  end type key
+
+  type, public :: table
+     private
+     integer :: hashBits, maxWords, nWords
+     type(key), allocatable, dimension(:) :: words
+  end type table
+
+contains
+
+  pure subroutine init_table(kNuc, nBits)
+    type(table), intent(out) :: kNuc
+    integer,     intent(in)  :: nBits
+
+    kNuc = table(nBits, 2**nBits, 0, null())
+    allocate(kNuc%words(kNuc%maxWords))
+  end subroutine init_table
+
+  subroutine read_frame(buf, n, length, kNuc)
+    character, dimension(:), intent(in)    :: buf
+    integer,                 intent(in)    :: n, length
+    type(table),             intent(inout) :: kNuc
+
+    integer               :: i, j
+    character(len=length) :: word
+
+    do i = 1, n
+       do j = 1, length
+          word(j:j) = buf(i+j-1)
+       end do
+       call add(kNuc, word)
+    end do
+  end subroutine read_frame
+
+  subroutine add(kNuc, word)
+    type(table),      intent(inout) :: kNuc
+    character(len=*), intent(in)    :: word
+
+    integer :: m
+
+    m = hash_value(word, kNuc%maxWords)
+    do
+       if (kNuc%words(m)%count == 0) then
+          kNuc%words(m) = key(1, word)
+          kNuc%nWords = kNuc%nWords + 1
+          if (kNuc%nWords > kNuc%maxWords/2) call resize_table(kNuc)
+          exit
+       else if (kNuc%words(m)%word == word) then
+          kNuc%words(m)%count = kNuc%words(m)%count + 1
+          exit
+       end if
+       m = merge(1, m+1, m == kNuc%maxWords)
+    end do
+  end subroutine add
+
+  subroutine resize_table(kNuc)
+    type(table), intent(inout) :: kNuc
+
+    integer     :: i, m
+    type(table) :: temp
+
+    temp = table(kNuc%hashBits + 1, 2 * kNuc%maxWords, kNuc%nWords, null())
+    allocate(temp%words(temp%maxWords))
+
+    do i = 1, kNuc%maxWords
+       if (kNuc%words(i)%count > 0) then
+          m = hash_value(trim(kNuc%words(i)%word), temp%maxWords)
+          do
+             if (temp%words(m)%count == 0) then
+                temp%words(m) = kNuc%words(i)
+                exit
+             end if
+             m = merge(1, m+1, m == temp%maxWords)
+          end do
+       end if
+    end do
+
+    kNuc = temp
+  end subroutine resize_table
+
+  pure function keys_of_given_len(kNuc, length)
+    type(table), intent(in) :: kNuc
+    integer,     intent(in) :: length
+    type(key), dimension(4**length) :: keys_of_given_len
+
+    integer :: i, n
+
+    n = 1
+    do i = 1, kNuc%maxWords
+       if (len_trim(kNuc%words(i)%word) == length) then
+          keys_of_given_len(n) = kNuc%words(i)
+          n = n + 1
+          if (n > size(keys_of_given_len)) exit
+       end if
+    end do
+  end function keys_of_given_len
+
+  integer function cnt(kNuc, string)
+    type(table), intent(in)      :: kNuc
+    character(len=*), intent(in) :: string
+
+    integer :: m
+
+    m = hash_value(string, kNuc%maxWords)
+    do
+       if (kNuc%words(m)%word == string .or. kNuc%words(m)%count == 0) then
+          cnt = kNuc%words(m)%count
+          exit
+       end if
+       m = merge(1, m+1, m == kNuc%maxWords)
+    end do
+  end function cnt
+
+  integer function hash_value(key, range)
+    character(len=*), intent(in) :: key
+    integer,          intent(in) :: range
+
+    integer :: len_key, a, b, c, k
+
+    ! Hash the key into a code, using the algorithm
+    ! described by Bob Jenkins at:
+    !  http://burtleburtle.net/bob/hash/doobs.html
+    !
+    ! Note that range should be a power of 2, and
+    ! that the 32-bit algorithm is used
+
+    len_key = len(key)
+
+    a = -1640531527 ! 0x9E3779B9
+    b = a
+    c = 305419896   ! 0x12345678
+
+    k = 1
+
+    do
+       if (len_key < 12) exit
+
+       ! Pack the key into 32 bits
+       a = a + ichar(key(k:k)) + ishft(ichar(key(k+1:k+1)), 8) +  &
+            ishft(ichar(key(k+2:k+2)), 16) + ishft(ichar(key(k+3:k+3)), 24)
+       b = b + ichar(key(k+4:k+4)) + ishft(ichar(key(k+5:k+5)), 8) +  &
+            ishft(ichar(key(k+6:k+6)), 16) + ishft(ichar(key(k+7:k+7)), 24)
+       c = c + ichar(key(k+8:k+8)) + ishft(ichar(key(k+9:k+9)), 8) +  &
+            ishft(ichar(key(k+10:k+10)), 16) + ishft(ichar(key(k+11:k+11)), 24)
+
+       ! Mix it up
+       call hash_mix()
+       k = k + 12
+       len_key = len_key - 12
+    end do
+
+    c = c + len_key
+
+    ! Process remaining bits
+    select case(len_key)
+    case(11)
+       c = c + ishft(ichar(key(k+10:k+10)),24)  &
+            + ishft(ichar(key(k+9:k+9)),16) + ishft(ichar(key(k+8:k+8)),8)
+       b = b + ishft(ichar(key(k+7:k+7)),24) + ishft(ichar(key(k+6:k+6)),16)  &
+            + ishft(ichar(key(k+5:k+5)),8) + ichar(key(k+4:k+4))
+       a = a + ishft(ichar(key(k+3:k+3)),24) + ishft(ichar(key(k+2:k+2)),16)  &
+            + ishft(ichar(key(k+1:k+1)),8) + ichar(key(k:k))
+    case(10)
+       c = c + ishft(ichar(key(k+9:k+9)),16) + ishft(ichar(key(k+8:k+8)),8)
+       b = b + ishft(ichar(key(k+7:k+7)),24) + ishft(ichar(key(k+6:k+6)),16)  &
+            + ishft(ichar(key(k+5:k+5)),8) + ichar(key(k+4:k+4))
+       a = a + ishft(ichar(key(k+3:k+3)),24) + ishft(ichar(key(k+2:k+2)),16)  &
+            + ishft(ichar(key(k+1:k+1)),8) + ichar(key(k:k))
+    case(9)
+       c = c + ishft(ichar(key(k+8:k+8)),8)
+       b = b + ishft(ichar(key(k+7:k+7)),24) + ishft(ichar(key(k+6:k+6)),16)  &
+            + ishft(ichar(key(k+5:k+5)),8) + ichar(key(k+4:k+4))
+       a = a + ishft(ichar(key(k+3:k+3)),24) + ishft(ichar(key(k+2:k+2)),16)  &
+            + ishft(ichar(key(k+1:k+1)),8) + ichar(key(k:k))
+    case(8)
+       b = b + ishft(ichar(key(k+7:k+7)),24) + ishft(ichar(key(k+6:k+6)),16)  &
+            + ishft(ichar(key(k+5:k+5)),8) + ichar(key(k+4:k+4))
+       a = a + ishft(ichar(key(k+3:k+3)),24) + ishft(ichar(key(k+2:k+2)),16)  &
+            + ishft(ichar(key(k+1:k+1)),8) + ichar(key(k:k))
+    case(7)
+       b = b + ishft(ichar(key(k+6:k+6)),16) + ishft(ichar(key(k+5:k+5)),8)  &
+            + ichar(key(k+4:k+4))
+       a = a + ishft(ichar(key(k+3:k+3)),24) + ishft(ichar(key(k+2:k+2)),16)  &
+            + ishft(ichar(key(k+1:k+1)),8) + ichar(key(k:k))
+    case(6)
+       b = b + ishft(ichar(key(k+5:k+5)),8) + ichar(key(k+4:k+4))
+       a = a + ishft(ichar(key(k+3:k+3)),24) + ishft(ichar(key(k+2:k+2)),16)  &
+            + ishft(ichar(key(k+1:k+1)),8) + ichar(key(k:k))
+    case(5)
+       b = b + ichar(key(k+4:k+4))
+       a = a + ishft(ichar(key(k+3:k+3)),24) + ishft(ichar(key(k+2:k+2)),16)  &
+            + ishft(ichar(key(k+1:k+1)),8) + ichar(key(k:k))
+    case(4)
+       a = a + ishft(ichar(key(k+3:k+3)),24) + ishft(ichar(key(k+2:k+2)),16)  &
+            + ishft(ichar(key(k+1:k+1)),8) + ichar(key(k:k))
+    case(3)
+       a = a + ishft(ichar(key(k+2:k+2)),16) + ishft(ichar(key(k+1:k+1)),8)  &
+            + ichar(key(k:k))
+    case(2)
+       a = a + ishft(ichar(key(k+1:k+1)),8) + ichar(key(k:k))
+    case(1)
+       a = a + ichar(key(k:k))
+    end select
+
+    call hash_mix()
+
+    hash_value = iand(c, range - 1) + 1
+
+  contains
+
+    subroutine hash_mix
+      ! Mix a, b and c
+      a = ieor(a - b - c, ishft(c, -13))
+      b = ieor(b - c - a, ishft(a, 8))
+      c = ieor(c - a - b, ishft(b, -13))
+
+      a = ieor(a - b - c, ishft(c, -12))
+      b = ieor(b - c - a, ishft(a, 16))
+      c = ieor(c - a - b, ishft(b, -5))
+
+      a = ieor(a - b - c, ishft(c, -3))
+      b = ieor(b - c - a, ishft(a, 10))
+      c = ieor(c - a - b, ishft(b, -15))
+    end subroutine hash_mix
+  end function hash_value
+end module knuc_mod
+
+program knucleotide
+  use knuc_mod
+  implicit none
+
+  integer, parameter :: LineLen = 60, InitialTableSize = 1
+
+  integer :: bufferSize = 16384, stat, n = 0, i
+  logical :: atThirdPart = .false.
+  type(table) :: kn
+  character(len=LineLen) :: line
+  character, dimension(:), allocatable :: buffer, tempBuffer
+
+  character, dimension(65:116), parameter :: Codes = (/ "A", " ", "C",  &
+       (" ", i = 68, 70), "G", (" ", i = 72, 83), "T", (" ", i = 85, 96),  &
+       "A", " ", "C", (" ", i = 100, 102), "G", (" ", i = 104, 115), "T" /)
+
+  allocate(buffer(bufferSize))
+
+  ! Read FASTA file line-by-line, extracting sequence three, and converting to
+  ! uppercase.
+  do
+     read(*, "(a)", iostat=stat) line
+     if (stat /= 0) exit
+     if (.not. atThirdPart) then
+        atThirdPart = line(1:3) == ">TH"
+     else
+        if (n+LineLen > bufferSize) then
+           allocate(tempBuffer(bufferSize))
+           tempBuffer = buffer
+           deallocate(buffer)
+           allocate(buffer(2*bufferSize))
+           buffer(1:bufferSize) = tempBuffer
+           buffer(bufferSize+1:2*bufferSize) = " "
+           deallocate(tempBuffer)
+           bufferSize = 2*bufferSize
+        end if
+        do i = 1, LineLen
+           buffer(n+i) = Codes(iachar(line(i:i)))
+        end do
+        n = n + LineLen
+     end if
+  end do
+
+  n = minloc(iachar(buffer),1) - 1
+
+  call init_table(kn, InitialTableSize)
+
+  call write_frequencies(1)
+  call write_frequencies(2)
+
+  call write_count("GGT")
+  call write_count("GGTA")
+  call write_count("GGTATT")
+  call write_count("GGTATTTTAATT")
+  call write_count("GGTATTTTAATTTATAGT")
+
+contains
+
+  subroutine write_frequencies(length)
+    integer, intent(in) :: length
+
+    integer :: numNuc, j
+    type(key), dimension(4**length) :: nucleotides
+    type(key) :: temp
+
+    numNuc = n - length + 1
+
+    call read_frame(buffer, numNuc, length, kn)
+
+    nucleotides = keys_of_given_len(kn, length)
+
+    ! Insertion sort
+    do i = 2, size(nucleotides)
+       temp = nucleotides(i)
+       do j = i, 2, -1
+          if (nucleotides(j-1)%count > temp%count .or.  &
+               nucleotides(j-1)%count == temp%count .and.  &
+               nucleotides(j-1)%word < temp%word) exit
+          nucleotides(j) = nucleotides(j-1)
+       end do
+       nucleotides(j) = temp
+    end do
+
+    do i = 1, size(nucleotides)
+       write(*, "(a2,f6.3)") nucleotides(i)%word(1:2),  &
+            100. * nucleotides(i)%count / real(numNuc)
+    end do
+    write(*, "(a)") ""
+  end subroutine write_frequencies
+
+  subroutine write_count(string)
+    character(len=*), intent(in) :: string
+
+    character, parameter :: tab = achar(9)
+    integer :: length, numNuc
+
+    length = len(string)
+    numNuc = n - length + 1
+
+    call read_frame(buffer, numNuc, length, kn)
+
+    write(*, "(i0,a)") cnt(kn, string), tab//string
+  end subroutine write_count
+end program knucleotide
+! -*- mode: f90 -*-
+!
+! $Id: mandelbrot.ifc,v 1.5 2007-12-04 06:32:38 bfulgham Exp $ ; $Name:  $
+!
+! The Great Computer Language Shootout
+! http://shootout.alioth.debian.org/
+!
+! Simon Geard, 6/1/05
+!
+! Adapted  mandelbrot.c by Greg Buchholz
+!
+! Building info.
+! ==============
+!
+! Linux  - using the Intel Fortran90 compiler:
+!
+!          ifort mandelbrot.f90 -O3 -static-libcxa -o mandelbrot
+!
+program mandelbrot
+  implicit none
+  integer w, h, x, y, bit_num
+  integer(kind=1) byte_acc
+  integer(kind=1), parameter :: K0 = 0
+  integer(kind=1), parameter :: K1 = 1
+  integer, parameter :: iter = 50
+  real*8, parameter  :: limit2 = 4.0d0
+  integer  i
+  character(len=8) argv
+  complex(kind=8) Z, C
+  logical debug, in_mandelbrot
+
+  call getarg(1,argv)
+  read(argv,*) w
+  h = w
+  bit_num = 0
+  byte_acc = K0
+  ! Output pbm header
+  write(*,'(a)') 'P4'
+  write(*,'(i0,a,i0)') w,' ',h
+  do y=0,h-1
+     do x=0,w-1
+        C = cmplx(2.0d0*x/w-1.5d0,2.0d0*y/h-1.0d0)
+        Z = (0.0d0,0.0d0)
+        in_mandelbrot = .true.
+        do i=0,iter-1
+           Z = Z**2 + C
+           if (real(Z*conjg(Z)) > limit2) then
+              in_mandelbrot = .false.
+              exit
+           end if
+        end do
+        if (in_mandelbrot) then
+           ! Inside the set so set this bit to 1
+           byte_acc = ior(ishft(byte_acc,1),K1)
+        else
+           ! Outside the set so set this bit to 0
+           byte_acc = ishft(byte_acc,1)
+        end if
+
+        bit_num = bit_num + 1
+        if (bit_num == 8) then
+           ! All bits set so output them
+           write(*,'(a1)',advance='no') char(byte_acc)
+           byte_acc = K0
+           bit_num = 0
+
+        elseif (x == w-1) then
+           ! End of a row so left-justify the bits we have and output them
+           byte_acc = ishft(byte_acc,8-mod(w,8))
+           write(*,'(a1)',advance='no') char(byte_acc)
+           byte_acc = K0
+           bit_num = 0
+
+        end if
+
+     end do
+  end do
+end program mandelbrot
+!!! The Computer Language Benchmarks Game
+!!!   http://shootout.alioth.debian.org/
+!!!
+!!!      contributed by George R. Gonzalez
+!!!      fixed by Simon Geard
+
+program mandelbrot
+    IMPLICIT NONE
+    INTEGER, PARAMETER                      :: WantedPrecision = 8, Iterations = 50
+    INTEGER                                 :: w, h,   Len,   i
+    INTEGER                                 :: y, x, LenOut, row
+    REAL( WantedPrecision )                 :: limit, limit2
+    REAL( WantedPrecision )                 :: rx, ry, rw, rh
+    REAL( WantedPrecision )                 :: Zr, Zi, Cr, Ci, Tr, Ti
+    REAL( WantedPrecision )                 :: zero, one, v1p5, two
+    CHARACTER(10)                           :: NUM
+    INTEGER(1), ALLOCATABLE, DIMENSION( : ) :: OUTA
+    INTEGER                                 :: OUTP, OUTB, OutUnit
+    INTEGER(1), ALLOCATABLE, DIMENSION( : ) :: OutBuf
+    INTEGER(1)                              :: B
+    LOGICAL                                 :: Ans
+    CONTINUE
+    OutUnit = 6 
+    Call GetArg( 1, NUM )
+    READ( NUM, *, END = 100 ) w;  h = w;    rw = w; rh = h
+    Len = w * h
+    ALLOCATE( OUTA ( Len ) )
+    OUTA = 0
+    OUTB = 0;
+    limit = 2.0; limit2 = limit * limit
+    IF( w < 1000 ) THEN
+        WRITE( UNIT = OutUnit, FMT = "( 'P4', /, I3, 1X, I3 )" ) w, h
+    ELSE
+        WRITE( UNIT = OutUnit, FMT = "( 'P4', /, I4, 1X, I4 )" ) w, h
+    ENDIF
+
+    DO y = 0,h-1
+        ry = y
+
+        DO x = 0,w-1 
+            rx = x;
+            Zr = 0.0;Zi = 0.0;Tr = 0.0;Ti = 0.0;
+            Cr = 2.0 * rx / rw - 1.5
+            Ci = 2.0 * ry / rh - 1.0
+            Ans = .TRUE.
+            i = 0; 
+            OUTB = OUTB + 1
+
+            DO WHILE(  i < Iterations   .AND.   Ans  ) 
+                Zi    =       2.0 * Zr * Zi + Ci
+                Zr    =       Tr - Ti + Cr
+                Ti    =       Zi * Zi
+                Tr    =       Zr * Zr
+                i     =       i + 1
+                Ans   =       Tr + Ti <= limit2
+            END DO
+
+            IF( Ans ) OUTA( OUTB ) = 1;
+          END DO
+
+    END DO
+
+   LenOut = Len / 8 + 10 + h;
+   ALLOCATE( OutBuf( LenOut ) )
+
+   I = 0;  OUTP = 0; B = 0; row = 0
+
+   DO WHILE( I < OUTB )
+      I = I + 1
+      B = ISHFT( B, 1 ) + OUTA( I )
+      row = row + 1
+      IF( IAND( I, 7 ) == 0 ) THEN
+         OUTP = OUTP + 1
+         OutBuf( OUTP ) = B;
+         B              = 0
+      ELSEIF(  row >= w - 1 ) THEN
+         OUTP = OUTP + 1
+
+         DO WHILE( IAND( I, 7 ) /= 0 )
+            B = ISHFT( B, 1 )
+            I = I + 1
+         END DO
+
+         OutBuf( OUTP ) = B;
+         B              = 0
+         row            = 0
+      ENDIF
+   ENDDO
+
+
+   WRITE( OutUnit, FMT = "(10000000A1)" , advance='no') ( OutBuf(I),I=1,OUTP )
+
+100     CONTINUE
+
+end program mandelbrot
+
+! The Computer Language Benchmarks Game
+! http://shootout.alioth.debian.org/
+!
+! Simon Geard, 6/1/05
+! Modified by Waldemar Spomer, 10/1/09: openmp, one I/O
+
+program mandelbrot
+	use omp_lib
+	implicit none
+	integer N, x, y, bit_num, i, incr, width_bytes
+	integer(kind=1) byte_acc, state, mask, res, maskbita, maskbitb
+	integer(kind=1), parameter :: K0 = 0, K1 = 1
+	integer, parameter :: iter = 50
+	real*8, parameter  :: limit2 = 4.0d0
+	double precision :: absZ1, absZ2, invert
+	character(len=8) argv
+	complex(kind=8) Z1, Z2, C1, C2
+	logical in_mandelbrot
+	! Modified to use pointers
+	character(len=1), pointer, dimension(:) :: whole_data, pdata
+	double precision, dimension(1:2) :: m1, m2 ! for mask
+	
+	nullify(pdata, whole_data)
+	
+	call getarg(1,argv)
+	read(argv,*) N
+	
+	allocate(whole_data(N**2/8),STAT=state)
+	! Output pbm header
+	write(*,'(a)') 'P4'
+	write(*,'(i0,a,i0)') N,' ',N
+	
+	width_bytes = ishft(N,-3)
+	invert = 2.0d0/N
+	! Modified
+	!$omp parallel default(private) shared(whole_data,N,width_bytes,invert)
+	!$omp do schedule(dynamic)
+	do y=1,N-1
+		bit_num = 0
+		byte_acc = K0
+		! Adopted form c++ example
+		pdata => whole_data((y-1)*width_bytes:(y)*width_bytes)
+		incr=0
+		do x=1,N-1,2
+			C1 = cmplx(x*invert-1.5d0,y*invert-1.0d0)
+			C2 = cmplx((x+1)*invert-1.5d0,y*invert-1.0d0)
+			Z1 = C1
+			Z2 = C2
+			in_mandelbrot = .true.
+			res=3
+			do i=1,iter
+				
+				! Adopted from C/C++ example
+				Z1 = Z1**2 + C1
+				Z2 = Z2**2 + C2
+				
+				absZ1 = real(Z1*conjg(Z1))
+				absZ2 = real(Z2*conjg(Z2))
+				
+				if (absZ2 <= limit2 .AND. absZ1 <= limit2) then
+					mask = 3
+				else if (absZ2 > limit2 .AND. absZ1 <= limit2) then
+					mask = 2
+				else if (absZ2 <= limit2 .AND. absZ1 > limit2) then
+					mask = 1
+				else if (absZ2 > limit2 .AND. absZ1 > limit2) then
+					mask = 0
+				end if
+				
+				res = iand(res,mask)
+				
+				if (res==0) exit
+			end do
+			
+			bit_num = bit_num + 2
+			byte_acc = ior(ishft(byte_acc,2),res)
+			
+			if (bit_num == 8) then
+				! All bits set so output them
+				incr=incr+1
+				pdata(incr) = char(byte_acc)
+				byte_acc = K0
+				bit_num = 0
+
+			end if
+		end do
+	! End of a row so left-justify the bits we have and output them
+	byte_acc = ishft(byte_acc,8-mod(N,8))
+	pdata(incr) = char(byte_acc)
+
+	end do
+	!$omp end do nowait
+	!$omp end parallel
+	write(*,*) whole_data
+	deallocate(whole_data)
+	nullify(pdata, whole_data)
+end program mandelbrot
+! The Computer Language Benchmarks Game
+! http://shootout.alioth.debian.org/
+!
+! Contributed by Jason Blevins
+! Adapted from Fortran versions by George R. Gonzalez and Simon Geard
+!
+! ifort -fast -openmp -o mandelbrot mandelbrot.f90
+program mandelbrot
+  implicit none
+
+  integer, parameter :: dp = selected_real_kind(15, 307)
+  integer, parameter :: int8 = selected_int_kind(2)
+  integer, parameter :: iter = 50
+  real(dp), parameter :: limit2 = 4.0_dp
+  character(len=8) :: argv
+  integer :: w, h, x, y, i, pos, bit_num
+  integer(int8) :: byte
+  real(dp) :: inv_w, inv_h, Zi, Zr, Ti, Tr, Cr, Ci
+  logical :: inside
+  integer(int8), dimension(:,:), allocatable :: buf
+
+  ! read dimension from command line
+  call get_command_argument(1, argv)
+  read(argv, *) w
+  h = w
+
+  ! allocate output buffer
+  allocate(buf(ceiling(w/8.0_dp),h))
+
+  ! precalculate constants
+  inv_w = 2.0_dp / w
+  inv_h = 2.0_dp / h
+
+  ! pbm header
+  write(*,'("P4",/,i0," ",i0)') w, h
+
+  !$OMP PARALLEL DO PRIVATE(y, x, bit_num, pos, byte, Zr, Cr, Ci, inside, i)
+  do y = 0, h - 1
+     bit_num = 8 ! when moving left to right, bits are numbered 7 to 0
+     byte = 0_int8
+     pos = 0
+     do x = 0, w - 1
+        bit_num = bit_num - 1
+
+        Zr = 0.0_dp; Zi = 0.0_dp; Tr = 0.0_dp; Ti = 0.0_dp;
+        Cr = inv_w * x - 1.5_dp
+        Ci = inv_h * y - 1.0_dp
+        inside = .true.
+        do i = 1, iter
+           Zi = 2.0 * Zr * Zi + Ci
+           Zr = Tr - Ti + Cr
+           Ti = Zi * Zi
+           Tr = Zr * Zr
+           if (Tr + Ti > limit2) then
+              inside = .false.
+              exit
+           end if
+        end do
+
+        ! We're in the set, set this bit to 0
+        if (inside) byte = ibset(byte, bit_num)
+
+        if (bit_num == 0 .or. x == w - 1) then
+           ! All bits set or end of row, so store full byte
+           pos = pos + 1
+           buf(pos,y+1) = byte
+           byte = 0_int8
+           bit_num = 8
+        end if
+     end do
+  end do
+  !$OMP END PARALLEL DO
+
+  ! print output
+  do y = 1, h
+     write(*, '(10000000a1)', advance='no') buf(:,y)
+  end do
+  deallocate(buf)
+end program mandelbrot
+! The Computer Language Benchmarks Game
+! http://shootout.alioth.debian.org/
+!
+! Simon Geard, 6/1/05
+! Adapted  mandelbrot.c by Greg Buchholz
+! Modified to use explicit kind parameters by Jason Blevins, 4/10/10.
+!
+!          ifort mandelbrot.f90 -O3 -static-libcxa -o mandelbrot
+
+program mandelbrot
+  implicit none
+  integer, parameter :: dp = kind(1.0d0)
+  integer w, h, x, y, bit_num
+  integer(kind=1) byte_acc
+  integer(kind=1), parameter :: K0 = 0
+  integer(kind=1), parameter :: K1 = 1
+  integer, parameter :: iter = 50
+  real(kind=dp), parameter  :: limit2 = 4.0_dp
+  integer  i
+  character(len=8) argv
+  complex(kind=dp) :: Z, C
+  logical debug, in_mandelbrot
+
+  call getarg(1,argv)
+  read(argv,*) w
+  h = w
+  bit_num = 0
+  byte_acc = K0
+  ! Output pbm header
+  write(*,'(a)') 'P4'
+  write(*,'(i0,a,i0)') w,' ',h
+  do y=0,h-1
+     do x=0,w-1
+        C = cmplx(2.0d0*x/w-1.5d0,2.0d0*y/h-1.0d0, dp)
+        Z = (0.0d0,0.0d0)
+        in_mandelbrot = .true.
+        do i=0,iter-1
+           Z = Z**2 + C
+           if (real(Z*conjg(Z)) > limit2) then
+              in_mandelbrot = .false.
+              exit
+           end if
+        end do
+        if (in_mandelbrot) then
+           ! Inside the set so set this bit to 1
+           byte_acc = ior(ishft(byte_acc,1),K1)
+        else
+           ! Outside the set so set this bit to 0
+           byte_acc = ishft(byte_acc,1)
+        end if
+
+        bit_num = bit_num + 1
+        if (bit_num == 8) then
+           ! All bits set so output them
+           write(*,'(a1)',advance='no') char(byte_acc)
+           byte_acc = K0
+           bit_num = 0
+
+        elseif (x == w-1) then
+           ! End of a row so left-justify the bits we have and output them
+           byte_acc = ishft(byte_acc,8-mod(w,8))
+           write(*,'(a1)',advance='no') char(byte_acc)
+           byte_acc = K0
+           bit_num = 0
+
+        end if
+
+     end do
+  end do
+end program mandelbrot
+! -*- mode: f90 -*-
+!
+! $Id: matrix.ifc,v 1.3 2007-12-04 06:32:38 bfulgham Exp $ ; $Name:  $
+!
+! Matrix function implementation
+! Simon Geard, 3/12/04
+!
+! Building info.
+! ==============
+!
+! Linux  - using the Intel Fortran90 compiler:
+!
+!          ifort matrix.f90 -O3 -static-libcxa -o matrix
+!
+! WinXP  - Compaq Visual Fortran 6.6c
+!
+!          f90 matrix.f90 /link /libpath:"d:\Program Files\Microsoft Visual Studio\df98\lib"
+!
+! Cygwin - g95 compiler
+!
+!          g95 matrix.f90 -o matrix.exe
+!
+program matrix
+  implicit none
+  integer, parameter :: msize = 30
+  integer, dimension(msize,msize) :: m1, m2, mres
+  integer :: i, k, num
+  character(len=4) argv
+  intrinsic matmul
+
+  call getarg(1,argv)
+  read(argv,*) num
+  if (num == 0) num = 1
+
+  m1 = reshape(source=(/ (i,i=1,msize*msize)/), shape=(/msize,msize/))
+  m2 = m1
+  do k=1,num
+     mres = matmul(m1,m2)
+  end do
+  write(*,'(3(i0,a),i0)') mres(1,1),' ',mres(4,3),' ',mres(3,4),' ',mres(5,5)
+end program matrix
+
+! -*- mode: f90 -*-
+!
+! $Id: moments.ifc,v 1.7 2007-12-04 06:32:38 bfulgham Exp $ ; $Name:  $
+!
+! The Great Computer Language Shootout
+! http://shootout.alioth.debian.org/
+! 
+! Simon Geard, 1/12/04
+!
+! Building info.
+! ==============
+!
+! Linux  - using the Intel Fortran90 compiler:
+!
+!          ifort statistics.f90 -O3 -static-libcxa -o statistics
+!
+! WinXP  - Compaq Visual Fortran 6.6c
+!
+!          f90 statistics.f90 /link /libpath:"d:\Program Files\Microsoft Visual Studio\df98\lib"
+!
+! Cygwin - g95 compiler
+!
+!          g95 statistics.f90 -O3 -o statistics.exe
+!
+!!$n:                  500
+!!$median:             250.500000
+!!$mean:               250.500000
+!!$average_deviation:  125.000000
+!!$standard_deviation: 144.481833
+!!$variance:           20875.000000
+!!$skew:               0.000000
+!!$kurtosis:           -1.207202
+
+
+program statistics
+  implicit none
+  integer n, i, nrepeats, k
+  real*8 adev, sdev, var, sk, kur, mean, med, s1, s2, s3, s4
+  character(len=8) argv
+  integer, dimension(:), allocatable :: data, buff
+  integer, parameter :: blocksize = 512
+
+  call getarg(1,argv)
+  read(argv,*) nrepeats
+  nrepeats = max(1,nrepeats)
+
+  ! Read the data on standard input
+  allocate(data(blocksize))
+  n = 0
+  do
+     n = n + 1
+     if (n > size(data)) then
+        allocate(buff(size(data)))
+        buff = data
+        deallocate(data)
+        allocate(data(2*size(buff)))
+        data(1:size(buff)) = buff
+        deallocate(buff)
+     end if
+     read(*,*, end=10) data(n)
+  end do
+10 continue
+  n = n - 1
+  allocate(buff(size(data)))
+  buff = data
+  deallocate(data)
+  allocate(data(n))
+  data = buff
+  deallocate(buff)
+
+  ! Process data nrepeats times
+  do k=1, nrepeats
+     mean =  real(sum(data))/n
+     s1 = 0.0
+     s2 = 0.0
+     s3 = 0.0
+     s4 = 0.0
+     do i=1,n
+        s1 = s1 + abs(data(i) - mean)
+        s2 = s2 + (data(i)-mean)**2
+        s3 = s3 + (data(i)-mean)**3
+        s4 = s4 + (data(i)-mean)**4
+     end do
+     adev = s1/n
+     var = s2/(n-1)
+     sdev = sqrt(var)
+     sk = s3*n/((n-1)*(n-2))
+     kur = s4/(n*var**2) - 3
+     med = median(data)
+  end do
+
+  ! Output the results
+  write(*,'(a,i0)') 'n:                  ',n
+  write(*,101) 'median:             ', med
+  write(*,101) 'mean:               ', mean
+  write(*,101) 'average_deviation:  ', adev
+  write(*,101) 'standard_deviation: ', sdev
+  write(*,'(a,f12.6)') 'variance:           ', var
+  write(*,'(a,f8.6)') 'skew:               ', sk
+  write(*,'(a,f9.6)') 'kurtosis:           ', kur
+101 format(a,f10.6)
+
+contains
+
+  real*8 function median(data)
+    integer, dimension(:), intent(in) :: data
+    integer, dimension(size(data))    :: work
+    logical, dimension(size(data))    :: mask
+    integer, dimension(size(data))    :: mnl
+    integer i, n
+    intrinsic minloc
+
+    n = size(data)
+    mask = (/ (.true.,i=1,n) /)
+    work = (/ (-1,i=1,n) /)
+    median = 0.0
+    ! Sort data - only need to do the first half + 1
+    do i=1,n/2+1
+       mnl = minloc(data,mask)
+       work(i) = data(mnl(1))
+       mask(mnl(1)) = .false.
+    end do
+    if (mod(n,2) == 0) then
+       median = 0.5*(work(n/2)+work((n/2)+1))
+    else
+       median = real(work((n+1)/2))
+    end if
+  end function median
+
+
+  integer function mode(data)
+    integer, dimension(:), intent(in) :: data
+    integer, dimension(:), allocatable :: work
+    integer mind, maxd, i
+    
+    maxd = maxval(data)
+    mind = minval(data)
+    allocate(work(mind:maxd))
+    do i=mind, maxd
+       work(i) = 0
+    end do
+    do i=1,size(data)
+       work(data(i)) = work(data(i)) + 1
+    end do
+    mode = maxval(work)
+    deallocate(work)
+  end function mode
+
+end program statistics
+! -*- mode: f90 -*-
+!
+! $Id: nbody.ifc,v 1.5 2007-12-04 06:32:38 bfulgham Exp $ ; $Name:  $
+!
+! The Great Computer Language Shootout
+!   http://shootout.alioth.debian.org/
+!
+!   contributed by Simon Geard, translated from  Mark C. Williams nbody.java
+!
+! ifort -O3 -static-libcxa -o nbody nbody.f90
+!
+
+program nbody
+
+  implicit none
+  integer result, num, i, k
+  character(len=8) argv
+  real*8, parameter :: tstep = 0.01d0
+  real*8, parameter ::  PI = 3.141592653589793d0
+  real*8, parameter ::  SOLAR_MASS = 4 * PI * PI
+  real*8, parameter ::  DAYS_PER_YEAR = 365.24d0
+  real*8 :: e
+  type body
+     real*8 x, y, z, vx, vy, vz, mass
+  end type body
+  type(body), parameter :: jupiter = body( &
+       4.84143144246472090d0,    -1.16032004402742839d0, &
+       -1.03622044471123109d-01, 1.66007664274403694d-03 * DAYS_PER_YEAR, &
+       7.69901118419740425d-03 * DAYS_PER_YEAR, -6.90460016972063023d-05 * DAYS_PER_YEAR, &
+       9.54791938424326609d-04 * SOLAR_MASS)
+
+  type(body), parameter :: saturn = body( &
+       8.34336671824457987d+00, &
+       4.12479856412430479d+00, &
+       -4.03523417114321381d-01, &
+       -2.76742510726862411d-03 * DAYS_PER_YEAR, &
+       4.99852801234917238d-03 * DAYS_PER_YEAR, &
+       2.30417297573763929d-05 * DAYS_PER_YEAR, &
+       2.85885980666130812d-04 * SOLAR_MASS)
+
+  type(body), parameter :: uranus = body( &
+	   1.28943695621391310d+01, &
+	   -1.51111514016986312d+01, &
+	   -2.23307578892655734d-01, &
+	   2.96460137564761618d-03 * DAYS_PER_YEAR, &
+	   2.37847173959480950d-03 * DAYS_PER_YEAR, &
+	   -2.96589568540237556d-05 * DAYS_PER_YEAR, &
+	   4.36624404335156298d-05 * SOLAR_MASS )
+
+  type(body), parameter :: neptune = body( &
+       1.53796971148509165d+01, &
+       -2.59193146099879641d+01, &
+       1.79258772950371181d-01, &
+       2.68067772490389322d-03 * DAYS_PER_YEAR, &
+       1.62824170038242295d-03 * DAYS_PER_YEAR, &
+       -9.51592254519715870d-05 * DAYS_PER_YEAR, &
+       5.15138902046611451d-05 * SOLAR_MASS)
+
+  type(body), parameter :: sun = body(0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0, SOLAR_MASS)
+
+  type(body), dimension(5) :: bodies
+  bodies = (/ sun, jupiter, saturn, uranus, neptune /)
+
+  call getarg(1,argv)
+  read(argv,*) num
+
+  call offsetMomentum(1,bodies)
+  e = energy(bodies)
+  write(*,'(f12.9)') e
+  do i=1,num
+     call advance(tstep, bodies)
+  end do
+  e = energy(bodies)
+  write(*,'(f12.9)') e
+
+contains
+
+  subroutine offsetMomentum(k, bodies)
+    integer, intent(in) :: k
+    type(body), dimension(:), intent(inout) :: bodies
+    real*8 :: px, py, pz
+    px = 0.0d0
+    py = 0.0d0
+    pz = 0.0d0
+    do i=1,size(bodies)
+       px = px + bodies(i)%vx * bodies(i)%mass;
+       py = py + bodies(i)%vy * bodies(i)%mass;
+       pz = pz + bodies(i)%vz * bodies(i)%mass;
+    end do
+    bodies(k)%vx = -px/SOLAR_MASS
+    bodies(k)%vy = -py/SOLAR_MASS
+    bodies(k)%vz = -pz/SOLAR_MASS
+  end subroutine offsetMomentum
+
+
+  subroutine advance(tstep, bodies)
+  real*8, intent(in) :: tstep
+  type(body), dimension(:), intent(inout) :: bodies
+
+  real*8 dx, dy, dz, distance, mag
+  integer i, j
+  
+  do i=1,size(bodies)
+     do j=i+1,size(bodies)
+        dx = bodies(i)%x - bodies(j)%x
+        dy = bodies(i)%y - bodies(j)%y
+        dz = bodies(i)%z - bodies(j)%z
+        
+        distance = sqrt(dx*dx + dy*dy + dz*dz)
+        mag = tstep / (distance * distance * distance)
+        
+        bodies(i)%vx = bodies(i)%vx - dx * bodies(j)%mass * mag
+        bodies(i)%vy =  bodies(i)%vy - dy * bodies(j)%mass * mag
+        bodies(i)%vz =  bodies(i)%vz - dz * bodies(j)%mass * mag
+        
+        bodies(j)%vx = bodies(j)%vx + dx * bodies(i)%mass * mag
+        bodies(j)%vy = bodies(j)%vy + dy * bodies(i)%mass * mag
+        bodies(j)%vz = bodies(j)%vz + dz * bodies(i)%mass * mag
+     end do
+  end do
+     
+  do i=1,size(bodies)
+     bodies(i)%x = bodies(i)%x + tstep * bodies(i)%vx
+     bodies(i)%y = bodies(i)%y + tstep * bodies(i)%vy
+     bodies(i)%z = bodies(i)%z + tstep * bodies(i)%vz
+  end do
+
+  end subroutine advance
+
+  real*8 function energy(bodies)
+    type(body), dimension(:), intent(in) :: bodies
+    real*8 dx, dy, dz, distance
+    integer i, j
+
+    energy = 0.0d0
+    do i=1,size(bodies)
+       energy = energy + 0.5d0 * bodies(i)%mass *  &
+            ( bodies(i)%vx * bodies(i)%vx + &
+            bodies(i)%vy * bodies(i)%vy + &
+            bodies(i)%vz * bodies(i)%vz)
+
+       do j=i+1,size(bodies)
+          dx = bodies(i)%x - bodies(j)%x
+          dy = bodies(i)%y - bodies(j)%y
+          dz = bodies(i)%z - bodies(j)%z
+          distance = sqrt(dx*dx + dy*dy + dz*dz)
+          energy = energy - (bodies(i)%mass * bodies(j)%mass) / distance;
+       end do
+
+    end do
+  end function energy
+
+end program nbody
+! -*- mode: f90 -*-
+!
+! The Computer Language Benchmarks Game
+!   http://shootout.alioth.debian.org/
+!
+!   contributed by Simon Geard, translated from  Mark C. Williams nbody.java
+!   modified by Brian Taylor
+!
+! ifort -fast -o nbody nbody.f90
+!
+
+program nbody
+  implicit none
+
+  real*8, parameter :: tstep = 0.01d0
+  real*8, parameter ::  PI = 3.141592653589793d0
+  real*8, parameter ::  SOLAR_MASS = 4 * PI * PI
+  real*8, parameter ::  DAYS_PER_YEAR = 365.24d0
+
+  type body
+     real*8 :: x, y, z, vx, vy, vz, mass
+  end type body
+
+  type(body), parameter :: jupiter = body( &
+       4.84143144246472090d0,    -1.16032004402742839d0, &
+       -1.03622044471123109d-01, 1.66007664274403694d-03 * DAYS_PER_YEAR, &
+       7.69901118419740425d-03 * DAYS_PER_YEAR, &
+       -6.90460016972063023d-05 * DAYS_PER_YEAR, &
+       9.54791938424326609d-04 * SOLAR_MASS)
+
+  type(body), parameter :: saturn = body( &
+       8.34336671824457987d+00, &
+       4.12479856412430479d+00, &
+       -4.03523417114321381d-01, &
+       -2.76742510726862411d-03 * DAYS_PER_YEAR, &
+       4.99852801234917238d-03 * DAYS_PER_YEAR, &
+       2.30417297573763929d-05 * DAYS_PER_YEAR, &
+       2.85885980666130812d-04 * SOLAR_MASS)
+
+  type(body), parameter :: uranus = body( &
+       1.28943695621391310d+01, &
+       -1.51111514016986312d+01, &
+       -2.23307578892655734d-01, &
+       2.96460137564761618d-03 * DAYS_PER_YEAR, &
+       2.37847173959480950d-03 * DAYS_PER_YEAR, &
+       -2.96589568540237556d-05 * DAYS_PER_YEAR, &
+       4.36624404335156298d-05 * SOLAR_MASS )
+
+  type(body), parameter :: neptune = body( &
+       1.53796971148509165d+01, &
+       -2.59193146099879641d+01, &
+       1.79258772950371181d-01, &
+       2.68067772490389322d-03 * DAYS_PER_YEAR, &
+       1.62824170038242295d-03 * DAYS_PER_YEAR, &
+       -9.51592254519715870d-05 * DAYS_PER_YEAR, &
+       5.15138902046611451d-05 * SOLAR_MASS)
+
+  type(body), parameter :: sun = body(0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0, &
+        0.0d0, SOLAR_MASS)
+
+  integer, parameter :: nb = 5
+
+  real*8, parameter :: mass(nb) = (/ sun%mass, jupiter%mass, saturn%mass, &
+        uranus%mass, neptune%mass /)
+
+  integer :: num, i
+  character(len=8) :: argv
+
+  real*8 :: e, x(3,nb), v(3,nb)
+
+  x(:,1) = (/ sun%x, sun%y, sun%z /)
+  x(:,2) = (/ jupiter%x, jupiter%y, jupiter%z /)
+  x(:,3) = (/ saturn%x, saturn%y, saturn%z /)
+  x(:,4) = (/ uranus%x, uranus%y, uranus%z /)
+  x(:,5) = (/ neptune%x, neptune%y, neptune%z /)
+
+  v(:,1) = (/ sun%vx, sun%vy, sun%vz /)
+  v(:,2) = (/ jupiter%vx, jupiter%vy, jupiter%vz /)
+  v(:,3) = (/ saturn%vx, saturn%vy, saturn%vz /)
+  v(:,4) = (/ uranus%vx, uranus%vy, uranus%vz /)
+  v(:,5) = (/ neptune%vx, neptune%vy, neptune%vz /)
+
+  call getarg(1, argv)
+  read (argv,*) num
+
+  call offsetMomentum(1, v, mass)
+  e = energy(x, v, mass)
+  write (*,'(f12.9)') e
+  do i = 1, num
+     call advance(tstep, x, v, mass)
+  end do
+  e = energy(x, v, mass)
+  write (*,'(f12.9)') e
+
+contains
+
+  pure subroutine offsetMomentum(k, v, mass)
+    integer, intent(in) :: k
+    real*8, dimension(3,nb), intent(inout) :: v
+    real*8, dimension(nb), intent(in) :: mass
+    real*8 :: px, py, pz
+    integer :: i
+    px = 0.0d0
+    py = 0.0d0
+    pz = 0.0d0
+    do i = 1, nb
+       px = px + v(1,i) * mass(i)
+       py = py + v(2,i) * mass(i)
+       pz = pz + v(3,i) * mass(i)
+    end do
+    v(1,k) = -px / SOLAR_MASS
+    v(2,k) = -py / SOLAR_MASS
+    v(3,k) = -pz / SOLAR_MASS
+  end subroutine offsetMomentum
+
+
+  pure subroutine advance(tstep, x, v, mass)
+  real*8, intent(in) :: tstep
+  real*8, dimension(3,nb), intent(inout) :: x, v
+  real*8, dimension(nb), intent(in) :: mass
+
+  real*8 :: dx, dy, dz, distance, mag
+  integer :: i, j
+
+  do i = 1, nb
+     do j = i + 1, nb
+        dx = x(1,i) - x(1,j)
+        dy = x(2,i) - x(2,j)
+        dz = x(3,i) - x(3,j)
+
+        distance = sqrt(dx**2 + dy**2 + dz**2)
+        mag = tstep / distance**3
+
+        v(1,i) = v(1,i) - dx * mass(j) * mag
+        v(2,i) = v(2,i) - dy * mass(j) * mag
+        v(3,i) = v(3,i) - dz * mass(j) * mag
+
+        v(1,j) = v(1,j) + dx * mass(i) * mag
+        v(2,j) = v(2,j) + dy * mass(i) * mag
+        v(3,j) = v(3,j) + dz * mass(i) * mag
+     end do
+  end do
+
+  do i = 1, nb
+     x(1,i) = x(1,i) + tstep * v(1,i)
+     x(2,i) = x(2,i) + tstep * v(2,i)
+     x(3,i) = x(3,i) + tstep * v(3,i)
+  end do
+  end subroutine advance
+
+
+  pure function energy(x, v, mass)
+    real*8 :: energy
+    real*8, dimension(3,nb), intent(in) :: x, v
+    real*8, dimension(nb), intent(in) :: mass
+
+    real*8 :: dx, dy, dz, distance
+    integer :: i, j
+
+    energy = 0.0d0
+    do i = 1, nb
+       energy = energy + 0.5d0 * mass(i) * (v(1,i)**2 + v(2,i)**2 + v(3,i)**2)
+       do j = i + 1, nb
+          dx = x(1,i) - x(1,j)
+          dy = x(2,i) - x(2,j)
+          dz = x(3,i) - x(3,j)
+          distance = sqrt(dx**2 + dy**2 + dz**2)
+          energy = energy - (mass(i) * mass(j)) / distance;
+       end do
+    end do
+  end function energy
+
+end program nbody
+! -*- mode: f90 -*-
+!
+! The Computer Language Benchmarks Game
+!   http://shootout.alioth.debian.org/
+!
+!   Translated from Mark C. Lewis nbody.java by Simon Geard
+!   Revised by Mike Garrahan
+!
+! ifort -O3 -xHost -o nbody nbody.f90
+!
+
+program nbody
+  implicit none
+  integer, parameter :: dp = selected_real_kind(15, 307)
+
+  real(dp), parameter :: TSTEP = 0.01d0
+  real(dp), parameter :: PI = 3.141592653589793d0
+  real(dp), parameter :: SOLAR_MASS = 4 * PI * PI
+  real(dp), parameter :: DAYS_PER_YEAR = 365.24d0
+
+  integer, parameter :: NB = 5
+  integer, parameter :: NPAIR = NB * (NB - 1) / 2
+
+  real(dp) :: x(3,NB), v(3,NB), mass(NB)
+  real(dp) :: e
+
+  integer :: nstep, i
+  character(len=8) :: argv
+
+  call getarg(1, argv)
+  read (argv,*) nstep
+
+  call init(x, v, mass)
+
+  e = energy(x, v, mass)
+  write (*,'(f12.9)') e
+
+  do i = 1, nstep
+     call advance(x, v, mass)
+  end do
+
+  e = energy(x, v, mass)
+  write (*,'(f12.9)') e
+
+contains
+
+  subroutine advance(x, v, mass)
+    real(dp), intent(inout) :: x(3,NB), v(3,NB)
+    real(dp), intent(in) :: mass(NB)
+
+    real(dp) :: r(3,NPAIR), rmag(3)
+    real(dp) :: distance(NPAIR), mag(NPAIR)
+    integer :: i, j, k
+
+    k = 1
+    do i = 1, NB - 1
+       do j = i + 1, NB
+          r(:,k) = x(:,i) - x(:,j)
+          k = k + 1
+       end do
+    end do
+
+    distance = sqrt(sum(r**2, dim=1))
+    mag = TSTEP / distance**3
+
+    k = 1
+    do i = 1, NB - 1
+       do j = i + 1, NB
+          rmag = mag(k) * r(:,k)
+          v(:,i) = v(:,i) - mass(j) * rmag
+          v(:,j) = v(:,j) + mass(i) * rmag
+          k = k + 1
+       end do
+    end do
+
+    x = x + TSTEP * v
+  end subroutine advance
+
+  function energy(x, v, mass)
+    real(dp) :: energy
+    real(dp), intent(in) :: x(3,NB), v(3,NB), mass(NB)
+
+    real(dp) :: r(3), distance, ke, pe
+    integer :: i, j
+
+    ke = 0.5d0 * dot_product(mass, sum(v**2, dim=1))
+    pe = 0.0d0
+    do i = 1, NB - 1
+       do j = i + 1, NB
+          r = x(:,i) - x(:,j)
+          distance = sqrt(sum(r**2))
+          pe = pe - mass(i) * mass(j) / distance
+       end do
+    end do
+    energy = ke + pe
+  end function energy
+
+  subroutine init(x, v, mass)
+    real(dp), intent(out) :: x(3,NB), v(3,NB), mass(NB)
+    integer, parameter :: SUN = 1, JUPITER = 2, SATURN = 3, &
+         URANUS = 4, NEPTUNE = 5
+    real(dp) :: momentum(3)
+
+    x(:,JUPITER) = (/ &
+         4.84143144246472090d+00, &
+        -1.16032004402742839d+00, &
+        -1.03622044471123109d-01 /)
+    v(:,JUPITER) = (/ &
+         1.66007664274403694d-03, &
+         7.69901118419740425d-03, &
+        -6.90460016972063023d-05 /)
+    mass(JUPITER) = &
+         9.54791938424326609d-04
+
+    x(:,SATURN) = (/ &
+         8.34336671824457987d+00, &
+         4.12479856412430479d+00, &
+        -4.03523417114321381d-01 /)
+    v(:,SATURN) = (/ &
+        -2.76742510726862411d-03, &
+         4.99852801234917238d-03, &
+         2.30417297573763929d-05 /)
+    mass(SATURN) = &
+         2.85885980666130812d-04
+
+    x(:,URANUS) = (/ &
+         1.28943695621391310d+01, &
+        -1.51111514016986312d+01, &
+        -2.23307578892655734d-01 /)
+    v(:,URANUS) = (/ &
+         2.96460137564761618d-03, &
+         2.37847173959480950d-03, &
+        -2.96589568540237556d-05 /)
+    mass(URANUS) = &
+         4.36624404335156298d-05
+
+    x(:,NEPTUNE) = (/ &
+         1.53796971148509165d+01, &
+        -2.59193146099879641d+01, &
+         1.79258772950371181d-01 /)
+    v(:,NEPTUNE) = (/ &
+         2.68067772490389322d-03, &
+         1.62824170038242295d-03, &
+        -9.51592254519715870d-05 /)
+    mass(NEPTUNE) = &
+         5.15138902046611451d-05
+
+    x(:,SUN) = 0.0d0
+    v(:,SUN) = 0.0d0
+    mass(SUN) = 1.0d0
+
+    v = v * DAYS_PER_YEAR
+    mass = mass * SOLAR_MASS
+
+    momentum = matmul(v, mass)
+    v(:,SUN) = v(:,SUN) - momentum / mass(SUN)
+  end subroutine init
+
+end program nbody
+! -*- mode: f90 -*-
+!
+! $Id: nestedloop.ifc,v 1.4 2007-12-04 06:32:38 bfulgham Exp $ ; $Name:  $
+!
+! NestedLoop function implementation
+! Simon Geard, 3/12/04 
+!
+! Building info.
+! ==============
+!
+! Linux  - using the Intel Fortran90 compiler:
+!
+!          ifort nestedLoop.f90 -O3 -static-libcxa -o nestedLoop
+!
+program nestedLoop
+  implicit none
+  integer :: a, b, c, d, e, f, num, x
+  character(len=2) argv
+
+  call getarg(1,argv)
+  read(argv,*) num
+
+
+  x = 0
+  do a=1,num
+     do b=1,num
+        do c=1,num
+           do d=1,num
+              do e=1,num
+                 do f=1,num
+                    x = x+1
+                 end do
+              end do
+           end do
+        end do
+     end do
+  end do
+  write(*,'(i0)') x
+
+end program nestedLoop
+
+! The Great Computer Language Shootout
+!   http://shootout.alioth.debian.org/
+!
+!   contributed by Steve Decker, based on the Fortran version by Simon Geard
+!
+! compilation:
+!   g95 -O3 -fomit-frame-pointer nsieve.f90
+!   gfortran -O3 -funroll-loops -fomit-frame-pointer nsieve.f90
+!   ifort -O3 -ip nsieve.f90
+program nsieve
+  implicit none
+
+  integer :: num, i, m
+  character(len=2) :: argv
+  logical(1), dimension(:), allocatable :: flags
+
+  call get_command_argument(1, argv)
+  read(argv, *) num
+
+  do i = num, num-2, -1
+     m = 2**i * 10000
+     if (i == num) allocate(flags(2:m))
+     write(*, "(2(a,i8))")  "Primes up to ", m, " ", nsi(m)
+  end do
+  
+contains
+  
+  integer function nsi(m)
+    integer, intent(in) :: m
+
+    integer :: i, k
+
+    flags(2:m) = .true.
+    nsi = 0
+    do i = 2, m
+       if (flags(i)) then
+!          flags(2*i:m:i) = .false.    !!! Causes segfault in gfortran
+          do k = 2*i, m, i
+             flags(k) = .false.
+          end do
+          nsi = nsi + 1
+       end if
+    end do
+  end function nsi
+end program nsieve
+! -*- mode: f90 -*-
+!
+! $Id: nsievebits.ifc,v 1.3 2007-12-04 06:32:38 bfulgham Exp $ ; $Name:  $
+!
+! The Great Computer Language Shootout
+!   http://shootout.alioth.debian.org/
+!
+!   contributed by Steve Decker
+!
+! compilation:
+!   g95 -O1 -fomit-frame-pointer nsieve_bits.f90
+!   gfortran -O3 -fomit-frame-pointer nsieve_bits.f90
+!   ifort -O3 nsieve_bits.f90
+
+program nsieve_bits
+  implicit none
+
+  integer, parameter :: BSize = bit_size(1)
+
+  integer          :: num, i, m
+  character(len=2) :: argv
+  integer, dimension(:), allocatable :: flags
+  
+  call get_command_argument(1, argv)
+  read(argv, *) num
+  
+  do i = num, num-2, -1
+     m = 2**i * 10000
+     if (i == num) allocate(flags(0:m/BSize))
+     write(*, "(2(a,i8))")  "Primes up to ", m, " ", nsi(m)
+  end do
+  
+contains
+  
+  integer function nsi(m)
+    integer, intent(in) :: m
+    
+    integer :: i, ind, bit, k
+
+    do i = 2, m
+       ind = i / BSize
+       bit = mod(i, BSize)
+       flags(ind) = ibset(flags(ind), bit)
+    end do
+    nsi = 0
+    do i = 2, m
+       if (btest(flags(i/BSize), mod(i, BSize))) then
+          do k = 2*i, m, i
+             ind = k / BSize
+             bit = mod(k, BSize)
+             flags(ind) = ibclr(flags(ind), bit)
+          end do
+          nsi = nsi + 1
+       end if
+    end do
+  end function nsi
+end program nsieve_bits
+! The Computer Language Shootout
+!   http://shootout.alioth.debian.org/
+!
+!   contributed by Steve Decker
+!
+! compilation:
+!   g95 -O3 -fomit-frame-pointer -funroll-loops -ffast-math partial.f90  (-ffast-math is important!)
+!   ifort -O3 -ipo -static partial.f90
+
+program partial
+  implicit none
+
+  integer,   parameter :: dp = selected_real_kind(10)
+  real(dp),  parameter :: lnTwoThirds = log(2._dp/3._dp), Zero = 0._dp, One = 1._dp
+  character, parameter :: Tab = achar(9)
+
+  real(dp)         :: s = Zero
+  integer          :: n, k
+  character(len=8) :: argv
+
+  call get_command_argument(1, argv)
+  read (argv, "(i8)") n
+
+  ! a^b = e^(b ln a)
+  do k = 0, n  ;  s = s + exp(k * lnTwoThirds)  ;  end do
+  write (*, "(f0.9,a)") s, Tab // "(2/3)^k"
+
+  s = Zero
+  ! 1/sqrt(k) = k^-0.5
+  do k = 1, n  ;  s = s + One / sqrt(real(k,dp))  ;  end do
+  write (*, "(f0.9,a)") s, Tab // "k^-0.5"
+
+  s = Zero
+  do k = 1, n  ;  s = s + One / (k * (k + One))  ;  end do
+  write (*, "(f11.9,a)") s, Tab // "1/k(k+1)"
+
+  s = Zero
+  do k = 1, n  ;  s = s + One / (real(k,dp)**3 * sin(real(k,dp))**2)  ;  end do
+  write (*, "(f0.9,a)") s, Tab // "Flint Hills"
+
+  s = Zero
+  do k = 1, n  ;  s = s + One / (real(k,dp)**3 * cos(real(k,dp))**2)  ;  end do
+  write (*, "(f0.9,a)") s, Tab // "Cookson Hills"
+
+  s = Zero
+  do k = 1, n  ;  s = s + One / k  ;  end do
+  write (*, "(f0.9,a)") s, Tab // "Harmonic"
+
+  s = Zero
+  do k = 1, n  ;  s = s + One / (real(k,dp)**2)  ;  end do
+  write (*, "(f0.9,a)") s, Tab // "Riemann Zeta"
+
+  s = Zero
+  do k = 1, n-1, 2  ;  s = s + One / k  ;  end do
+  do k = 2, n,   2  ;  s = s - One / k  ;  end do
+  write (*, "(f11.9,a)") s, Tab // "Alternating Harmonic"
+
+  s = Zero
+  do k = 1, 2*n-1, 4  ;  s = s + One / k  ;  end do
+  do k = 3, 2*n,   4  ;  s = s - One / k  ;  end do
+  write (*, "(f11.9,a)") s, Tab // "Gregory"  
+end program partial
+! The Computer Language Shootout
+!   http://shootout.alioth.debian.org/
+!
+!   Contributed by Steve Decker
+!   Version 3
+!   Written similarly to the Oberon-2 version among others.
+!
+! compilation:
+!   g95 -O3 -fomit-frame-pointer -funroll-loops partial3.f90
+!   gfortran -O3 -fomit-frame-pointer -funroll-loops -ffast-math partial3.f90
+!   ifort -O3 -ipo -static partial3.f90
+
+program partial
+  implicit none
+
+  integer,   parameter :: dp = selected_real_kind(10)
+  real(dp),  parameter :: TwoThirds = 2._dp/3._dp, Zero = 0._dp, One = 1._dp
+  character, parameter :: Tab = achar(9)
+
+  real(dp)         :: s1 = One, s2 = Zero, s3 = Zero, s4 = Zero, s5 = Zero,  &
+                      s6 = Zero, s7 = Zero, s8 = Zero, s9 = Zero, alt = -One
+  integer          :: n, k
+  character(len=8) :: argv
+
+  call get_command_argument(1, argv)
+  read (argv, "(i8)") n
+
+  do k = 1, n
+     alt = -alt
+
+     s1 = s1 + TwoThirds**real(k,dp)
+     s2 = s2 + One / sqrt(real(k,dp))
+     s3 = s3 + One / (k * (k + One))
+     s4 = s4 + One / (real(k,dp)**3 * sin(real(k,dp))**2)
+     s5 = s5 + One / (real(k,dp)**3 * cos(real(k,dp))**2)
+     s6 = s6 + One / k
+     s7 = s7 + One / (real(k,dp)**2)
+     s8 = s8 + alt / k
+     s9 = s9 + alt / (2*k - 1)
+  end do
+     
+  write (*, "(f0.9,a)") s1, Tab // "(2/3)^k"
+  write (*, "(f0.9,a)") s2, Tab // "k^-0.5"
+  write (*,"(f11.9,a)") s3, Tab // "1/k(k+1)"
+  write (*, "(f0.9,a)") s4, Tab // "Flint Hills"
+  write (*, "(f0.9,a)") s5, Tab // "Cookson Hills"
+  write (*, "(f0.9,a)") s6, Tab // "Harmonic"
+  write (*, "(f0.9,a)") s7, Tab // "Riemann Zeta"
+  write (*,"(f11.9,a)") s8, Tab // "Alternating Harmonic"
+  write (*,"(f11.9,a)") s9, Tab // "Gregory"  
+end program partial
+! -*- mode: f90 -*-
+!
+! $Id: pidigits.ifc,v 1.2 2007-12-04 06:32:38 bfulgham Exp $ ; $Name:  $
+!
+! The Computer Language Shootout Benchmarks
+! http://shootout.alioth.debian.org/
+!
+! contributed by Steve Decker
+! compilation:
+!    g95 -O3 -funroll-loops -fomit-frame-pointer pidigits.f90
+!    ifort -O -ip pidigits.f90
+
+module big_int_mod
+  implicit none
+  save
+  
+  integer, parameter, private :: Pwr = 15, Base = 2**Pwr, maxDigs = 2558
+
+  type big_int
+     private
+     integer :: sigDigs
+     logical :: sign
+     integer, dimension(maxDigs) :: digits
+  end type big_int
+
+  interface assignment (=)
+     module procedure int_to_big_int
+  end interface
+  
+  interface operator (*)
+     module procedure big_int_times_int
+  end interface
+  
+  interface operator (+)
+     module procedure big_int_plus_big_int
+  end interface
+
+  interface operator (/)
+     module procedure big_int_div_big_int
+  end interface
+
+contains
+  
+  subroutine int_to_big_int(bi, n)
+    type(big_int), intent(inout) :: bi
+    integer,       intent(in)    :: n
+
+    integer :: i
+
+    if (n > 0) then
+       bi = big_int(1, .true., (/ n, (0, i = 2, maxDigs) /) )
+    else
+       bi = big_int(0, .true., 0)
+    end if
+  end subroutine int_to_big_int
+  
+  function big_int_times_int(bi, n) result(c)
+    type(big_int), intent(in) :: bi
+    integer,       intent(in) :: n
+    type(big_int) :: c
+
+    integer :: m, i, curDig, k, j, carry
+    
+    c = big_int(0, .true., 0)
+    if (n == 0 .or. bi%sigDigs == 0) return
+    c%sign = n >= 0 .eqv. bi%sign
+    m = abs(n)
+
+    do i = 1, maxDigs
+       curDig = mod(m,Base)
+       k = 1
+       carry = 0
+       do j = i, i + bi%sigDigs + 1
+          c%digits(j) = c%digits(j) + curDig * bi%digits(k) + carry
+          carry = ibits(c%digits(j),Pwr,Pwr+1)
+          c%digits(j) = mod(c%digits(j),Base)
+          k = k + 1
+       end do
+       m = ibits(m,Pwr,Pwr+1)
+       if (m == 0) exit
+    end do
+    do j = i + bi%sigDigs, 1, -1
+       c%sigDigs = j
+       if (c%digits(j) /= 0) exit
+    end do
+  end function big_int_times_int
+
+  function big_int_plus_big_int(bi1, bi2) result(c)
+    type(big_int), target, intent(in) :: bi1, bi2
+    type(big_int) :: c
+    
+    integer :: i, carry, n
+    type(big_int), pointer :: a, b
+
+    c = big_int(0, .true., 0)
+
+    if (bi1%sigDigs == 0) then
+       c = bi2
+       return
+    else if (bi2%sigDigs == 0) then
+       c = bi1
+       return
+    end if
+
+    if (bi1%sign .eqv. bi2%sign) then
+       c%sign = bi1%sign
+       carry = 0
+       n = max(bi1%sigDigs, bi2%sigDigs) + 1
+       do i = 1, n
+          c%digits(i) = bi1%digits(i) + bi2%digits(i) + carry
+          carry = ibits(c%digits(i),Pwr,Pwr+1)
+          c%digits(i) = mod(c%digits(i),Base)
+       end do
+    else
+       if (greater_in_mag(bi1, bi2)) then
+          a => bi1
+          b => bi2
+       else if (greater_in_mag(bi2, bi1)) then
+          a => bi2
+          b => bi1
+       else
+          return
+       end if
+
+       n = max(a%sigDigs, b%sigDigs)
+       c%sign = a%sign
+       do i = 1, n
+          if (a%digits(i) < b%digits(i)) then
+             a%digits(i) = a%digits(i) + Base
+             a%digits(i+1) = a%digits(i+1) - 1
+          end if
+          c%digits(i) = a%digits(i) - b%digits(i)
+       end do
+    end if
+
+    do i = n, 1, -1
+       c%sigDigs = i
+       if (c%digits(i) /= 0) exit
+    end do
+  end function big_int_plus_big_int
+
+  function big_int_div_big_int(a, b) result(c)
+    type(big_int), intent(in) :: a, b
+    integer                   :: c
+
+    integer :: k, carry, n, j
+    type(big_int) :: accumulator
+
+    c = 0
+    if (a%sigDigs == 0) return
+
+    accumulator = big_int(0, .true., 0)
+    do k = 0, Base-1
+       carry = 0
+       n = max(accumulator%sigDigs, b%sigDigs) + 1
+       do j = 1, n
+          accumulator%digits(j) =  &
+               accumulator%digits(j) + b%digits(j) + carry
+          carry = ibits(accumulator%digits(j),Pwr,Pwr+1)
+          accumulator%digits(j) = mod(accumulator%digits(j),Base)
+       end do
+       do j = n, 1, -1
+          accumulator%sigDigs = j
+          if (accumulator%digits(j) /= 0) exit
+       end do
+       if (greater_in_mag(accumulator, a)) then
+          c = k
+          exit
+       end if
+    end do
+  end function big_int_div_big_int
+  
+  logical function greater_in_mag(a, b)
+    type(big_int), intent(in) :: a, b
+
+    integer :: i
+
+    greater_in_mag = .false.
+    do i = max(a%sigDigs, b%sigDigs), 1, -1
+       if (a%digits(i) > b%digits(i)) then
+          greater_in_mag = .true.
+          exit
+       else if (a%digits(i) < b%digits(i)) then
+          exit
+       end if
+    end do
+  end function greater_in_mag
+end module big_int_mod
+
+module pi_mod
+  use big_int_mod
+  implicit none
+
+contains
+
+  function lfts(k)
+    integer, intent(in)     :: k
+    integer, dimension(2,2) :: lfts
+
+    lfts = reshape( (/ k, 0, 4*k + 2, 2*k + 1 /), (/ 2, 2 /) )
+  end function lfts
+
+  function comp1(a, b)
+    integer,       dimension(2,2), intent(in) :: a
+    type(big_int), dimension(2,2), intent(in) :: b
+    type(big_int), dimension(2,2) :: comp1
+
+    comp1(1,1) = b(1,1)*a(1,1) + b(2,1)*a(1,2)
+    comp1(2,1) = b(1,1)*a(2,1) + b(2,1)*a(2,2)
+    comp1(1,2) = b(1,2)*a(1,1) + b(2,2)*a(1,2)
+    comp1(2,2) = b(1,2)*a(2,1) + b(2,2)*a(2,2)
+  end function comp1
+
+  function comp2(a, b)
+    type(big_int), dimension(2,2), intent(in) :: a
+    integer,       dimension(2,2), intent(in) :: b
+    type(big_int), dimension(2,2) :: comp2
+    
+    comp2(1,1) = a(1,1)*b(1,1) + a(1,2)*b(2,1)
+    comp2(2,1) = a(2,1)*b(1,1) + a(2,2)*b(2,1)
+    comp2(1,2) = a(1,1)*b(1,2) + a(1,2)*b(2,2)
+    comp2(2,2) = a(2,1)*b(1,2) + a(2,2)*b(2,2)
+  end function comp2
+  
+  function prod(z, n)
+    type(big_int), dimension(2,2), intent(in) :: z
+    integer,                       intent(in) :: n
+    type(big_int), dimension(2,2) :: prod
+
+    prod = comp1(reshape( (/ 10, 0, -10*n, 1 /), (/ 2, 2 /) ), z)
+  end function prod
+  
+  logical function safe(z, n)
+    type(big_int), dimension(2,2), intent(in) :: z
+    integer,                       intent(in) :: n
+
+    safe = n == (z(1,1) * 4 + z(1,2)) / (z(2,1) * 4 + z(2,2))
+  end function safe
+
+  integer function next(z)
+    type(big_int), dimension(2,2), intent(in) :: z
+    
+    next = (z(1,1) * 3 + z(1,2)) / (z(2,1) * 3 + z(2,2))
+  end function next
+end module pi_mod
+
+program pidigits
+  use pi_mod
+  implicit none
+
+  character(len=12), parameter  :: proForma = "          " // achar(9) // ":"
+  type(big_int), dimension(2,2) :: z
+  integer           :: num, y, i = 1, j = 1, k = 1
+  character(len=17) :: outLine = proForma
+  character(len=4)  :: argv
+
+  call get_command_argument(1, argv)
+  read(argv, *) num
+
+  z(1,1) = 1; z(2,1) = 0; z(1,2) = 0; z(2,2) = 1
+
+  do
+     y = next(z)
+     if (safe(z, y)) then
+        write(unit=outLine(k:k), fmt="(i1)") y
+        if (k < 10 .and. i < num) then
+           k = k + 1
+        else
+           k = 1
+           write(unit=outLine(13:17), fmt="(i0)") i
+           write(*, "(a)") trim(outLine)
+           outLine = proForma
+        end if
+        if (i == num) exit
+        z = prod(z, y)
+        i = i + 1
+     else
+        z = comp2(z, lfts(j))
+        j = j + 1
+     end if
+  end do
+end program pidigits
+! -*- mode: f90 -*-
+!
+! $Id: random.ifc,v 1.5 2007-12-04 06:32:39 bfulgham Exp $ ; $Name:  $
+!
+! Random access function implementation
+! Simon Geard, 1/12/04
+!
+! Building info.
+! ==============
+!
+! Linux  - using the Intel Fortran90 compiler:
+!
+!          ifort random.f90 -O3 -static-libcxa -o random
+!
+! WinXP  - Compaq Visual Fortran 6.6c
+!
+!          f90 random.f90 /link /libpath:"d:\Program Files\Microsoft Visual Studio\df98\lib"
+!
+! Cygwin - g95 compiler
+!
+!          g95 random.f90 -O3 -o random.exe
+!
+
+program random
+  implicit none
+  integer, parameter :: IM = 139968
+  integer, parameter :: IA = 3877
+  integer, parameter :: IC = 29573
+  character(len=8) argv
+  integer :: num,  k
+  real*8  :: s
+
+  call getarg(1,argv)
+  read(argv,*) num
+
+  do k=1,num
+     s = getRandom(100.0d0)
+  end do
+
+  write(*,'(f12.9)') s
+
+contains
+  real*8 function getRandom (maxval)
+    real*8, intent(in) :: maxval
+    integer, save :: last = 42
+
+    last = mod(last * IA + IC, IM)
+    getRandom = maxval * last / IM
+
+  end function getRandom
+end program random
+! -*- mode: f90 -*-
+!
+! $Id: raytracer.ifc,v 1.12 2007-12-04 06:32:39 bfulgham Exp $ ; $Name:  $
+!
+! The Great Computer Language Shootout
+! http://shootout.alioth.debian.org/ 
+!
+! contributed by Simon Geard, 2005; translated from raytracer.cxx by John Harrop
+!
+! Compile: ifort -O3 -u -what -static-libcxa -o raytracer raytracer.f90
+!
+! -> Intel Fortran 8.1-5079
+!
+module scene
+  !
+  ! This module contains the code for building the scene to be ray traced. It
+  ! is generic in nature except for the definition of a Sphere. This is because without
+  ! generic types (which are in fortran2003 but there are no compilers yet!)
+  ! the tree has to be defined for each data type.
+  !
+  ! A sphere
+  type Sphere
+     real*8, dimension(3) :: centre = (/ 0.0d0,0.0d0,0.0d0 /)
+     real*8               :: radius = 0.0d0
+  end type Sphere
+  !
+  ! Tree data structure
+  type Tree
+     type(Sphere)        :: data
+     type(Tree), pointer :: children(:) => null()
+     integer             :: num_children = 0
+  end type Tree
+
+  interface assignment(=)
+     module procedure equals_t_t ! Tree = Tree
+  end interface
+
+contains
+
+  ! Assignment
+  recursive subroutine equals_t_t(t2, t1)
+    type(Tree), intent(out) :: t2
+    type(Tree), intent(in)  :: t1
+    t2%data = t1%data
+    t2%num_children = t1%num_children
+    t2%children => t1%children
+  end subroutine equals_t_t
+
+  ! Add a child to the tree
+  subroutine addChild(t, c)
+    type(Tree), intent(inout) :: t
+    type(Tree), intent(in)    :: c
+    
+    type(Tree), allocatable   :: wk(:)
+    if (.not. associated(t%children)) then
+       allocate(t%children(5)) ! The optimal choice for this test
+       t%num_children = 0
+    elseif (t%num_children == size(t%children)) then
+       allocate(wk(t%num_children))
+       wk = t%children
+       deallocate(t%children)
+       allocate(t%children(2*t%num_children))
+       t%children = wk
+       deallocate(wk)
+    end if
+    t%num_children = t%num_children + 1
+    t%children(t%num_children) = c
+  end subroutine addChild
+
+  ! Free all allocated memory
+  recursive subroutine tidy(t)
+    type(Tree) :: t
+    integer :: i
+    if (associated(t%children)) then
+       do i=1,t%num_children
+          call tidy(t%children(i))
+       end do
+       deallocate(t%children)
+    end if
+  end subroutine tidy
+
+end module scene
+
+! The program itself
+program ray_tracer
+  use scene
+
+  integer, parameter   :: ss = 4
+
+  real*8, dimension(3) :: d, e
+  integer              :: x, dx, y, dy, n
+  integer              :: level = 6
+  type(Tree)           :: t_scene
+  character(len=4)     :: argv
+  real*8               :: infinity = huge(1.0d0)
+  real*8               :: delta, g
+  real*8, dimension(3) :: ro = (/0.0d0,0.0d0,-4.0d0/)
+  real*8, dimension(3) :: light = (/-1.0d0,-3.0d0,2.0d0/)
+
+  type Ray
+     real*8, dimension(3) :: orig, dir
+  end type Ray
+
+  call getarg(1,argv); read(argv,*) n
+  write(*,'(a2/i0,a1,i0/a3)') 'P5', n,' ', n,'255'
+  
+  delta = sqrt(epsilon(1.0d0))
+  light = light/sqrt(dot_product(light,light))
+  t_scene = create(level, Sphere((/0.0d0, -1.0d0, 0.0d0/),1.0d0)) ! Build the scene
+  do y=n-1,0,-1; do x=0,n-1
+     g = 0.0d0
+     do dx=0,ss-1; do dy=0,ss-1
+        d = (/x + dble(dx)/ss - 0.5d0*n,y + dble(dy)/ss - 0.5d0*n,dble(n)/)
+        g = g + ray_trace(1.0d0,light,Ray(ro,d/sqrt(dot_product(d,d))),t_scene)
+     end do; end do
+     write(*,'(a1)',advance='no') char(nint(255*g/(ss*ss)))
+  end do; end do
+  call tidy(t_scene)
+
+contains
+     
+  real*8 function ray_sphere(r, t)
+    type(Ray), intent(in)  :: r
+    type(Tree), intent(in) :: t
+    
+    real*8                 :: b, disc, d, v(3)
+    
+    v = t%data%centre - r%orig
+    b = dot_product(v, r%dir)
+    disc = b*b - dot_product(v,v) + t%data%radius * t%data%radius
+    if (disc < 0.0d0) then
+       ray_sphere = infinity; return
+    end if
+    d = sqrt(disc)
+    ray_sphere = merge(infinity, merge(b-d, b+d, b > d), b < -d)
+  end function ray_sphere
+
+  recursive subroutine intersect(lambda, normal, r, t)
+    real*8, intent(inout)               :: lambda
+    real*8, dimension(3), intent(inout) :: normal
+    type(Ray), intent(in)               :: r
+    type(Tree), intent(in)              :: t
+
+    integer    :: i
+    real*8     :: l
+
+    l = ray_sphere(r,t)
+    if (l >= lambda) return
+    if (t%num_children == 0) then
+       lambda = l
+       normal = r%orig + l*r%dir - t%data%centre
+       normal = normal/sqrt(dot_product(normal,normal))
+    else
+       do i=1,t%num_children
+          call intersect(lambda, normal, r, t%children(i))
+       end do
+    end if
+  end subroutine intersect
+
+  real*8 function ray_trace(weight, light,  r, t)
+    real*8, intent(in)               :: weight
+    real*8, dimension(:), intent(in) :: light
+    type(Ray), intent(in)            :: r
+    type(Tree), intent(in)           :: t
+
+    real*8                           :: lambda, g, l 
+    real*8, dimension(3)             :: normal
+
+    ray_trace = 0.0d0
+    lambda = infinity
+    call intersect(lambda, normal, r, t)
+    if (lambda == infinity) return
+    g = -dot_product(normal, light); l = infinity
+    if (g <  0.0d0) return
+    call intersect(l, normal, Ray(r%orig + lambda * r%dir + delta * normal, -light), t)
+    if (l == infinity) ray_trace = g
+  end function ray_trace
+
+  recursive function create(level, s) result(t)
+    type(Tree)                 :: t
+    integer, intent(in)        :: level
+    type(Sphere), intent(in)   :: s
+    real*8     :: rn,d,c(3)
+    type(Tree) :: tn
+    integer    :: i
+    real*8, parameter :: cen(8) = (/1.0d0,1.0d0,-1.0d0,1.0d0,1.0d0,-1.0d0,-1.0d0,-1.0d0/)
+    if (level == 1) then
+       t%data = s ! A leaf
+       return
+    end if
+
+    t%data = Sphere(s%centre,3*s%radius)
+    call addChild(t,Tree(s,null(),0))
+
+    rn = t%data%radius/sqrt(12.0d0)
+    d = 0.5d0*s%radius
+    c = s%centre
+    do i=1,7,2
+       call addChild(t,create(level-1,Sphere(c + rn*(/cen(i),1.0d0,cen(i+1)/),d)))
+    end do
+  end function create
+end program ray_tracer
+! The Computer Language Shootout
+!   http://shootout.alioth.debian.org/
+!
+!   contributed by Steve Decker
+!
+! compilation:
+!   g95 -O3 -fomit-frame-pointer -ffast-math recursive.f90
+!   gfortran -O2 -fomit-frame-pointer -ffast-math recursive.f90
+!   ifort -O3 -ip -static recursive.f90
+
+module recursives
+  implicit none
+
+  integer, parameter :: dp = selected_real_kind(10)
+
+contains
+
+  integer recursive function ack(x, y) result (a)
+    integer, intent(in) :: x, y
+
+    if (x == 0) then
+       a = y + 1
+    else if (y == 0) then
+       a = ack(x-1, 1)
+    else
+       a = ack(x-1, ack(x, y-1))
+    end if
+  end function ack
+
+  integer recursive function fibI(n) result (f)
+    integer, intent(in) :: n
+
+    if (n < 2) then
+       f = 1
+    else
+       f = fibI(n-2) + fibI(n-1)
+    end if
+  end function fibI
+
+  real(dp) recursive function fibR(n) result (f)
+    real(dp), intent(in) :: n
+
+    if (n < 2) then
+       f = 1
+    else
+       f = fibR(n-2) + fibR(n-1)
+    end if
+  end function fibR
+
+  integer recursive function takI(x, y, z) result (t)
+    integer, intent(in) :: x, y, z
+    
+    if (y < x) then
+       t = takI(takI(x-1, y, z), takI(y-1, z, x), takI(z-1, x, y))
+    else
+       t = z
+    end if
+  end function takI
+
+  real(dp) recursive function takR(x, y, z) result (t)
+    real(dp), intent(in) :: x, y, z
+
+    if (y < x) then
+       t = takR(takR(x-1, y, z), takR(y-1, z, x), takR(z-1, x, y))
+    else
+       t = z
+    end if
+  end function takR
+end module recursives
+
+program recurs
+  use recursives
+  implicit none
+
+  real(dp)               :: fr
+  integer,  dimension(3) :: ti
+  integer                :: n
+  character(len=2)       :: argv
+
+  call get_command_argument(1, argv)
+  read (argv, "(i2)") n
+  
+  fr = n + 27
+  ti = (/ 3, 2, 1 /) * (n-1)
+
+  write(*, "(2(a,i0))") "Ack(3,", n, "): ", ack(3, n)
+  write(*, "(2(a,f0.1))") "Fib(", fr, "): ", fibR(fr)
+  write(*, "(4(a,i0))") "Tak(", ti(1), ",", ti(2), ",", ti(3), "): ", takI(ti(1), ti(2), ti(3))
+  write(*, "(a,i0)") "Fib(3): ", fibI(3)
+  write(*, "(a,f0.1)") "Tak(3.0,2.0,1.0): ", takR(3d0, 2d0, 1d0)
+end program recurs
+! The Computer Language Shootout
+! http://shootout.alioth.debian.org/
+!
+! contributed by Steve Decker, modified from the version by Simon Geard
+! compilation:
+!   g95 -O3 reverse.f90
+!   ifort -ipo -O3 -static reverse.f90
+
+program revcomp
+  implicit none
+
+  character, parameter :: EndStr = ">"
+  integer,   parameter :: LineWidth = 60
+
+  character(len=LineWidth), dimension(:), allocatable :: data, w
+  logical                  :: insection = .false.
+  integer                  :: stat, bcount
+  character(len=LineWidth) :: line, title
+
+  ! Read and process
+  allocate(data(100))  ! Allocate enough lines so that we don't have to grow the array for the test
+  readFile: do
+     read(*, "(a)", iostat=stat) line
+     if (stat /= 0) exit readFile
+     if (line(1:1) == EndStr) then
+        if (insection) then
+           write(*, "(a)") trim(title)
+           call printReverseFasta
+        else
+           insection = .true.
+        end if
+        title = line
+        bcount = 0
+        cycle readFile
+     end if
+     bcount = bcount + 1
+     if (bcount > size(data)) then ! Included for completeness - it shouldn't be called in the test
+        allocate(w(size(data)))
+        w = data
+        deallocate(data)
+        allocate(data(2*size(w)))
+        data(1:size(w)) = w
+        deallocate(w)
+     end if
+     data(bcount) = line
+  end do readFile
+
+  write(*, "(a)") trim(title)
+  call printReverseFasta
+  
+contains
+
+  subroutine printReverseFasta
+    ! Output the data in reverse order and with the complement
+    character, dimension(65:121), parameter :: Complement = (/ "T", "V", "G", &
+         "H", "E", "F", "C", "D", "I", "J", "M", "L", "K", "N", "O", "P",  &
+         "Q", "Y", "S", "A", "A", "B", "W", "X", "R", (" ", stat = 90, 96),  &
+         "T", "V", "G", "H", "E", "F", "C", "D", "I", "J", "M", "L", "K",  &
+         "N", "O", "P", "Q", "Y", "S", "A", "A", "B", "W", "X", "R" /)
+
+    integer :: fLine, fChar, bLine, bChar
+    character :: c
+
+    fLine = 1
+    fChar = 1
+    bLine = bcount
+    bChar = len_trim(data(bLine))
+    do
+       if (fLine > bLine .or. fLine == bLine .and. fChar >= bChar) exit
+       c = data(fLine)(fChar:fChar)
+       data(fLine)(fChar:fChar) = Complement(iachar(data(bLine)(bChar:bChar)))
+       data(bLine)(bChar:bChar) = Complement(iachar(c))
+       fChar = fChar + 1
+       if (fChar > LineWidth) then
+          fChar = 1
+          fLine = fLine + 1
+       end if
+       bChar = bChar - 1
+       if (bChar == 0) then
+          bChar = LineWidth
+          bLine = bLine - 1
+       end if
+    end do
+    if (fLine == bLine .and. fChar == bChar)  &
+         data(fLine)(fChar:fChar) = Complement(iachar(data(fLine)(fChar:fChar)))
+    do fLine = 1, bcount-1
+       write(*, "(a)") data(fLine)
+    end do
+    write(*, "(a)") trim(data(bcount))
+  end subroutine printReverseFasta
+end program revcomp
+! TheComputer Language Benchmarks Game
+!   http://shootout.alioth.debian.org/
+!
+! contributed by Steve Decker based on the version by Simon Geard
+! September 2008, Simon Geard, Added OpenMP directives
+!
+! compilation:
+!   g95 -O1 -fomit-frame-pointer -funroll-loops spectral_norm.f90
+!   ifort -ipo -O3 -openmp spectral_norm.f90
+!   gfortran -O3 -openmp spectral_norm.f90 (not tested)
+
+module norm_subs
+  implicit none
+
+  public :: MultiplyAtAv
+  public :: dp
+
+  private
+  integer, parameter :: dp = selected_real_kind(12)
+
+contains
+
+  ! Multiply v by A
+  pure function MultiplyAv(v) result (Av)
+    real(dp), dimension(:), intent(in) :: v
+    real(dp), dimension(size(v))       :: Av
+    real(dp) :: r
+    integer :: n, i, j
+
+    n = size(v)
+    !$omp parallel do shared(Av, v, n) private(i, j, r)
+    do i = 1, n
+       r = 0.0d0
+       do j = 1, n
+          r = r + A() * v(j)
+       end do
+       Av(i) = r
+    end do
+    !omp end parallel do
+
+  contains
+    pure real(dp) function A
+      ! Return element i,j of infinite matrix A
+      a = 1.d0 / ((i+j-2) * (i+j-1)/2 + i)
+    end function A
+  end function MultiplyAv
+       
+  ! Multiply v by A transpose
+  pure function MultiplyAtv(v) result (Atv)
+    real(dp), dimension(:), intent(in) :: v
+    real(dp), dimension(size(v))       :: Atv
+
+    real(dp) :: r
+    integer :: n, i, j
+
+    n = size(v)
+    Atv = 0.d0
+    !$omp parallel do shared(Atv, v, n) private(i, j, r)
+    do i = 1, n
+       r = 0.0d0
+       do j = 1, n
+          r = r + AT() * v(j)
+       end do
+       Atv(i) = r
+    end do
+    !omp end parallel do
+
+  contains
+    pure real(dp) function AT
+      ! Return element j,i of infinite matrix A
+      AT = 1.d0 / ((i+j-2) * (i+j-1)/2 + j)
+    end function AT
+  end function MultiplyAtv
+
+  ! Multiply v by A and then by A transpose
+  pure function MultiplyAtAv(v) result (AtAv)
+    real(dp), dimension(:), intent(in) :: v
+    real(dp), dimension(size(v))       :: AtAv
+    
+    AtAv = MultiplyAtv(MultiplyAv(v))
+  end function MultiplyAtAv
+end module norm_subs
+
+program spectral_norm
+  use norm_subs
+  implicit none
+
+  real(dp), dimension(:), allocatable :: u, v
+  integer          :: i, n
+  character(len=6) :: argv
+
+  integer, external :: omp_get_num_procs
+
+  ! By default the number of threads should be set to the number of processors
+  ! but the number can be controlled with one of the folowing
+  ! export OMP_NUM_THREADS=4
+  ! call omp_set_num_threads(omp_get_num_procs())
+
+  call get_command_argument(1, argv)
+  read(argv, *) n
+
+  allocate(u(n), v(n))
+  u = 1.d0
+  do i = 1, 10
+     v = MultiplyAtAv(u)
+     u = MultiplyAtAv(v)
+  end do
+
+  write(*, "(f0.9)") sqrt(dot_product(u,v) / dot_product(v,v))
+  deallocate(u, v)
+end program spectral_norm
+! The Great Computer Language Shootout
+!   http://shootout.alioth.debian.org/
+!
+! contributed by Steve Decker based on the version by Simon Geard
+! compilation:
+!   g95 -O1 -fomit-frame-pointer -funroll-loops spectral_norm.f90
+!   ifort -ipo -O3 -static spectral_norm.f90
+module norm_subs
+  implicit none
+
+  integer, parameter :: dp = selected_real_kind(12)
+
+contains
+
+  ! Return element i,j of infinite matrix A
+  pure real(dp) function A(i, j)
+    integer, intent(in) :: i, j
+
+    a = 1.d0 / ((i+j-2) * (i+j-1)/2 + i)
+  end function A
+
+  ! Multiply v by A
+  pure function MultiplyAv(v) result (Av)
+    real(dp), dimension(:), intent(in) :: v
+    real(dp), dimension(size(v))       :: Av
+    
+    integer :: n, i, j
+
+    n = size(v)
+    Av = 0.d0
+    do i = 1, n
+       do j = 1, n
+          Av(i) = Av(i) + A(i,j) * v(j)
+       end do
+    end do
+  end function MultiplyAv
+       
+  ! Multiply v by A transpose
+  pure function MultiplyAtv(v) result (Atv)
+    real(dp), dimension(:), intent(in) :: v
+    real(dp), dimension(size(v))       :: Atv
+
+    integer :: n, i, j
+
+    n = size(v)
+    Atv = 0.d0
+    do i = 1, n
+       do j = 1, n
+          Atv(i) = Atv(i) + A(j,i) * v(j)
+       end do
+    end do
+  end function MultiplyAtv
+
+  ! Multiply v by A and then by A transpose
+  pure function MultiplyAtAv(v) result (AtAv)
+    real(dp), dimension(:), intent(in) :: v
+    real(dp), dimension(size(v))       :: AtAv
+    
+    AtAv = MultiplyAtv(MultiplyAv(v))
+  end function MultiplyAtAv
+end module norm_subs
+
+program spectral_norm
+  use norm_subs
+  implicit none
+
+  real(dp), dimension(:), allocatable :: u, v
+  integer          :: i, n
+  character(len=6) :: argv
+
+  call get_command_argument(1, argv)
+  read(argv, *) n
+
+  allocate(u(n), v(n))
+  u = 1.d0
+  do i = 1, 10
+     v = MultiplyAtAv(u)
+     u = MultiplyAtAv(v)
+  end do
+
+  write(*, "(f0.9)") sqrt(dot_product(u,v) / dot_product(v,v))
+  deallocate(u, v)
+end program spectral_norm
+! The Computer Language Benchmarks Game
+! http://shootout.alioth.debian.org/
+!
+! Original C contributed by Sebastien Loisel
+! Conversion to C++ by Jon Harrop
+! OpenMP parallelize by The Anh Tran
+! Add SSE by The Anh Tran
+! Reconversion into C by Dan Farina
+! Conversion to Fortran by Brian Taylor
+
+program main
+!$ use omp_lib
+implicit none
+
+character(len=6) :: argv
+integer :: n
+real*8, allocatable :: u(:), v(:), tmp(:)
+integer :: n2, r_begin, r_end
+real*8 uv, vv
+integer :: i, tid, tcount, chunk, ite
+
+call get_command_argument(1, argv)
+read (argv, *) n
+
+n2 = n / 2
+
+allocate(u(0:n-1), v(0:n-1), tmp(0:n-1))
+
+uv = 0.d0
+vv = 0.d0
+
+!$omp parallel default(shared) private(i,tid,tcount,chunk,r_begin,r_end)
+
+!$omp do schedule(static)
+do i = 0, n - 1
+  u(i) = 1.d0
+end do
+
+tid = omp_get_thread_num()
+tcount = omp_get_num_threads()
+chunk = n / tcount
+
+r_begin = tid * chunk
+if (tid < tcount - 1) then
+  r_end = r_begin + chunk - 1
+else
+  r_end = n - 1
+end if
+
+do i = 1, 10
+  call eval_AtA_times_u(r_begin, r_end, u, v)
+  call eval_AtA_times_u(r_begin, r_end, v, u)
+end do
+
+!$omp do schedule(static) reduction(+:uv) reduction(+:vv)
+do i = 0, n - 1
+  uv = uv + u(i) * v(i)
+  vv = vv + v(i) * v(i)
+end do
+!$omp end do nowait
+
+!$omp end parallel
+
+write (*, "(f0.9)") sqrt(uv / vv)
+
+contains
+
+
+! Return element (i,j) of matrix A
+pure function eval_A(i, j)
+real*8 :: eval_A
+integer, intent(in) :: i, j
+real*8 :: di, dj
+integer :: d
+di = real(i,8)
+dj = real(j,8)
+eval_A = 1.d0 / (0.5d0 * ((di + dj) * (di + dj + 1.d0)) + di + 1.d0)
+end function
+
+
+subroutine eval_A_times_u(r_begin, r_end, src, dest)
+integer, intent(in) :: r_begin, r_end
+real*8, intent(in) :: src(0:)
+real*8, intent(out) :: dest(0:)
+real*8 sum1
+integer :: i, j
+do i = r_begin, r_end
+  sum1 = 0.d0
+  do j = 0, n - 1
+    sum1 = sum1 + src(j) * eval_A(i, j)
+  end do
+  dest(i) = sum1
+end do
+end subroutine
+
+
+subroutine eval_At_times_u(r_begin, r_end, src, dest)
+integer, intent(in) :: r_begin, r_end
+real*8, intent(in) :: src(0:)
+real*8, intent(out) :: dest(0:)
+real*8 sum1
+integer :: i, j
+do i = r_begin, r_end
+  sum1 = 0.d0
+  do j = 0, n - 1
+    sum1 = sum1 + src(j) * eval_A(j, i)
+  end do
+  dest(i) = sum1
+end do
+end subroutine
+
+
+subroutine eval_AtA_times_u(r_begin, r_end, src, dest)
+integer, intent(in) :: r_begin, r_end
+real*8, intent(in) :: src(0:)
+real*8, intent(out) :: dest(0:)
+call eval_A_times_u(r_begin, r_end, src, tmp)
+!$omp barrier
+call eval_At_times_u(r_begin, r_end, tmp, dest)
+!$omp barrier
+end subroutine
+
+end program
+! -*- mode: f90 -*-
+!
+! $Id: strcat.ifc,v 1.4 2007-12-04 06:32:39 bfulgham Exp $ ; $Name:  $
+!
+! Concatenation function implementation
+! Simon Geard, 1/12/04 
+!
+! Building info.
+! ==============
+!
+! Linux  - using the Intel Fortran90 compiler:
+!
+!          ifort iso_varying_string.f90 strcat.f90 -O3 -static-libcxa -o strcat
+!
+! WinXP  - Compaq Visual Fortran 6.6c
+!
+!          f90 iso_varying_string.f90 strcat.f90 /link /libpath:"d:\Program Files\Microsoft Visual Studio\df98\lib"
+!
+! Cygwin - g95 compiler
+!
+!          g95 iso_varying_string.f90 strcat.f90 -O3 -o strcat.exe
+!
+program strcat
+  use iso_varying_string
+  implicit none
+  integer num
+  character(len=8) argv
+  character(len=*), parameter :: str = 'hello_'
+  type(varying_string) :: result
+  intrinsic repeat
+
+  call getarg(1,argv)
+  read(argv,'(I4)') num
+  result = repeat(str,num)
+
+  print *,len(result)
+end program strcat
+! vim: ts=4 ft=fortran
+! -*- mode: f90 -*-
+!
+! $Id: sumcol.ifc,v 1.6 2007-12-04 06:32:39 bfulgham Exp $ ; $Name:  $
+!
+! The Great Computer Language Shootout
+! http://shootout.alioth.debian.org/
+! 
+! Simon Geard, 6/12/04
+!
+! Building info.
+! ==============
+!
+! Linux  - using the Intel Fortran90 compiler:
+!
+!          ifort sum.f90 -O3 -static-libcxa -o sum
+!
+program sum
+  implicit none
+  integer :: datum, s
+  s = 0
+  do
+     read(5,*,end=10) datum
+     s = s + datum
+  end do
+10 continue
+  write(*,'(i0)') s
+end program sum
+! -*- mode: f90 -*-
+!
+! $Id: takfp.ifc,v 1.5 2007-12-04 06:32:39 bfulgham Exp $ ; $Name:  $
+!
+! Takfp function implementation
+! Simon Geard, 7/12/04
+!
+! Building info.
+! ==============
+!
+! Linux  - using the Intel Fortran90 compiler:
+!
+!          ifort takfp.f90 -O3 -static-libcxa -o takfp
+!
+! WinXP  - Compaq Visual Fortran 6.6c
+!
+!          f90 takfp.f90 /link /libpath:"d:\Program Files\Microsoft Visual Studio\df98\lib"
+!
+! Cygwin - g95 compiler
+!
+!          g95 takfp.f90 -o takfp.exe
+!
+program takfp
+  implicit none
+  real*8  n
+  real*8 result
+  character(len=2) argv
+
+  call getarg(1,argv)
+  read(argv,*) n
+  result = tak(3*n,2*n,n)
+  write(*,'(f0.1)') result
+
+contains
+
+  ! The Takfp function itself
+  recursive real*8 function tak(x, y, z) result(dtak)
+    real*8, intent(in) :: x, y, z
+    if (y >= x) then
+       dtak = z
+    else
+       dtak = tak(tak(x-1.0d0,y,z),tak(y-1.0d0,z,x),tak(z-1.0d0,x,y))
+    end if
+  end function tak
+  
+end program takfp
+
+! -*- mode: f90 -*-
+!
+! $Id: wc.ifc,v 1.5 2007-12-04 06:32:39 bfulgham Exp $ ; $Name:  $
+!
+! The Great Computer Language Shootout
+! http://shootout.alioth.debian.org/
+!
+! contributed by Simon Geard, 25/03/2005
+!
+! ifort string.f90 wc.ifc -O3 -static-libcxa -o wc
+!
+!
+program wc
+  use string
+  implicit none
+
+  type(str) :: line
+  integer :: nlines = 0 ! Line counter
+  integer :: nwords = 0 ! Word counter
+  integer :: nchars = 0 ! Char counter
+  logical :: finished
+
+  ! Read and count
+  readFile: do
+     call getLine(line, finished)
+     if (finished) exit readFile
+     nlines = nlines + 1
+     nwords = nwords + numWords(line)
+     nchars = nchars + numChars(line)
+  end do readFile
+  nchars = nchars + nlines ! Have to add the number lines
+  write(*,'(2(i0,a),i0)') nlines, ' ', nwords, ' ', nchars
+  stop
+end program wc

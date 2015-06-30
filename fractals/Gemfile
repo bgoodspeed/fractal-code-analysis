@@ -1,0 +1,8 @@
+source 'https://rubygems.org'
+ruby '2.0.0'
+gem 'slideshow'
+gem 'activerecord'
+gem 'rspec'
+gem 'cucumber'
+gem 'rmagick'
+# https://github.com/slideshow-s9/slideshow-impress.js

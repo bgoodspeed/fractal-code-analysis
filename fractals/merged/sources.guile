@@ -1,0 +1,1082 @@
+#!/usr/bin/guile \
+-e main -s
+!#
+;;; $Id: ackermann.guile,v 1.1 2004-05-19 18:09:09 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(debug-set! stack 0)
+
+(define (main args)
+  (let ((n (or (and (= (length args) 2) (string->number (cadr args))) 1)))
+    (print-list "Ack(3," n "): " (ack 3 n))))
+
+(define (ack m n)
+  (cond ((zero? m) (+ n 1))
+	((zero? n) (ack (- m 1) 1))
+	(else      (ack (- m 1) (ack m (- n 1))))))
+
+(define (print-list . items) (for-each display items) (newline))
+#!/usr/bin/guile \
+-e main -s
+!#
+
+;;; $Id: ary.guile,v 1.3 2004-05-22 07:25:00 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(define (main args)
+  (let* ((n (or (and (= (length args) 2) (string->number (cadr args))) 1))
+	 (x (make-vector n 0))
+	 (y (make-vector n 0))
+	 (last (- n 1)))
+    (do ((i 0 (+ i 1)))
+	((= i n))
+      (vector-set! x i (+ i 1)))
+    (do ((k 0 (+ k 1)))
+	((= k 1000))
+      (do ((i last (- i 1)))
+	  ((< i 0))
+	(vector-set! y i (+ (vector-ref x i) (vector-ref y i)))))
+    (print-list (vector-ref y 0) " " (vector-ref y last))))
+
+(define (print-list . items) (for-each display items) (newline))
+#!/usr/bin/guile -s
+!#
+
+;;; $Id: echo.guile,v 1.1 2004-05-19 18:09:36 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+;;; from Brad Knotwell
+
+(use-modules (ice-9 format))
+(define DATA "Hello there sailor\n")
+(define bufferSize (string-length DATA))
+
+(define (echo-client n port-number)
+  (let ((new-sock (socket AF_INET SOCK_STREAM 0))
+	(buf (make-string bufferSize)))
+    (begin (connect new-sock 
+		    AF_INET 
+		    INADDR_LOOPBACK
+		    port-number)
+	   (do ((i 0 (1+ i)))
+	       ((= i n) (close new-sock))
+	     (begin 
+                 (send new-sock DATA)
+		 (recv! new-sock buf)
+                 (if (not (string=? buf DATA)) (throw 'badData)))))))
+
+(define (echo-server n)
+  (let ((sock (socket AF_INET SOCK_STREAM 0)))
+    (begin (setsockopt sock SOL_SOCKET SO_REUSEADDR 1)
+	   (bind sock AF_INET INADDR_LOOPBACK 0)
+	   (listen sock 2)
+	   (let ((pid (primitive-fork)))
+	     (if (= pid 0)
+		 (echo-client n (array-ref (getsockname sock) 2)) 
+		 (let ((new-sock (car (accept sock)))
+		       (buf (make-string bufferSize))
+		       (num-read 0))
+		   (do ((i (recv! new-sock buf) (recv! new-sock buf)))
+		       ((= 0 i) (begin (waitpid pid WNOHANG)
+				       (display (format "server processed ~D bytes\n" num-read))))
+		     (send new-sock buf) (set! num-read (+ num-read i)))))))))
+  
+(echo-server (or (and (= (length args) 2) (string->number (cadr args))) 1))
+
+#!/usr/bin/guile \
+-e main -s
+!#
+
+;;; $Id: except.guile,v 1.1 2004-05-19 18:09:42 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(use-modules (ice-9 format))
+
+(define HI 0)
+(define LO 0)
+
+(define (some_fun n)
+  (catch #t
+	 (lambda () (hi_fun n))
+	 (lambda args #f)))
+
+(define (hi_fun n)
+  (catch 'Hi_Exception
+	 (lambda () (lo_fun n))
+	 (lambda args (set! HI (+ HI 1)))))
+
+(define (lo_fun n)
+  (catch 'Lo_Exception
+	 (lambda () (blowup n))
+	 (lambda args (set! LO (+ LO 1)))))
+
+(define (blowup n)
+  (if (= 0 (modulo n 2))
+      (throw 'Hi_Exception)
+      (throw 'Lo_Exception)))
+
+(define (main args)
+  (let* ((n (or (and (= (length args) 2) (string->number (cadr args))) 1)))
+    (do ((i 0 (+ i 1)))
+	((= i n))
+      (some_fun i)))
+  (display (format "Exceptions: HI=~D / LO=~D\n" HI LO)))
+
+#!/usr/bin/guile \
+-e main -s
+!#
+;;; $Id: fibo.guile,v 1.3 2005-04-25 19:01:38 igouy-guest Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(define (main args)
+  (let ((n (or (and (= (length args) 2) (string->number (cadr args))) 1)))
+    (display (fib n))
+    (newline)))
+
+(define (fib n)
+  (cond ((< n 2) 1)
+	(else (+ (fib (- n 2)) (fib (- n 1))))))
+
+#!/usr/bin/guile \
+-e main -s
+!#
+;;;  http://shootout.alioth.debian.org/
+;;;  by Greg Buchholz
+
+(use-modules (ice-9 format))
+
+(define (main args)
+  (let ((n (string->number (cadr args))))
+    (format #t "~,9f~%" (harm_sum 0 n))))
+
+(define (harm_sum acc n)
+    (if (< n 1)
+        acc
+        (harm_sum (+ acc (/ 1 n)) (- n 1))))
+        
+#!/usr/bin/guile \
+-e main -s
+!#
+
+;;; $Id: hash.guile,v 1.1 2004-05-19 18:09:55 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(define (main args)
+  (use-modules (ice-9 format))
+  (let* ((n (or (and (= (length args) 2) (string->number (cadr args))) 1))
+	 (last (- n 1))
+	 (c 0)
+	 (x (make-hash-table n)))
+    (do ((i 1 (+ i 1)))
+	((> i n))
+      (hash-set! x (number->string i 16) i))
+    (do ((i last (- i 1)))
+	((< i 0))
+      (if (hash-ref x (number->string i 10))
+	  (set! c (+ c 1))))
+    (display (format "~D\n" c))))
+#!/usr/bin/guile \
+-e main -s
+!#
+
+;;; $Id: hash2.guile,v 1.1 2004-05-19 18:10:02 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(use-modules (ice-9 format))
+
+(define (main args)
+  (let* ((n (or (and (= (length args) 2) (string->number (cadr args))) 1))
+	 (hash1 (make-hash-table 10000))
+	 (hash2 (make-hash-table 10000)))
+    (do ((i 0 (+ i 1)))
+	((= i 10000))
+      (hash-set! hash1 (string-append "foo_" (number->string i 10)) i))
+    (do ((i 0 (+ i 1)))
+	((= i n))
+      (hash-fold (lambda (key val init)
+		   (hash-set! hash2 key (+ (hash-ref hash2 key 0)
+					   (hash-ref hash1 key))))
+		 '() hash1))
+    (display (format "~D ~D ~D ~D\n"
+		     (hash-ref hash1 "foo_1")
+		     (hash-ref hash1 "foo_9999")
+		     (hash-ref hash2 "foo_1")
+		     (hash-ref hash2 "foo_9999")))))
+#!/usr/bin/guile \
+-e main -s
+!#
+
+;;; $Id: heapsort.guile,v 1.1 2004-05-19 18:10:08 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(use-modules (ice-9 format))
+
+(define IM     139968)
+(define IA       3877)
+(define IC      29573)
+
+(define LAST 42)
+(define (gen_random max)
+  (set! LAST (modulo (+ (* LAST IA) IC) IM))
+  (/ (* max LAST) IM))
+
+(define (heapsort n ra)
+  (let ((ir n)
+	(l (+ (ash n -1) 1))
+	(i 0) 
+	(j 0)
+	(rra 0.0))
+    (define (heapsortloop)
+	   (while #t
+		  (cond ((> l 1)
+			 (set! l (- l 1))
+			 (set! rra (vector-ref ra l)))
+			(else
+			 (set! rra (vector-ref ra ir))
+			 (vector-set! ra ir (vector-ref ra 1))
+			 (set! ir (- ir 1))
+			 (cond ((= ir 1)
+				(vector-set! ra 1 rra)
+				(throw 'return)))))
+		  (set! i l)
+		  (set! j (ash l 1))
+		  (while (<= j ir)
+			 (cond ((and (< j ir) (< (vector-ref ra j) (vector-ref ra (+ j 1))))
+				(set! j (+ j 1))))
+			 (cond ((< rra (vector-ref ra j))
+				(vector-set! ra i (vector-ref ra j))
+				(set! i j)
+				(set! j (+ j i)))
+			       (else
+				(set! j (+ ir 1)))))
+		  (vector-set! ra i rra)))
+    (catch 'return
+	   heapsortloop
+	   (lambda args #t))))
+
+(define (main args)
+  (let* ((n (or (and (= (length args) 2) (string->number (cadr args))) 1))
+	 (last (+ n 1))
+	 (ary (make-vector last 0)))
+    (do ((i 1 (+ i 1)))
+	((= i last))
+      (vector-set! ary i (gen_random 1.0)))
+    (heapsort n ary)
+    (display (format "~,10F\n" (vector-ref ary n)))))
+#!/usr/bin/guile \
+-e main -s
+!#
+;;; $Id: hello.guile,v 1.1 2004-05-19 18:10:16 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(define (main args) (display "hello world") (newline))
+#!/usr/bin/guile \
+-e main -s
+!#
+
+;;; $Id: lists.guile,v 1.1 2004-05-19 18:10:23 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+;;; from Brad Knotwell
+
+(use-modules (ice-9 format))
+
+(define SIZE 10000)
+(define Li1 (cdr (iota (+ SIZE 1))))
+(define Li2 (list-copy Li1))
+(define Li3 '())
+
+;;;  note the reverses
+;;;  AFAIK, guile doesn't have a primitive for grabbing elts from the
+;;;  end of a list.  no scheme programmer would do this anyway.  they'd
+;;;  reverse the list in place
+(define (test-lists)
+  (begin
+    (do ((elt (car Li2) (car Li2)))
+	((eq? (cdr Li2) '()) (begin  (set! Li3 (cons elt Li3))
+				     (set! Li2 '())
+				     (set! Li3 (reverse! Li3))))
+      (begin (set! Li3 (cons elt Li3))
+	     (set! Li2 (cdr Li2))))
+    (set! Li3 (reverse! Li3))
+    (do ((elt (car Li3) (car Li3)))
+	((eq? (cdr Li3) '()) (begin (set! Li2 (cons elt Li2))
+				    (set! Li3 '())
+				    (set! Li2 (reverse! Li2))))
+      (begin (set! Li2 (cons elt Li2))
+	     (set! Li3 (cdr Li3))))
+    (set! Li1 (reverse! Li1))
+    (if (and (= (car Li1) SIZE) (every-2? = Li1 Li2)) (length Li1) 0)))
+	   
+(define every-2? (lambda (test l1 l2)
+  (or (null? l1)
+      (and (test (car l1) (car l2))
+           (every-2? test (cdr l1) (cdr l2))))))
+
+
+(define (main args)
+  (let ((n (or (and (= (length args) 2) (string->number (cadr args))) 1)))
+    (do ((i n (set! n (1- n))))
+	((= n 1) (write-line (test-lists)))
+      (test-lists))))
+#!/usr/bin/guile \
+-e main -s
+!#
+
+;;; The Great Computer Language Shootout
+;;; http://shootout.alioth.debian.org/
+;;; 
+;;; implemented by Greg Buchholz
+
+(define (main args)
+  (let ((n (string->number (cadr args))))
+    (display "P4") (newline) (display n) (display " ") (display n) 
+(newline) 
+    (printPBM 0 0 n (points 0 0 n))))
+
+(define (points x y n)
+  (if (= y n)
+    '()
+    (if (= x n)
+        (points 0 (+ y 1) n)
+        (cons (mandel (make-rectangular (- (* 2 (/ x n)) 1.5) 
+                                        (- (* 2 (/ y n)) 1.0)) 0.0+0.0i 50)
+              (delay (points (+ x 1) y n))))))
+
+(define (mandel c z iter)
+    (if (= iter 0)
+        1
+        (let ((n (+ (* z z) c)))
+             (if (> (magnitude n) 2.0)
+                  0
+                  (mandel c n (- iter 1))))))
+
+(define (printPBM acc i n stream)
+  (cond ((null? stream) (display (acc->char acc i)))
+        ((and (= (remainder i 8) 0) (not (= i 0)))
+                 (begin (display (integer->char acc)) 
+                        (printPBM (car stream) (+ 1 i) n (force (cdr stream)))))
+        ((= i n) (begin (display (acc->char acc n))
+                        (printPBM 0 0 n stream)))
+        (else (printPBM (+ (* 2 acc) (car stream)) (+ 1 i) n (force (cdr stream))))))
+
+(define (pow2 n) (if (> n 0) (* 2 (pow2 (- n 1))) 1))
+
+(define (acc->char acc x)
+    (integer->char (* acc (pow2 (remainder x 8)))))
+#!/usr/bin/guile \
+-e main -s
+!#
+
+;;; $Id: matrix.guile,v 1.1 2004-05-19 18:10:34 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+;;; with help from Brad Knotwell
+
+(define size 30)
+
+(define (mkmatrix rows cols)
+  (define count 1)
+  (define (set-row cols)
+    (let ((row (make-vector cols 0)))
+      (do ((i 0 (1+ i)))
+	  ((= i cols) row)
+	(begin (vector-set! row i count) (set! count (1+ count))))))
+  (let ((mx (make-vector rows cols)))
+    (begin (array-map-in-order! mx set-row mx) mx)))
+  
+(define (mmult rows cols m1 m2)
+  (let ((m3 (make-vector rows 0)))
+    (do ((i 0 (+ i 1)))
+	((= i rows))
+      (let ((m1i (vector-ref m1 i))
+	    (row (make-vector cols 0)))
+	(do ((j 0 (+ j 1)))
+	    ((= j cols))
+	  (let ((val 0))
+	    (do ((k 0 (+ k 1)))
+		((= k cols))
+	      (set! val (+ val (* (vector-ref m1i k)
+				  (vector-ref (vector-ref m2 k) j)))))
+	    (vector-set! row j val)))
+	(vector-set! m3 i row)))
+    m3))
+
+(define (main args)
+  (let ((n (or (and (= (length args) 2) (string->number (cadr args))) 1))
+	(m1 (mkmatrix size size))
+	(m2 (mkmatrix size size))
+	(mm 0))
+    (do ((i 0 (1+ i)))
+	((= i n) (begin 
+		   (display (vector-ref (vector-ref mm 0) 0)) (display " ")
+		   (display (vector-ref (vector-ref mm 2) 3)) (display " ")
+		   (display (vector-ref (vector-ref mm 3) 2)) (display " ")
+		   (display (vector-ref (vector-ref mm 4) 4)) (newline)))
+	(set! mm (mmult size size m1 m2)))))
+#!/usr/bin/guile-oops \
+-e main -s
+!#
+
+;;; $Id: methcall.guile,v 1.1 2004-05-19 18:10:40 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+;;; from: Benedikt Rosenau
+
+(use-modules (oop goops)) 
+
+(define-method (print-bool (b <boolean>))
+   (display (if b "true\n" "false\n")))
+
+
+(define-class <toggle> ()
+  (state #:getter value? #:init-keyword #:state))
+
+(define-class <nth-toggle> (<toggle>)
+  (count-max #:init-keyword #:count-max)
+  (counter #:init-value 0))
+
+
+(define-method (activate! (t <toggle>))
+  (slot-set! t 'state (not (slot-ref t 'state)))
+   t)
+
+(define-method (activate! (n-t <nth-toggle>))
+  (let ((counter (+ 1 (slot-ref n-t 'counter))))
+    (slot-set! n-t 'counter counter)
+    (if (>= counter (slot-ref n-t 'count-max))
+      (begin (slot-set! n-t 'state (not (slot-ref n-t 'state)))
+             (slot-set! n-t 'counter 0)))
+     n-t))
+
+
+(define-method (main (l <list>))
+  (let ((n (catch #t (lambda () (string->number (cadr l)))
+                     (lambda ex 1))))
+    (let ((tog (make <toggle> #:state #t)))
+      (do ((i 1 (+ i 1))) ((= i n))
+          (value? (activate! tog)))
+      (print-bool (value? (activate! tog))))
+    (let ((ntog (make <nth-toggle> #:state #t #:count-max 3)))
+      (do ((i 1 (+ i 1))) ((= i n))
+          (value? (activate! ntog)))
+      (print-bool (value? (activate! ntog))))))
+#!/usr/bin/guile \
+-e main -s
+!#
+
+;;; $Id: moments.guile,v 1.1 2004-05-19 18:10:47 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+;;; from Brad Knotwell
+
+(use-modules (ice-9 format))
+
+(define sum 0)
+(define nums '())
+(define (compute-all mean n continuation)
+  (let ((average-deviation 0) (standard-deviation 0) (variance 0) (skew 0) 
+        (kurtosis 0) (mid 0) (median 0) (deviation 0) (tmp-lst nums))
+    (do ((num (car tmp-lst) (if (eq? tmp-lst '()) '() (car tmp-lst))))
+	((eq? num '()) (begin (set! variance (/ variance (1- n)))
+			      (set! standard-deviation (sqrt variance))
+			      (if (> variance 0.0)
+				  (begin (set! skew (/ skew (* n variance standard-deviation)))
+					 (set! kurtosis (- (/ kurtosis (* n variance variance)) 3))))
+			      (set! nums (sort-list nums >))
+			      (set! mid (/ n 2))
+			      (set! median (if (= (remainder n 2) 0) 
+					       (/ (+ (list-ref nums mid)
+						     (list-ref nums (1- mid)))
+						  2)
+					       (list-ref nums mid)))
+			      (continuation n median mean 
+					    (/ average-deviation n)
+					    standard-deviation variance
+					    skew kurtosis)))
+      (let ((deviation (- num mean)))
+	(begin (set! tmp-lst (cdr tmp-lst))
+	       (set! average-deviation (+ average-deviation (abs deviation)))
+	       (set! variance (+ variance (expt deviation 2)))
+	       (set! skew (+ skew (expt deviation 3)))
+	       (set! kurtosis (+ kurtosis (expt deviation 4))))))))
+	
+(define output-format
+"n:                  ~D
+median:             ~,6F
+mean:               ~,6F
+average_deviation:  ~,6F
+standard_deviation: ~,6F
+variance:           ~,6F
+skew:               ~,6F
+kurtosis:           ~,6F
+")
+
+(define (main args)
+  (do ((line (read-line) (read-line)))
+      ((eof-object? line)
+       (compute-all (/ sum (length nums)) (length nums)
+		    (lambda (x . y) (display (apply format (cons output-format (cons x y)))))))
+    (let ((num (string->number line)))
+      (begin (set! nums (cons num nums)) (set! sum (+ sum num))))))
+#!/usr/bin/guile \
+-e main -s
+!#
+;;; The Great Computer Language Shootout 
+;;; http://shootout.alioth.debian.org/
+;;  by Greg Buchholz
+
+;; vector math stuff
+(define (dot a b) (+ (* (vector-ref a 0) (vector-ref b 0))
+                     (* (vector-ref a 1) (vector-ref b 1))
+                     (* (vector-ref a 2) (vector-ref b 2))))
+
+(define (v+ a b) (vector (+ (vector-ref a 0) (vector-ref b 0))
+                         (+ (vector-ref a 1) (vector-ref b 1))
+                         (+ (vector-ref a 2) (vector-ref b 2))))
+
+(define (v- a b) (vector (- (vector-ref a 0) (vector-ref b 0))
+                         (- (vector-ref a 1) (vector-ref b 1))
+                         (- (vector-ref a 2) (vector-ref b 2))))
+
+(define (mag v) (sqrt (dot v v)))
+(define (scale a n) (vector (* (vector-ref a 0) n)
+                            (* (vector-ref a 1) n)
+                            (* (vector-ref a 2) n)))
+;; list munging
+(define (sumv xs) (foldl v+ '#(0 0 0) xs))
+(define (sum  xs) (foldl + 0 xs))
+(define (concat xs) (foldl append '() xs))
+(define (foldl f init xs)
+    (if (null? xs)
+        init
+        (foldl f (f init (car xs)) (cdr xs))))
+
+;; misc constants
+(define PI 3.141592653589793)
+(define SOLAR_MASS (* 4 PI PI))
+(define DAYS_PER_YEAR 365.24)
+
+;; define our planets
+(define make-planet vector)
+
+(define Jupiter 
+  (make-planet
+   '#(4.84143144246472090e+00 -1.16032004402742839e+00 -1.03622044471123109e-01)
+   (vector (*  1.66007664274403694e-03 DAYS_PER_YEAR)
+           (*  7.69901118419740425e-03 DAYS_PER_YEAR)
+           (* -6.90460016972063023e-05 DAYS_PER_YEAR))
+   (* 9.54791938424326609e-04 SOLAR_MASS) ) )
+
+(define Saturn 
+  (make-planet
+   '#(8.34336671824457987e+00 4.12479856412430479e+00 -4.03523417114321381e-01)
+   (vector (* -2.76742510726862411e-03 DAYS_PER_YEAR)
+           (*  4.99852801234917238e-03 DAYS_PER_YEAR)
+           (*  2.30417297573763929e-05 DAYS_PER_YEAR))
+   (* 2.85885980666130812e-04 SOLAR_MASS) ) )
+
+(define Uranus
+  (make-planet
+   '#(1.28943695621391310e+01 -1.51111514016986312e+01 -2.23307578892655734e-01)
+   (vector (*  2.96460137564761618e-03 DAYS_PER_YEAR)
+           (*  2.37847173959480950e-03 DAYS_PER_YEAR)
+           (* -2.96589568540237556e-05 DAYS_PER_YEAR))
+   (* 4.36624404335156298e-05 SOLAR_MASS) ) )
+
+(define Neptune
+  (make-planet
+   '#(1.53796971148509165e+01 -2.59193146099879641e+01 1.79258772950371181e-01)
+   (vector (*  2.68067772490389322e-03 DAYS_PER_YEAR)
+           (*  1.62824170038242295e-03 DAYS_PER_YEAR)
+           (* -9.51592254519715870e-05 DAYS_PER_YEAR))
+   (* 5.15138902046611451e-05 SOLAR_MASS) ) )
+
+(define Sun (make-planet '#(0 0 0) '#(0 0 0) SOLAR_MASS))
+
+;; helper functions
+(define (mass a) (vector-ref a 2))
+(define (vel a)  (vector-ref a 1))
+(define (pos a)  (vector-ref a 0))
+(define (dist a b) (mag (v- (pos a) (pos b))))
+
+(define (rotations n xs)
+  (if (= n 0)
+        '()
+        (let ((flipped (append (cdr xs) (list (car xs)))))
+             (cons flipped (rotations (- n 1) flipped)))))
+ 
+;;; Here's the real bread and butter integration functions
+(define (advance n dt pss)
+    (map (lambda (q) (adv dt q)) (rotations n pss)))
+
+(define (adv dt pss)
+  (let* ((p  (car pss))
+         (ps (cdr pss))
+         (delta_v (sumv (map 
+                      (lambda (q) (scale (v- (pos p) (pos q))
+                                         (/ (* (mass q) dt) 
+                                            (expt (dist p q) 3)))) ps)))
+         (new_v (v- (vel p) delta_v))
+         (delta_x (scale new_v dt)))
+        (make-planet (v+ (pos p) delta_x) new_v (mass p))))
+
+(define (energy bodies)
+ (let* ((n (length bodies))
+        (kinetic 
+          (* 0.5 (sum (map 
+                       (lambda (q) (* (mass q) (dot (vel q) (vel q)))) 
+                          bodies))))
+        (potential (* 0.5 (sum (concat
+            (map (lambda (iss) 
+                    (let ((i  (car iss))
+                          (is (cdr iss)))
+                         (map (lambda (j) (/ (* (mass i) (mass j))
+                                             (dist i j))) is)) 
+                          ) (rotations n bodies)))))))
+       (- kinetic potential)))
+
+(define (offset-momentum! bodies)
+  (let* ((p  (car bodies))
+         (ps (cdr bodies))
+         (new_v (scale (sumv (map 
+                         (lambda (q) (scale (vel q) (mass q))) ps))
+                  (/ -1 SOLAR_MASS))))
+         (cons (make-planet (pos p) new_v (mass p)) ps)))
+
+(define (iterate n f x)
+    (if (= n 0)
+        x
+        (iterate (- n 1) f (f x))))
+
+(define bodies (list Sun Jupiter Saturn Uranus Neptune))
+
+(define (round9 n)
+    (let ((bil (expt 10 9)))
+        (/ (round (* n bil)) bil)))
+
+(define (main args)
+  (let ((n (string->number (cadr args))))
+       (begin
+           (set! bodies (offset-momentum! bodies))
+           (display (round9 (energy bodies)))
+           (newline)
+           (let* ((bods (length bodies))
+                  (final (iterate n (lambda (ps) (advance bods 0.01 ps)) bodies)))
+                 (display (round9 (energy final)))
+                 (newline)))))
+
+#!/usr/bin/guile \
+-e main -s
+!#
+
+;;; $Id: nestedloop.guile,v 1.1 2004-05-19 18:10:56 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(define (main args)
+  (let* ((n (or (and (= (length args) 2) (string->number (cadr args))) 1))
+	 (x 0))
+    (do ((a 0 (+ a 1)))
+	((= a n))
+      (do ((b 0 (+ b 1)))
+	  ((= b n))
+	(do ((c 0 (+ c 1)))
+	    ((= c n))
+	  (do ((d 0 (+ d 1)))
+	      ((= d n))
+	    (do ((e 0 (+ e 1)))
+		((= e n))
+	      (do ((f 0 (+ f 1)))
+		  ((= f n))
+		(set! x (+ x 1))))))))
+    (display x) (newline)))
+#!/usr/bin/guile-oops \
+-e main -s
+!#
+
+(use-modules (oop goops))
+
+(define-method (print-bool (b <boolean>))
+  (display (if b "true\n" "false\n")))
+
+
+(define-class <toggle> ()
+  (state #:getter value? #:init-keyword #:state))
+
+(define-class <nth-toggle> (<toggle>)
+  (count-max #:init-keyword #:count-max)
+  (counter #:init-value 0))
+
+
+(define-method (value? (t <toggle>)) (slot-ref t 'state))
+
+(define-method (activate! (t <toggle>))
+  (slot-set! t 'state (not (slot-ref t 'state)))
+  t)
+
+(define-method (activate! (n-t <nth-toggle>))
+  (let ((counter (+ 1 (slot-ref n-t 'counter))))
+    (slot-set! n-t 'counter counter)
+    (if (>= counter (slot-ref n-t 'count-max))
+	(begin (slot-set! n-t 'state (not (slot-ref n-t 'state)))
+	       (slot-set! n-t 'counter 0)))
+    n-t))
+
+
+(define-method (main (args <list>))
+  (let ((n (or (and (= (length args) 2) (string->number (cadr args))) 1)))
+    (let ((tog (make <toggle> #:state #t)))
+      (do ((i 0 (+ i 1))) ((= i 5))
+	(print-bool (value? (activate! tog)))))
+    (do ((i 0 (+ i 1))) ((= i n))
+      (make <toggle> #:state #t))
+    (newline)
+    (let ((ntog (make <nth-toggle> #:state #t #:count-max 3)))
+      (do ((i 0 (+ i 1))) ((= i 8))
+	(print-bool (value? (activate! ntog)))))
+    (do ((i 0 (+ i 1))) ((= i n))
+      (make <nth-toggle> #:state #t #:count-max 3))))
+#!/usr/bin/guile \ 
+-e main -s
+!#
+
+;;; $Id: prodcons.guile,v 1.2 2005-05-13 16:24:18 igouy-guest Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(use-modules (ice-9 threads))
+
+(define mutex (make-mutex))
+(define access (make-condition-variable))
+(define count 0)
+(define data 0)
+(define produced 0)
+(define consumed 0)
+
+;; the consumer thread definition seems wrong
+;; how does it ever stop/get joined?
+(define (consumer n)
+  (let ((i 0))
+    (while #t
+	 (lock-mutex mutex)
+	 (while (= count 0)
+		(wait-condition-variable access mutex))
+	 (set! i data)
+	 (set! count 0)
+	 (signal-condition-variable access)
+	 (unlock-mutex mutex)
+	 (set! consumed (+ consumed 1)))))
+
+(define (producer n)
+  (do ((i 1 (+ i 1)))
+      ((> i n))
+    (lock-mutex mutex)
+    (while (= count 1)
+      (wait-condition-variable access mutex))
+    (set! data i)
+    (set! count 1)
+    (signal-condition-variable access)
+    (unlock-mutex mutex)
+    (set! produced (+ produced 1))))
+
+(define (main args)
+  (let ((n (or (and (= (length args) 2) (string->number (cadr args))) 1)))
+    (let ((c (make-thread (lambda () (consumer n)))))
+      (producer n)
+      (join-thread c)
+      (display produced) (display " ") (display consumed) (newline))))
+#!/usr/bin/guile \
+-e main -s 
+!#
+
+;;; $Id: random.guile,v 1.2 2005-05-13 16:24:18 igouy-guest Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(use-modules (ice-9 format))
+
+(define IM   139968)
+(define IA     3877)
+(define IC    29573)
+
+(define LAST 42)
+(define (gen_random max)
+  (set! LAST (modulo (+ (* LAST IA) IC) IM))
+  (/ (* max LAST) IM))
+
+(define (main args)
+  (let ((n (or (and (= (length args) 2) (string->number (cadr args))) 1)))
+    (let loop ((iter n))
+      (if (> iter 1)
+	  (begin
+	    (gen_random 100.0)
+	    (loop (- iter 1)))))
+    (display (format "~,9F\n" (gen_random 100.0)))))
+#!/usr/bin/guile \
+-e main -s
+!#
+
+;;; $Id: regexmatch.guile,v 1.1 2004-05-19 18:11:23 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(use-modules (ice-9 format))
+(use-modules (ice-9 regex))
+
+(define regexp
+  (string-append
+   "(^|[^0-9\\(])"			; (1) preceeding non-digit or bol
+   "("					; (2) area code
+   "\\(([0-9][0-9][0-9])\\)"		; (3) is either 3 digits in parens
+   "|"					; or
+   "([0-9][0-9][0-9])"			; (4) just 3 digits
+   ")"					; end of area code
+   " "					; area code is followed by one space
+   "([0-9][0-9][0-9])"			; (5) exchange is 3 digits
+   "[ -]"				; separator is either space or dash
+   "([0-9][0-9][0-9][0-9])"		; (6) last 4 digits
+   "([^0-9]|$)"				; must be followed by a non-digit
+   ))
+
+
+(define (main args)
+  (let ((n (or (and (= (length args) 2) (string->number (cadr args))) 1))
+	(phonelines '())
+	(rx (make-regexp regexp))
+	(count 0))
+    (let loop ((line (read-line)))
+      (cond ((eof-object? line) #f)
+	    (else
+	     (set! phonelines (append phonelines (list line)))
+	     (loop (read-line)))))
+    (while (> n 0)
+	   (set! n (- n 1))
+	   (let loop ((phones phonelines)
+		      (count 0))
+	     (if (null? phones)
+		 count
+		 (let ((match (regexp-exec rx (car phones))))
+		   (if match
+		       (let* ((area (if (match:start match 3)
+					(match:substring match 3)
+					(match:substring match 4)))
+			      (exch (match:substring match 5))
+			      (numb (match:substring match 6))
+			      (num (string-append "(" area ") " exch "-" numb)))
+			 (set! count (+ count 1))
+			 (if (= 0 n)
+			      (display (format "~D: ~a\n" count num)))))
+		   (loop (cdr phones) count)))))))
+
+#!/usr/bin/guile \
+-e main -s 
+!#
+
+;;; $Id: reversefile.guile,v 1.2 2005-05-13 16:24:19 igouy-guest Exp $
+;;; http://www.bagley.org/~doug/shootout/
+;;; from Brad Knotwell
+
+(define (main args)
+  (let ((lines '()))
+    (do ((line (read-line) (read-line)))
+	((eof-object? line) (map write-line lines))
+      (set! lines (cons line lines)))))
+#!/usr/bin/guile \
+-e main -s
+!#
+
+;;; $Id: sieve.guile,v 1.1 2004-05-19 18:12:27 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+;;; with help from Benedikt Rosenau
+
+(use-modules (ice-9 format))
+
+(define (main args)
+  (let ((n (or (and (= (length args) 2) (string->number (cadr args))) 1))
+	(count 0))
+    (while (> n 0)
+      (set! n (- n 1))
+      (let ((flags (make-vector 8192 #t)))
+	(set! count 0)
+	(do ((i 2 (+ 1 i)))
+	    ((>= i 8192))
+	  (if (vector-ref flags i)
+	      (begin
+		(do ((k (+ i i) (+ k i)))
+		    ((>= k 8192))
+		  (vector-set! flags k #f))
+		(set! count (+ 1 count)))))))
+    (display (format "Count: ~D\n" count))))
+#!/usr/bin/guile \
+-e main -s
+!#
+
+;;; $Id: spellcheck.guile,v 1.1 2004-05-19 18:13:26 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(use-modules (ice-9 format))
+
+(define (main args)
+  (let ((n (or (and (= (length args) 2) (string->number (cadr args))) 1))
+	(dict (make-hash-table 10000)))
+    (with-input-from-file "Usr.Dict.Words"
+      (lambda ()
+	(let loop ((line (read-line)))
+	  (cond ((eof-object? line) #f)
+		(else
+		 (hash-set! dict line #t)
+		 (loop (read-line)))))))
+    (let loop ((word (read-line)))
+      (cond ((eof-object? word) #f)
+	    (else
+	     (if (not (hash-ref dict word))
+		 (display (format "~A\n" word)))
+	     (loop (read-line)))))))
+    
+#!/usr/bin/guile \
+-e main -s
+!#
+ 
+;;; $Id: strcat.guile,v 1.3 2005-06-21 05:36:55 igouy-guest Exp $
+;;; http://www.bagley.org/~doug/shootout/ 
+;;; from Benedikt Rosenau
+
+(use-modules (oop goops))
+
+(define-class <buffer> ()
+  (siz #:getter buffer-size #:init-value 64)
+  (len #:getter buffer-length #:init-value 0)
+  (field #:init-value (make-string 64)))
+
+(define-method (buffer->string (b <buffer>))
+  (substring (slot-ref b 'field) 0 (buffer-length b)))
+
+(define-method (buffer-append! (b <buffer>) (s <string>))
+  (let* ((length-b (buffer-length b))
+         (size-b (buffer-size b))
+         (length-s (string-length s))
+         (new-length (+ length-b length-s)))
+    (if (> new-length size-b)
+      (let* ((new-size (+ size-b (max length-b length-s)))
+             (new-field (make-string new-size)))
+        (substring-move-left! (slot-ref b 'field) 0 length-b new-field 0)
+        (slot-set! b 'field new-field)
+        (slot-set! b 'siz new-size)))
+    (substring-move-left! s 0 length-s (slot-ref b 'field) length-b)
+    (slot-set! b 'len new-length)
+     b))
+
+
+(define-method (main (args <list>))
+  (let ((n (or (and (= (length args) 2) (string->number (cadr args))) 1))
+	(buf (make <buffer>)))
+    (do ((i 0 (+ i 1))) ((= i n))
+        (buffer-append! buf "hello\n"))
+    (display (buffer-length buf))
+    (newline)))
+#!/usr/bin/guile \
+-e main -s
+!#
+
+;;; $Id: strcat.guile-2.guile,v 1.1 2004-11-10 06:44:59 bfulgham Exp $
+;;; http://shootout.alioth.debian.org/
+
+;;; this version uses guile's "native" string concatention function
+
+(use-modules (ice-9 format))
+
+(define hello "hello
+")
+
+(define (main args)
+  (let ((n (or (and (= (length args) 2) (string->number (cadr args))) 1))
+	(str ""))
+    (do ((i 0 (+ i 1)))
+	((= i n))
+      (set! str (string-append str hello)))
+    (display (string-length str))
+    (newline)))
+#!/usr/bin/guile \
+-e main -s
+!#
+
+;;; $Id: sumcol.guile,v 1.1 2004-05-19 18:13:43 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+;;; from Brad Knotwell
+
+(define (main args)
+  (let ((sum 0))
+    (do ((myInt (read-line) (read-line)))
+	((eof-object? myInt) (write-line sum))
+      (set! sum (+ sum (string->number myInt))))))
+#!/usr/bin/guile \
+-e main -s
+!# 
+;;;  http://shootout.alioth.debian.org/
+;;;  by Greg Buchholz
+
+(define (main args)
+  (let ((n (string->number (cadr args))))
+    (display (tak (* 3.0 n) (* 2.0 n) (* 1.0 n)) )
+    (newline)))
+
+(define (tak x y z)
+    (if (>= y x)
+        z
+        (tak (tak (- x 1.0) y z)
+             (tak (- y 1.0) z x)
+             (tak (- z 1.0) x y))))
+
+#!/usr/bin/guile -s
+!#
+
+;;; $Id: wc.guile,v 1.1 2004-05-19 18:13:51 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+;;; from Dale P. Smith
+
+(define (wc iport)
+  (let ((chars 0) (words 0) (lines 0) (inword 0) (x #f))
+    (let loop ()
+      (set! x (read-char iport))
+      (if (eof-object? x)
+	  (begin (display lines) (display " ") (display words)
+		 (display " ") (display chars) (newline))
+	  (begin
+	    (set! chars (+ 1 chars))
+	    (if (not (char-whitespace? x))
+		(set! inword 1)
+		(begin
+		  (set! words (+ words inword))
+		  (set! inword 0)
+		  (if (char=? x #\newline)
+		      (set! lines (+ 1 lines)))))
+	    (loop))))))
+
+(wc (current-input-port))
+#!/usr/bin/guile \
+-e main -s
+!#
+
+;;; $Id: wordfreq.guile,v 1.2 2004-07-03 05:36:11 bfulgham Exp $
+;;; http://shootout.alioth.debian.org/
+;;; from Brad Knotwell
+
+(use-modules (ice-9 string-fun) (ice-9 common-list))
+(use-modules (ice-9 format))
+
+(define my-hash (make-hash-table 4000))
+
+(define (print-sorted-hash) 
+  (define (display-elt elt)
+    (display (format "~7D ~a\n" (car elt) (cdr elt))))
+  (map display-elt 
+       (sort-list (hash-fold (lambda (x y z) (cons (cons y x) z))  '() my-hash)
+		  (lambda (x y) (or (> (car x) (car y))
+				    (and (= (car x) (car y))
+					 (string>=? (cdr x) (cdr y))))))))
+(define (load-hash x . tl)
+  (define (do-entry entry)
+    (let ((entry-val (hash-ref my-hash entry)))
+      (hash-set! my-hash entry (if entry-val (1+ entry-val) 1))))
+  (map do-entry (remove-if (lambda (x) (string=? x "")) (cons x tl))))
+
+(define (main args)
+  (do ((line (read-line) (read-line)))
+      ((eof-object? line) (print-sorted-hash))
+    (separate-fields-discarding-char 
+     #\space 
+     (list->string (map (lambda (x) (if (char-alphabetic? x) x #\space)) 
+			(string->list (string-downcase line)))) 
+     load-hash)))

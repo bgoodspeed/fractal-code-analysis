@@ -1,0 +1,6300 @@
+{ The Great Computer Language Shootout
+  http://shootout.alioth.debian.org 
+
+  contributed by Ales Katona
+}
+
+program ackermann;
+
+{$mode objfpc}
+
+function Ack(const M, N : Longint): Longint; inline;
+begin
+  if M = 0 then Ack := N+1
+  else if N = 0 then Ack := Ack(M-1, 1)
+  else Ack := Ack(M-1, Ack(M, N-1));
+end;
+
+var NUM, a: Longint;
+
+begin
+  if ParamCount = 0 then NUM := 1
+  else Val(ParamStr(1), NUM, a);
+
+  if NUM < 1 then NUM := 1;
+  a := Ack(3, NUM);
+  WriteLn('Ack(3,', NUM, '): ', a);
+end.
+Program ary;
+uses SysUtils, Classes;
+ 
+var
+	n, i, k, last : longint;
+	X, Y : TList;
+begin
+	if ParamCount = 0 then
+		n := 1
+	else
+		n := StrToInt(ParamStr(1));
+		
+	if n < 1 then n := 1;
+	
+	last := n - 1;
+	X := TList.Create;
+	X.Capacity := n;
+	For i := 0 To last do
+		X.Add( Pointer(i+1) );
+	
+	Y := TList.Create;
+	Y.Capacity := n;
+	For i := 0 To last do
+		Y.Add( Pointer(0) );
+	
+	
+	For k := 0 To 999 do
+	begin
+		For i := last downto 0 do
+		begin
+			Y.Items[i] := Pointer(longint(Y.Items[i]) + longint(X.Items[i]));
+		end;
+	end;
+	Writeln (IntToStr(longint(Y.Items[0])), ' ', IntToStr(longint(Y.Items[last])));
+end.
+(*
+  The Computer Language Benchmarks Game
+  http://shootout.alioth.debian.org/
+
+  contributed by Vitaly Trifonof based on a contribution of Ales Katona
+*)
+
+program BinaryTrees;
+
+type
+  PNode = ^TNode;
+  TNode = record
+    l, r: PNode;
+    i: Longint;
+  end;
+
+function CreateNode(l2, r2: PNode; const i2: Longint): PNode; inline;
+begin
+  CreateNode := GetMem(SizeOf(TNode));
+  CreateNode^.l:=l2;
+  CreateNode^.r:=r2;
+  CreateNode^.i:=i2;
+end;
+
+
+(* Destroy node and it subnodes in one procedure *)
+
+procedure DestroyNode(ANode: PNode); inline;
+var
+  LNode, RNode: PNode;
+begin
+  LNode := ANode^.l;
+  if LNode <> nil then
+  begin
+    RNode := ANode^.r;
+    if LNode^.l <> nil then
+    begin
+      DestroyNode(LNode^.l);
+      DestroyNode(LNode^.r);
+      FreeMem(LNode, SizeOf(TNode));
+
+      DestroyNode(RNode^.l);
+      DestroyNode(RNode^.r);
+      FreeMem(RNode, SizeOf(TNode));
+    end
+    else
+    begin
+      DestroyNode(LNode);
+      DestroyNode(RNode);
+    end
+  end;
+
+  FreeMem(ANode, SizeOf(TNode));
+end;
+
+
+(* Left subnodes check in cycle, right recursive *)
+
+function CheckNode(ANode: PNode): Longint; inline;
+begin
+  CheckNode := 0;
+  while ANode^.l <> nil do
+  begin
+    CheckNode += ANode^.i - CheckNode(ANode^.r);
+    ANode := ANode^.l
+  end;
+  CheckNode += ANode^.i;
+end;
+
+
+(*
+   Create node and it subnodes in one function
+
+   make(1,a)=(2I-1)=Ia make(2,Ia-1)=(2(2I-1)-1)=(4I-3)
+                       make(2,Ia)  =(2(2I-1))  =(4I-2)
+
+   make(1,b)=(2I)=Ib   make(2,Ib-1)=(2(2I)-1)  =(4I-1)
+                       make(2,Ib)  =(2(2I))    =(4I)
+*)
+
+function Make(d, i: Longint): PNode;
+var
+  fi: Longint;
+begin
+  case d of
+   0: Make:=CreateNode(nil, nil, i);
+   1: Make:=CreateNode(CreateNode(nil, nil, 2*i-1), CreateNode(nil, nil, 2*i),i);
+  else
+      d -= 2; fi := 4*i;
+      Make:=CreateNode(
+                           CreateNode( Make(d, fi-3),Make(d, fi-2), 2*i-1 ),
+                           CreateNode( Make(d, fi-1),Make(d, fi), 2*i ),
+                           i
+                        )
+  end
+end;
+
+const
+  mind = 4;
+
+var
+  maxd : Longint = 10;
+  strd,
+  iter,
+  c, d, i : Longint;
+  tree, llt : PNode;
+
+begin
+  if ParamCount = 1 then
+    Val(ParamStr(1), maxd);
+
+  if maxd < mind+2 then
+     maxd := mind + 2;
+
+  strd:=maxd + 1;
+  tree:=Make(strd, 0);
+  Writeln('stretch tree of depth ', strd, #9' check: ', CheckNode(tree));
+  DestroyNode(tree);
+
+  llt:=Make(maxd, 0);
+
+  d:=mind;
+  while d <= maxd do begin
+    iter:=1 shl (maxd - d + mind);
+    c:=0;
+    for i:=1 to Iter do begin
+      tree:=Make(d, i);
+      c:=c + CheckNode(tree);
+      DestroyNode(tree);
+      tree:=Make(d, -i);
+      c:=c + CheckNode(tree);
+      DestroyNode(tree);
+    end;
+    Writeln(2 * Iter, #9' trees of depth ', d, #9' check: ', c);
+    Inc(d, 2);
+  end;
+
+  Writeln('long lived tree of depth ', maxd, #9' check: ', CheckNode(llt));
+  DestroyNode(llt);
+end.
+{ The Computer Language Benchmarks Game
+  http://shootout.alioth.debian.org
+  contributed by Marc Weustink
+}
+program chameneos;
+{$mode objfpc}{$h-}
+uses
+  PThreads;
+
+type
+  TColor = (Blue, Red, Yellow, Faded);
+
+var
+  waitfirst,
+  waitsecond   : TSemaphore;
+  first,second : TColor;
+  MeetingsLeft : Integer;
+  ThreadInfo   : array[0..3] of record
+    Id: TThreadId;
+    StartColor: TColor;
+    Count: Integer;
+  end;
+
+
+function Complement(c1,c2:TColor):TColor;
+begin
+  if c2=Faded then
+    begin
+      result:=Faded;
+      exit;
+    end;
+  if c1=c2 then
+    begin
+      result:=c1;
+      exit;
+    end;
+  case c1 of
+    Blue :
+      if c2=Red then
+        result:=Yellow
+      else
+        result:=Red;
+    Red :
+      if c2=Blue then
+        result:=Yellow
+      else
+        result:=Blue;
+    Yellow :
+      if c2=Blue then
+        result:=Red
+      else
+        result:=Blue;
+    else
+      result:=c1;
+  end;
+end;
+
+
+function OtherCreaturesColor(me:TColor):TColor;
+const
+  firstcall : boolean = true;
+begin
+  result:=Faded;
+  sem_wait(waitfirst);
+
+  if firstCall then
+    begin
+      if MeetingsLeft>0 then
+        begin
+          first:=me;
+          firstcall:=false;
+          sem_post(waitfirst);
+          sem_wait(waitsecond);
+          result:=second;
+          dec(MeetingsLeft);
+        end;
+      sem_post(waitfirst);
+    end
+  else
+    begin
+      firstcall:=true;
+      second:=me;
+      result:=first;
+      sem_post(waitsecond);
+    end;
+end;
+
+
+function ThreadFunc(AIndex: PtrInt): Pointer; cdecl;
+var
+  Meetings : Integer;
+  me,other : TColor;
+begin
+  me := ThreadInfo[AIndex].StartColor;
+  Meetings := 0;
+
+  while (me<>Faded) do
+    begin
+      other:=OtherCreaturesColor(me);
+      if other=Faded then
+        break;
+      inc(Meetings);
+      me:=Complement(me,other);
+    end;
+
+  ThreadInfo[AIndex].Count := Meetings;
+  result:=nil;
+end;
+
+
+const
+  COLOR: array[0..3] of TColor = (Blue, Red, Yellow, Blue);
+
+var
+  n: Integer;
+  Attr: TThreadAttr;
+  p: Pointer;
+begin
+  Val(paramstr(1), MeetingsLeft, n);
+  if n <> 0 then exit;
+
+  sem_init(waitfirst,0,1);
+  sem_init(waitsecond,0,0);
+
+  pthread_attr_init(Attr);
+  pthread_attr_setdetachstate(Attr, 0);
+  pthread_attr_setstacksize(Attr, 1024 * 16);
+
+  for n := 0 to 3 do begin
+    ThreadInfo[n].Count := 0;
+    ThreadInfo[n].StartColor := COLOR[n];
+    pthread_create(ThreadInfo[n].Id, Attr, TStartRoutine(@ThreadFunc), Pointer(n));
+  end;
+
+  for n := 0 to 3 do
+    pthread_join(ThreadInfo[n].Id, p);
+
+  WriteLN(ThreadInfo[0].Count + ThreadInfo[1].Count + ThreadInfo[2].Count + ThreadInfo[3].Count);
+end.
+program fannkuch;
+{ The Computer Language Benchmarks Game
+  http://shootout.alioth.debian.org/
+
+  contributed by Florian Klaempfl
+  modified by Micha Nelissen
+  modified by Vincent Snijders
+  modified by Steve Fisher
+}
+
+type
+    TIntegerArray = Array[0..99] of longint;
+
+var
+   permu, permu_copy, count: TIntegerArray;
+   r, n, answer: longint;
+
+procedure swap(var a, b: longint); inline;
+var  tmp: longint;
+begin  tmp := a;  a := b;  b := tmp   end;
+
+procedure reverse( k: longint); inline;
+var
+  pi, pj : pLongint;
+begin
+  pi := @permu_copy[1];
+  pj := @permu_copy[k-1];
+  while pi<pj do
+  begin
+    swap(pi^, pj^);
+    inc(pi);
+    dec(pj);
+  end;
+end;
+
+function countflips: longint; inline;
+var
+  last: LongInt;
+  tmp: LongInt;
+begin
+  countflips := 0;
+  last := permu_copy[0];
+  repeat
+    // Reverse part of the array.
+    reverse(last);
+
+    tmp := permu_copy[last];
+    permu_copy[last] := last;
+    last := tmp;
+    inc(countflips);
+  until last = 0;
+end;
+
+function NextPermutation: boolean;
+var
+  tmp: LongInt;
+  i : longint;
+begin
+  NextPermutation := true;
+  repeat
+    if r = n then
+    begin
+      NextPermutation := false;
+      break;
+    end;
+    tmp := permu[0];
+    for i := 1 to r do
+      permu[i-1] := permu[i];
+    permu[r] := tmp;
+
+    dec(count[r]);
+    if count[r] > 0 then
+      break;
+    inc(r);
+  until false;
+end;
+
+function fannkuch: longint;
+var
+  print30, m, i, flips: longint;
+begin
+  print30 := 0;
+  fannkuch := 0;
+  m := n - 1;
+
+  // Initial permutation.
+  for i := 0 to m do   permu[i] := i;
+
+  r := n;
+  repeat
+    if print30 < 30 then
+    begin
+      for i := 0 to m do
+        write(permu[i] + 1);
+      writeln;
+      inc(print30);
+    end;
+    while r <> 1 do
+    begin
+      count[r-1] := r;
+      dec(r);
+    end;
+    if (permu[0]<>0) and (permu[m]<>m) then
+    begin
+      move(permu[0], permu_copy[0], sizeof(longint)*n);
+      flips := countflips;
+      if flips > fannkuch then
+        fannkuch := flips;
+    end;
+  until not NextPermutation;
+end;
+
+begin
+  n := 7;
+  if paramCount() = 1 then
+    Val(ParamStr(1), n);
+  answer := fannkuch;
+  writeln('Pfannkuchen(', n, ') = ', answer);
+end.
+(* The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+
+   contributed by Jean de La Taille
+*)
+
+program project1;
+
+uses
+  {$IFDEF UNIX}
+  cthreads,
+  {$ENDIF}
+  SysUtils, DateUtils, Math;
+
+type
+  arrWord = array[0..12] of Word;
+  threadData = record
+    num, n, count, checksum : longint;
+    list, counters, limits : arrWord;
+  end;
+
+(******************************************************************************)
+
+(* Thread *)
+function run(p : pointer) : ptrint;
+var
+  i, k, l, (*n,*) num : longint;
+  count, maxCount, checksum : longint;
+  f : boolean;
+  list, counters, limits : arrWord;
+
+  // Flip function
+  function flip : longint; inline;
+  var
+    count, f, i, j, k, tmp : longint;
+    tmpList : arrWord;
+  begin
+    tmpList := list;
+    count := 0;
+    // While the head list is not 1, do lot of reverse
+    f := tmpList[0];
+    while (f <> 1) do
+    begin
+      // Reverse
+      j := f >> 1;
+      k := f - 1;
+      for i := 0 to j - 1 do
+      begin
+        tmp := tmpList[i];
+        tmpList[i] := tmpList[k];
+        tmpList[k] := tmp;
+        Dec(k);
+      end;
+      f := tmpList[0];
+      // End of reverse
+      Inc(count);
+    end;
+    flip := count;
+  end;
+  // Swap function
+  procedure swap(var a, b : word); inline;
+  begin
+    l := a;
+    a := b;
+    b := l;
+  end;
+  // Roll3 function
+  procedure roll3(var a, b, c : word); inline;
+  begin
+    l := a;
+    a := b;
+    b := c;
+    c := l;
+  end;
+  // Roll function
+  procedure roll(k : longint); inline;
+  var
+    j : longint;
+  begin
+    l := list[0];
+    for j := 0 to k do
+      list[j] := list[j + 1];
+    list[j] := l;
+  end;
+
+begin
+  /// n := threadData(p^).n;
+  num := threadData(p^).num;
+  limits := threadData(p^).limits;
+  counters := threadData(p^).counters;
+  list := threadData(p^).list;
+  /// WriteLn(n, ' ', num, ' ', list[0]);
+  // Main loop
+  f := false;
+  maxCount := 0;
+  checksum := 0;
+  for i := 1 to num do
+  begin
+    count := flip;
+    // Check if the number of reverse is the max
+    if (count > maxCount) then
+      maxCount := count;
+    // Compute checksum
+    checksum := count - checksum;
+    // Swap
+    swap(list[0], list[1]);
+    // If needed, roll 3
+    if (f) then
+    begin
+      // Roll 3
+      roll3(list[0], list[1], list[2]);
+      k := 3;
+      Dec(counters[3]);
+      // If needed, roll next
+      while ((counters[k] = 0)) do
+      begin
+        counters[k] := limits[k];
+        roll(k);
+        Inc(k);
+        Dec(counters[k]);
+      end;
+    end;
+    f := not f;
+  end;
+  threadData(p^).checksum := checksum;
+  threadData(p^).count := maxCount;
+  run := 0;
+end;
+
+(* Main routine, to launch threads *)
+procedure launch(n : longint);
+var
+  //start, finish : TDateTime;
+  list, counters, limits : arrWord;
+  i, l, num, count, checksum : longint;
+  tt : array of TThreadID;
+  td : array of threadData;
+
+  // Roll function
+  procedure roll(k : longint); inline;
+  var
+    j : longint;
+  begin
+    l := list[0];
+    for j := 0 to k do
+      list[j] := list[j + 1];
+    list[j] := l;
+  end;
+
+begin
+  /// start := now;
+  SetLength(tt, n);
+  SetLength(td, n);
+  // Inits the arrays
+  num := 1;
+  for i := 0 to n - 1 do
+  begin
+    limits[i] := i;
+    counters[i] := i;
+    list[i] := i + 1;
+    num := num * (i + 1);
+  end;
+  num := num div n;
+  // Launch threads
+  for i := 0 to n - 1 do
+  begin
+    td[i].n := n;
+    td[i].num := num;
+    td[i].list := list;
+    td[i].counters := counters;
+    td[i].limits := limits;
+    tt[i] := BeginThread(@run, @td[i]);
+    roll(n - 1);
+  end;
+  // Wait threads
+  checksum := 0;
+  count := 0;
+  for i := 0 to n - 1 do
+  begin
+    WaitForThreadTerminate(tt[i], 0);
+    count := max(count, td[i].count);
+    if ((n and 1) = 0) then
+      checksum := td[i].checksum + checksum
+    else
+      checksum := checksum - td[i].checksum;
+  end;
+  /// finish := now;
+  /// WriteLn('Time : ', (MilliSecondsBetween(start, finish) / 1000) : 0 : 4);
+  WriteLn(abs(checksum));
+  WriteLn('Pfannkuchen(', n, ') = ', count);
+end;
+
+(* Main program *)
+begin
+  if (argc > 1) then
+    launch(StrToInt(argv[1]))
+  else
+    launch(4);
+end.
+
+{ The Computer Language Benchmarks Game
+  http://shootout.alioth.debian.org
+  contributed by Ian Osgood
+  modified by Vincent Snijders
+  modified by Steve Fisher
+  modified by Caleb Hattingh
+}
+
+{$mode objfpc}
+
+const
+  ALU : AnsiString =
+  'GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG' +
+  'GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA' +
+  'CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT' +
+  'ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA' +
+  'GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG' +
+  'AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC' +
+  'AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA';
+
+  codes = 'acgtBDHKMNRSVWY';
+
+  IUB : array[0..14] of double = ( 0.27, 0.12, 0.12, 0.27, 0.02,
+  0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02 );
+
+  HomoSap : array[0..3] of double = ( 0.3029549426680,
+  0.1979883004921, 0.1975473066391,  0.3015094502008 );
+
+  //  Width of ouput lines.
+  width = 60;
+  LOOKUP_SIZE = 4096;
+  LOOKUP_SCALE = LOOKUP_SIZE - 1;
+
+type
+  TGene = record
+    prob: double;
+    code: char;
+    cprob_lookup: double;
+  end;
+  PGene = ^TGene;
+
+var
+  n : longint;
+  Genes: array of TGene;
+  text_buf: array[0..$ffff] of byte;
+  Gene_Lookup: array[0..LOOKUP_SCALE] of PGene;
+
+procedure fasta_repeat( n: integer );
+var
+  source_alu: ansistring;
+  here: integer;
+begin
+  source_alu := alu + alu[1 .. width];
+  here := 1;
+  repeat
+    writeln( source_alu[ here .. here + width - 1] );
+    here += width;
+    if here > length( alu ) then
+      here -= length( alu );
+    n -= width
+  until n <= width;
+  writeln( source_alu[ here .. here + n - 1] )
+end;
+
+
+function gen_random(limit : integer): double; inline;
+const
+  seed : integer = 42;
+  IM = 139968;
+  IA = 3877;
+  IC = 29573;
+begin
+  seed := (seed * IA + IC) mod IM;
+  result := limit * seed * (1 / IM)
+end;
+
+procedure init_genes(const probs: array of double);
+var
+  i, j : integer;
+  sum_prob: double;
+begin
+  setLength(Genes, length(probs));
+  sum_prob := 0.0;
+  for i := 0 to high(probs) do
+  begin
+    sum_prob += probs[i];
+    Genes[i].prob := sum_prob;
+    Genes[i].code := codes[i+1];
+    Genes[i].cprob_lookup := sum_prob * LOOKUP_SCALE;
+  end;
+  j := 0;
+  for i := 0 to LOOKUP_SIZE - 1 do
+  begin
+    while Genes[j].cprob_lookup < i do
+      inc(j);
+    Gene_Lookup[i] := @Genes[j];
+  end;
+end;
+
+procedure fasta_random(n : integer; const probs: array of double);
+
+  function choose_code : char; inline;
+  var r : double;
+      gene: PGene;
+  begin
+    r := gen_random(1);
+    gene := Gene_Lookup[Trunc(r * LOOKUP_SCALE)];
+    while r >= gene^.prob do
+      inc(gene);
+   result := gene^.code
+  end;
+
+  procedure do_one_line( size: integer ); inline;
+  var
+    line : string;
+    p, p_limit : pchar;
+  begin
+    SetLength(line, size);
+    p := @line[1];
+    p_limit := @line[size];
+    while p <= p_limit do
+    begin
+      p^ := choose_code;
+      inc(p)
+    end;
+    writeln( line )
+  end;
+
+begin
+  // Make gene array.
+  init_genes(probs);
+
+  while n > width do
+  begin
+    do_one_line( width );
+    n -= width
+  end;
+
+  do_one_line( n )
+end;
+
+
+begin
+  SetTextBuf(output, text_buf);
+  val(paramstr(1), n);
+
+  writeln('>ONE Homo sapiens alu');
+  fasta_repeat(n*2);
+
+  writeln('>TWO IUB ambiguity codes');
+  fasta_random(n*3, IUB);
+
+  writeln('>THREE Homo sapiens frequency');
+  fasta_random(n*5, HomoSap)
+end.
+
+{ The Computer Language Benchmarks Game
+  http://shootout.alioth.debian.org
+
+  contributed by Ian Osgood
+  modified by Vincent Snijders
+  modified by Steve Fisher
+}
+
+{$mode objfpc}
+
+const
+  ALU : AnsiString =
+  'GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG' +
+  'GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA' +
+  'CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT' +
+  'ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA' +
+  'GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG' +
+  'AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC' +
+  'AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA';
+
+  codes = 'acgtBDHKMNRSVWY';
+
+  IUB : array[0..14] of double = ( 0.27, 0.12, 0.12, 0.27, 0.02,
+  0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02, 0.02 );
+
+  HomoSap : array[0..3] of double = ( 0.3029549426680,
+  0.1979883004921, 0.1975473066391,  0.3015094502008 );
+
+  //  Width of ouput lines.
+  width = 60;
+
+type
+  TGene = record
+    prob: double;
+    code: char;
+  end;
+  PGene = ^TGene;
+
+var
+  n : longint;
+  Genes: array of TGene;
+  text_buf: array[0..$ffff] of byte;
+
+procedure fasta_repeat( n: integer );
+var
+  source_alu: ansistring;
+  here: integer;
+begin
+  source_alu := alu + alu[1 .. width];
+  here := 1;
+  repeat
+    writeln( source_alu[ here .. here + width - 1] );
+    here += width;
+    if here > length( alu ) then
+      here -= length( alu );
+    n -= width
+  until n <= width;
+  writeln( source_alu[ here .. here + n - 1] )
+end;
+
+
+function gen_random(limit : integer): double;
+const
+  seed : integer = 42;
+  IM = 139968;
+  IA = 3877;
+  IC = 29573;
+begin
+  seed := (seed * IA + IC) mod IM;
+  result := limit * seed * (1 / IM)
+end;
+
+procedure init_genes(const probs: array of double);
+var
+  i : integer;
+  sum_prob: double;
+begin
+  setLength(Genes, length(probs));
+  sum_prob := 0.0;
+  for i := 0 to high(probs) do
+  begin
+    sum_prob += probs[i];
+    Genes[i].prob := sum_prob;
+    Genes[i].code := codes[i+1]
+  end
+end;
+
+procedure fasta_random(n : integer; const probs: array of double);
+
+  function choose_code : char; inline;
+  var r : double;
+      gene: PGene;
+  begin
+    r := gen_random(1);
+    gene := @Genes[ 0 ];
+    while r >= gene^.prob do
+      inc(gene);
+   result := gene^.code
+  end;
+
+  procedure do_one_line( size: integer ); inline;
+  var
+    line : string;
+    p, p_limit : pchar;
+  begin
+    SetLength(line, size);
+    p := @line[1];
+    p_limit := @line[size];
+    while p <= p_limit do
+    begin
+      p^ := choose_code;
+      inc(p)
+    end;
+    writeln( line )
+  end;
+
+begin
+  // Make gene array.
+  init_genes(probs);
+
+  while n > width do
+  begin
+    do_one_line( width );
+    n -= width
+  end;
+
+  do_one_line( n )
+end;
+
+
+begin
+  SetTextBuf(output, text_buf);
+  val(paramstr(1), n);
+
+  writeln('>ONE Homo sapiens alu');
+  fasta_repeat(n*2);
+
+  writeln('>TWO IUB ambiguity codes');
+  fasta_random(n*3, IUB);
+
+  writeln('>THREE Homo sapiens frequency');
+  fasta_random(n*5, HomoSap)
+end.
+
+program fibo;
+uses SysUtils;
+ 
+function fib(N : integer) : longint;
+begin	
+	if N < 2 then fib := 1
+	else fib := fib(N-2) + fib(N-1);
+End;
+
+var 
+	NUM : integer;
+	f : longint;
+
+begin
+	if ParamCount = 0 then
+		NUM := 1
+	else
+		NUM := StrToInt(ParamStr(1));
+		
+	if NUM < 1 then NUM := 1;
+	f := fib(NUM);
+	WriteLn( IntToStr(f) );
+end.
+{ The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+  
+   contributed by Ian Osgood 
+}
+{$mode objfpc}
+
+program harmonic;
+uses SysUtils;
+
+var i: longint; sum, d: double;
+begin
+  for i := 1 to StrToInt(paramstr(1)) do
+  begin
+    d := d + 1.0;
+    sum := sum + 1.0/d;
+  end;
+  writeln(sum:0:9);
+end.
+
+Program hash;
+{$MODE objfpc}
+uses SysUtils, Classes; 
+
+
+type
+   THashEntryPtr = ^THashEntryRec;
+   THashEntryRec = record
+	  name : string;
+	  number : longint;
+	  next : THashEntryPtr;
+   end;
+
+const
+   TABLE_SIZE = 100000;
+
+type THash = class
+	private
+		hashtable : array[0..TABLE_SIZE - 1] of THashEntryRec;
+		function hash(s : string) : longint;
+	public
+		constructor Create;
+		function store(name : string; number : longint; var error : longint) : boolean;
+		function fetch(name : string; var number : longint) : boolean;
+		function exists(name : string) : boolean;
+end;
+
+constructor THash.Create;
+var
+   i : longint;
+begin
+   for i := 0 to TABLE_SIZE - 1 do
+      hashtable[i].next := nil;
+end;
+
+
+function THash.hash(s : string) : longint;
+var
+   i, j : longint;
+begin
+	if length(s) = 0 then Result := 0
+	else
+	begin
+		j := ord(s[1]) mod TABLE_SIZE;
+		for i := 2 to length(s) do
+			j := (j shl 8 + ord(s[i])) mod TABLE_SIZE;
+		Result := j;
+	end;
+end;
+
+function THash.store(name : string; number : longint; var error : longint) : boolean;
+var
+   node, prev : THashEntryPtr;
+begin
+   error := 0;
+
+   prev := @hashtable[hash(name)];
+   node := prev^.next;
+   
+   while (node <> nil) and (node^.name <> name) do
+   begin
+      prev := node;
+      node := node^.next;
+   end;
+
+   if node <> nil then error := 1
+   else begin
+      new(prev^.next);
+      node := prev^.next;
+      if node = nil then error := -1
+      else begin
+         node^.name := name;
+	 node^.number := number;
+	 node^.next := nil;
+      end;
+   end;
+   
+   Result := error = 0;
+end;
+
+function THash.fetch(name : string; var number : longint) : boolean;
+var
+   node : THashEntryPtr;
+begin
+   node := hashtable[hash(name)].next;
+   while (node <> nil) and (node^.name <> name) do
+      node := node^.next;
+   if node <> nil then number := node^.number;
+   Result := node <> nil;
+end;
+
+function THash.exists(name : string) : boolean;
+var
+   node : THashEntryPtr;
+begin
+   node := hashtable[hash(name)].next;
+   while (node <> nil) and (node^.name <> name) do
+      node := node^.next;
+   Result := node <> nil;
+end;
+	
+
+var
+	n, i, c, err : longint;
+	X : THash;
+begin
+	if ParamCount = 0 then
+		n := 1
+	else
+		n := StrToInt(ParamStr(1));
+		
+	if n < 1 then n := 1;
+	
+	X := THash.Create();
+	
+	For i := 1 To n do
+		X.store( Format('%x', [i]), i, err );
+	
+	c := 0;
+	For i:= n downto 1 do
+	begin
+		if X.exists( IntToStr(i) ) Then Inc(c);
+	end;
+	
+	Writeln (IntToStr(c));
+end.
+program heapsort;
+
+{$mode objfpc} 
+
+uses
+  SysUtils;
+
+const
+  IM = 139968;
+  IA =  3877;
+  IC = 29573;
+
+var
+  random_last: longint = 42;
+  
+function gen_random(max: double): double;
+begin
+  random_last := (random_last * IA + IC) mod IM;
+  result := max * random_last / IM;
+end;
+
+procedure heapsort(n: integer; ra: pdouble);
+var
+  ir: integer;
+  i, j, l: integer;
+  rra: double;
+begin
+  ir := n;
+  l := (n >> 1) + 1;
+
+  while true do
+  begin
+    if l > 1 then
+    begin
+      dec(l);
+      rra := ra[l];
+    end else begin
+      rra := ra[ir];
+      ra[ir] := ra[1];
+      dec(ir);
+      if ir = 1 then begin
+        ra[1] := rra;
+        exit;
+      end;
+    end;
+
+    i := l;
+    j := l << 1;
+    while j <= ir do 
+    begin
+      if (j < ir) and (ra[j] < ra[j+1]) then 
+        inc(j);
+      if (rra < ra[j]) then 
+      begin
+        ra[i] := ra[j];
+        i := j;
+        j += i;
+      end else begin
+        j := ir + 1;
+      end;
+    end;
+    ra[i] := rra;
+  end;
+end;
+
+procedure main;
+var
+  I, N: integer;
+  ary: array of double;
+begin
+  if ParamCount >= 1 then
+    N := StrToInt(ParamStr(1))
+  else
+    N := 1;
+
+  { create an array of N random doubles }
+  setlength(ary, N+1);
+  for I := 1 to N do
+    ary[I] := gen_random(1);
+
+  heapsort(N, @ary[0]);
+
+  writeln(ary[N]:10:10);
+end;
+
+begin
+  main;
+end.
+
+{ The Great Computer Language Shootout
+  http://shootout.alioth.debian.org 
+
+  contributed by Ales Katona
+}
+
+program hello;
+
+begin
+  WriteLn('hello world');
+end. 
+{
+  Copyright 2005, Micha Nelissen, converted from C, originally from
+  "simple_hash.h":
+}
+
+unit simple_hash;
+
+{$mode objfpc}
+
+interface
+
+const
+  ht_num_primes = 28;
+
+  ht_prime_list: array[0 .. ht_num_primes-1] of dword =
+  ( 53,         97,         193,       389,       769,
+    1543,       3079,       6151,      12289,     24593,
+    49157,      98317,      196613,    393241,    786433,
+    1572869,    3145739,    6291469,   12582917,  25165843,
+    50331653,   100663319,  201326611, 402653189, 805306457,
+    1610612741, 3221225473, 4294967291 );
+
+type
+  ht_ppnode = ^ht_pnode;
+  ht_pnode = ^ht_node;
+  ht_node = record
+    key: pchar;
+    val: integer;
+    next: ht_pnode;
+  end;
+  
+  ht_pht = ^ht_ht;
+  ht_ht = record
+    size: dword;
+    tbl: ht_ppnode;
+    iter_index: dword;
+    iter_next: ht_pnode;
+    items: integer;
+{$ifdef HT_DEBUG}
+    collisions: integer;
+{$endif}
+  end;
+
+
+function  ht_val(node: ht_pnode): integer; {inline;}
+function  ht_key(node: ht_pnode): pchar; {inline;}
+function  ht_hashcode(ht: ht_pht; key: pchar): integer; {inline;}
+function  ht_node_create(key: pchar): ht_pnode;
+function  ht_create(size: dword): ht_pht;
+procedure ht_destroy(ht: ht_pht);
+function  ht_find(ht: ht_pht; key: pchar): ht_pnode; {inline;}
+function  ht_find_new(ht: ht_pht; key: pchar): ht_pnode; {inline;}
+function  ht_next(ht: ht_pht): ht_pnode; {inline;}
+function  ht_first(ht: ht_pht): ht_pnode; {inline;}
+function  ht_count(ht: ht_pht): integer; {inline;}
+
+implementation
+
+uses
+  strings;
+
+function  ht_val(node: ht_pnode): integer; {inline;}
+begin
+  result := node^.val;
+end;
+
+function  ht_key(node: ht_pnode): pchar; {inline;}
+begin
+  result := node^.key;
+end;
+
+function  ht_hashcode(ht: ht_pht; key: pchar): integer; {inline;}
+var
+  val: dword;
+begin
+  val := 0;
+  while key^ <> #0 do
+  begin
+    val := 5 * val + byte(key^);
+    inc(key);
+  end;
+  result := val mod ht^.size;
+end;
+
+function  ht_node_create(key: pchar): ht_pnode;
+var
+  newkey: pchar;
+  node: ht_pnode;
+begin
+  new(node);
+  newkey := strnew(key);
+  with node^ do
+  begin
+    key := newkey;
+    val := 0;
+    next := nil;
+  end;
+  result := node;
+end;
+
+function  ht_create(size: dword): ht_pht;
+var
+  i: integer;
+  ht: ht_pht;
+begin
+  i := 0;
+  new(ht);
+  while ht_prime_list[i] < size do inc(i);
+  ht^.size := ht_prime_list[i];
+  ht^.tbl := allocmem(sizeof(ht_pnode) * ht^.size);
+  ht^.iter_index := 0;
+  ht^.iter_next := nil;
+  ht^.items := 0;
+{$ifdef HT_DEBUG}
+  ht^.collisions := 0;
+{$endif}
+  result := ht;
+end;
+
+procedure ht_destroy(ht: ht_pht);
+var
+  cur, next: ht_pnode;
+  i: integer;
+{$ifdef HT_DEBUG}
+  chain_len, max_chain_len, density: integer;
+{$endif}
+begin
+{$ifdef HT_DEBUG}
+  max_chain_len := 0;
+  density := 0;
+  writeln(' HT: size          ', ht^.size);
+  writeln(' HT: items         ', ht^.items);
+  writeln(' HT: collisions    ', ht^.collisions);
+{$endif}
+  for i := 0 to ht^.size do
+  begin
+    next := ht^.tbl[i];
+{$ifdef HT_DEBUG}
+    if next <> nil then
+      inc(density);
+    chain_len := 0;
+{$endif}
+    while next <> nil do
+    begin
+      cur := next;
+      next := next^.next;
+      strdispose(cur^.key);
+      dispose(cur);
+{$ifdef HT_DEBUG}
+      inc(chain_len);
+{$endif}
+    end;
+{$ifdef HT_DEBUG}
+    if chain_len > max_chain_len then
+      max_chain_len := chain_len;
+{$endif}
+  end;
+  freemem(ht^.tbl);
+  dispose(ht);
+{$ifdef HT_DEBUG}
+  writeln(' HT: density       ', density);
+  writeln(' HT: max chain len ', max_chain_len);
+{$endif}
+end;
+
+function  ht_find(ht: ht_pht; key: pchar): ht_pnode; {inline;}
+var
+  hash_code: integer;
+  node: ht_pnode;
+begin
+  hash_code := ht_hashcode(ht, key);
+  node := ht^.tbl[hash_code];
+  while node <> nil do
+  begin
+    if strcomp(key, node^.key) = 0 then
+    begin
+      result := node;
+      exit;
+    end;
+    node := node^.next;
+  end;
+  result := nil;
+end;
+
+function  ht_find_new(ht: ht_pht; key: pchar): ht_pnode; {inline;}
+var
+  hash_code: integer;
+  prev, node: ht_pnode;
+begin
+  hash_code := ht_hashcode(ht, key);
+  prev := nil;
+  node := ht^.tbl[hash_code];
+  while node <> nil do
+  begin
+    if strcomp(key, node^.key) = 0 then
+    begin
+      result := node;
+      exit;
+    end;
+    prev := node;
+    node := node^.next;
+{$ifdef HT_DEBUG}
+    inc(ht^.collisions);
+{$endif}
+  end;
+  inc(ht^.items);
+  result := ht_node_create(key);
+  if prev <> nil then
+  begin
+    prev^.next := result;
+  end else begin
+    ht^.tbl[hash_code] := result;
+  end;
+end;
+
+{
+  Hash Table iterator data / functions 
+}
+
+function  ht_next(ht: ht_pht): ht_pnode; {inline;}
+var
+  index: dword;
+  node: ht_pnode;
+begin
+  node := ht^.iter_next;
+  if node <> nil then
+  begin
+    ht^.iter_next := node^.next;
+    result := node;
+    exit;
+  end else begin
+    while ht^.iter_index < ht^.size do
+    begin
+      index := ht^.iter_index;
+      inc(ht^.iter_index);
+      if ht^.tbl[index] <> nil then
+      begin
+        ht^.iter_next := ht^.tbl[index]^.next;
+        result := ht^.tbl[index];
+        exit;
+      end;
+    end;
+  end;
+  result := nil;
+end;
+
+function  ht_first(ht: ht_pht): ht_pnode; {inline;}
+begin
+  ht^.iter_index := 0;
+  ht^.iter_next := nil;
+  result := ht_next(ht);
+end;
+
+function  ht_count(ht: ht_pht): integer; {inline;}
+begin
+  result := ht^.items;
+end;
+
+end.
+(* The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+
+   contributed by Josh Goldfoot
+   modified by Vincent Snijders
+*)
+
+{$mode objfpc}
+
+program knucleotide;
+
+(* simple_hash available from CVS *)
+
+const
+  ht_num_primes = 28;
+
+  ht_prime_list: array[0 .. ht_num_primes-1] of dword =
+  ( 53,         97,         193,       389,       769,
+    1543,       3079,       6151,      12289,     24593,
+    49157,      98317,      196613,    393241,    786433,
+    1572869,    3145739,    6291469,   12582917,  25165843,
+    50331653,   100663319,  201326611, 402653189, 805306457,
+    1610612741, 3221225473, 4294967291 );
+
+type
+  { TNonFreePooledMemManager - a memory manager for records without freeing }
+
+  PMemChunk = ^TMemChunk;
+  TMemChunk = record
+    data: pointer;
+    next: PMemChunk;
+  end;
+
+  TNonFreePooledMemManager = class
+  private
+    FItemSize: integer;
+    FItems: PMemChunk;
+    FCurItem: Pointer;
+    FEndItem: Pointer;
+    FCurSize: integer;
+    procedure Grow;
+  public
+    property ItemSize: integer read FItemSize;
+    constructor Create(TheItemSize: integer);
+    destructor Destroy; override;
+    function NewItem: Pointer; inline;
+  end;
+
+  { THashTable }
+
+  ht_ppnode = ^ht_pnode;
+  ht_pnode = ^ht_node;
+  ht_node = record
+    val: integer;
+    next: ht_pnode;
+    keydata: array[0..0] of char;
+  end;
+
+  THashTable=class
+  private
+    FSize: dword;
+    FKeysize: dword;
+    FTbl: ht_ppnode;
+    FIter_index: dword;
+    FIter_next: ht_pnode;
+    FNodeMemManager: TNonFreePooledMemManager;
+  public
+    constructor Create(size: dword; keysize: dword);
+    destructor Destroy; override;
+    function Find(key: pchar): ht_pnode;
+    function FindNew(key: pchar): ht_pnode;
+    function First: ht_pnode;
+    function Next: ht_pnode;
+  end;
+
+{ TNonFreePooledMemManager }
+
+procedure TNonFreePooledMemManager.Grow;
+var
+  memchunk: PMemChunk;
+begin
+  if FCurSize<256*1024 then
+  // each item has double the size of its predecessor
+    inc(FCurSize, FCurSize);
+  GetMem(FCurItem,FCurSize);
+  FillChar(FCurItem^, FCurSize, 0);
+  new(MemChunk);
+  MemChunk^.next := FItems;
+  MemChunk^.Data := FCurItem;
+  FItems := MemChunk;
+  FEndItem := FCurItem;
+  Inc(FEndItem, FCurSize);
+end;
+
+constructor TNonFreePooledMemManager.Create(TheItemSize: integer);
+begin
+  FItemSize:=TheItemSize;
+  FCurSize:=FItemSize*4; // 4 items => the first item has 8 entries
+end;
+
+destructor TNonFreePooledMemManager.Destroy;
+var
+  p: PMemChunk;
+begin
+  while FItems<>nil do begin
+    p := FItems;
+    FItems := Fitems^.next;
+    FreeMem(p^.Data);
+    Dispose(p);
+  end;
+  inherited Destroy;
+end;
+
+function TNonFreePooledMemManager.NewItem: Pointer; inline;
+begin
+  if (FCurItem=FEndItem) then
+   Grow;
+  Result:=FCurItem;
+  Inc(FCurItem, FItemSize);
+end;
+
+{ THashTable }
+
+constructor THashTable.Create(size: dword; keysize: dword);
+var
+  i: integer;
+begin
+  i := 0;
+  while (i<high(ht_prime_list)) and (size>ht_prime_list[i]) do
+    inc(i);
+  FSize := ht_prime_list[i];
+  fkeysize := keysize;
+  ftbl := allocmem(sizeof(ht_pnode) * FSize);
+  fiter_index := 0;
+  fiter_next := nil;
+  FNodeMemManager := TNonFreePooledMemManager.Create(SizeOf(ht_node)+FKeySize);
+end;
+
+destructor THashTable.Destroy;
+begin
+  FNodeMemManager.Free;
+  freemem(Ftbl);
+  inherited;
+end;
+
+function ht_hashcode(key: pchar; keysize: dword): dword; //inline;
+var
+  val: dword;
+  i: integer;
+begin
+  val := 0;
+
+  for i := 0 to Keysize -1 do
+  begin
+    val := val * 4;
+    inc(val, dword(byte(key^) and 6) shr 1);
+    inc(key);
+  end;
+  result := val;
+end;
+
+function THashTable.Find(key: pchar): ht_pnode;
+var
+  hash_code: dword;
+  node: ht_pnode;
+begin
+  hash_code := ht_hashcode(key, FKeySize) mod FSize;
+  node := FTbl[hash_code];
+  while node <> nil do
+  begin
+    if comparebyte(key^, node^.keydata, FKeysize) = 0 then
+    begin
+      result := node;
+      exit;
+    end;
+    node := node^.next;
+  end;
+  result := nil;
+end;
+
+function THashTable.FindNew(key: pchar): ht_pnode;
+var
+  hash_code: integer;
+  prev, node: ht_pnode;
+begin
+  prev := nil;
+  hash_code := ht_hashcode(key, FKeysize) mod FSize;
+  node := FTbl[hash_code];
+  while node <> nil do
+  begin
+    if CompareByte(key^, node^.keydata, FKeysize) = 0 then
+    begin
+      result := node;
+      exit;
+    end;
+    prev := node;
+    node := node^.next;
+  end;
+  result := FNodeMemManager.NewItem;
+  move(key^,Result^.keydata,FKeysize);
+  if prev <> nil then
+  begin
+    prev^.next := result;
+  end else begin
+    FTbl[hash_code] := result;
+  end;
+end;
+
+{
+  Hash Table iterator data / functions
+}
+
+function THashTable.First: ht_pnode;
+begin
+  FIter_index := 0;
+  FIter_next := nil;
+  result := next;
+end;
+
+function THashTable.Next: ht_pnode;
+var
+  index: dword;
+  node: ht_pnode;
+begin
+  node := FIter_next;
+  if node <> nil then
+  begin
+    FIter_next := node^.next;
+    result := node;
+    exit;
+  end else begin
+    while FIter_index < FSize do
+    begin
+      index := FIter_index;
+      inc(FIter_index);
+      if FTbl[index] <> nil then
+      begin
+        FIter_next := FTbl[index]^.next;
+        result := FTbl[index];
+        exit;
+      end;
+    end;
+  end;
+  result := nil;
+end;
+
+{==============================================================================}
+
+type
+   sorter      = record
+		   sequence : ansistring;
+		   num	     : longint;
+		 end;
+   sorterArray = array of sorter;
+
+function hash_table_size (fl : dword): dword;
+begin
+  if fl<8 then
+   hash_table_size := 1 shl (2 * fl)
+  else
+   hash_table_size := $10000;
+end; { hash_table_size }
+
+function generate_frequencies(fl: integer; buffer: PChar; buflen : longint): THashTable;
+var
+   reader : PChar;
+   i : longint;
+begin
+   if fl <= buflen then
+   begin
+      result := THashTable.Create(hash_table_size (fl), fl);
+      reader := buffer;
+      for i := 0 to buflen-fl do
+      begin
+         inc(Result.FindNew(reader)^.val);
+         inc(reader);
+      end;
+   end else
+      result := nil;
+end; { generate_frequencies }
+
+procedure sortArray(var s : sorterArray; size:longint);
+var
+   i,j : longint;
+   tmp : sorter;
+begin
+   for i := 0 to size-2 do
+      for j := i+1 to size-1 do
+         if s[i].num < s[j].num then
+	 begin
+	    tmp := s[i];
+	    s[i] := s[j];
+	    s[j] := tmp;
+	 end;
+end; { sortArray }
+
+procedure write_frequencies(fl : integer; buffer : PChar; buflen : longint);
+var
+  ht	   : THashTable;
+  i, size : longint;
+  total   : real;
+  nd	   : ht_pnode;
+  s	   : sorterArray;
+begin
+  ht := generate_frequencies(fl, buffer, buflen);
+  total := 0;
+  size := 0;
+  nd := ht.First;
+  while (nd <> nil) do
+  begin
+    total := total + nd^.val;
+    size := size + 1;
+    nd := ht.Next;
+  end;
+  SetLength(s, size);
+
+  nd := ht.First;
+  size := 0;
+  while (nd <> nil) do
+  begin
+    s[size].sequence := upcase(pchar(@nd^.keydata));
+    s[size].num := nd^.val;
+    size := size + 1;
+    nd := ht.Next;
+  end;
+
+  sortArray(s, size);
+  for i := 0 to size - 1 do
+    writeln(s[i].sequence,' ', (100 * (s[i].num / total)):3:3);
+  writeln;
+
+  ht.Free;
+end; { write_frequencies }
+
+procedure write_count(searchFor : ansistring; buffer : PChar; buflen : longint);
+var
+   ht : THashTable;
+   nd : ht_pnode;
+begin
+   ht := generate_frequencies (length(searchFor), buffer, buflen);
+   nd := ht.Find(pchar(searchFor));
+   if (nd <> nil) then
+      write(nd^.val)
+   else
+      write(0);
+   searchfor := UpCase(searchFor);
+   writeln(#9, searchFor);
+
+   ht.Free;
+end; { write_count }
+
+procedure main;
+var
+   buffer : PChar;
+   len, seqlen : longint;
+   buffersize, bufferptr: longint;
+   s : String;
+begin
+   seqlen := 0;
+   repeat
+      readln(s)
+   until (s[1] = '>') and (s[2] = 'T') and (s[3] = 'H');
+   buffersize:=1024;
+   buffer:=getmem(buffersize);
+   bufferptr :=0;
+   while not eof do begin
+     readln(s);
+     if (s[1] <> '>') and (s[1] <> ';') then begin
+       len:=length(s);
+       if (bufferptr+len+1)>buffersize then  begin
+         inc(buffersize,buffersize);
+         reallocmem(buffer,buffersize);
+       end;
+       move (s[1],buffer[bufferptr],len);
+       inc(bufferptr,len);
+     end;
+   end;
+   buffer[bufferptr] := #0;
+   seqlen := strlen(buffer);
+
+   write_frequencies(1, buffer, seqlen);
+   write_frequencies(2, buffer, seqlen);
+   write_count('ggt', buffer, seqlen);
+   write_count('ggta', buffer, seqlen);
+   write_count('ggtatt', buffer, seqlen);
+   write_count('ggtattttaatt', buffer, seqlen);
+   write_count('ggtattttaatttatagt', buffer, seqlen);
+   freemem(buffer);
+end; { main }
+
+
+begin
+   //SetPrecisionMode(pmDouble);
+   main;
+end.
+
+Program lists;
+uses SysUtils, classes; 
+
+const SIZE : longint = 10000;
+
+Function test_lists : integer;
+var 
+	i, len1, len2 : longint;
+	Li1, Li2, Li3 : TList;
+	lists_equal : Integer;
+begin
+    { create a list of integers (Li1) from 1 to SIZE }    
+	Li1 := TList.Create;
+	Li1.Capacity := SIZE;
+    For i := 0 to SIZE Do
+    	Li1.Add(Pointer(i));
+    
+    { copy the list to Li2 (not by individual items) }
+	{ [dada] this can't be done }
+	Li2 := TList.Create;
+	Li2.Capacity := SIZE;
+    For i:= 0 to SIZE Do
+    	Li2.Add(Li1.Items[i]);
+    
+    { remove each individual item from left side of Li2 and
+      append to right side of Li3 (preserving order) }
+    Li3 := TList.Create;
+    Li3.Capacity := SIZE;
+    For i := 0 to SIZE Do
+    begin
+    	Li3.Add( Li2.First );
+    	Li2.Remove( Li2.First );
+    end;
+    { Li2 must now be empty }
+    
+    { remove each individual item from right side of Li3 and
+      append to right side of Li2 (reversing list) }
+    For i := 0 To SIZE Do
+    begin
+    	Li2.Add( Li3.Last );
+    	Li3.Count -= 1;   	
+    end;
+
+    { Li3 must now be empty }
+
+    { reverse Li1 in place }
+	For i := 0 To (SIZE div 2) Do
+	begin
+		Li1.Exchange( i, SIZE-i );
+	end;
+	
+    { check that first item is now SIZE }
+    If longint(Li1.first) <> SIZE Then
+    begin
+    	
+    	test_lists := 0;
+    	exit;
+    end;
+
+    { compare Li1 and Li2 for equality }   
+    len1 := Li1.Count - 1;
+    len2 := Li2.Count - 1;
+    If  len1 <> len2 Then
+    begin
+    	test_lists := 0;
+    	exit;
+    end;
+
+	lists_equal := 1;    
+	For i := 0 To len1 Do
+	begin
+		If longint(Li1.items[i]) <> longint(Li2.items[i]) Then
+		begin
+			lists_equal := 0;			
+			break;
+		end;
+	end;
+	
+	If lists_equal = 0 Then
+	begin
+		test_lists := 0;
+	end
+	else
+		test_lists := len1;
+end;
+
+var
+	ITER, i, result: integer;
+
+begin
+	if ParamCount = 0 then
+		ITER := 1
+	else
+		ITER := StrToInt(ParamStr(1));
+		
+	if ITER < 1 then ITER := 1;
+	
+	For i := 1 To ITER Do result := test_lists();
+	Writeln (IntToStr(result));
+
+end.
+{ The Computer Language Benchmarks Game
+  http://shootout.alioth.debian.org
+
+  contributed by Ales Katona
+  modified by Vincent Snijders
+  optimized and multithreaded by Jean de La Taille
+}
+
+program mandelbrot;
+
+uses
+  {$ifdef unix}cthreads,{$endif}
+  sysUtils, dateUtils, math;
+
+const
+  Limit = 4;
+
+var
+  n, n_1, dimx, dimy : longint;
+  TextBuf: array of byte;
+  start, finish : TDateTime;
+
+type
+  mem = record
+    from_y, to_y : longint;
+  end;
+  pmem = ^mem;
+
+function subThread(p: pointer) : ptrint;
+var
+  x, y, from_y, to_y, buf_index, i: Longint;
+  Zr, Zi, Ti, Tr : Double;
+  Cr, Ci : Double;
+  bits: Longint;
+  bit: Longint;
+begin
+  from_y := pmem(p)^.from_y;
+  to_y := pmem(p)^.to_y;
+  buf_index := from_y * dimx;
+  for y := from_y to to_y do
+  begin
+    bit := 128; // 1000 0000
+    bits := 0;
+    Ci := ((y + y) / n) - 1.0;
+    for x := 0 to n_1 do
+    begin
+      //---------------------------
+      Zr := 0;
+      Zi := 0;
+      Tr := 0;
+      Ti := 0;
+      Cr := ((x + x) / n) - 1.5;
+      for i := 1 to 50 do
+      begin
+        Zi := 2 * Zr * Zi + Ci;
+        Zr := Tr - Ti + Cr;
+        Ti := Zi * Zi;
+        Tr := Zr * Zr;
+        if ((Tr + Ti) > limit) then
+        begin
+          bits := bits or bit;
+          break;
+        end;
+      end;
+      //---------------------------
+      bit := bit >> 1;
+      if (bit = 0) then
+      begin
+        TextBuf[buf_index] := not bits;
+        inc(buf_index);
+        bits := 0;
+        bit := 128;
+      end;
+    end;
+  end;
+  subThread := 0;
+end;
+
+procedure run;
+var
+  i, l, x, y, buf_index: Longint;
+  tt : array[0..3] of TThreadID;
+  m : array[0..3] of mem;
+  stepL : longint;
+begin
+  n_1 := n - 1;
+  l := 0;
+  stepL := floor(n / 4);
+
+  start := now;
+  for i := 0 to 2 do
+  begin
+    m[i].from_y := l;
+    m[i].to_y := l + stepL - 1;
+    tt[i] := BeginThread(@subThread, @m[i]);
+    l := l + stepL;
+  end;
+  m[3].from_y := l;
+  m[3].to_y := n_1;
+  tt[3] := BeginThread(@subThread, @m[3]);
+  for i := 0 to 3 do
+    WaitForThreadTerminate(tt[i], 0);
+  finish := now;
+  //WriteLn('Time : ', MilliSecondsBetween(start, finish) / 1000 : 0 : 4);
+
+  buf_index := 0;
+  for y := 0 to n_1 do
+    for x := 0 to dimx - 1 do
+    begin
+      write(chr(TextBuf[buf_index]));;
+      inc(buf_index);
+    end;
+end;
+
+
+begin
+  Val(ParamStr(1), n);
+  write('P4', chr(10), n, ' ', n, chr(10));
+  //write('P5', chr(10), n, ' ', n, chr(10), 255, chr(10));
+
+  dimx := Ceil(n / 8);
+  dimy := n;
+  SetLength(TextBuf, (dimx * dimy) + 1);
+
+  start := now;
+
+  run;
+
+  finish := now;
+end.
+
+
+{ The Computer Language Benchmarks Game
+  http://shootout.alioth.debian.org
+
+  contributed by Ales Katona
+  modified by Vincent Snijders
+  optimized and multithreaded by Jean de La Taille 
+}
+
+program mandelbrot;
+
+uses
+  {$ifdef unix}cthreads,{$endif}
+  sysUtils, dateUtils, math;
+
+const
+  Limit = 4;
+
+var
+  n, n_1, dimx, dimy : longint;
+  TextBuf: array of byte;
+  start, finish : TDateTime;
+
+type
+  mem = record
+    from_y, to_y : longint;
+  end;
+  pmem = ^mem;
+
+function subThread(p: pointer) : longint;
+var
+  x, y, from_y, to_y, buf_index, i: Longint;
+  Zr, Zi, Ti, Tr : Double;
+  Cr, Ci : Double;
+  bits: Longint;
+  bit: Longint;
+begin
+  from_y := pmem(p)^.from_y;
+  to_y := pmem(p)^.to_y;
+  buf_index := from_y * dimx;
+  for y := from_y to to_y do
+  begin
+    bit := 128; // 1000 0000
+    bits := 0;
+    Ci := ((y + y) / n) - 1.0;
+    for x := 0 to n_1 do
+    begin
+      //---------------------------
+      Zr := 0;
+      Zi := 0;
+      Tr := 0;
+      Ti := 0;
+      Cr := ((x + x) / n) - 1.5;
+      for i := 1 to 50 do
+      begin
+        Zi := 2 * Zr * Zi + Ci;
+        Zr := Tr - Ti + Cr;
+        Ti := Zi * Zi;
+        Tr := Zr * Zr;
+        if ((Tr + Ti) > limit) then
+        begin
+          bits := bits or bit;
+          break;
+        end;
+      end;
+      //---------------------------
+      bit := bit >> 1;
+      if (bit = 0) then
+      begin
+        TextBuf[buf_index] := not bits;
+        inc(buf_index);
+        bits := 0;
+        bit := 128;
+      end;
+    end;
+  end;
+  subThread := 0;
+end;
+
+procedure run;
+var
+  i, l, x, y, buf_index: Longint;
+  tt : array[0..3] of TThreadID;
+  m : array[0..3] of mem;
+  stepL : longint;
+begin
+  n_1 := n - 1;
+  l := 0;
+  stepL := floor(n / 4);
+
+  start := now;
+  for i := 0 to 2 do
+  begin
+    m[i].from_y := l;
+    m[i].to_y := l + stepL - 1;
+    tt[i] := BeginThread(@subThread, @m[i]);
+    l := l + stepL;
+  end;
+  m[3].from_y := l;
+  m[3].to_y := n_1;
+  tt[3] := BeginThread(@subThread, @m[3]);
+  for i := 0 to 3 do
+    WaitForThreadTerminate(tt[i], 0);
+  finish := now;
+  //WriteLn('Time : ', MilliSecondsBetween(start, finish) / 1000 : 0 : 4);
+
+  buf_index := 0;
+  for y := 0 to n_1 do
+    for x := 0 to dimx - 1 do
+    begin
+      write(chr(TextBuf[buf_index]));;
+      inc(buf_index);
+    end;
+end;
+
+
+begin
+  Val(ParamStr(1), n);
+  write('P4', chr(10), n, ' ', n, chr(10));
+  //write('P5', chr(10), n, ' ', n, chr(10), 255, chr(10));
+
+  dimx := Ceil(n / 8);
+  dimy := n;
+  SetLength(TextBuf, (dimx * dimy) + 1);
+
+  start := now;
+
+  run;
+
+  finish := now;
+end.
+
+
+{ The Computer Language Benchmarks Game
+  http://shootout.alioth.debian.org
+
+  contributed by Ales Katona
+  modified by Vincent Snijders
+}
+
+program mandelbrot;
+
+var n: longint;
+    TextBuf: array[0..$FFF] of byte;
+    OutFile: PText;
+    
+
+procedure run;
+var
+  Cy, Step: double;
+  x, y, bits,bit: Longint;
+  function CalculatePoint(Cx, Cy: double): boolean; nostackframe; inline;
+  const
+    Limit = 4;
+  var
+    i: longint;
+    Zr, Zi, Ti, Tr: Double;
+
+  begin
+    Zr := 0;  Zi := 0; Tr := 0; Ti := 0;
+    for i := 1 to 50 do begin
+      Zi := 2*Zr*Zi + Cy;
+      Zr := Tr - Ti + Cx;
+      Ti := Zi * Zi;
+      Tr := Zr * Zr;
+      if (Tr + Ti>=limit) then exit(true);
+    end;
+
+    CalculatePoint := false;
+  end;
+
+begin
+  Step := 2/n;
+  for y := 0 to n-1 do
+  begin
+    Cy := y * Step - 1;
+    bits := 255;  bit := 128;
+    for x := 0 to n-1 do
+    begin
+      if CalculatePoint(x * Step  - 1.5, Cy) then
+        bits := bits xor bit;
+
+      if bit > 1 then
+        bit := bit shr 1
+      else
+      begin
+        write(OutFile^, chr(bits));
+        bits := 255;  bit := 128;
+      end;
+    end;
+    if bit < 128 then write(OutFile^, chr(bits xor((bit shl 1)-1)));
+  end;
+end;
+
+begin
+  OutFile := @Output;
+  SetTextBuf(OutFile^, TextBuf);
+
+  Val(ParamStr(1), n);
+  writeln(OutFile^, 'P4');
+  writeln(OutFile^, n,' ',n);
+  run;
+end.
+{ The Computer Language Benchmarks Game
+  http://shootout.alioth.debian.org
+
+  contributed by Ales Katona
+  modified by Vincent Snijders
+  optimized and multithreaded by Jean de La Taille
+  modified by Jeppe Johansen
+}
+
+program mandelbrot;
+
+uses
+  {$ifdef unix}cthreads,{$endif}
+  sysUtils, math;
+
+const
+  Limit = 4.0;
+  ThreadCount = 4;
+
+var
+  n, dimx : longint;
+  nInv: double;
+  TextBuf: pbyte;
+
+  yCounter: longint;
+
+function subThread(p: pointer) : ptrint;
+var
+  x, y, i, bits, bit, buf_index: Longint;
+  Zr, Zi, Ti, Tr, Cr, Ci : Double;
+begin
+  while true do
+  begin
+    y := interlockedincrement(yCounter)-1;
+
+    if y >= n then break;
+
+    buf_index := y*dimx;
+
+    prefetch(TextBuf[buf_index]);
+
+    bit := 128; // 1000 0000
+
+    bits := 0;
+    Ci := ((y + y) * nInv) - 1.0;
+    for x := 0 to n-1 do
+    begin
+      //---------------------------
+
+      Zr := 0;
+      Zi := 0;
+      Tr := 0;
+      Ti := 0;
+      Cr := ((x + x) * nInv) - 1.5;
+      for i := 1 to 50 do
+      begin
+        Zi := 2.0 * Zr * Zi + Ci;
+        Zr := Tr - Ti + Cr;
+        Ti := Zi * Zi;
+        Tr := Zr * Zr;
+        if ((Tr + Ti) > limit) then
+        begin
+          bits := bits or bit;
+          break;
+        end;
+      end;
+      //---------------------------
+
+      bit := bit >> 1;
+      if (bit = 0) then
+      begin
+        TextBuf[buf_index] := not bits;
+        inc(buf_index);
+
+        bits := 0;
+        bit := 128;
+      end;
+    end;
+  end;
+  subThread := 0;
+end;
+
+procedure run;
+var
+  i, t, buf_index: Longint;
+  tt : array[0..ThreadCount-1] of TThreadID;
+begin
+  nInv := 1/n;
+
+  for i := 0 to ThreadCount-1 do
+    tt[i] := BeginThread(@subThread, nil);
+
+  for i := 0 to ThreadCount-1 do
+    WaitForThreadTerminate(tt[i], 0);
+
+  buf_index := 0;
+  i := n*dimx;
+  while buf_index < i do
+  begin
+    t := FileWrite(StdOutputHandle, TextBuf[buf_index], i-buf_index);;
+    if t >= 0 then
+      buf_index := buf_index + t;
+  end;
+end;
+
+begin
+  Val(ParamStr(1), n);
+  write('P4', chr(10), n, ' ', n, chr(10));
+  Flush(output);
+
+  dimx := Ceil(n / 8);
+
+  TextBuf := GetMem(dimx*n);
+
+  run;
+
+  freemem(textbuf);
+end.
+program matrix; 
+uses SysUtils;
+
+const
+        size = 30;
+
+type tMatrix = array[0..size-1, 0..size-1] of longint;
+
+procedure mkmatrix( rows, cols : integer; var mx : tMatrix);
+var
+        R, C : integer;
+        count : longint;
+begin
+        count := 1;
+        for R := 0 to rows-1 do
+        begin
+                for C := 0 to cols-1 do
+                begin
+                        mx[R, C] := count;
+                        Inc(count);
+                end;
+        end;
+End;
+
+procedure mmult(rows, cols : integer; const m1, m2 : tMatrix; var mm : tMatrix ); inline;
+var
+        i, j, k : integer;
+        val: longint;
+begin
+        For i := 0 To rows-1 do
+        begin
+                For j := 0 To cols-1 do
+                begin
+                        val := 0;
+                        For k := 0 To cols-1 do
+                        begin
+                                Inc(val, m1[i, k] * m2[k, j]);
+                        end;
+                        mm[i, j] := val;
+                end;
+        end;
+End;
+
+
+procedure main;
+var NUM, I : integer;
+        M1, M2, MM : tMatrix;
+
+begin
+        if ParamCount = 0 then
+                NUM := 1
+        else
+                NUM := StrToInt(ParamStr(1));
+
+        if NUM < 1 then NUM := 1;
+
+        mkmatrix(size, size, M1);
+        mkmatrix(size, size, M2);
+
+        for I := 0 To NUM-1 do
+        begin
+                mmult(size, size, M1, M2, MM);
+        end;
+        WriteLn( IntToStr(MM[0, 0]) + ' ' + IntToStr(MM[2, 3]) + ' ' +
+                         IntToStr(MM[3, 2]) + ' ' + IntToStr(MM[4, 4]));
+end;
+
+begin
+  main;
+end.
+{ The Computer Language Shootout
+  http://shootout.alioth.debian.org
+  contributed by Marc Weustink
+}
+program message;
+{$mode objfpc}{$h-}
+uses
+  PThreads;
+
+var
+  PostOffice: array[0..499] of record
+    Queue: array[0..15] of Integer;  // queuelength must be power of 2
+    ReadIdx, WriteIdx: Integer;
+    ReadSem, WriteSem: TSemaphore;
+  end;
+  ThreadAttr: TThreadAttr;
+  ThreadFuncAddr: TStartRoutine;
+  Sum: Integer = 0;
+  FinishedSem: TSemaphore;
+
+procedure PostMessage(AIndex, AMessage: Integer);
+begin
+  with PostOffice[AIndex] do begin
+    sem_wait(WriteSem);
+    Queue[WriteIdx] := AMessage;
+    sem_post(ReadSem);
+    WriteIdx := (WriteIdx + 1) and (Length(Queue) - 1);
+  end;
+end;
+
+function ReadMessage(AIndex: Integer): Integer;
+begin
+  with PostOffice[AIndex] do begin
+    sem_wait(ReadSem);
+    Result := Queue[ReadIdx];
+    sem_post(WriteSem);
+    ReadIdx := (ReadIdx + 1) and (Length(Queue) - 1);
+  end;
+end;
+
+function ThreadFunc(ANum: PtrInt): Pointer; cdecl;
+var
+  Value: Integer;
+  Id: TThreadID;
+begin
+  if ANum <> 0
+  then pthread_create(@Id, @ThreadAttr, ThreadFuncAddr, Pointer(ANum-1));
+
+  repeat
+    Value := ReadMessage(ANum);
+    if Value <> -1
+    then begin
+      Inc(Value);
+      if ANum = 0
+      then Inc(Sum, Value)
+      else PostMessage(ANum-1, Value);
+    end
+    else begin
+      if ANum = 0
+      then sem_post(@FinishedSem)
+      else PostMessage(ANum-1, Value);
+      //Break;
+    end;
+  until False;
+end;
+
+
+var
+  n, count: Integer;
+  Id: TThreadId;
+begin
+  Val(paramstr(1), count, n);
+  if n <> 0 then exit;
+
+  for n := 0 to High(PostOffice) do with PostOffice[n] do begin
+    ReadIdx := 0;
+    WriteIdx := 0;
+    sem_init(@ReadSem, 0, 0);
+    sem_init(@WriteSem, 0, Length(Queue));
+  end;
+  
+  sem_init(FinishedSem, 0, 0);
+
+  pthread_attr_init(@ThreadAttr);
+  pthread_attr_setdetachstate(@ThreadAttr, 1);
+  pthread_attr_setstacksize(@ThreadAttr, 1024 * 16);
+  
+  ThreadFuncAddr := TStartRoutine(@ThreadFunc);
+  pthread_create(@Id, @ThreadAttr, ThreadFuncAddr, Pointer(High(PostOffice)));
+
+  for n := 1 to count do
+    PostMessage(High(PostOffice), 0);
+
+  PostMessage(High(PostOffice), -1);
+  
+  sem_wait(FinishedSem);
+  WriteLn(Sum);
+end.
+program meteorshower;
+
+{ The Computer Language Benchmarks Game
+  http://shootout.alioth.debian.org/
+
+  contributed by Daniel Mantione
+  modified by Vincent Snijders
+}
+
+
+uses dos;
+
+const N_COL = 5;
+      N_ROW = 10;
+      N_CELL = N_COL * N_ROW;
+      N_PIECE_TYPE = 10;
+
+      N_ELEM=5;
+      N_ORIENT=12;
+      ALL_PIECE_MASK=[0..N_PIECE_TYPE-1];
+      SKIP_PIECE=5;
+
+      no_piece=high(byte);
+
+      L_EDGE_MASK=[0,5,10,15,20,25,30];
+      R_EDGE_MASK=[4,9,14,19,24,29];
+      TOP_ROW    = [0*N_COL..1*N_COL-1];
+      SECOND_ROW = [1*N_COL..2*N_COL-1];
+      THIRD_ROW  = [2*N_COL..3*N_COL-1];
+      FOURTH_ROW = [3*N_COL..4*N_COL-1];
+      FIFTH_ROW  = [4*N_COL..5*N_COL-1];
+      SIXTH_ROW  = [5*N_COL..6*N_COL-1];
+      LAST_ROW   = SIXTH_ROW;
+      ROW_0_MASK=[0..N_COL-1,10..N_COL+10-1,20..N_COL+20-1,30,31];
+      ROW_1_MASK=[5..N_COL+5-1,15..N_COL+15-1,25..N_COL+25-1];
+      BOARD_MASK=[0..29];
+
+
+type  bitvec=set of 0..31;
+      dimensions=(dimx,dimy);
+      parity=(even,odd);
+      goodbad=(good,bad,always_bad);
+      piecenr=type 0..N_PIECE_TYPE-1;
+      orientation=type 0..N_ORIENT-1;
+
+      piece_placement=record
+        vec:bitvec;
+        ipiece:piecenr;
+        row:byte;
+      end;
+
+type Soln=object
+       m_pieces:array[piecenr] of piece_placement;
+       m_npiece:byte;
+       m_cells:array[0..N_ROW-1,0..N_COL-1] of piecenr;
+       m_synched:boolean;
+       constructor init(fillval:byte);
+       procedure setCells;
+       function lessThan(var r:Soln):boolean;
+       procedure write(var f:text);
+       procedure fill(value:byte);
+       procedure spin(var spun:Soln);
+
+       function isEmpty:boolean;
+       procedure popPiece;inline;
+       procedure pushPiece(Avec:bitvec;AiPiece:piecenr;Arow:byte);
+     end;
+
+     instance=record
+       m_allowed:set of byte;
+       m_vec:bitvec;
+       m_offset:longint;
+     end;
+
+     TPts=array[0..N_ELEM-1,dimensions] of shortint;
+     piece=object
+       m_instance:array[parity] of instance;
+       procedure set_ok_positions(isOdd:parity;w,h:longint);
+     end;
+
+     OkPieces=record
+       nPieces:array[piecenr] of byte;
+       pieceVec:array[piecenr,orientation] of bitvec;
+     end;
+
+
+type  fixed=(OPEN, CLOSED);
+      islandinfo=record
+        has_bad:array[fixed,parity] of bitvec;
+        is_known:array[fixed,parity] of bitvec;
+        alwaysBad:array[parity] of bitvec;
+      end;
+
+const MAX_ISLAND_OFFSET=1024;
+
+type cacherec=record
+       krow,kpiecevec:word;
+       kboardvec:bitvec;
+     end;
+
+var s_basePiece:array[piecenr,orientation] of piece;
+    g_okPieces:array[0..N_ROW-1,0..N_COL-1] of OkPieces;
+    g_islandInfo:array[0..MAX_ISLAND_OFFSET-1] of islandinfo;
+    g_nIslandInfo:cardinal=0;
+    cache:array[0..1024*128-1] of cacherec;
+
+    m_curSoln,m_minSoln,m_maxSoln:Soln;
+    m_nSoln:cardinal;
+
+const basevecs:array [0..9] of bitvec= (
+        [0,1,2,3,8],
+        [0,1,3,6,7],
+        [0,1,2,7,12],
+        [0,1,2,5,10],
+        [0,2,5,6,10],
+        [0,1,2,6,7],
+        [0,1,5,10,15],
+        [0,1,2,5,7],
+        [0,1,2,7,8],
+        [0,1,2,3,7]
+      );
+
+
+constructor soln.init(fillval:byte);
+
+begin
+  fill(fillval);
+end;
+
+procedure Soln.fill(value:byte);
+
+begin
+   m_synched:=false;
+   fillchar(m_cells,N_CELL,value);
+end;
+
+function soln.isEmpty:boolean;
+
+begin
+  isempty:=m_nPiece=0;
+end;
+
+procedure soln.pushPiece(Avec:bitvec;AiPiece:piecenr;Arow:byte);
+
+begin
+  with m_pieces[m_npiece] do
+    begin
+      vec:=Avec;
+      iPiece:=AiPiece;
+      row:=Arow;
+    end;
+  inc(m_npiece);
+end;
+
+procedure soln.popPiece;inline;
+
+begin
+  dec(m_nPiece);
+  m_synched := false;
+end;
+
+procedure soln.write(var f:text);
+
+var x,y:byte;
+
+begin
+  for y:=0 to N_ROW-1 do
+    begin
+      {indent every second line}
+      if y mod 2=1 then
+        system.write(f,' ');
+      for x:=0 to N_COL-1 do
+        if m_cells[y,x]=no_piece then
+          system.write(f,'. ')
+        else
+          system.write(f,char(byte('0')+m_cells[y,x]),' ');
+      writeln(f);
+    end;
+end;
+
+
+procedure Soln.setCells;
+
+var c,i,x,y,newcells:byte;
+
+begin
+   if m_synched then
+     exit;
+   for i:=1 to m_nPiece do
+     with m_pieces[i-1] do
+       begin
+         newcells:=0;
+         c:=0;
+         for y:=row to N_ROW do
+           begin
+             for x:=0 to N_COL-1 do
+               begin
+                 if c in vec then
+                   begin
+                     m_cells[y,x]:=ipiece;
+                     inc(NewCells);
+                   end;
+                 inc(c);
+               end;
+             if NewCells=N_ELEM then
+               break;
+           end;
+       end;
+   m_synched:=true;
+end;
+
+function Soln.lessThan(var r:Soln):boolean;
+
+var x,y,lval,rval:byte;
+
+begin
+   if m_pieces[0].iPiece<>r.m_pieces[0].iPiece then
+     begin
+       lessthan:=m_pieces[0].iPiece < r.m_pieces[0].iPiece;
+       exit;
+     end;
+
+   setCells();
+   r.setCells();
+
+   for y:=0 to N_ROW-1 do
+      for x:=0 to N_COL-1 do
+        begin
+         lval:=m_cells[y,x];
+         rval:=r.m_cells[y,x];
+
+         if lval <> rval then
+           begin
+             lessthan:=lval<rval;
+             exit;
+           end;
+        end;
+
+   lessthan:=false; {solutions are equal}
+end;
+
+procedure Soln.spin(var spun:Soln);
+
+var x,y:byte;
+
+begin
+   setCells;
+   {swap cells}
+   for y:=0 to N_ROW-1 do
+      for x:=0 to N_COL-1 do
+        spun.m_cells[y,x]:=m_cells[N_ROW-y-1,N_COL-x-1];
+
+   {swap first and last pieces (the rest aren't used)}
+   spun.m_pieces[0].iPiece:=m_pieces[N_PIECE_TYPE-1].iPiece;
+   spun.m_synched:=true;
+end;
+
+function floor(top,bot:longint):longint;
+
+begin
+   floor:=top div bot;
+   {negative numbers should be rounded down, not towards zero}
+   if (floor*bot<>top) and ((top<0) xor (bot<=0)) then
+      dec(floor);
+end;
+
+const s_firstOne:array[0..31] of byte=(
+   0, 0, 1, 0,   2, 0, 1, 0,
+   3, 0, 1, 0,   2, 0, 1, 0,
+
+   4, 0, 1, 0,   2, 0, 1, 0,
+   3, 0, 1, 0,   2, 0, 1, 0
+);
+
+function first_set_bit(v:bitvec):cardinal;inline;
+
+{$ifdef endian_little}
+const l=0;
+      h=1;
+{$else}
+const l=1;
+      h=0;
+{$endif}
+
+var d:double;
+    u:array[0..1] of bitvec absolute d;
+
+begin
+  first_set_bit:=0;
+  if v<>[] then
+    begin
+      u[l]:=v;
+      u[h]:=[30,25,24,21,20];
+      d:=d-4503599627370496;
+      first_set_bit:=cardinal(u[h]) shr 20-$3ff;
+    end;
+end;
+
+function count_ones(v:bitvec):cardinal;inline;
+
+begin
+   count_ones:=0;
+   while v<>[] do
+     begin
+       inc(count_ones);
+       cardinal(v):=cardinal(v) and (cardinal(v)-1);
+     end;
+end;
+
+procedure setCoordList(vec:bitvec;var pts:Tpts);
+
+var iPt,n:longint;
+    x,y:byte;
+
+begin
+   iPt:=0;
+   n:=0;
+   for y:=0 to N_ROW-1 do
+     for x:=0 to N_COL-1 do
+       begin
+         if n in vec then
+           begin
+             pts[iPt,dimx]:=x;
+             pts[iPt,dimy]:=y;
+             inc(iPt);
+           end;
+         inc(n);
+         if n=32 then
+           exit;
+       end;
+end;
+
+function toBitVector(const pts:Tpts):bitvec;
+
+var x,y,iPt:byte;
+
+begin
+   tobitvector:=[];
+   for iPt:=low(pts) to high(pts) do
+     begin
+       x:=pts[iPt,dimx];
+       y:=pts[iPt,dimy];
+       include(tobitvector,y*N_COL+x);
+     end;
+end;
+
+procedure shiftUpLines(var pts:Tpts;shift:longint);
+
+var iPt:byte;
+
+begin
+   {vertical shifts have a twist}
+   for iPt:=low(pts) to high(pts) do
+     begin
+       if pts[iPt,dimy] and shift and 1<>0 then
+         inc(pts[iPt,dimx]);
+       dec(pts[iPt,dimy],shift);
+     end;
+end;
+
+function shiftToX0(var pts:Tpts;var Ainstance:instance;offsetRow:longint):shortint;
+
+var x,y,xmin,xmax,iPt,offset:shortint;
+
+begin
+   { .. determine shift}
+   xMin:=pts[0,dimx];
+   xMax:=xMin;
+   for iPt:=low(pts)+1 to high(pts) do
+     begin
+       x:=pts[iPt,dimx];
+       y:=pts[iPt,dimy];
+       if x<xMin then
+         xMin:=x
+       else if x > xMax then
+         xMax:=x;
+     end;
+
+   offset:=N_ELEM;
+   for iPt:=low(pts) to high(pts) do
+     begin
+      dec(pts[iPt,dimx],xMin);
+      {check offset -- leftmost cell on top line}
+      if (pts[iPt,dimy]=offsetRow) and (pts[iPt,dimx]<offset) then
+         offset:=pts[iPt,dimx];
+   end;
+
+   Ainstance.m_offset := offset;
+   Ainstance.m_vec := toBitVector(pts);
+   shifttox0:=xMax - xMin;
+end;
+
+function badregion(var to_fill:bitvec;rnew:bitvec):boolean;
+
+var region,even_region,odd_region:bitvec;
+    cell_count:cardinal;
+
+begin
+   {Grow empty region, until it doesn't change any more.}
+   repeat
+      region:=rnew;
+      even_region:=region*(ROW_0_MASK*([0..31]-L_EDGE_MASK));
+      odd_region:=region*(ROW_1_MASK*([0..31]-R_EDGE_MASK));
+
+      rnew:=to_fill*(rnew
+                    {simple grow up/down}
+                    +bitvec(cardinal(region) shr N_COL)
+                    +bitvec(cardinal(region) shl N_COL)
+                    {grow right/left}
+                    +bitvec(cardinal(region) and not cardinal(L_EDGE_MASK) shr 1)
+                    +bitvec(cardinal(region) and not cardinal(R_EDGE_MASK) shl 1)
+                    {tricky growth}
+                    +bitvec(cardinal(even_Region) shr (N_COL+1))
+                    +bitvec(cardinal(even_Region) shl (N_COL-1))
+                    +bitvec(cardinal(odd_Region) shr (N_COL-1))
+                    +bitvec(cardinal(odd_Region) shl (N_COL+1))
+                    );
+   until (rnew=to_fill) or (rnew=region);
+
+   {Subtract empty region from board.}
+   to_fill:=to_fill-rnew;
+
+   cell_count:=count_ones(to_fill);
+   {Optimize 'cell_count mod 5<>0' by hand...}
+   badregion:=cell_count<>((cell_count*$cccd) shr 18)*5;
+end;
+
+function has_bad_islands_single(boardVec:bitvec;row:longint):boolean;
+
+var tofill,startregion,bmask:bitvec;
+    isodd:boolean;
+
+begin
+   tofill:=[0..31]-boardvec;
+   isOdd:=row and 1<>0;
+   if isOdd then
+     begin
+       dec(row);
+       toFill:=bitvec(cardinal(tofill) shl N_COL); {shift to even aligned}
+       toFill:= tofill + TOP_ROW;
+     end;
+
+   startRegion := TOP_ROW;
+   bMask := BOARD_MASK; {all but the first two bits}
+   if row>=4 then
+      cardinal(bMask):=cardinal(bmask) shr ((row-4)*N_COL)
+   else if isOdd or (row = 0) then
+      startRegion := LAST_ROW;
+
+   toFill:=tofill*bMask;
+   startRegion:=startregion*toFill;
+
+   has_bad_islands_single:=true;
+   while toFill<>[] do
+     begin
+       if badRegion(toFill, startRegion) then
+         exit;
+       startRegion:=[first_set_bit(toFill)];
+     end;
+   has_bad_islands_single:=false;
+end;
+
+
+procedure piece.set_ok_positions(isOdd:parity;w,h:longint);
+
+var x,y,xpos,pos:byte;
+
+begin
+   pos:=byte(isodd)*N_COL;
+   with m_instance[isOdd] do
+     begin
+       m_allowed:=[];
+       y:=byte(isOdd);
+       while y<N_ROW-h do
+         begin
+           if m_offset<>0 then
+             inc(pos,m_offset);
+           for xPos:=0 to N_COL-1-m_offset do
+             begin
+               {check if the new position is on the board}
+               if (xPos<N_COL-w) and not has_bad_islands_single(bitvec(cardinal(m_vec) shl xPos),y) then
+                 begin
+                   {position is allowed}
+                   include(m_allowed,pos);
+                 end;
+               inc(pos);
+             end;
+           y:=y+2;
+           {Skip row with wrong parity:}
+           inc(pos,N_COL);
+         end;
+   end;
+end;
+
+procedure gen_orientation(vec:bitvec;iOrient:cardinal;var target:Piece);
+
+var pts:Tpts;
+    x,y,ymin,ymax,h,w:shortint;
+    rot,iPt:byte;
+    flip:boolean;
+
+begin
+   {get (x,y) coordinates}
+   setCoordList(vec, pts);
+
+   rot := iOrient mod 6;
+   flip := iOrient >= 6;
+   if flip then
+     for iPt:=0 to N_ELEM-1 do
+       pts[iPt,dimy]:=-pts[iPt,dimy];
+
+   {rotate as necessary}
+   while rot>0 do
+     begin
+       for iPt:=0 to N_ELEM-1 do
+         begin
+           x:=pts[iPt,dimx];
+           y:=pts[iPt,dimy];
+           pts[iPt,dimx]:=floor(2*x-3*y+1,4);
+           pts[iPt,dimy]:=floor(2*x+y+1,2);
+         end;
+      dec(rot);
+   end;
+
+   {determine vertical shift}
+   yMin := pts[0,dimy];
+   yMax := yMin;
+   for iPt:= 1 to N_ELEM-1 do
+     begin
+       y := pts[iPt,dimy];
+
+       if y < yMin then
+         yMin := y
+       else if y > yMax then
+         yMax := y;
+     end;
+   h:=yMax-yMin;
+
+   shiftUpLines(pts, yMin);
+   w := shiftToX0(pts, target.m_instance[EVEN], 0);
+   target.set_ok_positions(EVEN, w, h);
+   cardinal(target.m_instance[EVEN].m_vec) := cardinal(target.m_instance[EVEN].m_vec) shr target.m_instance[EVEN].m_offset;
+
+   {shift down one line}
+   shiftUpLines(pts, -1);
+   w := shiftToX0(pts, target.m_instance[ODD], 1);
+   {shift the bitmask back one line}
+   cardinal(target.m_instance[ODD].m_vec) :=cardinal(target.m_instance[ODD].m_vec) shr N_COL;
+   target.set_ok_positions(ODD, w, h);
+   cardinal(target.m_instance[ODD].m_vec):= cardinal(target.m_instance[ODD].m_vec) shr target.m_instance[ODD].m_offset;
+end;
+
+function getPiece(iPiece,iOrient:cardinal;iParity:parity):instance;inline;
+
+begin
+  getpiece:=s_basePiece[iPiece][iOrient].m_instance[iParity];
+end;
+
+procedure gen_all_orientations;
+
+var ipiece:piecenr;
+    iorient:orientation;
+    irow,icol:byte;
+    refpiece:bitvec;
+    n,npiece:byte;
+
+begin
+   for iPiece:=low(ipiece) to high(ipiece) do
+     begin
+       refPiece:=BaseVecs[iPiece];
+       for iOrient:=low(iorient) to high(iorient) do
+         begin
+           gen_orientation(refPiece, iOrient, s_basePiece[iPiece,iOrient]);
+           with s_basePiece[iPiece,iOrient] do
+             begin
+               if (iPiece=SKIP_PIECE) and (iOrient in [3..5,9..11]) then
+                 begin
+                   m_instance[odd].m_allowed := [];
+                   m_instance[even].m_allowed := [];
+                 end;
+             end;
+         end;
+     end;
+
+   for iPiece:=low(ipiece) to high(ipiece) do
+     begin
+      for iOrient:=low(iorient) to high(iorient) do
+        begin
+         n:=0;
+         for iRow:=0 to N_ROW-1 do
+           begin
+            with getPiece(iPiece, iOrient, parity(iRow and 1)) do
+              for iCol:=0 to N_COL-1 do
+                begin
+                  if n in m_allowed then
+                    begin
+                      nPiece:=g_okPieces[iRow,iCol].nPieces[iPiece];
+                      g_okPieces[iRow,iCol].pieceVec[iPiece,nPiece]:=bitvec(cardinal(m_vec) shl iCol);
+                      inc(g_okPieces[iRow,iCol].nPieces[iPiece]);
+                    end;
+                  inc(n);
+                end;
+          end
+      end
+   end
+end;
+
+procedure init_board;
+
+begin
+  m_cursoln.init(NO_PIECE);
+  m_minsoln.init(NO_PIECE);
+  m_maxsoln.init(NO_PIECE);
+  m_nsoln:=0;
+end;
+
+const g_firstRegion:array[0..31] of bitvec=(
+        [],      [0],      [1],       [0,1],
+        [2],     [0],      [1,2],     [0,1,2],
+        [3],     [0],      [1],       [0,1],
+        [2,3],   [0],      [1,2,3],   [0,1,2,3],
+        [4],     [0],      [1],       [0,1],
+        [2],     [0],      [1,2],     [0,1,2],
+        [3,4],   [0],      [1],       [1,2],
+        [2,3,4], [0],      [1,2,3,4], [0,1,2,3,4]
+);
+
+function calc_bad_islands(boardVec:bitvec;row:longint):goodbad;
+
+var tofill,boardmask,bottom,startregion:bitvec;
+    filled:boolean;
+
+begin
+   toFill:=[0..31]-boardVec;
+   {Compensate for odd rows.}
+   if row and 1<>0 then
+     begin
+       dec(row);
+       cardinal(toFill):=cardinal(tofill) shl N_COL;
+     end;
+
+   boardMask := BOARD_MASK; {all but the first two bits}
+   if row>4 then
+      cardinal(boardMask):=cardinal(boardmask) shr ((row-4)*N_COL);
+   toFill:=tofill*boardMask;
+
+   {a little pre-work to speed things up}
+   filled:=toFill*LAST_ROW=LAST_ROW;
+   bottom:=LAST_ROW;
+   while bottom*toFill=bottom do
+     begin
+       toFill:=tofill-bottom;
+       cardinal(bottom):=cardinal(bottom) shr N_COL;
+     end;
+
+   if filled or (row<4) then
+      startRegion := bottom * toFill
+   else
+     begin
+       startRegion := g_firstRegion[cardinal(toFill*TOP_ROW)];
+       if startRegion=[] then
+          begin
+            startRegion := bitvec(cardinal(toFill) shr N_COL)*TOP_ROW;
+            startRegion := g_firstRegion[cardinal(startRegion)];
+            cardinal(startRegion) := cardinal(startregion) shl N_COL;
+          end;
+        startRegion:=startregion+bitvec(cardinal(startRegion) shl N_COL)*toFill;
+     end;
+
+   while toFill<>[] do
+     begin
+       if badRegion(toFill, startRegion) then
+          begin
+            if toFill<>[] then
+              calc_bad_islands:=ALWAYS_BAD
+            else
+              calc_bad_islands:=BAD;
+            exit;
+          end;
+       startRegion := [first_set_bit(toFill)];
+     end;
+
+   calc_bad_islands:=GOOD;
+end;
+
+
+function has_bad_islands(boardvec:bitvec;row:longint):goodbad;
+
+var last_row:bitvec;
+    isodd:parity;
+    isclosed:fixed;
+
+begin
+   {skip over any filled rows}
+   while boardVec*TOP_ROW=TOP_ROW do
+     begin
+       cardinal(boardVec):=cardinal(boardvec) shr N_COL;
+       inc(row);
+     end;
+
+   has_bad_islands:=bad;
+   with g_islandInfo[cardinal(boardvec*(TOP_ROW+SECOND_ROW))] do
+     begin
+       last_row:=bitvec(cardinal(boardvec) shr (2*N_COL))*TOP_ROW;
+       isOdd:=parity(row and 1);
+
+       if not(cardinal(last_row) in alwaysBad[parity(row and 1)]) then
+         if boardVec*bitvec(cardinal(cardinal(TOP_ROW) shl N_COL*3))=[] then
+           begin
+             isClosed:=fixed(row>6); {because we track 3 rows}
+               if not(cardinal(last_row) in is_known[isClosed,isOdd]) then
+                 if boardVec<>[] then
+                   begin
+                     has_bad_islands:=calc_bad_islands(boardvec,row);
+                     include(is_known[isClosed,isOdd],cardinal(last_row));
+                     if has_bad_islands<>good then
+                       include(is_known[isClosed,isOdd],cardinal(last_row));
+                   end
+                 else
+                   has_bad_islands:=good
+               else
+                 if not(cardinal(last_row) in has_bad[isClosed,isOdd]) then
+                   has_bad_islands:=good;
+           end
+         else
+           has_bad_islands:=calc_bad_islands(boardvec,row);
+     end;
+end;
+
+const g_flip:array[0..31] of bitvec=(
+        [],        [4],        [3],        [3,4],
+        [2],       [2,4],      [2,3],      [2,3,4],
+        [1],       [1,4],      [1,3],      [1,3,4],
+        [1,2],     [1,2,4],    [1,2,3],    [1,2,3,4],
+        [0],       [0,4],      [0,3],      [0,3,4],
+        [0,2],     [0,2,4],    [0,2,3],    [0,2,3,4],
+        [0,1],     [0,1,4],    [0,1,3],    [0,1,3,4],
+        [0,1,2],   [0,1,2,4],  [0,1,2,3],  [0,1,2,3,4]
+);
+
+function flipTwoRows(bits:bitvec):bitvec;inline;
+
+var flipped:cardinal;
+
+begin
+   flipped:=cardinal(g_flip[cardinal(bits) shr N_COL]) shl N_COL;
+   fliptworows:=bitvec(flipped or cardinal(g_flip[cardinal(bits*TOP_ROW)]));
+end;
+
+procedure mark_bad(var info:IslandInfo;n:byte;eo:parity;always:boolean);inline;
+
+begin
+  with info do
+   begin
+     include(has_bad[OPEN,eo],n);
+     include(has_bad[CLOSED,eo],n);
+
+     if always then
+       include(alwaysBad[eo],n);
+   end;
+end;
+
+procedure calc_always_bad;
+
+var i,iWord:cardinal;
+    boardvec:bitvec;
+    hasbad:goodbad;
+    always:boolean;
+    flipped:^islandinfo;
+
+begin
+   for iWord:=1 to MAX_ISLAND_OFFSET-1 do
+     begin
+      flipped := @g_islandInfo[cardinal(flipTwoRows(bitvec(iWord)))];
+      for i:=0 to 31 do
+        begin
+          boardvec:=bitvec((i shl (2*N_COL)) or iWord);
+          if not(i in g_islandInfo[iWord].is_known[OPEN,EVEN]) then
+            begin
+              hasBad:=calc_bad_islands(boardvec,0);
+              if hasBad<>good then
+                begin
+                 always:=hasBad=ALWAYS_BAD;
+                 mark_bad(g_islandInfo[iWord], i, EVEN, always);
+                 mark_bad(flipped^,cardinal(g_flip[i]), ODD, always);
+              end;
+            end;
+      end;
+      flipped^.is_known[OPEN,odd]:=[0..31];
+      g_islandInfo[iWord].is_known[OPEN,even]:=[0..31];
+   end
+end;
+
+procedure record_solution(var s:Soln);
+
+var spun:soln;
+
+begin
+   s.setcells;
+   inc(m_nSoln,2); {add solution and its rotation}
+
+   if m_minSoln.isEmpty then
+     begin
+       m_minSoln := s;
+       m_maxSoln := s;
+       exit;
+     end;
+
+   if s.lessThan(m_minSoln) then
+      m_minSoln := s
+   else if m_maxSoln.lessThan(s) then
+      m_maxSoln := s;
+
+   s.spin(spun);
+   if spun.lessThan(m_minSoln) then
+      m_minSoln := spun
+   else if m_maxSoln.lessThan(spun) then
+      m_maxSoln := spun;
+end;
+
+function gen_all_solutions(boardVec,placedPieces:bitvec;row:byte):cardinal;
+
+var ipiece:piecenr;
+    iorient:byte;
+    piece:bitvec;
+
+begin
+   while boardVec*TOP_ROW=TOP_ROW do
+     begin
+       cardinal(boardVec):=cardinal(boardvec) shr N_COL;
+       inc(row);
+     end;
+   gen_all_solutions:=0;
+   with cache[((cardinal(boardvec)*
+              (cardinal(placedpieces) {shl 3} + 1)
+              xor row shl 5)) mod 131071] do
+     if (krow<>row) or (bitvec(cardinal(kpiecevec))<>placedpieces) or (kboardvec<>boardvec) then
+       begin
+         with g_okpieces[row,s_firstOne[cardinal([0..N_COL-1]-boardVec)]] do
+           for ipiece:=0 to N_PIECE_TYPE-1 do
+             if not(ipiece in placedpieces) then
+               for iorient:=1 to npieces[ipiece] do {start with 1, npieces[x] can be zero}
+                 begin
+                   piece:=pieceVec[iPiece,iOrient-1];
+                   {check if piece conflicts with other pieces or if we get a bad island.}
+                   if (piece*boardVec=[]) and (has_bad_islands(boardVec+piece,row)=good) then
+                     begin
+                       m_curSoln.pushPiece(piece,iPiece,row);
+                       {recurse or record solution}
+                       if placedPieces+[ipiece]<>ALL_PIECE_MASK then
+                         inc(gen_all_solutions,gen_all_solutions(boardVec+piece,placedPieces+[ipiece],row))
+                       else
+                         begin
+                           record_solution(m_curSoln);
+                           inc(gen_all_solutions);
+                         end;
+                       m_curSoln.popPiece();
+                     end;
+                end;
+         if gen_all_solutions=0 then
+           begin
+             krow:=row;
+             kpiecevec:=word(cardinal(placedpieces));
+             kboardvec:=boardvec;
+           end;
+      end;
+end;
+
+begin
+   if paramcount > 2 then
+     halt(1); {spec says this is an error}
+
+   textrec(output).flushfunc:=nil;
+
+   gen_all_orientations;
+   calc_always_bad;
+   init_board;
+   filldword(cache,sizeof(cache) shr 2,$ffffffff);
+   gen_all_solutions([], [], 0);
+
+   writeln(m_nSoln,' solutions found');
+   writeln;
+   m_minSoln.write(output);
+   writeln;
+   m_maxSoln.write(output);
+   writeln;
+end.
+program methcall;
+{$MODE objfpc} 
+
+uses SysUtils;
+
+type TToggle = class 
+	private
+		value : boolean;
+
+	public
+		property Bool : boolean read value write value;
+		procedure Activate;
+end;	
+
+type TNthToggle = class 
+	constructor Create;
+	private
+		value : boolean;
+		counter : integer;
+		cmax : integer;
+	public
+		property CountMax : integer read cmax write cmax;
+		property Bool : boolean read value write value;
+		procedure Activate;
+end;
+
+constructor TNthToggle.Create;
+begin
+	counter := 0;
+end;
+
+procedure TToggle.Activate;
+begin
+	if value = True Then
+		value := False
+	else
+		value := True;
+end;
+
+procedure TNthToggle.Activate;
+begin
+	counter := counter + 1;
+	if counter >= cmax Then begin
+		if value = True Then
+			value := False
+		Else
+			value := True;
+		counter := 0;
+	end;
+end;
+
+
+var 
+	NUM, i : longint;
+	val : boolean;
+	oToggle : TToggle;
+	onToggle : TNthToggle;
+begin
+	if ParamCount = 0 then
+		NUM := 1
+	else
+		NUM := StrToInt(ParamStr(1));
+		
+	if NUM < 1 then NUM := 1;
+
+	val := True;
+	oToggle := TToggle.Create;	
+	oToggle.Bool := val;
+	For i := 1 to NUM do
+	begin
+		oToggle.Activate;
+		val := oToggle.Bool;
+	end;
+	If val = True Then
+		WriteLn('true')
+	else
+		WriteLn('false');
+
+	val := True;
+	onToggle := TNthToggle.Create;
+	onToggle.Bool := val;
+	onToggle.CountMax := 3;
+	For i := 1 to NUM do
+	begin
+		onToggle.Activate;
+		val := onToggle.Bool;
+	end;
+	If val = True Then
+		WriteLn('true')
+	else
+		WriteLn('false');
+end.
+Program moments;
+uses SysUtils, Classes; 
+
+function Power(Base : Real ; Exponent: Integer): Real;
+var i : integer;
+var pow : real;
+begin
+	pow := Base;
+	For i:= 2 To Exponent do pow := pow * Base;
+	Power := pow;
+end;
+
+function Compare(A, B : Pointer) : longint;
+begin
+	if A > B then
+		Compare := 1
+	else if A < B Then
+		Compare := -1
+	else
+		Compare := 0;
+end;
+
+
+var
+	i, N, sum, num, middle : longint;
+	list : TList;
+	median, mean, deviation, 
+	average_deviation, standard_deviation, 
+	variance, skew, kurtosis : real;
+begin
+	list := TList.Create;
+	While Not Eof(input) do
+	begin
+		Readln(input, num);
+		list.Add( Pointer(num) );
+	end;	
+	N := list.Count;
+	For i := 0 To N-1 do Inc(sum, longint(list.Items[i]));
+	mean := sum / N;
+	average_deviation := 0;
+	standard_deviation := 0;
+	variance := 0;
+	skew := 0;
+	kurtosis := 0;
+
+	For i := 0 To N-1 do
+	begin
+		deviation := longint(list.Items[i]) - mean;
+		average_deviation := average_deviation + Abs(deviation);
+		variance := variance + Power(deviation, 2);
+		skew := skew + Power(deviation, 3);
+		kurtosis := kurtosis + Power(deviation, 4);
+		{ WriteLn( deviation:6:6, ', ', Power(deviation, 2):6:6, ', ', Power(deviation, 3):6:6, ', ', Power(deviation, 4):6:6); }
+	end;
+	average_deviation := average_deviation / N;
+	variance := variance / (N-1);
+	standard_deviation := Sqrt(variance);
+	{ WriteLn('skew:               ', skew:6:6); }
+
+	If variance <> 0 Then
+	begin
+		skew := skew / (N * variance * standard_deviation);
+		kurtosis := kurtosis / (N * variance * variance ) - 3.0;
+	end;
+
+	list.Sort(@Compare);
+	
+
+	middle := N Div 2;
+
+	If (N Mod 2) <> 0 Then
+		median := longint(list.Items[middle])
+	Else
+		median := (longint(list.Items[middle]) + longint(list.Items[middle-1])) / 2;
+
+
+	WriteLn('n:                  ', N);
+	WriteLn('median:             ', median:6:6);
+	WriteLn('mean:               ', mean:6:6);
+	WriteLn('average_deviation:  ', average_deviation:6:6);
+	WriteLn('standard_deviation: ', standard_deviation:6:6);
+	WriteLn('variance:           ', variance:6:6);
+	WriteLn('skew:               ', skew:6:6);
+	WriteLn('kurtosis:           ', kurtosis:6:6);
+end.
+{ The Computer Language Benchmarks Game
+  http://shootout.alioth.debian.org
+
+  contributed by Ian Osgood,
+  modified by Florian Klaempfl
+  modified by Ales Katona
+  modified by Vincent Snijders
+}
+
+{$mode objfpc}
+
+program n_body;
+
+uses Math;
+
+type
+  Body = record
+    x, y, z,
+    vx, vy, vz,
+    mass : double;
+  end;
+  PBody = ^Body;
+
+const pi = 3.141592653589793;
+      solarMass = 4 * sqr(pi);
+      daysPerYear = 365.24;
+
+type
+  tbody = array[1..5] of Body;
+
+const b : tbody = (
+  { Sun }
+  ( x:0; y:0; z:0;  vx:0; vy:0; vz:0;  mass: solarMass ),
+  { Jupiter }
+  ( x:    4.84143144246472090e+00;
+    y:   -1.16032004402742839e+00;
+    z:   -1.03622044471123109e-01;
+    vx:   1.66007664274403694e-03 * daysPerYear;
+    vy:   7.69901118419740425e-03 * daysPerYear;
+    vz:  -6.90460016972063023e-05 * daysPerYear;
+    mass: 9.54791938424326609e-04 * solarMass ),
+  { Saturn }
+  ( x:    8.34336671824457987e+00;
+    y:    4.12479856412430479e+00;
+    z:   -4.03523417114321381e-01;
+    vx:  -2.76742510726862411e-03 * daysPerYear;
+    vy:   4.99852801234917238e-03 * daysPerYear;
+    vz:   2.30417297573763929e-05 * daysPerYear;
+    mass: 2.85885980666130812e-04 * solarMass ),
+  { Uranus }
+  ( x:    1.28943695621391310e+01;
+    y:   -1.51111514016986312e+01;
+    z:   -2.23307578892655734e-01;
+    vx:   2.96460137564761618e-03 * daysPerYear;
+    vy:   2.37847173959480950e-03 * daysPerYear;
+    vz:  -2.96589568540237556e-05 * daysPerYear;
+    mass: 4.36624404335156298e-05 * solarMass ),
+  { Neptune }
+  ( x:    1.53796971148509165e+01;
+    y:   -2.59193146099879641e+01;
+    z:    1.79258772950371181e-01;
+    vx:   2.68067772490389322e-03 * daysPerYear;
+    vy:   1.62824170038242295e-03 * daysPerYear;
+    vz:  -9.51592254519715870e-05 * daysPerYear;
+    mass: 5.15138902046611451e-05 * solarMass )
+);
+
+procedure offsetMomentum;
+var px,py,pz : double;
+    i : integer;
+begin
+  px:=0.0; py:=0.0; pz:=0.0;
+  for i := low(b)+1 to high(b) do
+    with b[i] do
+    begin
+      px := px - vx * mass;
+      py := py - vy * mass;
+      pz := pz - vz * mass;
+    end;
+  b[low(b)].vx := px / solarMass;
+  b[low(b)].vy := py / solarMass;
+  b[low(b)].vz := pz / solarMass;
+end;
+
+function distance(i,j : integer) : double;
+begin
+  distance := sqrt(sqr(b[i].x-b[j].x) + sqr(b[i].y-b[j].y) +
+sqr(b[i].z-b[j].z));
+end;
+
+function energy : double;
+var
+  i,j : integer;
+begin
+  result := 0.0;
+  for i := low(b) to high(b) do
+    with b[i] do
+    begin
+      result := result + mass * (sqr(vx) + sqr(vy) + sqr(vz)) / 2;
+      for j := i+1 to high(b) do
+        result := result - mass * b[j].mass / distance(i,j);
+    end;
+end;
+
+procedure advance(dt : double);
+var i,j : integer;
+    dx,dy,dz,mag : double;
+    bi,bj : PBody;
+begin
+  bi:=@b[low(b)];
+  for i := low(b) to high(b)-1 do begin
+    bj := bi;
+    for j := i+1 to high(b) do
+    begin
+      inc(bj);
+      dx := bi^.x - bj^.x;
+      dy := bi^.y - bj^.y;
+      dz := bi^.z - bj^.z;
+      mag := dt / (sqrt(sqr(dx)+sqr(dy)+sqr(dz))*(sqr(dx)+sqr(dy)+sqr(dz)));
+      bi^.vx := bi^.vx - dx * bj^.mass * mag;
+      bi^.vy := bi^.vy - dy * bj^.mass * mag;
+      bi^.vz := bi^.vz - dz * bj^.mass * mag;
+      bj^.vx := bj^.vx + dx * bi^.mass * mag;
+      bj^.vy := bj^.vy + dy * bi^.mass * mag;
+      bj^.vz := bj^.vz + dz * bi^.mass * mag;
+    end;
+    inc(bi);
+  end;
+  bi:=@b[low(b)];
+  for i := low(b) to high(b) do begin
+    with bi^ do
+    begin
+      x := x + dt * vx;
+      y := y + dt * vy;
+      z := z + dt * vz;
+    end;
+    inc(bi);
+  end;
+end;
+
+var i : integer;
+    n : Integer;
+begin
+  SetPrecisionMode(pmDouble);
+  offsetMomentum;
+  writeln(energy:0:9);
+  Val(ParamStr(1), n, i);
+  for i := 1 to n do advance(0.01);
+  writeln(energy:0:9);
+end.
+program nestedloop;
+uses SysUtils; 
+
+var n, a, b, c, d, e, f : integer;
+var x : longint;
+
+begin
+	if ParamCount = 0 then
+		n := 1
+	else
+		n := StrToInt(ParamStr(1));
+	if n < 1 then n := 1;
+	x := 0;
+	For a := 1 to n Do
+	For b := 1 to n Do
+	For c := 1 to n Do
+	For d := 1 to n Do
+	For e := 1 to n Do
+	For f := 1 to n Do
+	Inc(x);
+	WriteLn( IntToStr(x) );
+end.
+{ The Computer Language Shootout
+  http://shootout.alioth.debian.org
+
+  contributed by Joost van der Sluis
+}
+
+program nsieve;
+
+{$mode fpc}{$I-}
+
+var
+  n : longint;
+
+procedure primes(n : longint); inline;
+var
+  flags: PBoolean;
+  size,i,j,count : longint;
+begin
+  size := 10000 shl n;
+  flags := getmem(size+1);
+  fillchar(flags^,memsize(flags),true);
+  count := 0;
+  for i := 2 to size do
+    if flags[i] then
+    begin
+      inc(count);
+      j := i + i;
+      while j <= size do begin
+        flags[j] := false;
+        inc(j, i);
+      end;
+    end;
+  writeln('Primes up to', size:9, count:9);
+  freemem(flags);
+end;
+
+begin
+  val(ParamStr(1), n);
+  primes(n);
+  primes(n-1);
+  primes(n-2);
+end.
+{ The Computer Language Shootout
+  http://shootout.alioth.debian.org
+  contributed by Daniël Mantione
+}
+
+program nsievebits;
+
+const bpc=sizeof(sizeuint)*8;
+
+type sizeset=set of 0..bpc-1;
+
+var  count:cardinal;
+     data:^sizeset;
+
+procedure primes(size:cardinal);
+
+var prime,i:cardinal;
+
+begin
+  fillchar(data^,(size+bpc) div 8,0);
+  count:=0;
+  for prime:=2 to size do
+    if not((prime and (bpc-1)) in data[prime div bpc]) then
+      begin
+        inc(count);
+        i:=2*prime;
+        while i<=size do
+          begin
+            include(data[i div bpc],i and (bpc-1));
+            i:=i+prime;
+          end;
+      end;
+  writeln('Primes up to',size:9,count:9);
+end;
+
+var n,size:cardinal;
+
+begin
+  val(paramstr(1),n);
+  size:=10000 shl n;
+  getmem(data,(size+bpc) div 8);
+  primes(size);
+  primes(size shr 1);
+  primes(size shr 2);
+  dispose(data);
+end.
+{ The Great Computer Language Shootout
+  http://shootout.alioth.debian.org 
+
+  contributed by Joost van der Sluis
+}
+
+program nsieveBits;
+uses SysUtils;
+
+const bpc = SizeOf(cardinal) * 8;
+
+procedure primes(n : integer);
+var size,count,prime,i : longint;
+    flags : array of cardinal;
+
+  function IsSet(i : longword) : boolean; inline;
+  var offset : longint; mask : cardinal;
+  begin
+    offset := i div bpc;
+    mask   := 1 shl (i mod bpc);
+    IsSet := (flags[offset] and mask) <> 0;
+  end;
+
+  procedure Clear(i : longword); inline;
+  var offset : longint; mask : cardinal;
+  begin
+    offset := i div bpc;
+    mask   := 1 shl (i mod bpc);
+    if ((flags[offset] and mask) <> 0) then flags[offset] := flags[offset] and not mask;
+  end;
+
+begin
+  size := 10000 shl n;
+  SetLength(flags, size div bpc + 1);
+  filldword(flags[0],length(flags),high(cardinal));
+
+  count := 0;
+  for prime := 2 to size do
+    if IsSet(prime) then
+    begin
+      count := count + 1;
+      i := prime + prime;
+      while i <= size do
+      begin
+        Clear(i);
+        i := i + prime;
+      end;
+    end;
+  writeln('Primes up to', size:9, count:9);
+end;
+
+var n : integer;
+begin
+  n := StrToInt(paramstr(1));
+  primes(n);
+  primes(n-1);
+  primes(n-2);
+end.
+{ The Great Computer Language Shootout
+  http://shootout.alioth.debian.org
+
+  contributed by Ian Osgood,
+  changed by Ales Katona with help from Florian Klaempfl
+}
+
+{$mode objfpc}
+program objects;
+
+type
+  TToggle = object
+    value : boolean;
+    constructor Create(const b : boolean);
+    function Activate : boolean; inline;
+  end;
+  
+  TNthToggle = object(TToggle)
+    counter, maxCounter : integer;
+    constructor Create(const b : boolean; const max : integer);
+    function Activate : boolean; inline;
+  end;
+
+
+constructor TToggle.Create(const b : boolean);
+begin
+  value := b;
+end;
+
+function TToggle.Activate : boolean; inline;
+begin
+  value := not value;
+  Activate := value;
+end;
+
+
+
+constructor TNthToggle.Create(const b : boolean; const max : integer);
+begin
+  inherited Create(b);
+  maxCounter := max;
+  counter := 0;
+end;
+
+function TNthToggle.Activate : boolean; inline;
+begin
+  Inc(counter);
+  if counter >= maxCounter then
+  begin
+    value := not value;
+    counter := 0;
+  end;
+  Activate := value;
+end;
+
+const boolStr : array[boolean] of shortstring = ( 'false', 'true' );
+
+var n,i : integer;
+    t1 : TToggle;
+    nt1 : TNthToggle;
+begin
+  Val(ParamStr(1), n, i);
+  t1.Create(True);
+  for i := 1 to 5 do writeln(boolStr[t1.Activate]);
+  for i := 1 to n do t1.Create(true);
+  writeln;
+  nt1.Create(true,3);
+  for i := 1 to 8 do writeln(boolStr[nt1.Activate]);
+  for i := 1 to n do nt1.Create(true,3);
+end.
+(* The Computer Language Shootout
+   http://shootout.alioth.debian.org/
+   contributed by Josh Goldfoot *)
+
+program partialSums;
+
+uses SysUtils, Math;
+const
+   twoThirds = 2.0 / 3.0;
+var
+   n, code, k: longint;
+   sum1, sum2, sum3, sum4, sum5, sum6, sum7, sum8, sum9, k3, sink, cosk, a: double;
+
+begin
+   if paramCount() = 1
+      then Val (ParamStr (1),n,Code)
+      else n := 25000;
+   a := -1.0;
+   for k := 1 to n do
+   begin
+      k3 := intpower(k, 3);
+      sink := sin(k);
+      cosk := cos(k);
+      a := -a;
+      sum1 := sum1 + intpower(twoThirds,k - 1);
+      sum2 := sum2 + 1.0 /sqrt(k);
+      sum3 := sum3 + 1.0/(k*(k+1.0));
+      sum4 := sum4 + 1.0/(k3*(sink*sink));
+      sum5 := sum5 + 1.0/(k3*(cosk*cosk));
+      sum6 := sum6 + 1.0/k;
+      sum7 := sum7 + 1.0/intpower(k, 2);
+      sum8 := sum8 + a/k;
+      sum9 := sum9 + a/(k + k - 1.0 );
+   end;
+
+   writeLn(sum1:10:9, #9, '(2/3)^k');
+   writeLn(sum2:10:9, #9,'k^-0.5');
+   writeLn(sum3:10:9, #9,'1/k(k+1)');
+   writeLn(sum4:10:9, #9,'Flint Hills');
+   writeLn(sum5:10:9, #9,'Cookson Hills');
+   writeLn(sum6:10:9, #9,'Harmonic');
+   writeLn(sum7:10:9, #9,'Riemann Zeta');
+   writeLn(sum8:10:9, #9,'Alternating Harmonic');
+   writeLn(sum9:10:9, #9,'Gregory');
+end.
+(* The Computer Language Shootout
+   http://shootout.alioth.debian.org/
+   contributed by Daniël Mantione *)
+
+program partialsums;
+
+const twothirds=2/3;
+
+var sum1,sum2,sum3,sum4,sum5,sum6,sum7,sum8,sum9:double;
+    n: longint;
+
+function power(base,exponent:double):double;inline;
+
+const nan=0/0;
+
+begin
+  if exponent=0.0 then
+    if base<>0.0 then
+      power:=1.0
+    else
+      power:=nan
+  else if (base=0.0) and (exponent>0.0) then
+    power:=0.0
+  else if base>0.0 then
+    power:=exp(exponent*ln(base))
+  else
+    power:=nan;
+end;
+
+
+procedure calculate;
+
+var sink,cosk,a,k_inv:double;
+    k:longint;
+
+begin
+   sum1:=0;
+   sum2:=0;
+   sum3:=0;
+   sum4:=0;
+   sum5:=0;
+   sum6:=0;
+   sum7:=0;
+   sum8:=0;
+   sum9:=0;
+   a := -1.0;
+   for k := 1 to n do
+   begin
+      k_inv:=1/k;
+      sink := sin(k);
+      cosk := cos(k);
+      a := -a;
+      sum1 := sum1 + power(twothirds,k-1);
+      sum2 := sum2 + 1.0 /sqrt(k);
+      sum3 := sum3 + k_inv/(k+1);
+      sum4 := sum4 + k_inv*k_inv*k_inv/(sink*sink);
+      sum5 := sum5 + k_inv*k_inv*k_inv/(cosk*cosk);
+      sum6 := sum6 + k_inv;
+      sum7 := sum7 + k_inv*k_inv;
+      sum8 := sum8 + a*k_inv;
+      sum9 := sum9 + a/(k + k - 1.0 );
+   end;
+end;
+
+
+begin
+   if paramCount() = 1
+      then Val (ParamStr (1),n)
+      else n := 2500000;
+
+   calculate;
+
+   writeln(sum1:10:9, #9, '(2/3)^k');
+   writeln(sum2:10:9, #9,'k^-0.5');
+   writeln(sum3:10:9, #9,'1/k(k+1)');
+   writeln(sum4:10:9, #9,'Flint Hills');
+   writeln(sum5:10:9, #9,'Cookson Hills');
+   writeln(sum6:10:9, #9,'Harmonic');
+   writeln(sum7:10:9, #9,'Riemann Zeta');
+   writeln(sum8:10:9, #9,'Alternating Harmonic');
+   writeln(sum9:10:9, #9,'Gregory');
+end.
+{ The Computer Language Benchmarks Game
+  http://shootout.alioth.debian.org
+
+  contributed by Vincent Snijders
+}
+
+{$mode objfpc}
+
+
+program pidigits;
+
+type
+  { TBigInt }
+
+  PBigInt = ^TBigInt;
+
+  { TBigInt }
+
+  TBigInt = class
+  private
+    Digit: pdword;
+    FSize: integer;
+    Capacity: integer;
+    FNextFree: TBigInt; // used to maintain the freelist
+    procedure Clear;
+    procedure Resize(NewSize: integer);
+    function IsNegative: boolean; inline;
+    function IsZero: boolean; inline;
+    procedure Negate;
+  public
+    constructor Create(InitialSize: integer);
+    destructor Destroy; override;
+    function GetDigit(i: integer) : DWord; inline;
+  end;
+
+type
+  TBigMatrix = array[1..2,1..2] of TBigInt;
+  TIntMatrix = array[1..2,1..2] of integer;
+
+var
+  BigIntStack: PBigInt;
+  BigIntStackLen: integer;
+  BigIntTop: integer;
+  FirstFreeBigInt: TBigInt;
+
+{ BigInt memory management }
+
+procedure FreeBigInts;
+var
+  Next: TBigInt;
+begin
+  while assigned(FirstFreeBigInt) do begin
+    Next := FirstFreeBigInt.FNextFree;
+    FirstFreeBigInt.Free;
+    FirstFreeBigInt := Next;
+  end;
+end;
+
+function GetBigInt(Size: integer; DoClear: boolean = true) : TBigInt;
+var
+  Current, Previous: TBigInt;
+begin
+  if assigned(FirstFreeBigInt) then begin
+    Previous := nil;
+    Current := FirstFreeBigInt;
+    repeat
+      if (Current.Capacity>=Size) then begin
+        Result:=Current;
+        Result.FSize:= Size;
+        if DoClear then
+          Result.Clear;
+        if assigned(previous) then
+          Previous.FNextFree := Current.FNextFree
+        else
+          FirstFreeBigInt := Current.FNextFree;
+        exit;
+      end;
+      Previous := Current;
+      Current := Current.FNextFree;
+    until Current=nil;
+    Result := FirstFreeBigInt;
+    Result.Resize(Size);
+    FirstFreeBigInt := FirstFreeBigInt.FNextFree;
+  end
+  else result := TBigInt.Create(Size);
+end;
+
+function GetBigInt(bi: TBigInt) : TBigInt; inline;
+begin
+  result := GetBigInt(bi.FSize, false);
+  Move(bi.Digit^, Result.Digit^, bi.FSize*sizeof(dword));
+end;
+
+procedure FreeBigInt(bi: TBigInt);
+begin
+  bi.FNextFree := FirstFreeBigInt;
+  FirstFreeBigInt := bi;
+end;
+
+{ TBigInt }
+
+operator := (i: integer) : TBigInt; inline;
+begin
+  Result := GetBigInt(1);
+  Result.Digit[0] := dword(i);
+end;
+
+constructor TBigInt.Create(InitialSize: integer);
+begin
+  FSize:= InitialSize;
+  Capacity:= 2*FSize;
+  GetMem(Digit, Capacity*sizeof(DWord));
+  Clear;
+end;
+
+destructor TBigInt.Destroy;
+begin
+  FreeMem(Digit);
+  inherited Destroy;
+end;
+
+procedure TBigInt.Clear;
+begin
+  FillChar(Digit[0], FSize*sizeof(DWord), 0);
+end;
+
+procedure TBigInt.Resize(NewSize: integer);
+begin
+  FreeMem(Digit);
+  FSize:= NewSize;
+  Capacity:= 2*FSize;
+  GetMem(Digit, Capacity*sizeof(DWord));
+  Clear;
+end;
+
+function TBigInt.IsNegative: boolean; inline;
+begin
+  result := (Digit[FSize-1] and $80000000)>0;
+end;
+
+function TBigInt.IsZero:boolean;inline;
+begin
+  result := (FSize=1) and (Digit^=0);
+end;
+
+procedure TBigInt.Negate;
+var
+  value: int64;
+  valueparts : array[0..1] of dword absolute value;
+  carry: integer;
+  CurDigit: PDWord;
+begin
+  if IsZero then exit;
+  CurDigit:= @Digit[FSize-1];
+  repeat
+    CurDigit^:= not CurDigit^;
+    dec(CurDigit);
+  until CurDigit<Digit;
+  carry := 1;
+  CurDigit:=Digit;
+  while (carry>0) do begin
+    value := CurDigit^;
+    inc(value);
+    CurDigit^ := valueparts[0];
+    carry := valueparts[1];
+    inc(CurDigit);
+  end;
+end;
+
+function TBigInt.GetDigit(i: integer): DWord; inline;
+begin
+  if (i<FSize) then
+    result := Digit[i]
+  else if IsNegative then
+    result := $FFFFFFFF
+  else
+    result := 0;
+end;
+
+{ BigInt Calculation }
+
+procedure PushBigInt(bi: TBigInt);
+begin
+  inc(BigIntTop);
+  if (BigIntTop=BigIntStackLen) then
+    RunError(1025); // not implemented, too complicated calculation
+  BigIntStack[BigIntTop]:=bi;
+end;
+
+procedure PushBigIntByValue(bi: TBigInt);
+begin
+  inc(BigIntTop);
+  if (BigIntTop=BigIntStackLen) then
+    RunError(1025); // not implemented, too complicated calculation
+  BigIntStack[BigIntTop]:= GetBigInt(bi);
+end;
+
+function PopBigInt: TBigInt;
+begin
+  result:=BigIntStack[BigIntTop];
+  dec(BigIntTop);
+end;
+
+procedure BigIntAdd;
+var
+  a, b: TBigInt;
+  bSignExtend: dword;
+  Result: TBigInt;
+  carry: integer;
+  sum: int64;
+  maxsize, minsize, i: integer;
+  sumparts : array[0..1] of integer absolute sum;
+  aDigit, bDigit, ResultDigit: PDWord;
+begin
+  if BigIntStack[BigIntTop-1].FSize<BigIntStack[BigIntTop].FSize then begin
+    a:= BigIntStack[BigIntTop];
+    b:= BigIntStack[BigIntTop-1];
+  end
+  else begin
+    a:= BigIntStack[BigIntTop-1];
+    b:= BigIntStack[BigIntTop];
+  end;
+  if b.IsZero then
+    Result := a
+  else begin
+    maxsize:=a.FSize;
+    minsize:=b.FSize;
+    Result := GetBigInt(maxsize+1);
+    carry := 0;
+    aDigit:= a.Digit; bDigit:= b.Digit; ResultDigit:= Result.Digit;
+    for i:= 0 to minsize-1 do begin
+      sum := int64(aDigit^) + int64(bDigit^) + carry;
+      carry := sumparts[1];
+      ResultDigit^ := sumparts[0];
+      inc(aDigit); inc(bDigit); inc(ResultDigit);
+    end;
+    if b.IsNegative then
+      bSignExtend := $FFFFFFFF
+    else
+      bSignExtend := 0;
+    for i:= minsize to maxsize do begin
+      sum := int64(a.GetDigit(i)) + bSignExtend + carry;
+      carry := sumparts[1];
+      ResultDigit^ := sumparts[0];
+      inc(ResultDigit);
+    end;
+    while (Result.FSize>1) and (Result.Digit[Result.FSize-1]=0)
+      and (Result.Digit[Result.FSize-2] and $80000000=0) do
+      dec(Result.FSize);
+    while (Result.FSize>1) and
+       (Result.Digit[Result.FSize-1]=$FFFFFFFF) and
+       (Result.Digit[Result.FSize-2] and $80000000>0) do
+      dec(Result.FSize);
+    FreeBigInt(a);
+  end;
+  FreeBigInt(b);
+  dec(BigIntTop);
+  BigIntStack[BigIntTop]:=Result;
+end;
+
+procedure BigIntMulInt(int: integer);
+type
+  TWordPart = record
+    w1, w2: word;
+  end;
+var
+  mcarry: dword;
+  value: qword;
+  valueparts : array[0..1] of dword absolute value;
+  BiNeg, IntNeg: boolean;
+  i:Integer;
+  TopBi, Result: TBigInt;
+  TopBiDigit, ResultDigit: PDWord;
+begin
+  TopBi := BigIntStack[BigIntTop];
+  if (int=0) or (TopBi.IsZero) then begin
+    TopBi.FSize := 1;
+    TopBi.Digit[0]:=0;
+  end
+  else begin
+    BiNeg := TopBi.IsNegative;
+    if BiNeg then
+      TopBi.Negate;
+    IntNeg := int<0;
+    if IntNeg then
+      int := -int;
+    Result := GetBigInt(TopBi.FSize+1, false);
+    mcarry := 0;
+    TopBiDigit := TopBi.Digit;
+    ResultDigit := Result.Digit;
+    if (int and $FFFF0000)=0 then
+      for i:= 0 to Result.FSize-2 do begin
+        {this is what I want to do, but to get to the carry fpc compiles it into
+        an expensive qword*qword mulitplication:   }
+        {value := qword(TopBiDigit^) * int + mcarry;}
+        value := TWordPart(TopBiDigit^).w1 * word(int) +
+          qword(TWordPart(TopBiDigit^).w2 * word(int)) shl 16 + mcarry;
+        ResultDigit^ := valueparts[0];
+        mcarry := valueparts[1];
+        inc(TopBiDigit); inc(ResultDigit);
+      end
+    else
+    // this branch is less often taken, so no hand code dword * dword multiplication
+      for i:= 0 to Result.FSize-2 do begin
+        value := qword(TopBiDigit^) * int + mcarry;
+        ResultDigit^ := valueparts[0];
+        mcarry := valueparts[1];
+        inc(TopBiDigit); inc(ResultDigit);
+      end;
+    ResultDigit^ := mcarry;
+    while (Result.FSize>1) and (Result.Digit[Result.FSize-1]=0) and
+      ((Result.Digit[Result.FSize-2] and $80000000)=0) do
+      dec(Result.FSize);
+    if (BiNeg<>IntNeg) then
+      Result.Negate;
+    FreeBigInt(TopBi);
+    BigIntStack[BigIntTop]:=Result;
+  end;
+end;
+
+function BigIntDivIntResult: integer;
+var
+  dividend: TBigInt;
+  divisor: TBigInt;
+  carry: dword;
+  diff: int64;
+  diffparts: array[0..1] of dword absolute diff;
+  i: integer;
+  DividendDigit: PDWord;
+  DivisorDigit: PDWord;
+
+  function DividendIsSmallerThanDivisor : boolean; inline;
+  var
+    i: integer;
+  begin
+    while (Dividend.FSize>1) and (Dividend.Digit[Dividend.FSize-1]=0)
+      and (Dividend.Digit[Dividend.FSize-2] and $80000000=0) do
+      dec(Dividend.FSize);
+    if dividend.FSize=divisor.FSize then begin
+      i := dividend.FSize-1;
+      while (i>=0) and (dividend.Digit[i]=divisor.Digit[i]) do
+        dec(i);
+      Result:= (i>=0) and (dividend.Digit[i]<divisor.Digit[i]);
+    end
+    else
+      Result:=dividend.FSize<divisor.FSize;
+  end;
+
+begin
+  dividend := BigIntStack[BigIntTop-1];
+  divisor := BigIntStack[BigIntTop];
+  Result:=0;
+  while not DividendIsSmallerThanDivisor do begin
+    inc(Result);
+    carry := 0;
+    DividendDigit := Dividend.Digit;
+    DivisorDigit := Divisor.Digit;
+    for i:= 0 to divisor.FSize-1 do begin
+      diff := int64(dividendDigit^) - (divisorDigit^ + carry);
+      carry := diffparts[1] and $1;
+      dividendDigit^ := diffparts[0];
+      inc(DividendDigit); inc(DivisorDigit);
+    end;
+    for i:= divisor.FSize to dividend.FSize-1 do begin
+      diff := int64(dividendDigit^) - (divisor.GetDigit(i) + carry);
+      carry := diffparts[1] and $1;
+      dividendDigit^ := diffparts[0];
+      dividend.Digit[i] := diffparts[0];
+      inc(DividendDigit);
+    end;
+  end;
+  FreeBigInt(dividend);
+  FreeBigInt(divisor);
+  dec(BigIntTop,2);
+end;
+
+procedure Init;
+begin
+  BigIntStackLen := 8;
+  GetMem(BigIntStack, BigIntStackLen * sizeof(TBigInt));
+  BigIntTop := -1;
+  FirstFreeBigInt := nil;
+end;
+
+procedure Finalize;
+begin
+  Freemem(BigIntStack);
+  FreeBigInts;
+end;
+
+{ Matrix manipulation }
+
+procedure FreeBigIntMatrix(a: TBigMatrix); inline;
+begin
+  FreeBigInt(a[1,1]);
+  FreeBigInt(a[1,2]);
+  FreeBigInt(a[2,1]);
+  FreeBigInt(a[2,2]);
+end;
+
+function DotProduct(a1,a2: TBigInt; b1,b2: integer; FreeBigInt: boolean) : TBigInt; inline;
+begin
+  if FreeBigInt then
+    PushBigInt(a1)
+  else
+    PushBigIntByValue(a1);
+  BigIntMulInt(b1);
+  if FreeBigInt then
+    PushBigInt(a2)
+  else
+    PushBigIntByValue(a2);
+  BigIntMulInt(b2);
+  BigIntAdd;
+  Result:= PopBigInt;
+end;
+
+operator * (a: TBigMatrix; b : TIntMatrix) : TBigMatrix;
+begin
+  result[1,1] := DotProduct(a[1,1],a[1,2], b[1,1], b[2,1], false);
+  result[1,2] := DotProduct(a[1,1],a[1,2], b[1,2], b[2,2], true);
+  result[2,1] := DotProduct(a[2,1],a[2,2], b[1,1], b[2,1], false);
+  result[2,2] := DotProduct(a[2,1],a[2,2], b[1,2], b[2,2], true);
+end;
+
+operator * (a: TIntMatrix; b : TBigMatrix) : TBigMatrix;
+begin
+  result[1,1] := DotProduct(b[1,1],b[2,1],a[1,1],a[1,2], false);
+  result[1,2] := DotProduct(b[1,2],b[2,2],a[1,1],a[1,2], false);
+  result[2,1] := DotProduct(b[1,1],b[2,1],a[2,1],a[2,2], true);
+  result[2,2] := DotProduct(b[1,2],b[2,2],a[2,1],a[2,2], true);
+end;
+
+function InitBigMatrix(a,b,c,d: integer): TBigMatrix;
+begin
+  result[1,1] := a;
+  result[1,2] := b;
+  result[2,1] := c;
+  result[2,2] := d;
+end;
+
+function InitIntMatrix(a,b,c,d: integer): TIntMatrix; inline;
+begin
+  result[1,1] := a;
+  result[1,2] := b;
+  result[2,1] := c;
+  result[2,2] := d;
+end;
+
+{ calculating pidigits}
+
+procedure PrintPiDigits(const NumDigits: integer);
+var
+  n: integer = 0;
+  k: integer = 0;
+  z: TBigMatrix;
+  x,p: TIntMatrix;
+  Digit: integer;
+
+  function Extract(x:integer) : integer;
+  begin
+    PushBigIntByValue(z[1,1]);
+    BigIntMulInt(x);
+    PushBigIntByValue(z[1,2]);
+    BigIntAdd;
+    PushBigIntByValue(z[2,1]);
+    BigIntMulInt(x);
+    PushBigIntByValue(z[2,2]);
+    BigIntAdd;
+    result := BigIntDivIntResult;
+  end;
+  
+  function GetDigit : integer;
+  begin
+    result := Extract(3);
+  end;
+
+  function IsSafe : boolean;
+  begin
+    result := Digit = Extract(4);
+  end;
+
+  procedure Produce;
+  begin
+    p[1,2] := -10 * digit;
+    z := p * z;
+  end;
+
+  procedure Consume;
+  begin
+    inc(k);
+    x[1,1] := k;
+    x[1,2] := 4*k+2;
+    x[2,2] := 2*k+1;
+    z:= z * x;
+  end;
+
+begin
+  z := InitBigMatrix(1, 0, 0, 1);
+  p := InitIntMatrix(10, 0, 0, 1);
+  x[2,1] := 0;
+  while (n<NumDigits) do begin
+    Digit := GetDigit;
+    while not IsSafe do begin
+      Consume;
+      Digit:= GetDigit;
+    end;
+    Produce;
+    write(Digit);
+    inc(n);
+    if (n mod 10)=0 then
+      writeln(#9':', n);
+  end;
+  FreeBigIntMatrix(z);
+end;
+
+var
+  n: integer;
+  errorcode: integer;
+
+begin
+  Init;
+  if (ParamCount=1) then begin
+    val(ParamStr(1), n, errorcode);
+    PrintPiDigits(n);
+  end;
+  Finalize;
+end.
+
+{ The Computer Language Benchmarks Game
+  http://shootout.alioth.debian.org
+
+  contributed by Vincent Snijders
+  gmp headers by Karl-Michael Schindler
+}
+
+{$linklib libgmp.so}
+{$mode objfpc}
+
+program pidigits;
+uses
+  ctypes;
+  
+type
+
+mp_limb_t        = cuint;
+mp_ptr           = ^mp_limb_t;
+
+mpz_t = record
+  mp_alloc, mp_size : cint;
+  mp_d    : mp_ptr
+end;
+
+procedure mpz_init (var Dest: mpz_t);
+ cdecl; external name '__gmpz_init';
+
+procedure mpz_init_set_ui (var Dest: mpz_t; Src: culong);
+ cdecl; external name '__gmpz_init_set_ui';
+
+procedure mpz_mul_ui (var Dest: mpz_t; var Src1: mpz_t; Src2: culong);
+ cdecl; external name '__gmpz_mul_ui';
+
+procedure mpz_mul_si (var Dest: mpz_t; var Src1: mpz_t; Src2: cint);
+ cdecl; external name '__gmpz_mul_si';
+
+procedure mpz_add (var Dest: mpz_t; var Src1, Src2: mpz_t);
+ cdecl; external name '__gmpz_add';
+
+procedure mpz_tdiv_q (var Dest: mpz_t; var Src1, Src2: mpz_t);
+ cdecl; external name '__gmpz_tdiv_q';
+
+function  mpz_get_ui (var Src: mpz_t): culong;
+ cdecl; external name '__gmpz_get_ui';
+
+  
+procedure PrintPiDigits(NumDigits: integer);
+var
+  q, r, s, t: mpz_t; // Transformation matrix components.
+  u, v, w: mpz_t; // Temporary variables
+  i, k, digit, c: integer;
+  line: string[10];
+  
+  function Extract(x:cardinal) : integer;
+  begin
+    mpz_mul_ui(u, q, x);
+    mpz_add(u, u, r);
+    mpz_mul_ui(v, s, x);
+    mpz_add(v, v, t);
+    mpz_tdiv_q(w, u, v);
+    result := mpz_get_ui(w);
+  end;
+
+  function IsSafe : boolean;
+  begin
+    result := digit = Extract(4);
+  end;
+
+  procedure Produce;
+  begin
+    mpz_mul_si(r, r, 10);
+    mpz_mul_si(v, t, -10 * digit);
+    mpz_add(r, r, v);
+    mpz_mul_si(q, q, 10);
+  end;
+
+  procedure Consume;
+  begin
+    inc(k);
+    mpz_mul_si(r, r, 2*k+1);
+    mpz_mul_si(u, q, 4*k+2);
+    mpz_add(r, r, u);
+    mpz_mul_si(t, t, 2*k+1);
+    mpz_mul_si(v, s, 4*k+2);
+    mpz_add(t, t, v);
+    mpz_mul_si(s, s, k);
+    mpz_mul_si(q, q, k);
+  end;
+
+begin
+  k := 0;
+  i := 0;
+  c := 0;
+  setlength(line, 10);
+  mpz_init_set_ui(q, 1);
+  mpz_init_set_ui(r, 0);
+  mpz_init_set_ui(s, 0);
+  mpz_init_set_ui(t, 1);
+  mpz_init(u);
+  mpz_init(v);
+  mpz_init(w);
+  while (i<NumDigits) do begin
+    digit := Extract(3);
+    while not IsSafe do begin
+      Consume;
+      digit:= Extract(3);
+    end;
+    Produce;
+    inc(c);
+    line[c] := chr(ord('0')+digit);
+    inc(i);
+    if c=10 then begin
+      writeln(line, #9':', i);
+      c := 0;
+    end;
+  end;
+  if c<>0 then begin
+    SetLength(line, c);
+    writeln(line);
+  end;
+end;
+
+var
+  n: integer = 27;
+
+begin
+  if (ParamCount=1) then
+    val(ParamStr(1), n);
+  PrintPiDigits(n);
+end.
+
+{ The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   contributed by unknown
+}
+
+program random;
+
+{$mode objfpc}
+
+const IM = 139968;
+      IA =   3877;
+      IC =  29573;
+
+var  LAST, NUM, i: Integer;
+     value: double;
+
+function gen_random(const n: integer): double; inline;
+begin
+  LAST := (LAST * IA + IC) mod IM;
+  gen_random := n * LAST / IM;
+end;
+
+begin
+  if ParamCount = 0 then NUM := 1
+    else Val(ParamStr(1), NUM, i);
+  if NUM < 1 then NUM := 1;
+  LAST := 42;
+  for i:= 1 to NUM do
+    value:=gen_random(100);
+  WriteLn(value:10:9);
+end.
+(* The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+
+   contributed by Josh Goldfoot
+   modified by Vincent Snijders
+*)
+
+program recursive;
+
+{$mode objfpc}{$I-}{$OPTIMIZATION TAILREC}
+
+var
+   n : longint;
+
+function Ack(x : longint; y : longint): longint;
+begin
+   if x = 0 then
+      Ack := y + 1
+   else if y = 0 then
+      Ack := Ack(x - 1, 1)
+   else Ack := Ack(x-1, Ack(x, y-1));
+end; { Ack }
+
+function Fib(n : longint): longint;
+begin
+   if n < 2 then
+      Fib := 1
+   else Fib := Fib(n - 2) + Fib(n - 1)
+end; { Fib }
+
+function FibFP(n : double): double; inline;
+begin
+   if n < 2 then
+      FibFP := 1
+   else FibFP := FibFP(n - 2) + FibFP(n - 1)
+end; { FibFP }
+
+function Tak(x : longint; y: longint; z : longint): longint;
+begin
+   if y < x then
+      Tak := Tak( Tak(x-1, y, z), Tak(y-1, z, x), Tak(z-1, x, y) )
+   else Tak := z;
+end; { Tak }
+
+function TakFP(x : double; y: double; z : double): double;
+begin
+   if y < x then
+      TakFP := TakFP( TakFP(x-1, y, z), TakFP(y-1, z, x), TakFP(z-1, x, y) )
+   else TakFP := z;
+end; { TakFP }
+
+begin
+   if ParamCount = 1 then begin
+      Val(ParamStr(1), n);
+      n := n - 1;
+   end
+      else n := 2;
+
+   writeLn('Ack(3,', n + 1, '): ', Ack(3, n+1));
+   writeLn('Fib(', (28.0 + n):1:1, '): ', FibFP(28.0 + n):1:1);
+   writeLn('Tak(', 3 * n,',', 2 * n, ',', n, '): ', Tak(3*n, 2*n, n));
+   writeLn('Fib(3): ', Fib(3));
+   writeLn('Tak(3.0,2.0,1.0): ', TakFP(3.0,2.0,1.0):1:1);
+end.
+(*
+  The Computer Language Benchmarks Game
+  http://shootout.alioth.debian.org
+
+  contributed by Vitaly Trifonov
+*)
+
+{$mode objfpc}
+
+
+uses sysutils;
+
+(******************************    pcre wrap   *****************************)
+
+const
+  libpcre = 'pcre';
+  PCRE_CASELESS = $00000001;
+
+type
+  pcre = Pointer;
+  pcre_extra = Pointer;
+  PPChar = ^PChar;
+
+
+function pcre_compile( const pattern: PChar;
+                       options: Integer;
+                       const errptr: PPChar;
+                       erroffset: PInteger;
+                       const tableptr: PChar ): pcre; cdecl; external libpcre;
+
+function pcre_exec( const code: pcre;
+                    const extra: pcre_extra;
+                    const subject: PChar;
+                    length, startoffset, options: Integer;
+                    ovector: PInteger;
+                    ovecsize: Integer ): Integer; cdecl; external libpcre;
+
+function pcre_study( const external_re: pcre;
+                     options: integer;
+                     errorptr: PPChar ): pcre_extra; cdecl; external libpcre;
+
+(***************************************************************************)
+
+const
+  patt: array[0..10] of PChar = ('B','D','H','K','M','N','R','S','V','W','Y');
+  repl: array[0..10] of PChar = ('(c|g|t)', '(a|g|t)', '(a|c|t)', '(g|t)',
+      '(a|c)','(a|c|g|t)', '(a|g)', '(c|g)', '(a|c|g)', '(a|t)', '(c|t)');
+
+var
+  patterns: array[0..8] of PChar =
+    (
+      'agggtaaa|tttaccct',
+      '[cgt]gggtaaa|tttaccc[acg]',
+      'a[act]ggtaaa|tttacc[agt]t',
+      'ag[act]gtaaa|tttac[agt]ct',
+      'agg[act]taaa|ttta[agt]cct',
+      'aggg[acg]aaa|ttt[cgt]ccct',
+      'agggt[cgt]aa|tt[acg]accct',
+      'agggta[cgt]a|t[acg]taccct',
+      'agggtaa[cgt]|[acg]ttaccct'
+    );
+
+
+(* Count match with pattern of regexp in seq buffer. *)
+function count( const pattern, seq: PChar; len: Integer ): Longint;
+var
+  cre: pcre;
+  cre_ex: pcre_extra;
+  err: PChar;
+  ofs: Integer;
+  ind: Longint = 0;
+  m: array[0..2] of Integer;
+begin
+  cre := pcre_compile(pattern, 0, @err, @ofs, nil);
+  cre_ex := pcre_study(cre, 0, @err);
+  m[1] := 0;
+
+  while pcre_exec(cre,   cre_ex, seq, len,   m[1], 0, m, 3) >= 0 do
+    ind += 1;
+
+  count := ind
+end;
+
+function split_count ( const pattern, seq: PChar; len: Integer ): Longint; inline;
+var
+  split: PChar;
+  vcount: Longint;
+begin
+  split := strscan(pattern, '|');
+  Byte(split^) := 0;
+
+  vcount := count(pattern, seq, len);
+  vcount += count(@split[1], seq, len);
+
+  split^ := '|';
+  split_count := vcount
+end;
+
+(* Substitute pattern of regexp with repl, return new length. *)
+function subst( const pattern, repl: PChar; var seq: PChar; len: Integer ): Longint;
+var
+  cre: pcre;
+  cre_ex: pcre_extra;
+  err: PChar;
+  ofs: Integer;
+  size_repl, size, bsize, pos: Longint;
+  m: array[0..2] of Integer;
+  newSeq, otmpseq: PChar;
+begin
+  cre := pcre_compile(pattern, 0, @err, @ofs, nil);
+  cre_ex := pcre_study(cre, 0, @err);
+  size_repl := strlen(repl);
+  m[1] := 0; size := 0;
+
+(* Calculate required size for malloc. *)
+  while pcre_exec(cre,   cre_ex, seq, len,   m[1], 0, m, 3) >= 0 do
+    size += size_repl - m[1] + m[0];
+  size += len;
+
+  GetMem(newSeq, SizeOf(Char)*size);
+
+(* Do substitute. *)
+  m[1] := 0; pos := 0;
+  otmpseq := newSeq;
+
+
+  if size_repl <> 0 then
+    while pcre_exec(cre,   cre_ex, seq, len,   m[1], 0, m, 3) >= 0 do
+    begin
+      bsize := m[0] - pos;
+      strlcopy(otmpseq, @seq[pos], bsize);
+
+      otmpseq := @otmpseq[bsize];
+      pos := m[1];
+
+      otmpseq := strecopy(otmpseq, repl);
+    end
+  else
+    while pcre_exec(cre,   cre_ex, seq, len,   m[1], 0, m, 3) >= 0 do
+    begin
+      bsize := m[0] - pos;
+      strlcopy(otmpseq, @seq[pos], bsize);
+
+      otmpseq := @otmpseq[bsize];
+      pos := m[1];
+    end;
+
+  strcopy(otmpseq, @seq[pos]);
+
+  FreeMem(seq);
+  seq := newSeq;
+
+  subst := size
+end;
+
+
+var
+  readLen: Longint = 0;
+  maxSeqLen: Longint = 6000000;
+  seqLen: Longint = 0;
+  seq, newSeq: PChar;
+  ch: Char;
+  i: Longint;
+begin
+  GetMem(seq, SizeOf(Char)*(maxSeqLen+1));
+
+(* Read FASTA format file from stdin and count length. *)
+  while not eof do
+  begin
+    if readLen = maxSeqLen then
+    begin
+      maxSeqLen += 3000000;
+      seq := ReAllocMem(seq, SizeOf(Char)*(maxSeqLen+1));
+    end;
+    read(seq[readLen]);
+    readLen += 1
+  end;
+  Byte(seq[readLen]) := 0; //end read data
+
+
+(* Remove FASTA sequence descriptions and all linefeed characters.  *)
+  seqLen := subst('>.*|\n', '', seq, readLen);
+
+
+(* Count all matches of patterns[i] in  seq buffer. *)
+  for i := 0 to 8 do
+    writeln(patterns[i], ' ', split_count(patterns[i], seq, seqLen));
+    //writeln(patterns[i], ' ', count(patterns[i], seq, seqLen));
+
+  writeln;
+  writeln(readLen);
+
+  writeln(seqLen);
+  //writeln(strlen(seq));
+
+(* All IUB substitutes. *)
+  for i := 0 to 10 do
+    seqLen := subst(patt[i], repl[i], seq, seqLen);
+
+  writeln(seqLen);
+  //writeln(strlen(seq));
+
+  FreeMem(seq);
+end.
+{  The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+
+   contributed by Marco van de Voort
+}
+
+program reverse_complement;
+
+var lookupComplement : array[#0..#255] of char;
+
+Const FASTAXLAT : array[0..11] of array[0..1] of char = (
+		  ( 'A', 'T' ), ( 'C', 'G' ),
+		  ( 'B', 'V' ), ( 'D', 'H' ),
+	          ( 'K', 'M' ), ( 'R', 'Y' ),
+		  ( 'a', 't' ), ( 'c', 'g' ),
+		  ( 'b', 'v' ), ( 'd', 'h' ),
+	          ( 'k', 'm' ), ( 'r', 'y' ));
+
+      BufferIncrement = 1024;
+
+procedure flushbuffer(buffer:pchar;inbuf:longint);
+
+var p,p2 : pchar;
+    c  : char;
+
+begin
+  if inbuf>0 then
+   begin
+     p:=buffer;
+     p2:=@buffer[inbuf-1];
+     while p<p2 do
+      begin
+       c:=lookupcomplement[p^];
+       p^:=lookupcomplement[p2^];
+       p2^:=c;
+       inc(p);
+       dec(p2);
+     end;
+    if p2=p then
+      p^:=lookupcomplement[p^];
+
+    p:=buffer;
+    p[inbuf]:=#0;
+
+   while (inbuf > 60) do
+     begin
+    	c := p[60];
+	p[60]:=#0;
+        writeln(p);
+        p[60]:=c;
+	inc(p,60);
+	dec(inbuf,60);
+     end;
+     p[inbuf]:=#0;
+     writeln(p);
+  end;
+end;
+
+const initialincrement=1024;
+
+procedure run;
+
+var s  : string;
+    c  : char;
+    buffersize,
+    bufferptr,
+    len		: longint;
+    p  :pchar;
+    line : integer;
+    bufin,bufout : array[0..8191] of char;
+
+begin
+  settextbuf(input,bufin);
+  settextbuf(output,bufout);
+  for c:=#0  to #255  do
+    lookupcomplement[c]:=c;
+  for len:=0 to high(FASTAXLAT) do
+    begin
+      lookupcomplement[FASTAXLAT[len][0]]:=upcase(FASTAXLAT[len][1]);
+      lookupcomplement[FASTAXLAT[len][1]]:=upcase(FASTAXLAT[len][0]);
+    end;
+  buffersize:=initialincrement;
+  bufferptr :=0;
+  getmem(p,buffersize);
+  line:=0;
+  while not eof do
+    begin
+      readln(s);
+      inc(line);
+      len:=length(s);
+      if (len>0) and (s[1]='>') then
+          begin
+	    flushbuffer(p,bufferptr);
+ 	    writeln(s);
+	    bufferptr:=0;
+	  end
+       else
+         begin
+           if (bufferptr+len+1)>buffersize then
+	     begin
+	        inc(buffersize,buffersize);
+//	        inc(buffersize,initialincrement);
+                reallocmem(p,buffersize);
+	     end;
+	   move (s[1],p[bufferptr],len);
+	   inc(bufferptr,len);
+	 end;
+    end;
+    flushbuffer(p,bufferptr);
+end;
+
+begin
+  run;
+end.
+Program reversefile;
+uses SysUtils, Classes; 
+
+var
+	i, N : longint;
+	list : TList;
+	line : string;
+	pline : pointer;	
+begin
+	list := TList.Create;
+	While Not Eof(input) do
+	begin
+		Readln(input, line);
+		Getmem(pline, Length(line)+1);
+		Move(line, pline^, Length(line)+1);
+		list.Add( pline );
+	end;
+	N := list.Count;
+	For i := N-1 Downto 0 do WriteLn( string(list.items[i]^) );
+end.
+program sieve;
+uses SysUtils; 
+
+var 
+	NUM, i, k, count : integer;
+	flags : array[0..8192] of integer;
+
+begin
+	if ParamCount = 0 then
+		NUM := 1
+	else
+		NUM := StrToInt(ParamStr(1));
+		
+	if NUM < 1 then NUM := 1;
+
+	while NUM > 0 do
+	begin
+		Dec(NUM);
+		count := 0;
+		for i := 0 to 8192 do
+		begin
+			flags[i] := i;
+		end;
+		for i := 2 to 8192 do
+		begin
+			if flags[i] <> -1 then
+			begin
+				k := i+i;
+				while k <= 8192 do
+				begin
+					flags[k] := -1;
+					Inc(k, i);
+				end;
+				Inc(count);
+			end;
+		end;
+	end;
+	WriteLn('Count: ' + IntToStr(Count));
+end.
+{ The Computer Language Benchmarks Game
+  http://shootout.alioth.debian.org
+
+  contributed by Ian Osgood
+  modified by Vincent Snijders
+}
+
+program spectralNorm;
+
+var n,i : integer;
+    u,v,tmp : array of double;
+    vBv,vv : double;
+
+function A(i,j : integer): double; inline;
+begin
+  A := 1 / ((i+j)*(i+j+1) div 2 + i+1);
+end;
+
+procedure mulAv(var v, Av : array of double);
+var i,j : integer;
+begin
+  for i := low(Av) to high(Av) do
+  begin
+    Av[i] := 0.0;
+    for j := low(v) to high(v) do
+      Av[i] := Av[i] + A(i,j) * v[j];
+  end;
+end;
+
+procedure mulAtv(var v, Atv : array of double);
+var i,j : integer;
+begin
+  for i := low(Atv) to high(Atv) do
+  begin
+    Atv[i] := 0.0;
+    for j := low(v) to high(v) do
+      Atv[i] := Atv[i] + A(j,i) * v[j];
+  end;
+end;
+
+procedure mulAtAv(var v, AtAv : array of double);
+begin
+  mulAv(v, tmp);
+  mulAtv(tmp, AtAv);
+end;
+
+begin
+  Val(paramstr(1), n, i);
+  SetLength(u, n);
+  SetLength(v, n);
+  SetLength(tmp, n);
+
+  for i := low(u) to high(u) do u[i] := 1.0;
+
+  for i := 1 to 10 do begin mulAtAv(u,v); mulAtAv(v,u) end;
+
+  for i := low(u) to high(u) do
+  begin
+    vBv := vBv + u[i]*v[i];
+    vv  := vv  + v[i]*v[i];
+  end;
+
+  writeln(sqrt(vBv/vv):0:9);
+end.
+{ The Great Computer Language Shootout
+  http://shootout.alioth.debian.org
+ 
+  contributed by Ian Osgood 
+}
+
+program spellcheck;
+uses Classes;
+
+var dict : TStringList;
+    word : string;
+    i : longint;
+begin
+  dict := TStringList.Create;
+  dict.Sorted := true;
+  dict.LoadFromFile('Usr.Dict.Words');
+
+  while not Eof do begin
+    readln(word);
+    if not dict.Find(word,i) then writeln(word);
+  end;
+end.
+{  The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   contributed by Micha Nelissen
+}
+
+program spellcheck;
+
+{$mode objfpc}{$H+}
+
+uses
+  simple_hash, strings;
+
+var
+  dict: ht_pht = nil;
+
+const
+  MAXLINELEN = 128;
+
+type
+  thash_manip_func = procedure(key: pchar);
+
+procedure handle_input(var stream: text; hash_manip_func: thash_manip_func);
+var
+  block: array[0..MAXLINELEN] of char;
+begin
+  while not eof(stream) do
+  begin
+    readln(stream, block);
+    hash_manip_func(@block[0]);
+  end;
+end;
+
+procedure spellcheck(key: pchar);
+begin
+  if ht_find_new(dict, key)^.val <> 1 then
+    writeln(key);
+end;
+
+procedure hashload(key: pchar);
+begin
+  ht_find_new(dict, key)^.val := 1;
+end;
+
+var
+  fh: text;
+begin
+  dict := ht_create(40000);
+  assign(fh, 'Usr.Dict.Words');
+  reset(fh);
+  handle_input(fh, @hashload);
+  close(fh);
+  handle_input(input, @spellcheck);
+  ht_destroy(dict);
+end.
+program strcat;
+{$H+} 
+uses SysUtils;
+var 
+	NUM, i : longint;
+	str : string;
+
+begin
+	if ParamCount = 0 then NUM := 1
+	else NUM := StrToInt(ParamStr(1));
+	if NUM < 1 then NUM := 1;
+
+	str := '';
+	For i := 1 To NUM Do
+		str := str + 'hello'#13;
+	WriteLn( Longint(Length(str)) );
+end.
+{ The Great Computer Language Shootout
+  http://shootout.alioth.debian.org 
+
+  contributed by Ales Katona
+}
+
+program sumcol;
+
+{$mode objfpc}
+
+var num, tot: longint;
+
+begin
+  while not Eof(input) do begin
+    ReadLn(input, num);
+    tot := tot + num;
+  end;
+  WriteLn(tot);
+end.
+{ The Computer Language Benchmarks Game
+  http://shootout.alioth.debian.org
+
+  contributed by Ales Katona
+  modified by Daniel Mantione
+  modified by Steve Fisher
+  modified by Vincent Snijders
+}
+
+{$iochecks off}
+
+var
+  num, tot: longint;
+  s: string[128];
+  textbuf: array[0..8191] of char;
+  infile: ^text;
+
+begin
+  infile := @input;
+  settextbuf(infile^, textbuf);
+  tot := 0;
+  repeat
+    readLn(infile^, s);
+    val(s, num);
+    tot := tot + num
+  until eof(infile^);
+  writeLn(tot)
+end.
+
+
+{ The Great Computer Language Shootout
+  http://shootout.alioth.debian.org 
+
+  contributed by Ales Katona
+}
+
+program takfp;
+
+{$mode objfpc}
+
+function Tak(const x, y, z: single): single; inline;
+begin
+  if y >= x then Tak:=z
+  else Tak:=Tak(Tak(x-1, y, z), Tak(y-1, z, x), Tak(z-1, x, y));
+end;
+
+var n, i: Longint;
+begin
+  if ParamCount < 1 then n:=1 else Val(ParamStr(1), n, i);
+  Writeln(Tak(n*3, n*2, n*1):0:1);
+end.
+{ The Great Computer Language Shootout
+  http://shootout.alioth.debian.org 
+
+  contributed by Ales Katona
+}
+
+program tcpecho;
+
+{$mode objfpc}{$H+}
+
+uses
+  SysUtils, Sockets, BaseUnix, UnixType;
+
+const
+  M            = 6400;
+  REPLY_SIZE   =   64;
+  REQUEST_SIZE =   64;
+  PORT         = 6747;
+  
+var
+  Reply   : array[0..REPLY_SIZE   - 1] of Byte;
+  Request : array[0..REQUEST_SIZE - 1] of Byte;
+  
+procedure DoServer;
+var
+  Server : Longint;
+  Client : Longint;
+  Addr   : TSockAddr;
+  len    : Cardinal = SizeOf(Addr);
+begin
+  Addr.sin_addr:=StrToNetAddr('0.0.0.0');
+  Addr.sin_port:=htons(PORT);
+  Addr.sin_family:=AF_INET;
+
+  Server:=fpSocket(AF_INET, SOCK_STREAM, 0);
+  SetSocketOptions(Server, SOL_SOCKET, SO_REUSEADDR, 'TRUE', Length('TRUE'));
+  fpBind(Server, @addr, len);
+  fpListen(Server, 1);
+  
+  Client:=fpAccept(Server, @addr, @len);
+
+  while fpRecv(Client, @Request[0], REQUEST_SIZE, 0) > 0 do
+    fpSend(Client, @Reply[0], REPLY_SIZE, 0);
+    
+  CloseSocket(Client);
+  CloseSocket(Server);
+end;
+
+procedure DoClient(const msg_count, msg_mult: Integer);
+var
+  Client  : Longint;
+  Addr    : TSockAddr;
+  len     : Cardinal = SizeOf(Addr);
+  n       : Cardinal;
+  Replies : Cardinal = 0;
+  Bytes   : Cardinal = 0;
+begin
+  n:=msg_count * msg_mult;
+  Addr.sin_addr:=StrToNetAddr('127.0.0.1');
+  Addr.sin_port:=htons(PORT);
+  Addr.sin_family:=AF_INET;
+
+  Client:=fpSocket(AF_INET, SOCK_STREAM, 0);
+  
+  while fpConnect(Client, @Addr, len) < 0 do Sleep(1); // just in case
+  len:=0;
+  
+  while n > 0 do begin
+    fpSend(Client, @Request[0], REQUEST_SIZE, 0);
+    len:=fpRecv(Client, @Reply[0], REPLY_SIZE, 0);
+    Inc(Replies);
+    Inc(Bytes, len);
+    Dec(n);
+  end;
+
+  CloseSocket(Client);
+  Writeln('replies: ', Replies, #9, 'bytes: ', Bytes);
+end;
+
+var
+  N: Integer = 10;
+  PID: TPid;
+begin
+  if ParamCount > 0 then N:=StrToInt(ParamStr(1));
+  PID:=fpFork;
+  if PID <> 0 then begin
+    DoServer;
+    FpWait(PID);
+  end else DoClient(M, N);
+end.
+
+{ The Great Computer Language Shootout
+  http://shootout.alioth.debian.org
+
+  contributed by Ales Katona
+  modified by Marc Weustink
+}
+
+program tcpecho;
+
+{$mode objfpc}{$H-}{$I-}
+
+uses
+  Sockets, BaseUnix;
+
+const
+  M            = 6400;
+  REPLY_SIZE   = 64;
+
+  REQUEST_SIZE = 64;
+  PORT         = 6747;
+  
+var
+  Reply   : array[0..REPLY_SIZE   - 1] of Byte;
+  Request : array[0..REQUEST_SIZE - 1] of Byte;
+  Server  : Longint;
+
+procedure DoServer;
+var
+  Client : Longint;
+  Addr   : TSockAddr;
+  len    : Cardinal = SizeOf(Addr);
+begin
+  Client:=fpAccept(Server, @addr, @len);
+
+  while fpRecv(Client, @Request[0], REQUEST_SIZE, 0) > 0 do
+    fpSend(Client, @Reply[0], REPLY_SIZE, 0);
+
+  CloseSocket(Client);
+end;
+
+procedure DoClient(const msg_count, msg_mult: Integer);
+var
+  n, cnt, Client: Integer;
+  Addr          : TSockAddr;
+  Replies       : Cardinal = 0;
+  Bytes         : Cardinal = 0;
+begin
+  Addr.sin_addr.s_addr := 0;
+  Addr.sin_addr.s_bytes[1] := 127;
+  Addr.sin_addr.s_bytes[4] := 1;
+  Addr.sin_port:=htons(PORT);
+  Addr.sin_family:=AF_INET;
+
+  Client:=fpSocket(AF_INET, SOCK_STREAM, 0);
+  fpConnect(Client, @Addr, SizeOf(Addr));
+
+  for n := msg_count * msg_mult - 1 downto 0 do begin
+    fpSend(Client, @Request[0], REQUEST_SIZE, 0);
+    cnt := 0;
+    repeat
+      Inc(cnt, fpRecv(Client, @Reply[0], REPLY_SIZE, 0));
+    until cnt >= REPLY_SIZE;  
+    Inc(Bytes, cnt);
+    Inc(Replies);
+  end;
+
+  CloseSocket(Client);
+  Writeln('replies: ', Replies, #9'bytes: ', Bytes);
+end;
+
+var
+  N: Integer = 10;
+  e: Integer = 0;
+  PID: TPid;
+  Addr   : TSockAddr;
+begin
+  if ParamCount > 0 then Val(ParamStr(1), N, e);
+
+  Addr.sin_addr.s_addr:=0;
+  Addr.sin_port:=htons(PORT);
+  Addr.sin_family:=AF_INET;
+
+  Server:=fpSocket(AF_INET, SOCK_STREAM, 0);
+  SetSocketOptions(Server, SOL_SOCKET, SO_REUSEADDR, True, SizeOF(True));
+  fpBind(Server, @addr, SizeOf(Addr));
+  fpListen(Server, 1);
+
+  PID:=fpFork;
+  if PID <> 0 then begin
+    DoServer;
+    CloseSocket(Server);
+    FpWait(PID);
+  end else DoClient(M, N);
+end.
+{ The Great Computer Language Shootout
+  http://shootout.alioth.debian.org
+
+  contributed by Ales Katona
+  modified by Marc Weustink
+}
+
+program tcprequest;
+
+{$mode objfpc}{$H-}{$I-}
+
+uses
+  Sockets, BaseUnix;
+
+const
+  M            = 100;
+  REPLY_SIZE   = 4096;
+
+  REQUEST_SIZE = 64;
+  PORT         = 6747;
+  
+var
+  Reply   : array[0..REPLY_SIZE   - 1] of Byte;
+  Request : array[0..REQUEST_SIZE - 1] of Byte;
+  Server  : Longint;
+
+procedure DoServer;
+var
+  Client : Longint;
+  Addr   : TSockAddr;
+  len    : Cardinal = SizeOf(Addr);
+begin
+  Client:=fpAccept(Server, @addr, @len);
+
+  while fpRecv(Client, @Request[0], REQUEST_SIZE, 0) > 0 do
+    fpSend(Client, @Reply[0], REPLY_SIZE, 0);
+
+  CloseSocket(Client);
+end;
+
+procedure DoClient(const msg_count, msg_mult: Integer);
+var
+  n, cnt, Client: Integer;
+  Addr          : TSockAddr;
+  Replies       : Cardinal = 0;
+  Bytes         : Cardinal = 0;
+begin
+  Addr.sin_addr.s_addr := 0;
+  Addr.sin_addr.s_bytes[1] := 127;
+  Addr.sin_addr.s_bytes[4] := 1;
+  Addr.sin_port:=htons(PORT);
+  Addr.sin_family:=AF_INET;
+
+  Client:=fpSocket(AF_INET, SOCK_STREAM, 0);
+  fpConnect(Client, @Addr, SizeOf(Addr));
+
+  for n := msg_count * msg_mult - 1 downto 0 do begin
+    fpSend(Client, @Request[0], REQUEST_SIZE, 0);
+    cnt := 0;
+    repeat
+      Inc(cnt, fpRecv(Client, @Reply[0], REPLY_SIZE, 0));
+    until cnt >= REPLY_SIZE;  
+    Inc(Bytes, cnt);
+    Inc(Replies);
+  end;
+
+  CloseSocket(Client);
+  Writeln('replies: ', Replies, #9'bytes: ', Bytes);
+end;
+
+var
+  N: Integer = 10;
+  e: Integer = 0;
+  PID: TPid;
+  Addr   : TSockAddr;
+begin
+  if ParamCount > 0 then Val(ParamStr(1), N, e);
+
+  Addr.sin_addr.s_addr:=0;
+  Addr.sin_port:=htons(PORT);
+  Addr.sin_family:=AF_INET;
+
+  Server:=fpSocket(AF_INET, SOCK_STREAM, 0);
+  SetSocketOptions(Server, SOL_SOCKET, SO_REUSEADDR, True, SizeOF(True));
+  fpBind(Server, @addr, SizeOf(Addr));
+  fpListen(Server, 1);
+
+  PID:=fpFork;
+  if PID <> 0 then begin
+    DoServer;
+    CloseSocket(Server);
+    FpWait(PID);
+  end else DoClient(M, N);
+end.
+{ The Great Computer Language Shootout
+  http://shootout.alioth.debian.org
+
+  contributed by Ales Katona
+  modified by Marc Weustink
+}
+
+program tcpstream;
+
+{$mode objfpc}{$H-}{$I-}
+
+uses
+  Sockets, BaseUnix;
+
+const
+  M            = 1;
+  REPLY_SIZE   = 409600;
+
+  REQUEST_SIZE = 64;
+  PORT         = 6747;
+  
+var
+  Reply   : array[0..REPLY_SIZE   - 1] of Byte;
+  Request : array[0..REQUEST_SIZE - 1] of Byte;
+  Server  : Longint;
+
+procedure DoServer;
+var
+  Client : Longint;
+  Addr   : TSockAddr;
+  len    : Cardinal = SizeOf(Addr);
+begin
+  Client:=fpAccept(Server, @addr, @len);
+
+  while fpRecv(Client, @Request[0], REQUEST_SIZE, 0) > 0 do
+    fpSend(Client, @Reply[0], REPLY_SIZE, 0);
+
+  CloseSocket(Client);
+end;
+
+procedure DoClient(const msg_count, msg_mult: Integer);
+var
+  n, cnt, Client: Integer;
+  Addr          : TSockAddr;
+  Replies       : Cardinal = 0;
+  Bytes         : Cardinal = 0;
+begin
+  Addr.sin_addr.s_addr := 0;
+  Addr.sin_addr.s_bytes[1] := 127;
+  Addr.sin_addr.s_bytes[4] := 1;
+  Addr.sin_port:=htons(PORT);
+  Addr.sin_family:=AF_INET;
+
+  Client:=fpSocket(AF_INET, SOCK_STREAM, 0);
+  fpConnect(Client, @Addr, SizeOf(Addr));
+
+  for n := msg_count * msg_mult - 1 downto 0 do begin
+    fpSend(Client, @Request[0], REQUEST_SIZE, 0);
+    cnt := 0;
+    repeat
+      Inc(cnt, fpRecv(Client, @Reply[0], REPLY_SIZE, 0));
+    until cnt >= REPLY_SIZE;  
+    Inc(Bytes, cnt);
+    Inc(Replies);
+  end;
+
+  CloseSocket(Client);
+  Writeln('replies: ', Replies, #9'bytes: ', Bytes);
+end;
+
+var
+  N: Integer = 10;
+  e: Integer = 0;
+  PID: TPid;
+  Addr   : TSockAddr;
+begin
+  if ParamCount > 0 then Val(ParamStr(1), N, e);
+
+  Addr.sin_addr.s_addr:=0;
+  Addr.sin_port:=htons(PORT);
+  Addr.sin_family:=AF_INET;
+
+  Server:=fpSocket(AF_INET, SOCK_STREAM, 0);
+  SetSocketOptions(Server, SOL_SOCKET, SO_REUSEADDR, True, SizeOF(True));
+  fpBind(Server, @addr, SizeOf(Addr));
+  fpListen(Server, 1);
+
+  PID:=fpFork;
+  if PID <> 0 then begin
+    DoServer;
+    CloseSocket(Server);
+    FpWait(PID);
+  end else DoClient(M, N);
+end.
+{ The Computer Language Benchmarks Game
+  http://shootout.alioth.debian.org
+
+  contributed by Marc Weustink
+}
+
+{$mode objfpc}
+
+program thread_ring;
+
+uses
+  PThreads;
+
+var
+  SemList: array[1..503] of TSemaphore;
+
+  ThreadAttr: TThreadAttr;
+  ThreadFuncAddr: TStartRoutine;
+  FinishedSem: TSemaphore;
+  Count: Integer;
+  
+function ThreadFunc(AIndex: PtrInt): Pointer; cdecl;
+var
+  MySem, NextSem: PSemaphore;
+  Id: TThreadID;
+begin
+  MySem := @SemList[AIndex];
+  if AIndex < High(SemList)
+  then begin
+    NextSem := MySem+1;
+    sem_init(NextSem, 0, 0);
+    pthread_create(@Id, @ThreadAttr, ThreadFuncAddr, Pointer(AIndex+1));
+  end
+  else NextSem := @SemList[Low(SemList)];
+
+  repeat
+    sem_wait(MySem);
+    if Count = 0 then begin
+      WriteLn(Aindex);
+      sem_post(FinishedSem);
+    end
+    else begin
+      Dec(Count);
+      sem_post(NextSem);
+    end;
+  until False;
+end;
+
+
+var
+  n: Integer;
+  Id: TThreadId;
+begin
+  Val(paramstr(1), count, n);
+  if n <> 0 then exit;
+
+  sem_init(SemList[Low(SemList)], 0, 1);
+  sem_init(FinishedSem, 0, 0);
+
+  pthread_attr_init(@ThreadAttr);
+  pthread_attr_setdetachstate(@ThreadAttr, 1);
+  pthread_attr_setstacksize(@ThreadAttr, 1024 * 16);
+
+  ThreadFuncAddr := TStartRoutine(@ThreadFunc);
+  pthread_create(@Id, @ThreadAttr, ThreadFuncAddr, Pointer(PtrUInt(Low(SemList))));
+
+  sem_wait(FinishedSem);
+end.
+program wc;
+{$MODE objfpc} 
+
+uses SysUtils;
+
+var
+	nl, nw, nc: longint;
+	Buf: array[1..4096] of byte;
+	NumRead: Integer;
+
+	A: Integer;
+	Tmp: String;
+	TmpPos : Byte;
+	Ch: String;
+	InWord: Boolean;
+begin
+	nl := 0;
+	nc := 0;
+	nw := 0;
+	InWord := False;
+	NumRead := FileRead(StdInputHandle, Buf, 4096);
+	While NumRead > 0 Do
+	begin
+		Inc(nc, NumRead);
+		For A := 1 To NumRead Do
+		begin
+			if Buf[A] = 10 Then Inc(nl);
+			if Buf[A] = 13 Then Dec(nc);
+			if (Buf[A] = 32) Or (Buf[A] = 10) Or (Buf[A] = 13) Or (Buf[A] = 9) Then 
+				InWord := False
+			else
+			begin
+				If InWord = False Then
+				begin
+					Inc(nw);
+					InWord := True;
+				end;
+			end;
+		end;
+		NumRead := FileRead(StdInputHandle, Buf, 4096);
+	end;
+	WriteLn(IntToStr(nl) + ' ' + IntToStr(nw) + ' ' + IntToStr(nc));
+end.
+{ The Great Computer Language Shootout
+  http://shootout.alioth.debian.org 
+
+  contributed by Ian Osgood
+}
+{$mode objfpc}
+
+program wordFrequency;
+uses Classes, StrUtils, SysUtils;
+
+const WhiteSpace = [#0..#255] - ['a'..'z','A'..'Z'];
+
+type TCount = class
+  count : integer;
+  constructor Create;
+  procedure Increment;
+end;
+constructor TCount.Create;  begin count := 1 end;
+procedure TCount.Increment; begin count := count + 1 end;
+
+var words : TStringList;
+    line,word : string;
+    pos,i : integer;
+
+function CountCompare(w: TStringList; i1,i2: integer) : integer;
+var diff : integer;
+begin
+  diff := (w.Objects[i2] as TCount).count - (w.Objects[i1] as TCount).count;
+  if diff = 0 then diff := CompareStr(w[i2],w[i1]);
+  CountCompare := diff;
+end;
+
+begin
+  words := TStringList.Create;
+
+  while not Eof do
+  begin
+    readln(line);
+    pos := 1;
+    repeat
+      word := lowercase(ExtractSubstr(line,pos,WhiteSpace));
+      if length(word) = 0 then continue;
+      if words.Find(word,i) then
+        (words.Objects[i] as TCount).Increment
+      else
+        words.InsertObject(i, word, TCount.Create);
+    until pos > length(line);
+  end;
+
+  words.CustomSort( @CountCompare );
+
+  for i := 0 to words.Count-1 do
+    writeln( (words.Objects[i] as TCount).count:7,' ',words[i]);
+end.
+{ The Great Computer Language Shootout
+  http://shootout.alioth.debian.org
+
+  contributed by Daniel Mantione 
+}
+
+program wordfreq;
+
+type    Ptree=^Ttree;
+        Ttree=record
+          left,right:Ptree;
+          count:cardinal;
+          word:string[32];
+        end;
+
+var s,w:string;
+    i:byte;
+    t:Ptree=nil;
+    t2:Ptree=nil;
+    lr:boolean=false;
+
+procedure add_word(const w:string;var t:Ptree);
+begin
+  if t=nil then
+    begin
+      new(t);
+      t^.left:=nil;
+      t^.right:=nil;
+      t^.count:=1;
+      t^.word:=w;
+    end
+  else if w<t^.word then add_word(w,t^.left)
+  else if w>t^.word then add_word(w,t^.right)
+  else inc(t^.count);
+end;
+
+procedure add_word_second(count:cardinal;const w:string;var t:Ptree);
+var on_left:boolean;
+begin
+  if t=nil then
+    begin
+      new(t);
+      t^.left:=nil;
+      t^.right:=nil;
+      t^.count:=count;
+      t^.word:=w;
+    end
+  else
+    begin
+      on_left:=count>t^.count;
+      if t^.count=count then
+        on_left:=w>t^.word;
+      if on_left then add_word_second(count,w,t^.left)
+      else add_word_second(count,w,t^.right);
+    end;
+end;
+
+procedure build_second_tree(tree:Ptree);
+begin
+  lr:=not lr;
+  if tree<>nil then
+    begin
+      add_word_second(tree^.count,tree^.word,t2);
+      if lr then
+        begin
+          build_second_tree(tree^.left);
+          build_second_tree(tree^.right);
+        end
+      else
+        begin
+          build_second_tree(tree^.right);
+          build_second_tree(tree^.left);
+        end;
+    end;
+end;
+
+procedure write_second_tree(tree:Ptree);
+begin
+  if tree<>nil then
+    begin
+      write_second_tree(tree^.left);
+      writeln(tree^.count:7,' ',tree^.word);
+      write_second_tree(tree^.right);
+    end;
+end;
+
+begin
+  while not eof do
+    begin
+      readln(s);
+      s:=lowercase(s);
+      w:='';
+      for i:=1 to length(s) do
+        if not(s[i] in ['a'..'z']) then
+          begin
+            if length(w)<>0 then add_word(w,t);
+            w:='';
+          end
+        else w:=w+s[i];
+      if length(w)<>0 then add_word(w,t);
+    end;
+  build_second_tree(t);
+  write_second_tree(t2);
+end.
+{  The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   contributed by Micha Nelissen
+}
+
+program wordfreq;
+
+{$mode objfpc}{$H+}
+
+uses
+  simple_hash, strings;
+
+procedure readwords(dict: ht_pht);
+var
+  i: integer;
+  wordbuf: array of char;
+  wordbuflen: integer;
+begin
+  i := 0;
+  wordbuflen := 128;
+  setlength(wordbuf, wordbuflen);
+  while not eof do
+  begin
+    read(wordbuf[i]);
+    if wordbuf[i] in ['a'..'z', 'A'..'Z'] then
+    begin
+      wordbuf[i] := lowercase(wordbuf[i]);
+      inc(i);
+      if i = wordbuflen then
+      begin
+        wordbuflen *= 2;
+        setlength(wordbuf, wordbuflen);
+      end;
+    end else begin
+      if i <> 0 then
+      begin
+        wordbuf[i] := #0;
+        inc(ht_find_new(dict, @wordbuf[0])^.val);
+        i := 0;
+      end;
+    end;
+  end;
+end;
+
+function compare(a, b: ht_pnode): longint; inline;
+begin
+  result := ht_val(b) - ht_val(a);
+  if result <> 0 then
+    exit;
+  result := byte(ht_key(b)^) - byte(ht_key(a)^);
+  if result <> 0 then
+    exit;
+  result := strcomp(ht_key(b), ht_key(a));
+end;
+
+procedure quicksort(var list: array of ht_pnode; l, r : longint);
+var
+  i, j : longint;
+  p, q : ht_pnode;
+begin
+ repeat
+   i := l;
+   j := r;
+   p := list[ (l + r) div 2 ];
+   repeat
+     while compare(p, list[i]) > 0 do
+       i := i + 1;
+     while compare(p, list[j]) < 0 do
+       j := j - 1;
+     If i <= j then
+     begin
+       q := list[i];
+       list[i] := list[j];
+       list[j] := q;
+       i := i + 1;
+       j := j - 1;
+     end;
+   until i > j;
+   if l < j then
+     quicksort(list, l, j);
+   l := i;
+ until i >= r;
+end;
+
+procedure printwords(dict: ht_pht);
+var
+  sortarr: array of ht_pnode;
+  node: ht_pnode;
+  i: integer;
+begin
+  setlength(sortarr, ht_count(dict));
+  node := ht_first(dict);
+  i := 0;
+  while node <> nil do
+  begin
+    sortarr[i] := node;
+    inc(i);
+    node := ht_next(dict);
+  end;
+  quicksort(sortarr, 0, ht_count(dict)-1);
+
+  for i := 0 to ht_count(dict)-1 do
+    writeln(ht_val(sortarr[i]):7, ' ', ht_key(sortarr[i]));
+end;
+
+var
+  dict: ht_pht;
+begin
+  dict := ht_create(2048);
+  readwords(dict);
+  printwords(dict);
+  ht_destroy(dict);
+end.

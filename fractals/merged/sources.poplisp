@@ -1,0 +1,1042 @@
+;;; -*- mode: lisp -*-
+;;; $Id: ackermann.poplisp,v 1.1 2004-10-11 04:47:17 bfulgham Exp $
+
+(defun fast-ack (m n)
+  (declare (fixnum n m) (optimize (speed 3) (debug 0) (safety 0)))
+  (the fixnum
+    (cond
+     ((zerop m) (the fixnum (1+ n)))
+     ((zerop n) (the fixnum (fast-ack (1- m) 1)))
+     (t (the fixnum (fast-ack (1- m) (the fixnum (fast-ack m (1- n)))))))))
+
+;(defun ack (m n)
+;  (cond
+;   ((zerop m) (1+ n))
+;   ((zerop n) (ack (1- m) 1))
+;   (t (ack (1- m) (ack m (1- n))))))
+
+(let ((n (parse-integer (or (car pop11::poparglist) "1"))))   
+    (format *standard-output* "Ack(3,~A): ~A~%" n (fast-ack 3 n))     
+)
+;;; -*- mode: lisp -*-
+;;; $Id: ary.poplisp,v 1.2 2005-05-13 16:24:17 igouy-guest Exp $
+;;; http://shootout.alioth.debian.org/ 
+
+(let ((n (parse-integer (or (car pop11::poparglist) "1"))))
+(declare (fixnum n))
+(let ((x (make-array n :element-type 'fixnum))
+  (y (make-array n :element-type 'fixnum))
+  (last (1- n)))
+  (declare (fixnum last))
+  (dotimes (i n)
+(declare (fixnum i))
+(setf (aref x i) (+ i 1)))
+  (dotimes (k 1000)
+(do ((i last (1- i)))
+	((< i 0) 'nil)
+  (declare (fixnum i))
+  (incf (aref y i) (aref x i))))
+  (format t "~A ~A~%" (aref y 0) (aref y last))))
+;;; -*- mode: lisp -*-
+;;; $Id: echo.poplisp,v 1.3 2005-05-13 16:24:17 igouy-guest Exp $
+;;; http://shootout.alioth.debian.org/
+;;; from Bulent Murtezaogl
+
+;(in-package "UNIX")
+(defun unix-wait ()
+  "Wait for a child to die. We don't care about the status"
+  (int-syscall ("wait" (* int)) nil)) ;;  is lisp nil == C NULL ?? Dunno.
+(in-package "USER")
+
+
+(define-condition sigpipe)
+
+(defun ih-sigpipe (signal code scp)
+  (declare (ignore signal code scp))
+  (signal 'sigpipe))
+
+(defun error-return (str)
+  (format *standard-output* "Error: ~s ~%" str)
+  (quit))
+
+(defun echo-client (port iter)
+  (declare (fixnum iter))
+  (let* ((stream (sys:make-fd-stream
+		  (ext:connect-to-inet-socket "127.0.0.1" port)
+		  :output t :input t :buffering :line))
+	 (estr "Hello there sailor
+")
+	   (len (length estr))
+	   (buffer (make-string len)))
+    (dotimes (i iter)
+      (declare (fixnum i len) (simple-base-string buffer)
+	       (inline write-sequence sys:read-n-bytes string=))
+      (write-sequence estr stream :start 0 :end len )
+      (sys:read-n-bytes stream buffer 0 len nil)
+      (unless (string= estr buffer) 
+	(format t "client did not receive what it sent ~%")))))
+
+  (let ((lsock (ext:create-inet-listener 0))
+	(n (parse-integer (or (car pop11::poparglist) "1"))))
+    (multiple-value-bind (host port) (get-socket-host-and-port lsock)
+      (declare (ignore host))
+      (let ((fork-res (unix:unix-fork)))
+	(if fork-res
+	    (if (zerop fork-res)
+		(echo-client port n)
+	      (let ((stream (sys:make-fd-stream
+			     (ext:accept-tcp-connection lsock)
+			     :output t :input t :buffering :line))
+		    (buffer (make-string 64))
+		    (insize 0)
+		    (sum 0))
+		(declare (fixnum insize sum))
+		(sys:enable-interrupt UNIX:sigpipe #'ih-sigpipe)
+		(handler-case
+		    (progn
+		      (loop ;; loop seems to chew up my declarations!?
+			while (not (zerop (setf (the fixnum insize)
+						(the fixnum (sys:read-n-bytes stream buffer 0 64 nil)))))
+			do (write-sequence buffer stream :start 0 :end insize)
+			(incf sum insize))
+		      (unix::unix-wait)
+		      (format t "server processed ~D bytes~%" sum))
+		  (sigpipe (foo) (declare (ignore foo)) (error-return "Kid died prematurely")) ;; as good as catching sigchild for this app 
+		  (end-of-file (foo) (declare (ignore foo))(error-return "EOF signalled.  Huh???")))))))))
+;;; -*- mode: lisp -*-
+;;; $Id: except.poplisp,v 1.3 2005-05-13 16:24:17 igouy-guest Exp $
+;;; http://shootout.alioth.debian.org/ 
+;;; From: Friedrich Dominicus 
+
+(defparameter *hi* 0)
+(defparameter *lo* 0)
+
+(defun some-fun (n)
+  (catch t
+    (hi-fun n)))
+
+(defun hi-fun (n)
+  (catch 'Hi_Exception
+    (lo-fun n)))
+  
+(defun lo-fun (n)
+  (catch 'Lo_Exception
+    (blow-up n))) 
+  
+(defun blow-up (n)
+  (if (evenp n)
+      (throw 'Hi_Exception (setf *hi* (1+ *hi*)))
+    (throw 'Lo_Exception (setf *lo* (1+ *lo*)))))
+
+  (let ((n (parse-integer (or (car pop11::poparglist) "1"))))
+  (setf *hi* 0
+	*lo* 0)
+  (do ((i 0 (1+ i)))
+      ((= i n))
+    (some-fun i)))
+  (format t "Exceptions: HI=~A / LO=~A~%" *hi* *lo*)
+;;; $Id: fibo.poplisp,v 1.3 2005-04-25 19:01:38 igouy-guest Exp $
+;;; http://shootout.alioth.debian.org/
+
+(defun fib (n)
+(if (< n 2) 1 (+ (fib (- n 1)) (fib (- n 2)))))
+
+(let 
+	((n (parse-integer (or (car pop11::poparglist) "1"))))
+	(format *standard-output* "~A~%" (fib n))
+)
+;;; -*- mode: lisp -*-
+;;; $Id: hash.poplisp,v 1.2 2005-05-13 16:24:17 igouy-guest Exp $
+;;; http://shootout.alioth.debian.org/ 
+
+(declaim (optimize (speed 3) (space 0) (safety 0) (debug 0) (compilation-speed 0)))
+(defun command-line-argument ()
+  (parse-integer (or (car pop11::poparglist) "1")))
+
+(defconstant +digit+ "0123456789ABCDEF")
+
+(defconstant +digits-needed+
+  #(	(10 100 1000 10000 100000 10000000 100000000 536870911)
+    	(16 256 4096 65536 1048576 16777216 268435456 4294967296 536870911)
+    )
+)
+
+(defun fixnum-to-string (n base)
+  (declare (fixnum n base))
+  (let* ((size (position-if (lambda (x) (> (the fixnum x) n))
+			    (aref +digits-needed+ (ash base -4))))
+	 (result (make-string (1+ size))))
+    (loop for i fixnum from size downto 0 with q fixnum = n and r fixnum = 0
+      do (multiple-value-setq (q r) (floor q base))
+         (setf (schar result i) (aref +digit+ r)))
+    result)
+)
+
+(defun main (&optional (n (command-line-argument)))
+  (let ((hash (make-hash-table :test 'equal :size n)))
+    (macrolet ((hash (i base) `(gethash (fixnum-to-string ,i ,base) hash)))
+      (loop for i fixnum from 1 to n do (setf (hash i 16) i))
+      (format t "~a~%" (loop for i fixnum from n downto 1 count (hash i 10))))))
+
+(main)
+;;; -*- mode: lisp -*-
+;;; $Id: hash2.poplisp,v 1.2 2005-05-13 16:24:17 igouy-guest Exp $
+;;; http://shootout.alioth.debian.org/ 
+;;; from Paul Foley
+
+(declaim (optimize (speed 3) (space 0) (safety 0) (debug 0) (compilation-speed 0)))
+(defun command-line-argument ()
+  (parse-integer (or (car pop11::poparglist) "1")))
+
+(defconstant +digit+ "0123456789")
+
+(defconstant +digits-needed+
+  '(10 100 1000 10000 100000 10000000 100000000 536870911))
+
+(defun fixnum-to-foo-string (n)
+  (declare (fixnum n))
+  (let* ((size (+ 4 (position-if (lambda (x) (> (the fixnum x) n))
+                                 +digits-needed+)))
+	 (result (make-string (1+ size))))
+    (replace result "foo_")
+    (loop for i fixnum from size downto 4 with q fixnum = n and r fixnum = 0
+      do (multiple-value-setq (q r) (floor q 10))
+         (setf (schar result i) (aref +digit+ r)))
+    result))
+
+(defun main (&optional (n (command-line-argument)))
+  (let ((hash1 (make-hash-table :test 'equal :size n))
+        (hash2 (make-hash-table :test 'equal :size n)))
+    (macrolet ((hash1 (i) `(gethash (fixnum-to-foo-string ,i) hash1))
+               (hash2 (i) `(gethash (fixnum-to-foo-string ,i) hash2)))
+      (loop for i fixnum below 10000 do (setf (hash1 i) i))
+      (loop for i fixnum below n do
+        (maphash (lambda (k v)
+                   (declare (fixnum v))
+                   (incf (the fixnum (gethash k hash2 0)) v))
+                 hash1))
+      (format t "~D ~D ~D ~D~%" (hash1 1) (hash1 9999) (hash2 1) (hash2 9999)))))
+
+(main)
+;;; -*- mode: lisp -*-
+;;; $Id: heapsort.poplisp,v 1.2 2005-05-13 16:24:17 igouy-guest Exp $
+;;; http://shootout.alioth.debian.org/ 
+
+(defconstant IM     139968)
+(defconstant IA       3877)
+(defconstant IC      29573)
+
+(defvar LAST 42)
+
+(defun gen_random (max)
+  (declare (optimize (speed 3) (debug 0) (safety 0))) 
+  (declare (type (signed-byte 32) IM IA IC LAST))
+  (declare (double-float max))
+  (setq LAST (mod (+ (* LAST IA) IC) IM))
+  (/ (* max LAST) IM))
+
+(defun heapsort (n ra)
+  (declare (optimize (speed 3) (debug 0) (safety 0))) 
+  (let ((ir n)
+	(l (+ (ash n -1) 1))
+	(i 0) 
+	(j 0)
+	(rra 0.0d0))
+    (declare (type (simple-array double-float (*)) ra))
+    (declare (fixnum ir l i j))
+    (declare (double-float rra))
+    (block here
+      (loop
+	(cond ((> l 1)
+	       (setq rra (aref ra (setq l (- l 1)))))
+	      (t
+	       (setq rra (aref ra ir))
+	       (setf (aref ra ir) (aref ra 1))
+	       (setq ir (- ir 1))
+	       (if (= ir 1)
+		   (progn
+		     (setf (aref ra 1) rra)
+		     (return-from here nil)))))
+	(setq i l)
+	(setq j (ash l 1))
+	(do ()
+	    ((> j ir))
+	  (cond ((and (< j ir) (< (aref ra j) (aref ra (+ j 1))))
+		 (setq j (+ j 1))))
+	  (cond ((< rra (aref ra j))
+		 (setf (aref ra i) (aref ra j))
+		 (setq j (+ j (the fixnum (setq i j)))))
+		(t
+		 (setq j (+ ir 1)))))
+	(setf (aref ra i) rra)))))
+
+(declare (optimize (speed 3) (debug 0) (safety 0)))
+(let* ((n (parse-integer (or (car pop11::poparglist) "1")))
+ (ary (make-array (1+ n) :element-type 'double-float)))
+(declare (fixnum n))
+(loop for i fixnum from 0 below n do
+  (setf (aref ary i) (gen_random 1.0d0)))
+(heapsort n ary)
+(format t "~,10F~%" (aref ary n)))
+;;; -*- mode: lisp -*-
+;;; $Id: hello.poplisp,v 1.2 2005-05-13 16:24:18 igouy-guest Exp $
+;;; http://shootout.alioth.debian.org/ 
+
+(write-line "hello world")
+;;; -*- mode: lisp -*-
+;;; $Id: lists.poplisp,v 1.2 2005-05-13 16:24:18 igouy-guest Exp $
+;;; http://shootout.alioth.debian.org/ 
+
+(defparameter *SIZE* 10000)
+
+(declaim (fixnum *SIZE*) (inline xcons push-queue))
+
+(defvar *free-conses*)
+
+(defun xcons (A B)
+  (let ((x *free-conses*))
+    (if x (progn (setf *free-conses* (cdr x) (car x) A (cdr x) B) x) (cons A B))))
+
+(defmacro xpop (X)
+  `(prog1 (car ,x) (psetf ,x (cdr ,x) (cdr ,x) *free-conses* *free-conses* ,x)))
+
+(defun push-queue (item queue &aux (new (xcons item nil)))
+  (if (cdr queue) (setf (cddr queue) new) (setf (car queue) new))
+  (setf (cdr queue) new)
+  (car queue))
+
+(defmacro with-collector ((name) &body body)
+  (let ((collector (gensym)))
+    `(let ((,collector (xcons nil nil)))
+       (flet ((,name (value) (push-queue value ,collector)))
+         ,@body
+         (car ,collector)))))
+
+(defun test-list ()
+  (let* ((L1 (with-collector (conc) (loop for x fixnum from 1 to *SIZE* do (conc x))))
+         (L2 (with-collector (conc) (loop for x in L1 do (conc x))))
+         (L3 nil))
+    ;; Move items from left of L2 to right of L3 (preserve order)
+    (setf L3 (with-collector (conc) (loop while L2 do (conc (xpop L2)))))
+    ;; Move from tail of L3 to tail of L2 (reversing list)
+    ;; start by reversing L3 so we can pop from the front
+    (setf L3 (nreverse L3))
+    (setf L2 (with-collector (conc) (loop while L3 do (conc (xpop L3)))))
+    ;; Reverse L1 in place
+    (setf L1 (nreverse L1))
+    ;; Check that (first L1) == *SIZE*
+    (assert (= (the fixnum (first L1)) *SIZE*))
+    ;; Compare L1 and L2 for equality
+    (assert (equal L1 L2))
+    ;; Return the length -- and return the conses to the free list
+    (prog1 (length (the list L1))
+      (setf *free-conses* (nconc *free-conses* L3 L2 L1)))))
+
+(let ((n (parse-integer (or (car pop11::poparglist) "1")))
+	(num 0) (*free-conses* nil))
+(loop repeat n fixnum do (setf num (test-list)))
+(format t "~D~%" num))
+;;; -*- mode: lisp -*-
+;;; $Id: matrix.poplisp,v 1.2 2005-05-13 16:24:18 igouy-guest Exp $
+;;; http://shootout.alioth.debian.org/ 
+
+(proclaim '(optimize (speed 3) (space 0) (compilation-speed 0) (debug 0) (safety 0)))
+
+(defun matmul (a b c n m k)
+  (declare (optimize (speed 3) (safety 0) (debug 0))
+           (type (simple-array (unsigned-byte 32) (*)) a b c)
+           (fixnum n m k))
+  (let ((sum 0)
+        (i1 (- m))
+        (k2 0))
+    (declare (type (unsigned-byte 32) sum) (type fixnum i1 k2))
+    (dotimes (i n c)
+      (declare (fixnum i))
+      (setf i1 (+ i1 m)) ;; i1=i*m
+      (dotimes (j k)
+        (declare (fixnum j))
+        (setf sum 0)
+        (setf k2 (- k))
+        (dotimes (l m)
+          (declare (fixnum l))
+          (setf k2 (+ k2 k)) ;; k2= l*k
+          (setf sum (the (unsigned-byte 32) (+ (the (unsigned-byte 32) sum) 
+                                               (the (unsigned-byte 32) (* (aref a (+ i1 l))
+                                                                          (aref b (+ k2 j))))))))
+        (setf (aref c (+ i1 j)) sum)))))
+
+(defun make-matrix (rows cols)
+  (declare (type (unsigned-byte 32) rows cols)
+           (optimize (speed 3) (safety 0))); (hcl:fixnum-safety 0)))
+  (let* ((space (* rows cols))
+         (matrix (make-array space
+                             :element-type '(unsigned-byte 32))))
+    (declare (type (simple-array (unsigned-byte 32) (*)) matrix)
+             (fixnum space))
+    (loop :for i :of-type fixnum :from 0 :below space
+          :do (setf (aref matrix i) (1+ i)))
+    matrix))
+
+(let ((n (parse-integer (or (car pop11::poparglist) "1"))))
+(declare (fixnum n)	
+	 (optimize (speed 3) (debug 0) (safety 0)))
+(let* ((m1 (make-matrix 30 30))
+   (m2 (make-matrix 30 30))
+   (m3 (make-matrix 30 30))
+   (mm (make-array '(30 30) :element-type '(unsigned-byte 32) :displaced-to m3)))
+  (loop repeat n do (matmul m1 m2 m3 30 30 30))
+  (format t "~A ~A ~A ~A~%"
+	  (aref mm 0 0) (aref mm 2 3) (aref mm 3 2) (aref mm 4 4))))
+
+;;; -*- mode: lisp -*-
+;;; $Id: methcall.poplisp,v 1.2 2005-05-13 16:24:18 igouy-guest Exp $
+;;; http://shootout.alioth.debian.org/ 
+
+;; OO with CLOS
+(proclaim '(optimize (speed 3)(safety 0)(space 0)(debug 0)(compilation-speed 0)))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defstruct (toggle (:constructor make-toggle ()))
+    (state t :type boolean)))
+
+(defmethod activate ((this toggle))
+  (setf (toggle-state this) (not (toggle-state this)))
+  this)
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defstruct (nth-toggle (:include toggle)
+                         (:constructor make-nth-toggle (count-max)))
+    (count-max 1 :type fixnum)
+    (counter 0 :type fixnum)))
+
+(defmethod activate ((this nth-toggle))
+  (incf (nth-toggle-counter this))
+  (cond ((>= (nth-toggle-counter this)
+	     (nth-toggle-count-max this))
+	 (setf (toggle-state this) (not (toggle-state this)))
+	 (setf (nth-toggle-counter this) 0)))
+  this)
+  
+(defun print-bool (b)
+  (format t (if b "true~%" "false~%")))
+
+(let ((n (parse-integer (or (car pop11::poparglist) "1")))
+(val))
+(declare (fixnum n val))
+(let ((tog (make-toggle)))
+  (dotimes (i n)
+(declare (fixnum i))
+(setq val (toggle-state (activate tog))))
+  (print-bool (toggle-state tog))
+(let ((ntog (make-nth-toggle 3)))
+  (dotimes (i n)
+(declare (fixnum i))
+(setq val (toggle-state (activate ntog))))
+  (print-bool (toggle-state ntog)))))
+;;; -*- mode: lisp -*-
+;;; $Id: moments.poplisp,v 1.2 2005-06-15 18:35:59 igouy-guest Exp $
+;;; http://shootout.alioth.debian.org/ 
+
+(declaim (optimize (speed 3) (debug 0) (safety 0) (space 0) (compilation-speed 0)))
+
+(defun quicksort (vec lo hi) ;; modified from from Roger Corman's posting in cll
+  (declare (fixnum hi lo) (type (simple-array double-float) vec))
+    (if (> hi lo)
+        (let* ((mid (round (+ lo hi) 2))
+               (i lo)
+               (j (+ hi 1))
+               (p (aref vec mid)))
+	  (declare (fixnum i j) (double-float p))
+            (rotatef (aref vec mid) (aref vec lo)) ;; swap mid element to first
+            (loop
+                (loop do (incf i)
+                    until (or (> i hi) (> p (aref vec i))))
+                (loop do (decf j)
+                    until (or (<= j lo) (> (aref vec j) p)))
+		(if (< j i) (return))
+                (rotatef (aref vec i)(aref vec j)))
+  (rotatef (aref vec lo) (aref vec j)) ;;put partition element in place 
+  (quicksort vec lo (- j 1))  (quicksort vec i hi))) vec)
+
+(defun do-moments (data n mean)
+  (declare (fixnum n) (double-float mean) (type (simple-array double-float) data))
+  (let ((average_deviation 0.0d0)
+	(standard_deviation 0.0d0)
+	(variance 0.0d0)
+	(skew 0.0d0)
+	(kurtosis 0.0d0)
+	(median 0.0d0))
+    (declare (double-float mean average_deviation standard_deviation
+			   variance skew kurtosis median))
+    (declare (inline quicksort))
+    (loop for i fixnum from 0 below n do
+      (let* ((deviation (- (the double-float (aref data i)) mean))
+	     (deviation2 (* deviation deviation))
+	     (deviation3 (* deviation deviation2))
+	     (deviation4 (* deviation deviation3)))
+	(incf average_deviation (abs deviation))
+	(incf variance deviation2)
+	(incf skew deviation3)
+	(incf kurtosis deviation4)))
+    
+    (setq average_deviation (/ average_deviation n))
+    (setq variance (/ variance (1- n)))
+    (setq standard_deviation (sqrt variance))
+    
+    (cond ((> variance 0.0d0)
+	   (setq skew (/ skew (* n variance standard_deviation)))
+	   (setq kurtosis (- (/ kurtosis (* (coerce n 'double-float)
+					    variance variance))
+			     3.0d0))))
+    (setf data (quicksort data 0 (1- n)))
+    (let ((mid (/ n 2)))
+      (fixnum mid)
+      (if (zerop (mod n 2))
+	  (setq median (/ (+ (the double-float (aref data mid))
+			     (the double-float (aref data (1- mid))))
+			  2.0d0))
+	(setq median (aref data mid))))
+    (format t "n:                  ~A~%" n)
+    (format t "median:             ~,6K~%" median)
+    (format t "mean:               ~,6K~%" mean)
+    (format t "average_deviation:  ~,6K~%" average_deviation)
+    (format t "standard_deviation: ~,6K~%" standard_deviation)
+    (format t "variance:           ~,6K~%" variance)
+    (format t "skew:               ~,6K~%" skew)
+    (format t "kurtosis:           ~,6K~%" kurtosis)))
+
+
+  (let ((buffer (make-string 4096))
+	(start 0)
+	(end 0)
+	(result 0.0d0)
+	(char #\X)
+	(stream *standard-input*)
+	(eof-p nil))
+    (declare (fixnum start end) (double-float result))
+    (labels ((get-char ()
+		       (when (= start end)
+			 (setf start 0)
+			 (setf end (read-sequence buffer stream))
+			 (when (zerop end)
+			   (setf eof-p t)
+			   (setf char #\Z) ;any non-digit will do
+			   (return-from get-char nil)))
+		       (setf char (schar buffer start))
+		       (incf start))
+	     (get-dfloat ();; parse double float hack someone should rewrite this
+			 (let ((minusp nil)
+			       (expminusp nil)
+			       (before-dp 0)
+			       (after-dp 0)
+			       (dec-digits 0)
+			       (exponent 0))
+			   (declare (fixnum before-dp after-dp exponent dec-digits)
+				    (inline digit-char-p char=))
+			   (loop while (and
+					(not
+					 (or (and (char= #\- char)
+						  (setq minusp t))
+					     (digit-char-p char 10)))
+					(get-char)))
+			   (loop 
+			     do (let ((weight (digit-char-p char 10)))
+				  (declare (type (or null fixnum) weight))
+				  (if weight
+				      (setq before-dp (+ weight (the fixnum (* before-dp 10))))
+				    (return)))
+			     until (not (get-char)))
+			   (if minusp (setf before-dp (- before-dp)))
+			   (when (char= #\. char)
+			     (loop while (get-char)
+			       do (let ((weight (digit-char-p char 10)))
+				    (declare (type (or null (signed-byte 32)) weight))
+				    (if weight
+					(setq after-dp (+ weight (the fixnum (* after-dp 10)))
+					      dec-digits (the fixnum (1+ dec-digits)))
+				      (return)))))
+			   (when (or (char= #\e char) (char= #\E char))
+			     (get-char)
+			     (when (char= #\- char)
+			       (setq expminusp t)
+			       (get-char))
+			     (loop 
+			       do (let ((weight (digit-char-p char 10)))
+				    (declare (type (or null fixnum) weight))
+				    (if weight
+					(setq exponent (+ weight (the fixnum (* exponent 10))))
+				      (return)))
+			       until (not (get-char)))
+			     (if expminusp (setf exponent (- exponent))))
+			   (setq result
+				 (float (*
+					 (+ (float before-dp 1.0d0)
+					    (if (zerop after-dp) 0.0d0
+					      (* (float after-dp 1.0d0)
+						 (if (zerop dec-digits) 1.0d0
+						   (expt 10.0d0 (float (- dec-digits) 1.0d0))))))
+					 (if (zerop exponent) 1.0d0
+					   (expt 10.0d0 (float exponent 1.0d0)))) 1.0d0)))))
+
+      (let ((sum 0.0d0)
+	    nums )
+	(declare (double-float sum) (inline vector-push-extend))
+	(let* ((array-size 10000)
+	       (numbuffer (make-array array-size :element-type 'double-float))
+	       (buflist (list numbuffer)) ;; Doug's idea put these together later
+	       (fill-pointer 0))
+	  (loop
+	    (get-dfloat)
+	    (if (not eof-p)
+		(progn 
+		  (incf sum result)
+		  (setf (aref numbuffer fill-pointer) result)
+		  (incf fill-pointer)
+		  (when (= fill-pointer array-size)
+		    (push
+		     (setf numbuffer (make-array array-size :element-type 'double-float))
+		     buflist)
+		    (setf fill-pointer 0)))
+	      (return)))
+	  (let* ((num-arrays (length buflist))
+		 (num-elem (+ (* (1- num-arrays) array-size) fill-pointer)))
+	    (setf nums (make-array  num-elem :element-type 'double-float))
+	    (locally (declare (type (simple-array double-float) nums))
+		     (loop for i fixnum from 0 to (1- num-arrays) do
+		       (setf (subseq nums (* i array-size))
+			     (the (simple-array double-float)
+			       (elt buflist (- (1- num-arrays) i))))) ;;buflist is rev'd
+		     (do-moments nums num-elem (/ sum num-elem))))))))
+;;; -*- mode: lisp -*- 
+;;; $Id: nestedloop.poplisp,v 1.2 2005-05-13 16:24:18 igouy-guest Exp $
+;;; http://shootout.alioth.debian.org/
+
+(let ((n (parse-integer (or (car pop11::poparglist) "1")))
+(x 0))
+(declare (fixnum n)
+	 (fixnum x)
+	 (optimize (speed 3) (debug 0) (safety 0)))
+(dotimes (a n)
+  (dotimes (b n)
+	(dotimes (c n)
+	  (dotimes (d n)
+		(dotimes (e n)
+		  (dotimes (f n)
+			(incf x)))))))
+(format t "~A~%" x))
+;;; -*- mode: lisp -*-
+;;; $Id: objinst.poplisp,v 1.2 2005-05-13 16:24:18 igouy-guest Exp $
+;;; http://shootout.alioth.debian.org/ 
+
+;; OO with CLOS
+(proclaim '(optimize (speed 3)(safety 0)(space 0)(debug 0)(compilation-speed 0)))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defstruct (toggle (:constructor make-toggle ()))
+    (state t :type boolean)))
+
+(defmethod activate ((this toggle))
+  (setf (toggle-state this) (not (toggle-state this)))
+  this)
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defstruct (nth-toggle (:include toggle)
+                         (:constructor make-nth-toggle (count-max)))
+    (count-max 1 :type fixnum)
+    (counter 0 :type fixnum)))
+
+(defmethod activate ((this nth-toggle))
+  (incf (nth-toggle-counter this))
+  (cond ((>= (nth-toggle-counter this)
+	     (nth-toggle-count-max this))
+	 (setf (toggle-state this) (not (toggle-state this)))
+	 (setf (nth-toggle-counter this) 0)))
+  this)
+  
+(defun print-bool (b)
+  (format t (if b "true~%" "false~%")))
+
+(let ((n (parse-integer (or (car pop11::poparglist) "1"))))
+(declare (fixnum n))
+(let ((tog (make-toggle)))
+  (dotimes (i 5)
+(declare (fixnum i))
+(print-bool (toggle-state (activate tog)))))
+(dotimes (i n)
+  (make-toggle))
+
+(format t "~%")
+
+(let ((ntog (make-nth-toggle 3)))
+  (dotimes (i 8)
+(declare (fixnum i))
+(print-bool (toggle-state (activate ntog)))))
+(dotimes (i n)
+  (declare (fixnum i))
+  (make-nth-toggle 3)))
+
+;;; -*- mode: lisp -*-
+;;; $Id: prodcons.poplisp,v 1.2 2005-05-13 16:24:18 igouy-guest Exp $
+;;; http://shootout.alioth.debian.org/
+;;; From Jochen Schmidt 
+
+(defparameter *counter* 0)
+(defparameter *produced* 0)
+(defparameter *consumed* 0)
+(defparameter *data* 0)
+(defparameter *mutex* (mp:make-lock "Big Lock"))
+
+(defun producer (n)
+  (declare (optimize (speed 3) (safety 0))
+           (fixnum n))
+  (loop :for i :of-type fixnum :from 1 :to n
+        :do 
+        (mp:process-wait "Producer is waiting on Consumer" #'(lambda () (= *counter* 0)))
+        (mp:with-lock-held (*mutex*)
+          (setf *data* i
+                    *counter* 1))
+        (incf *produced*)))
+
+(defun consumer (n)
+  (declare (optimize (speed 3) (safety 0))
+           (fixnum n))
+  (let ((i 0))
+    (declare (fixnum i))
+    (loop
+     (mp:process-wait "Consumer is waiting on Producer" #'(lambda () (= *counter* 1)))
+     (mp:with-lock-held (*mutex*)
+       (setf i *data*
+             *counter* 0))
+     (incf *consumed*)
+     (when (= i n)
+       (return)))))
+
+  (let ((n (parse-integer (or (car pop11::poparglist) "1"))))
+    (declare (optimize (speed 3) (safety 0))
+	     (fixnum n))
+    (setf *counter* 0
+	  *produced* 0
+	  *consumed* 0
+	  *data* 0)
+    (let ((producer (mp:make-process #'(lambda () (funcall #'producer n)) :name "Producer"))
+	  (consumer (mp:make-process #'(lambda () (funcall #'consumer n)) :name "Consumer")))
+      (mp:process-wait "Wait on Producer" #'(lambda () (eq (mp:process-state producer) :killed)))
+      (mp:process-wait "Wait on Consumer" #'(lambda () (eq (mp:process-state consumer) :killed)))
+      (format t "~A ~A~%" *produced* *consumed*))
+;;; -*- mode: lisp -*-
+;;; $Id: random.poplisp,v 1.2 2005-05-13 16:24:18 igouy-guest Exp $
+;;; http://shootout.alioth.debian.org/ 
+
+(defconstant IM     139968)
+(defconstant IA       3877)
+(defconstant IC     29573)
+
+(defvar LAST 42)
+
+(declaim (inline gen_random))
+(defun gen_random (max)
+  (declare (type (signed-byte 32) IM IA IC LAST))
+  (declare (double-float max))
+  (setq LAST (mod (+ (the fixnum (* LAST IA)) IC) IM))
+  (/ (* max LAST) IM))
+
+  (let ((n (parse-integer (or (car pop11::poparglist) "1"))))
+    (loop for i fixnum from 1 below n do
+      (gen_random 100.0d0))
+    (format t "~,9F~%" (gen_random 100.0d0)))
+;;; -*- mode: lisp -*-
+;;; $Id: regexmatch.poplisp,v 1.2 2005-05-13 16:24:18 igouy-guest Exp $
+;;; http://shootout.alioth.debian.org/ 
+;;; from Jochen Schmidt
+
+(proclaim '(optimize (speed 3)(safety 0)(space 0)(debug 0)(compilation-speed 0)))
+(setf ext:*bytes-consed-between-gcs* 5000000)
+(use-package :meta)
+(eval-when (compile load eval)
+(meta:enable-meta-syntax)
+(deftype digit () '(member #\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9))
+(deftype non-digit () '(not (member #\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9 #\( #\) ))))
+
+(defun parse-tel (input)
+  (meta:with-string-meta (buffer input)
+    (let (last-result)
+      (declare (type (or null simple-base-string) last-result))
+      (labels ((skip-non-digits (&aux d)
+                     (meta:match $[@(non-digit d)]))
+               (digit-triplet (&aux (old-index index) d (result (make-array 3 :element-type 'base-char)))
+                     (declare (type simple-base-string result))
+                     (or (meta:match [@(digit d) !(setf (schar result 0) d)
+                                      @(digit d) !(setf (schar result 1) d)
+                                      @(digit d) !(setf (schar result 2) d)
+                                      !(setf last-result result)])
+                         (progn (setf index old-index) nil)))
+               (digit-4tupel (&aux (old-index index) d (result (make-array 4 :element-type 'base-char)))
+                     (declare (type simple-base-string result))
+                     (or (meta:match [@(digit d) !(setf (schar result 0) d)
+                                      @(digit d) !(setf (schar result 1) d)
+                                      @(digit d) !(setf (schar result 2) d)
+                                      @(digit d) !(setf (schar result 3) d)
+                                      !(setf last-result result)])
+                         (progn (setf index old-index) nil)))
+              (telephone-nr (&aux area-code exchange d)
+                    (declare (type (or null simple-base-string) area-code exchange))
+                    (and (meta:match [!(skip-non-digits)
+                                        {[#\( !(digit-triplet) #\)] !(digit-triplet)} !(setf area-code last-result)
+                                        #\space !(digit-triplet) !(setf exchange last-result)
+                                        {#\space #\-} !(digit-4tupel) {@(non-digit d) !(= index end)}])
+                                      (values area-code exchange last-result))))
+            (telephone-nr)))))
+
+  (let ((n (parse-integer (or (car pop11::poparglist) "1")))
+        (input (loop for line = (read-line *standard-input* nil 'eof)
+                     until (eq line 'eof) collect line)))
+    (loop for i of-type fixnum from 1 below n do
+      (loop for line of-type simple-base-string in input
+        do (parse-tel line)))
+    (loop with i of-type fixnum = 0
+          for line of-type string in input
+          do (multiple-value-bind (area-code exchange rest) (parse-tel line)
+               (when area-code
+                 (format t "~A: (~A) ~A-~A~%" (incf i) area-code exchange rest)))))
+;;; -*- mode: lisp -*-
+;;; $Id: reversefile.poplisp,v 1.2 2005-05-13 16:24:19 igouy-guest Exp $
+;;; http://shootout.alioth.debian.org/ 
+;;; from Bulent Murtezaoglu
+
+(declaim (optimize (speed 3) (debug 0) (safety 0) (space 0) (compilation-speed 0)))
+
+(defconstant BLOCKSIZE 4096)
+
+(declaim (inline position-rev))
+;; I wrote the the function below because the default cmucl image
+;; doesn't seem to to have the inline expansion of position available
+(defun position-rev (string end char)
+  (declare (simple-string string) (fixnum end))
+  (declare (inline char=))
+  (loop for i from (1- end) downto 0
+    do (when (char= (aref string i) char)
+	 (return-from position-rev i))))
+
+  (declare (inline read-sequence write-string position-rev replace))
+  (let ((fp 0)
+	(bufsize BLOCKSIZE)
+	(buf (make-string BLOCKSIZE)))
+    (declare (fixnum bufsize) (simple-string buf))
+    (loop for i fixnum = (read-sequence buf *standard-input*
+	:start fp :end (+ fp BLOCKSIZE))
+      until (= i fp) do
+      (setq fp i)
+      (when (> (+ i BLOCKSIZE) bufsize)
+	(setq bufsize (* 2 bufsize))
+	(let ((tmpbuf (make-string bufsize)))
+	  (replace tmpbuf buf :start1 0 :end1 fp :start2 0 :end2 fp)
+	  (setq buf tmpbuf))))
+    (loop for i = (1- fp) then j as j = (position-rev buf i #\Newline)
+      do (write-string buf *standard-output* :start (if j (1+ j) 0) :end (1+ i))
+      while j))
+;;; -*- mode: lisp -*- 
+;;; $Id: sieve.poplisp,v 1.2 2005-05-13 16:24:19 igouy-guest Exp $
+;;; http://shootout.alioth.debian.org/
+
+(declaim (optimize (speed 3) (safety 0) (debug 0) (space 0) (compilation-speed 0)))
+(let ((n (parse-integer (or (car pop11::poparglist) "1")))
+	(flags (make-array 8193 :element-type 'fixnum :initial-element 1)))
+(loop repeat n of-type fixnum for count of-type fixnum = 0 then 0 do
+   (loop for i fixnum from 2 upto 8192 do
+	  (unless (zerop (aref flags i))
+		(loop for k fixnum from (* 2 i) upto 8192 by i do
+			  (setf (aref flags k) 0))
+		(incf count)))
+   finally (format t "Count: ~D~%" count)))
+;;; -*- mode: lisp -*-
+;;; $Id: spellcheck.poplisp,v 1.2 2005-05-13 16:24:19 igouy-guest Exp $
+;;; http://shootout.alioth.debian.org/ 
+
+  (declare (optimize (speed 3) (debug 0) (safety 0)))
+  (let* ((dict (make-hash-table :test 'equal :size 10000)))
+
+    (with-open-file (dictfile "Usr.Dict.Words" :direction :input)
+		    (do ((line (read-line dictfile)
+			       (read-line dictfile nil 'eof)))
+			((eq line 'eof))
+		      (setf (gethash line dict) t)))
+
+    (do ((word (read-line *standard-input*)
+	       (read-line *standard-input* nil 'eof)))
+	((eq word 'eof))
+      (if (not (gethash word dict))
+	  (write-line word))))
+;;; -*- mode: lisp -*-
+;;; $Id: strcat.poplisp,v 1.2 2005-05-13 16:24:19 igouy-guest Exp $
+;;; http://shootout.alioth.debian.org/ 
+
+(defconstant *string* "hello
+")
+              
+(defun string-concat1 (n)
+  (declare (fixnum n))
+  (let ((str "")
+        (used-len 0)
+        (string-leng 0)
+        (i (1+ n)))
+    (declare (fixnum i used-len string-leng))
+    (declare (simple-base-string str))
+    (declare (optimize (speed 3) (debug 0) (safety 0)))
+    (dotimes (i (1- i) (replace (make-string used-len) str))
+      (let ((required-length (+ used-len (length *string*))))
+        (if (eq string-leng 0)
+            (setq str (make-string required-length)
+                  string-leng required-length)
+          (if (> required-length string-leng)
+              (let ((new-len (+ string-leng string-leng)))
+                (let ((new-str (make-string new-len)))
+                  (replace new-str str :end2 used-len)
+                  (setq str new-str string-leng new-len)))))
+        (replace str *string* :start1 used-len)
+        (setq used-len required-length)))))
+
+(let ((n (parse-integer (or (car pop11::poparglist) "1"))))
+(format t "~A~%" (length (string-concat1 n))))
+;;; -*- mode: lisp -*-
+;;; $Id: sumcol.poplisp,v 1.2 2005-05-13 16:24:19 igouy-guest Exp $
+;;; http://shootout.alioth.debian.org/ 
+
+  ;; fastest compilation mode 
+  (declare (optimize (speed 3) (debug 0) (safety 0)))
+  (let ((sum 0))
+    (declare (fixnum sum))
+    (do (
+			(line 
+				(read-line *standard-input* nil 'eof)
+			)
+		)
+		(
+			(eq line 'eof) (format t "~A~%" sum)
+		)
+		(incf sum (the fixnum (parse-integer line)))
+	)
+)
+;;; -*- mode: lisp -*-
+;;; $Id: wc.poplisp,v 1.2 2005-05-13 16:24:19 igouy-guest Exp $ 
+;;; http://shootout.alioth.debian.org/
+;;; from Bulent Murtezaoglu (with some code from Andrew McDowell)
+
+(declaim (optimize (speed 3) (debug 0) (safety 0) (space 0) (compilation-speed 0)))
+	 
+  (let* ((start 0)
+	 (current #\X)			;junk char save me the locally
+	 (end 0)
+	 (nc 0)
+	 (buffer (make-string 4096)))
+    (declare (type (simple-base-string 4096) buffer) (fixnum start end nc)
+	     (base-char current))
+    (labels
+	((get-char ()
+		   (when (= start end)
+		     (setf start 0)
+		     (setf end (read-sequence buffer *standard-input*))
+		     (incf nc end)
+		     (when (zerop end)
+		       (return-from get-char nil)))
+		   (setf current (schar buffer start))
+		   (incf start)))
+      (let ((nl 0)
+	    (nw 0)
+	    (inword nil))
+	(declare (fixnum nl nw))
+	(loop while (get-char) do
+	  (cond ((char= current #\newline)
+		 (incf nl)
+		 (setq inword nil))
+		((or (char= current #\space) (char= current #\tab))
+		 (setq inword nil))
+		((not inword) ;; only tested if we have a word constituent
+		 (incf nw) (setq inword t))))
+	(format t "~A ~A ~A~%" nl nw nc))))
+;;; -*- mode: lisp -*-
+;;; $Id: wordfreq.poplisp,v 1.2 2005-06-15 18:36:00 igouy-guest Exp $
+;;; http://shootout.alioth.debian.org/
+;;; From Bulent Murtezaoglu, based on code from Andrew McDowell 
+
+;;; The Block/Buffering I/O code is adapted from material posted to comp.lang.lisp
+;;; by Thomas Kirk <tk@research.att.com>.
+;;; Archived here: http://www.cs.cmu.edu/afs/cs/project/ai-repository/ai/lang/lisp/code/io/fast_io/fast_io.txt
+;;;
+
+(declaim (optimize (speed 3) (debug 0) (safety 0) (space 0) (compilation-speed 0)))
+
+
+  (let* ((start 0)
+	 (current 0)
+	 (end 0)
+	 (eof nil)
+	 (inputbuffer (make-array 4096 :element-type '(unsigned-byte 8))))
+    (declare (type (simple-array (unsigned-byte 8)) inputbuffer)
+	     (fixnum start end)
+	     (inline code-char)
+	     (type (unsigned-byte 8) current))
+    (labels 
+	((get-char () ;;don't do this at home works through side effect unless eof
+		   (when (= start end)
+		     (setf start 0)
+		     (setf end (read-sequence inputbuffer *standard-input*))
+		     (when (zerop end)
+		       (setf eof t)
+		       (return-from get-char nil)))
+		   (setf current (aref inputbuffer start))
+		   (incf start))
+	
+ 	 (word-constituent-p () ;; side effects current rets t if word-constituent
+			     (or (and (>= current 97) (<= current 122)) 
+				   (and (>= current 65) (<= current 90) 
+					(incf current 32))))
+	 (reader (buffer)
+		 (declare (type simple-base-string buffer))
+		 (let* ((size (length buffer))
+			(fill-ptr 0))
+		   (declare (type (integer 0 1000)  size fill-ptr))
+		   (loop while (and (or (get-char) (return-from reader buffer))
+				    (not (word-constituent-p))))
+		   (loop
+		     (when (= fill-ptr size)
+		       (let ((new-buffer
+			      (make-string (the fixnum 
+					     (setf size (the fixnum (+ fill-ptr 5)))))))
+			 (setf (subseq (the simple-base-string new-buffer) 0 fill-ptr)
+			       buffer)
+			 (setf buffer new-buffer)))
+		     (setf (schar buffer fill-ptr) (code-char current))
+		     (incf fill-ptr)
+		     (if (get-char)
+			 (if (not (word-constituent-p))
+			     (return))
+		       (return)))
+		   (lisp::shrink-vector buffer fill-ptr))))
+
+      (let* ((h (make-hash-table :test 'equal :size 3380 :rehash-threshold 1.0))
+	     (buffer (make-string 10)))
+	(declare (inline gethash maphash))
+	(declare (type simple-base-string buffer))
+	(loop
+	  (setf buffer (reader buffer))
+	  (if (not eof)
+	      (if (= 1 (the fixnum (incf (the fixnum (gethash buffer h 0)))))
+		  (setf buffer (make-string 10)));; only cons if used
+	    (return)))
+	;; hast table => list
+	(let ((l '()))
+	  (maphash #'(lambda (key val)
+		       (push (cons key val) l))
+		   h)
+	  ;; sort the list
+	  (setf l (sort l #'(lambda (v1 v2)
+			      (if (> (the fixnum (cdr v1)) (the fixnum (cdr v2)))
+				  t
+				(if (= (the fixnum (cdr v1)) (the fixnum (cdr v2)))
+				    (string-lessp (car v2) (car v1))
+				  nil)))))
+	  
+	  ;; output the list of pairs 
+	  (mapcar #'(lambda (p)
+		      (format t "~7D	~A~&" (cdr p) (car p))) 
+		  l)))))

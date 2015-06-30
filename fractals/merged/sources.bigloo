@@ -1,0 +1,1766 @@
+;;; -*- mode: scheme -*-
+;;; $Id: ackermann.bigloo,v 1.2 2004-10-13 04:47:56 bfulgham Exp $
+;;; http://shootout.alioth.debian.org/
+
+(module ackermann
+	(main main)
+	(option (set! *genericity* #f)))
+
+(define (main args)
+  (let ((n (or (and (= (length args) 2) (string->number (cadr args))) 1)))
+    (print-list "Ack(3," n "): " (ack 3 n))))
+
+(define (ack::int m::int n::int)
+  (cond ((zero? m) (+ n 1))
+	((zero? n) (ack (- m 1) 1))
+	(else      (ack (- m 1) (ack m (- n 1))))))
+
+(define (print-list . items) (for-each display items) (newline))
+;;; -*- mode: scheme -*-
+;;; $Id: ary.bigloo,v 1.2 2004-05-22 07:25:00 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+;;; this program is modified from:
+;;;   http://cm.bell-labs.com/cm/cs/who/bwk/interps/pap.html
+;;; Timing Trials, or, the Trials of Timing: Experiments with Scripting
+;;; and User-Interface Languages</a> by Brian W. Kernighan and
+;;; Christopher J. Van Wyk.
+
+(module ary
+	(main main)
+	(option (set! *genericity* #f)))
+
+(define (main args)
+  (let* ((n (or (and (= (length args) 2) (string->number (cadr args))) 1))
+	 (x (make-vector n 0))
+	 (y (make-vector n 0))
+	 (last (- n 1)))
+    (do ((i 0 (+ i 1)))
+	((= i n))
+      (vector-set! x i (+ i 1)))
+    (do ((k 0 (+ k 1)))
+	((= k 1000))
+      (do ((i last (- i 1)))
+	  ((< i 0))
+	(vector-set! y i (+ (vector-ref x i) (vector-ref y i)))))
+    (print-list (vector-ref y 0) " " (vector-ref y last))))
+
+(define (print-list . items) (for-each display items) (newline))
+(module binary-trees (main main) (option (set! *genericity* #f)))
+
+;;; The Great Computer Language Shootout
+;;; http://shootout.alioth.debian.org/
+;;; contributed by Sven Hartrumpf
+
+(define make (lambda (item d)
+  (if (= d 0)
+    (list 'empty item)
+    (let ((item2 (* item 2))
+          (d2 (- d 1)))
+      (list 'node (make (- item2 1) d2) item (make item2 d2))))))
+
+(define check (lambda (t)
+  (if (eq? (car t) 'empty)
+    (cadr t)
+    (+ (caddr t) (- (check (cadr t)) (check (cadddr t)))))))
+
+(define main (lambda (argv)
+  (let* ((min-depth 4)
+         (max-depth (max (+ min-depth 2) (if (pair? (cdr argv)) (string->number (cadr argv)) 10))))
+    (let ((stretch-depth (+ max-depth 1)))
+      (display "stretch tree of depth ") (display stretch-depth) (write-char #\tab) (display " check: ") (display (check (make 0 stretch-depth))) (newline))
+    (let ((long-lived-tree (make 0 max-depth)))
+      (do ((d 4 (+ d 2))
+           (c 0 0))
+        ((> d max-depth))
+        (let ((iterations (bit-lsh 1 (+ (- max-depth d) min-depth)))) ; bigloo-specific: bit-lsh
+          (do ((i 0 (+ i 1)))
+            ((>= i iterations))
+            (set! c (+ c (check (make i d)) (check (make (- i) d)))))
+          (display (* 2 iterations)) (write-char #\tab) (display " trees of depth ") (display d) (write-char #\tab) (display " check: ") (display c) (newline)))
+      (display "long lived tree of depth ") (display max-depth) (write-char #\tab) (display " check: ") (display (check long-lived-tree)) (newline)))))
+;;; -*- mode: scheme -*-
+;;; $Id: echo.bigloo,v 1.1 2004-05-19 18:09:34 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(module echo
+	;(option (set! *genericity* #f))
+	(extern (macro fork::int () "fork"))
+	(extern (macro wait::int () "wait"))
+	(main main))
+
+;; we'll use bigloo functions that automatically add/remove newline
+(define DATA "Hello there sailor")
+
+(define (echo-client n port)
+  (let* ((sock (make-client-socket "localhost" port))
+	 (sk-out (socket-output sock))
+	 (sk-in (socket-input sock)))
+    (do ((i 0 (+ i 1)))
+	((= i n))
+      (fprint sk-out DATA)
+      (flush-output-port sk-out)
+      (let ((ans (read-line sk-in)))
+	(if (not (string=? DATA ans))
+	    (error "echo-client" "BAD reply" ans))))))
+
+(define (echo-server n)
+  (let* ((ssock (make-server-socket)) 
+	 (port (socket-port-number ssock))
+	 (pid (fork)))
+    (cond ((> pid 0)			;parent
+	   (socket-accept-connection ssock)
+	   (let ((sk-in (socket-input ssock))
+		 (sk-out (socket-output ssock))
+		 (bytes 0))
+	     (let loop ((line (read-line sk-in)))
+	       (if (not (eof-object? line))
+		   (begin
+		     (fprint sk-out line)
+		     (flush-output-port sk-out)
+		     (set! bytes (+ bytes (string-length line) 1))
+		     (loop (read-line sk-in)))))
+	     (print "server processed " bytes " bytes"))
+	   (wait))
+	  (else				;child
+	   (echo-client n port)))))
+
+
+(define (main args)
+  (let ((n (or (and (= (length args) 2) (string->number (cadr args))) 1)))
+    (echo-server n)))
+;;; -*- mode: scheme -*-
+;;; $Id: except.bigloo,v 1.1 2004-05-19 18:09:42 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(module except
+	(main main))
+
+(define HI 0)
+(define LO 0)
+
+(define (some_fun n)
+  (try
+   (hi_fun n)
+   (lambda (escape proc msg obj)
+     (print "should not get here " proc ":" msg " -- " obj)
+     (escape #f))))
+
+(define (hi_fun n)
+  (try
+   (lo_fun n)
+   (lambda (escape proc msg obj)
+     (cond ((not (equal? obj 'Hi))
+	    (error proc msg obj)) ; rethrow
+	   (else
+	    (set! HI (+ HI 1))
+	    (escape #t))))))
+
+(define (lo_fun n)
+  (try
+   (blowup n)
+   (lambda (escape proc msg obj)
+     (cond ((not (equal? obj 'Lo))
+	    (error proc msg obj)) ; rethrow
+	   (else
+	    (set! LO (+ LO 1))
+	    (escape #t))))))
+
+(define (blowup n)
+  (if (= 0 (modulo n 2))
+      (error '() "Hi Exception" 'Hi)
+      (error '() "Lo Exception" 'Lo)))
+
+(define (main args)
+  (let ((n (or (and (= (length args) 2) (string->number (cadr args))) 1)))
+    (do ((i 0 (+ i 1)))
+	((= i n))
+      (some_fun i)))
+  (display* "Exceptions: HI=" HI " / LO=" LO)
+  (newline))
+;;; -*- mode: scheme -*-
+;;; $Id: fibo.bigloo,v 1.4 2005-04-25 19:01:38 igouy-guest Exp $
+;;; http://shootout.alioth.debian.org/
+
+(module fibo
+	(option (set! *genericity* #f))
+	(main main))
+
+(define (main args)
+  (let ((n (or (and (= (length args) 2) (string->number (cadr args))) 1)))
+    (display (fib n))
+    (newline)))
+
+(define (fib::int n::int)
+  (cond ((< n 2) 1)
+	(else (+ (fib (- n 2)) (fib (- n 1))))))
+
+;;; The Great Computer Language Shootout
+;;; http://shootout.alioth.debian.org/
+;;;
+;;; contributed by Will M. Farr
+
+(module harmonic
+   (main main))
+
+(define (main argv)
+   (display (sum-harmonic (string->number (cadr argv))))
+   (newline))
+
+(define (sum-harmonic::double n::int)
+   (do ((i::int 2 (+fx i 1))
+	(iflt::double 2.0 (+fl iflt 1.0))
+	(sum::double 1.0 (+fl sum (/fl 1.0 iflt))))
+       ((>fx i n) sum)))
+;;; -*- mode: scheme -*-
+;;; $Id: hash.bigloo,v 1.1 2004-05-19 18:09:54 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(module hash
+	(option (set! *genericity* #f))
+	(main main))
+
+(define (main args)
+  (let* ((n (or (and (= (length args) 2) (string->number (cadr args))) 1))
+	 (last (- n 1))
+	 (max (do ((max 1 (* max 2))) ((> max n) max)))
+	 (x (make-hash-table max
+			     (lambda (o) (string->0..2^x-1 o 14))
+			     (lambda (c) (car c))
+			     string=?
+			     max))
+	 (c 0))
+    (do ((i 1 (+ i 1)))
+	((> i n))
+      (put-hash! (cons (number->string i 16) i) x))
+    (do ((i last (- i 1)))
+	((< i 0))
+      (if (get-hash (number->string i 10) x)
+	  (set! c (+ c 1))))
+    (display c)
+    (newline)))
+;;; -*- mode: scheme -*-
+;;; $Id: hash2.bigloo,v 1.1 2004-05-19 18:10:01 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(module hash
+	(option (set! *genericity* #f))
+	(main main))
+
+(define (main args)
+  (let* ((n (or (and (= (length args) 2) (string->number (cadr args))) 1))
+	 (max (do ((max 1 (* max 2))) ((> max 10000) max)))
+	 (x (make-hash-table max
+			     (lambda (o) (string->0..2^x-1 o 14))
+			     (lambda (c) (car c))
+			     string=?
+			     max))
+	 (y (make-hash-table max
+			     (lambda (o) (string->0..2^x-1 o 14))
+			     (lambda (c) (car c))
+			     string=?
+			     max)))
+    (do ((i 0 (+ i 1)))
+	((= i 10000))
+      (put-hash! (cons (string-append "foo_" (number->string i 10)) i) x))
+    (do ((i 0 (+ i 1)))
+	((= i n))
+      (for-each-hash (lambda (cell)
+		       (let* ((x-key (car cell))
+			      (x-val (cdr cell))
+			      (old-y-cell (get-hash x-key y))
+			      (old-y-val (cond (old-y-cell
+						(rem-key-hash! x-key y)
+						(cdr old-y-cell))
+					       (else
+						0))))
+			 (put-hash! (cons x-key (+ x-val old-y-val)) y)))
+		     x))
+    (print (cdr (get-hash "foo_1" x)) " "
+	   (cdr (get-hash "foo_9999" x)) " "
+	   (cdr (get-hash "foo_1" y)) " "
+	   (cdr (get-hash "foo_9999" y)))))
+;;; -*- mode: scheme -*-
+;;; $Id: heapsort.bigloo,v 1.2 2004-10-18 07:14:57 bfulgham Exp $
+;;; http://shootout.alioth.debian.org/
+
+(module heapsort
+        (main main)
+        (extern (macro printf::int (string double) "printf")
+                (type double* (pointer double) "double *")))
+
+(define IM   139968)
+(define IA     3877)
+(define IC    29573)
+(define IM-f (fixnum->flonum IM))
+
+(define LAST 42)
+(define (gen_random::double max::double)
+  (set! LAST (modulo (+fx (*fx LAST IA) IC) IM))
+  (/fl (*fl max (fixnum->flonum LAST)) IM-f))
+
+(define (heapsort n::int ra)
+  (let ((ir::int n)
+        (l::int (+ (bit-rsh n 1) 1))
+        (i::int 0)
+        (j::int 0)
+        (rra::double 0.0))
+    (bind-exit (return)
+               (do ()
+                 (#f)
+                 (cond ((>fx l 1)
+                        (set! l (-fx l 1))
+                        (set! rra (double*-ref ra l)))
+                       (else
+                         (set! rra (double*-ref ra ir))
+                         (double*-set! ra ir (double*-ref ra 1))
+                         (set! ir (-fx ir 1))
+                         (cond ((=fx ir 1)
+                                (double*-set! ra 1 rra)
+                                (return #t)))))
+                 (set! i l)
+                 (set! j (bit-lsh l 1))
+                 (do ()
+                   ((>fx j ir))
+                   (cond ((and (<fx j ir) (<fl (double*-ref ra j) (double*-ref ra (+fx j 1))))
+                          (set! j (+fx j 1))))
+                   (cond ((<fl rra (double*-ref ra j))
+                          (double*-set! ra i (double*-ref ra j))
+                          (set! i j)
+                          (set! j (+fx j i)))
+                         (else
+                           (set! j (+fx ir 1)))))
+                 (double*-set! ra i rra)))))
+
+(define (main args)
+  (let* ((n::int (or (and (= (length args) 2) (string->number (cadr args))) 1))
+         (last::int (+fx n 1))
+         (ary (make-double* last)))
+    (do ((i::int 1 (+fx i 1)))
+      ((=fx i last))
+      (double*-set! ary i (gen_random 1.0)))
+    (heapsort n ary)
+    (printf #"%.10f\n" (double*-ref ary n))))
+;;; -*- mode: scheme -*-
+;;; $Id: hello.bigloo,v 1.1 2004-05-19 18:10:16 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(module hello (main main))
+
+(define (main args) (display "hello world") (newline))
+;;; -*- mode: scheme -*-
+;;; $Id: lists.bigloo,v 1.1 2004-05-19 18:10:22 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+;;; from Sven Hartrumpf
+
+(module lists
+	(option (set! *genericity* #f))
+	(main main))
+
+(define SIZE 10000)
+
+(define (test-lists)
+  (let* ((l1 (integer-list 1 SIZE))
+	 (l2 (list-copy l1)))
+    ;; move-left-to-right from l2 to l3
+    (let ((l3 '()))
+      (let iter ((l3-run l3))
+	(cond ((pair? l2)
+	       (cond ((pair? l3-run)	; not the first element moved
+		      (let ((l3-run-new (list (car l2))))
+			(set! l2 (cdr l2))
+			(set-cdr! l3-run l3-run-new)
+			(iter l3-run-new)))
+		     (else		; the first element moved
+		      (set! l3 (list (car l2)))
+		      (set! l2 (cdr l2))
+		      (iter l3))))))
+      ;; move-right-to-left from l3 to l2
+      (let ((l2-run #f))		; the last pair of l2 during construction
+	(let move-last ((l3-run l3)
+			(l3-last-pair #f))
+	  (cond ((pair? l3-run)		; last element of l3 not reached
+		 (let ((l3-last-element (car l3-run))) ; store current element
+		   (set! l2-run (move-last (cdr l3-run) l3-run))
+		   (let ((l2-run-new (list l3-last-element)))
+		     (cond (l2-run	; not the first element moved
+			    (set-cdr! l2-run l2-run-new)
+			    (cond ((pair? l3-last-pair)
+				   (set-cdr! l3-last-pair '()))
+				  (else
+				   (set! l3 '()))))
+			   (else	; the first element moved
+			    (set! l2 l2-run-new)))
+		     l2-run-new)))
+		(else
+		 #f))))
+      (set! l1 (reverse! l1))
+      (cond ((every-2? = l1 l2)
+	     (length l1))
+	    (else
+	     #f)))))
+
+(define (main args)
+  (let ((n (or (and (= (length args) 2) (string->number (cadr args))) 1)))
+    (let (result)
+      (do ((i 0 (+ i 1)))
+	  ((= i n))
+	(set! result (test-lists)))
+      (display result)
+      (newline))))
+
+(define every-2? (lambda (test l1 l2)
+  (or (null? l1)
+      (and (test (car l1) (car l2))
+           (every-2? test (cdr l1) (cdr l2))))))
+
+(define integer-list (lambda (i j)
+  (if (> i j)
+      '()
+      (cons i (integer-list (+ i 1) j)))))
+
+(define list-copy (lambda (l)
+  (append l '())))
+;;; The Great Computer Language Shootout
+;;; http://shootout.alioth.debian.org/
+;;; implemented by Greg Buchholz
+;;; 
+
+(module nbody
+   (main main))
+   
+(define (main args)
+  (let ((n (string->number (cadr args))))
+    (display "P4") (newline) (display n) (display " ") (display n) (newline) 
+    (printPBM 0 0 n (points 0 0 n))))
+
+(define (points x y n)
+  (if (= y n)
+    '()
+    (if (= x n)
+        (points 0 (+ y 1) n)
+        (cons (mandel (cons (- (* 2 (/ x n)) 1.5) 
+                            (- (* 2 (/ y n)) 1.0)) 
+                      (cons 0.0 0.0) 50)
+              (delay (points (+ x 1) y n))))))
+
+(define (mandel c z iter)
+    (if (= iter 0)
+        1
+        (let ((n (cadd (cmult z z) c)))
+             (if (> (magnitude n) 2.0)
+                  0
+                  (mandel c n (- iter 1))))))
+
+(define (printPBM acc i n stream)
+  (cond ((null? stream) (display (acc->char acc i)))
+        ((and (= (remainder i 8) 0) (not (= i 0)))
+                 (begin (display (integer->char acc)) 
+                        (printPBM (car stream) (+ 1 i) n (force (cdr stream)))))
+        ((= i n) (begin (display (acc->char acc n))
+                        (printPBM 0 0 n stream)))
+        (else (printPBM (+ (* 2 acc) (car stream)) (+ 1 i) n (force (cdr stream))))))
+
+(define (acc->char acc x)
+    (integer->char (* acc (expt (remainder x 8) 2))))
+
+(define (magnitude n) 
+    (sqrt (+ (* (car n) (car n))(* (cdr n) (cdr n)))))
+
+(define (cadd a b)
+    (cons (+ (car a) (car b))(+ (cdr a) (cdr b))))
+
+(define (cmult a b)
+    (cons (- (* (car a) (car b)) (* (cdr a) (cdr b)))
+          (+ (* (car a) (cdr b)) (* (cdr a) (car b)))))
+
+;;; -*- mode: scheme -*-
+;;; $Id: matrix.bigloo,v 1.1 2004-05-19 18:10:33 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(module matrix
+	(option (set! *genericity* #f))
+	(main main))
+
+(define size 30)
+
+(define (1+ x) (+ x 1))
+
+(define (mkmatrix rows cols)
+  (let ((mx (make-vector rows 0))
+	(count 1))
+    (do ((i 0 (1+ i)))
+	((= i rows))
+      (let ((row (make-vector cols 0)))
+	(do ((j 0 (1+ j)))
+	    ((= j cols))
+	  (vector-set! row j count)
+	  (set! count (+ count 1)))
+	(vector-set! mx i row)))
+    mx))
+
+(define (num-cols mx)
+  (let ((row (vector-ref mx 0)))
+    (vector-length row)))
+
+(define (num-rows mx)
+  (vector-length mx))
+
+(define (mmult rows cols m1 m2)
+  (let ((m3 (make-vector rows 0)))
+    (do ((i 0 (1+ i)))
+	((= i rows))
+      (let ((m1i (vector-ref m1 i))
+	    (row (make-vector cols 0)))
+	(do ((j 0 (1+ j)))
+	    ((= j cols))
+	  (let ((val 0))
+	    (do ((k 0 (1+ k)))
+		((= k cols))
+	      (set! val (+ val (* (vector-ref m1i k)
+				  (vector-ref (vector-ref m2 k) j)))))
+	    (vector-set! row j val)))
+	(vector-set! m3 i row)))
+    m3))
+
+(define (matrix-print m)
+  (do ((i 0 (1+ i)))
+      ((= i (num-rows m)))
+    (let ((row (vector-ref m i)))
+      (do ((j 0 (1+ j)))
+	  ((= j (num-cols m)))
+	(display (vector-ref row j))
+	(if (< j (num-cols m))
+	    (display " ")))
+      (newline))))
+
+(define (print-list . items) (for-each display items) (newline))
+
+(define (main args)
+  (let ((n (or (and (= (length args) 2) (string->number (cadr args))) 1)))
+    (let ((mm 0)
+	  (m1 (mkmatrix size size))
+	  (m2 (mkmatrix size size)))
+      (let loop ((iter n))
+	(cond ((> iter 0)
+	       (set! mm (mmult size size m1 m2))
+	       (loop (- iter 1)))))
+      (let ((r0 (vector-ref mm 0))
+	    (r2 (vector-ref mm 2))
+	    (r3 (vector-ref mm 3))
+	    (r4 (vector-ref mm 4)))
+	(print-list (vector-ref r0 0) " " (vector-ref r2 3) " "
+		    (vector-ref r3 2) " " (vector-ref r4 4))))))
+;;; -*- mode: scheme -*-
+;;; $Id: methcall.bigloo,v 1.1 2004-05-19 18:10:40 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+;;; from Manuel Serrano
+
+(module method
+	(main main)
+	(static (class toggle
+		       (state::bool (default #t)))
+		(class nthtoggle::toggle
+		       (count-max::int (default 0))
+		       (counter::int (default 0)))))
+
+(define-generic (value o::toggle))
+
+(define (print-bool b)
+  (display (if b #"true\n" #"false\n")))
+
+(define-method (value o::toggle)
+  (with-access::toggle o (state)
+		       state))
+
+(define-generic (activate o::toggle))
+
+(define-method (activate o::toggle)
+  (with-access::toggle o (state)
+		       (set! state (not state))
+		       o))
+
+(define-method (activate o::nthtoggle)
+  (with-access::nthtoggle o (counter count-max state)
+			  (set! counter (+fx 1 counter))
+			  (if (>=fx counter count-max)
+			      (begin
+				(set! state (not state))
+				(set! counter 0)))
+			  o))
+
+(define (main args)
+  (let ((n (or (and (= (length args) 2) (string->number (cadr args))) 1)))
+    (let* ((val #t)
+	   (toggle (instantiate::toggle
+		    (state val))))
+      (let loop ((i 0))
+	(if (<fx i n)
+	    (begin
+	      (set! val (value (activate toggle)))
+	      (loop (+fx i 1)))))
+      (print-bool val)
+      (set! val #t)
+      (let ((ntoggle (instantiate::nthtoggle
+		      (state #t)
+		      (count-max 3))))
+	(let loop ((i 0))
+	  (if (<fx i n)
+	      (begin
+		(set! val (value (activate ntoggle)))
+		(loop (+fx i 1)))))
+	(print-bool val)))))
+;;; -*- mode: scheme -*-
+;;; $Id: moments.bigloo,v 1.3 2004-09-29 06:24:27 bfulgham Exp $
+;;; http://shootout.alioth.debian.org
+;;;
+;;; Improved version by Sven Hartrumpf
+
+(module moments
+        (extern (macro printf::int (string double) "printf"))
+        (main main))
+
+(define vector-for-each (lambda (pred v)
+  (do ((i 0 (+ i 1))
+       (v-length (vector-length v)))
+      ((>= i v-length))
+    (pred (vector-ref v i)))))
+
+
+; algorithm from C.A.R. Hoare:
+
+(define vector-kmedian! (lambda (a n k)
+  (let ((a-offset 0))
+    (define (a-ref i)
+      (vector-ref a (+ i a-offset)))
+    (define (a-set! i value)
+      (vector-set! a (+ i a-offset) value))
+    (let loop ()
+      (let ((b (a-ref (random n)))
+            (i 0)
+            (j (- n 1)))
+        (let loop-for-swap ()
+          (let iter () (cond ((< (a-ref i) b)
+                              (set! i (+ i 1))
+                              (iter))))
+          (let iter () (cond ((> (a-ref j) b)
+                              (set! j (- j 1))
+                              (iter))))
+          (cond ((< i j)
+                 (let ((tmp (a-ref i)))
+                   (a-set! i (a-ref j))
+                   (a-set! j tmp)
+                   (set! i (+ i 1))
+                   (set! j (- j 1))
+                   (loop-for-swap)))
+                (else
+                  (cond ((< (a-ref j) b)
+                         (set! j (+ j 1))))
+                  (cond ((> (a-ref i) b)
+                         (set! i (- i 1)))))))
+        (cond ((< i k)
+               (let ((i1 (+ i 1)))
+                 (set! k (- k i1))
+                 (set! n (- n i1))
+                 (set! a-offset (+ a-offset i1))
+                 (loop)))
+              ((> j k)
+               (set! n j)
+               (loop))))))))
+
+
+;
+
+(define vector-max (lambda (v start end)
+  (let ((m (vector-ref v start)))
+    (do ((i (+ start 1) (+ i 1)))
+      ((>= i end) m)
+      (let ((x (vector-ref v i)))
+        (cond ((> x m)
+               (set! m x))))))))
+
+
+(define (main args)
+  (let* ((sum 0.0)
+         (nums (list->vector
+                 (let loop ((num (read))
+                            (l '()))
+                   (cond ((eof-object? num)
+                          l)
+                         (else
+                           (set! sum (+ sum num))
+                           (loop (read) (cons num l)))))))
+         (n (vector-length nums))
+         (mean (/ sum n))
+         (average_deviation 0.0)
+         (standard_deviation 0.0)
+         (variance 0.0)
+         (skew 0.0)
+         (kurtosis 0.0)
+         (median 0.0))
+        (vector-for-each
+          (lambda (num)
+            (let* ((deviation (- num mean))
+                   (deviation2 (* deviation deviation)))
+              (set! average_deviation (+ average_deviation (abs deviation)))
+              (set! variance (+ variance deviation2))
+              (set! deviation2 (* deviation2 deviation))
+              (set! skew (+ skew deviation2))
+              (set! kurtosis (+ kurtosis (* deviation2 deviation)))))
+          nums)
+
+        (set! average_deviation (/ average_deviation n))
+        (set! variance (/ variance (- n 1)))
+        (set! standard_deviation (sqrt variance))
+
+        (cond ((> variance 0.0)
+               (set! skew (/ skew (* n variance standard_deviation)))
+               (set! kurtosis (- (/ kurtosis (* n variance variance))
+                                 3.0))))
+
+        (let ((mid (quotient n 2)))
+          (vector-kmedian! nums n mid)
+          (set! median (if (zero? (modulo n 2))
+                         (/ (+ (vector-ref nums mid) (vector-max nums 0 mid))
+                            2.0)
+                         (vector-ref nums mid))))
+
+        (print "n:                  " n)
+        (printf #"median:             %f\n" median)
+        (printf #"mean:               %f\n" mean)
+        (printf #"average_deviation:  %f\n" average_deviation)
+        (printf #"standard_deviation: %f\n" standard_deviation)
+        (printf #"variance:           %f\n" variance)
+        (printf #"skew:               %f\n" skew)
+        (printf #"kurtosis:           %f\n" kurtosis)))
+
+;;; The Great Computer Language Shootout
+;;; http://shootout.alioth.debian.org/
+;;  by Greg Buchholz
+
+(module nbody
+    (main main)
+    (extern (macro eprintf::int (string double) "printf")))
+
+;; vector math stuff
+(define (dot a b) (+ (* (vector-ref a 0) (vector-ref b 0))
+                     (* (vector-ref a 1) (vector-ref b 1))
+                     (* (vector-ref a 2) (vector-ref b 2))))
+
+(define (v+ a b) (vector (+ (vector-ref a 0) (vector-ref b 0))
+                         (+ (vector-ref a 1) (vector-ref b 1))
+                         (+ (vector-ref a 2) (vector-ref b 2))))
+
+(define (v- a b) (vector (- (vector-ref a 0) (vector-ref b 0))
+                         (- (vector-ref a 1) (vector-ref b 1))
+                         (- (vector-ref a 2) (vector-ref b 2))))
+
+(define (mag v) (sqrt (dot v v)))
+(define (scale a n) (vector (* (vector-ref a 0) n)
+                            (* (vector-ref a 1) n)
+                            (* (vector-ref a 2) n)))
+;; list munging
+(define (sumv xs) (foldl v+ '#(0 0 0) xs))
+(define (sum  xs) (foldl + 0 xs))
+(define (concat xs) (foldl append '() xs))
+(define (foldl f init xs)
+    (if (null? xs)
+        init
+        (foldl f (f init (car xs)) (cdr xs))))
+
+;; misc constants
+(define PI 3.141592653589793)
+(define SOLAR_MASS (* 4 PI PI))
+(define DAYS_PER_YEAR 365.24)
+
+;; define our planets
+(define make-planet vector)
+
+(define Jupiter 
+  (make-planet
+   '#(4.84143144246472090e+00 -1.16032004402742839e+00 -1.03622044471123109e-01)
+   (vector (*  1.66007664274403694e-03 DAYS_PER_YEAR)
+           (*  7.69901118419740425e-03 DAYS_PER_YEAR)
+           (* -6.90460016972063023e-05 DAYS_PER_YEAR))
+   (* 9.54791938424326609e-04 SOLAR_MASS) ) )
+
+(define Saturn 
+  (make-planet
+   '#(8.34336671824457987e+00 4.12479856412430479e+00 -4.03523417114321381e-01)
+   (vector (* -2.76742510726862411e-03 DAYS_PER_YEAR)
+           (*  4.99852801234917238e-03 DAYS_PER_YEAR)
+           (*  2.30417297573763929e-05 DAYS_PER_YEAR))
+   (* 2.85885980666130812e-04 SOLAR_MASS) ) )
+
+(define Uranus
+  (make-planet
+   '#(1.28943695621391310e+01 -1.51111514016986312e+01 -2.23307578892655734e-01)
+   (vector (*  2.96460137564761618e-03 DAYS_PER_YEAR)
+           (*  2.37847173959480950e-03 DAYS_PER_YEAR)
+           (* -2.96589568540237556e-05 DAYS_PER_YEAR))
+   (* 4.36624404335156298e-05 SOLAR_MASS) ) )
+
+(define Neptune
+  (make-planet
+   '#(1.53796971148509165e+01 -2.59193146099879641e+01 1.79258772950371181e-01)
+   (vector (*  2.68067772490389322e-03 DAYS_PER_YEAR)
+           (*  1.62824170038242295e-03 DAYS_PER_YEAR)
+           (* -9.51592254519715870e-05 DAYS_PER_YEAR))
+   (* 5.15138902046611451e-05 SOLAR_MASS) ) )
+
+(define Sun (make-planet '#(0 0 0) '#(0 0 0) SOLAR_MASS))
+
+;; helper functions
+(define (mass a) (vector-ref a 2))
+(define (vel a)  (vector-ref a 1))
+(define (pos a)  (vector-ref a 0))
+(define (dist a b) (mag (v- (pos a) (pos b))))
+
+(define (rotations n xs)
+  (if (= n 0)
+        '()
+        (let ((flipped (append (cdr xs) (list (car xs)))))
+             (cons flipped (rotations (- n 1) flipped)))))
+ 
+;;; Here's the real bread and butter integration functions
+(define (advance n dt pss)
+    (map (lambda (q) (adv dt q)) (rotations n pss)))
+
+(define (adv dt pss)
+  (let* ((p  (car pss))
+         (ps (cdr pss))
+         (delta_v (sumv (map 
+                      (lambda (q) (scale (v- (pos p) (pos q))
+                                         (/ (* (mass q) dt) 
+                                            (expt (dist p q) 3)))) ps)))
+         (new_v (v- (vel p) delta_v))
+         (delta_x (scale new_v dt)))
+        (make-planet (v+ (pos p) delta_x) new_v (mass p))))
+
+(define (energy bodies)
+ (let* ([n (length bodies)]
+        [kinetic 
+          (* 0.5 (sum (map 
+                       (lambda (q) (* (mass q) (dot (vel q) (vel q)))) 
+                          bodies)))]
+        [potential (* 0.5 (sum (concat
+            (map (lambda (iss) 
+                    (let ([i  (car iss)]
+                          [is (cdr iss)])
+                         (map (lambda (j) (/ (* (mass i) (mass j))
+                                             (dist i j))) is)) 
+                          ) (rotations n bodies)))))])
+       (- kinetic potential)))
+
+(define (offset-momentum! bodies)
+  (let* ([p  (car bodies)]
+         [ps (cdr bodies)]
+         [new_v (scale (sumv (map 
+                         (lambda (q) (scale (vel q) (mass q))) ps))
+                  (/ -1 SOLAR_MASS))])
+         (cons (make-planet (pos p) new_v (mass p)) ps)))
+
+(define (iterate n f x)
+    (if (= n 0)
+        x
+        (iterate (- n 1) f (f x))))
+
+(define bodies (list Sun Jupiter Saturn Uranus Neptune))
+
+(define (main argv)
+    (begin
+        (set! bodies (offset-momentum! bodies))
+
+        ;; Get the ball rolling...
+        (eprintf #"%.9f\n" (energy bodies))
+        (let* ((n (string->number (cadr argv)))
+               (bods (length bodies))
+               (final (iterate n (lambda (ps) (advance bods 0.01 ps)) bodies)))
+              (eprintf #"%.9f" (energy final)))
+	      (newline)))
+;;; The Great Computer Language Shootout
+;;; http://shootout.alioth.debian.org/
+;; contributed by Will M. Farr
+;; based on program by Greg Buchholz
+;; re-written in an imperative style with explicitly-typed vectors of
+;; double-precision floats.
+
+(module nbody
+  (type (tvector f64vector (double)))
+  (main main)
+  (extern (macro cprintf::int (string double) "printf"))
+  (static
+   (final-class planet
+     q::f64vector v::f64vector m::double)))
+
+(define (f64vector . args)
+  (let ((n (length args)))
+    (let ((result (make-f64vector n 0.0)))
+      (let loop ((i 0) (arg (car args)) (rem (cdr args)))
+	(f64vector-set! result i arg)
+	(if (null? rem)
+	    result
+	    (loop (+fx i 1) (car rem) (cdr rem)))))))
+
+(define-expander do-range
+  (lambda (x e)
+    (match-case x
+      ((do-range (?i ?aa ?bb) . ?body)
+       (let ((a (gensym))
+	     (b (gensym)))
+	 (e `(let ((,a ,aa)
+		   (,b ,bb))
+	       (do ((,i ,a (+fx ,i 1)))
+		   ((>=fx ,i ,b))
+		 ,@body)) e))))))
+
+(define-expander do-times
+  (lambda (x e)
+    (match-case x
+      ((do-times (?i ?nn) . ?body)
+       (e `(do-range (,i 0 ,nn) ,@body) e)))))
+
+(define (dot a b) 
+  (let ((sum 0.0))
+    (do-times (i 3)
+      (set! sum (+fl sum (*fl (f64vector-ref a i) 
+			      (f64vector-ref b i)))))
+    sum))
+
+(define (v+! into a b)
+  (do-times (i 3)
+    (f64vector-set! into i (+fl (f64vector-ref a i)
+				(f64vector-ref b i))))
+  into)
+
+(define (v-! into a b)
+  (do-times (i 3)
+    (f64vector-set! into i (-fl (f64vector-ref a i)
+				(f64vector-ref b i))))
+  into)
+
+(define (mag-squared v)
+  (let ((sum 0.0))
+    (do-times (i 3)
+      (let ((temp (f64vector-ref v i)))
+	(set! sum (+fl sum (*fl temp temp)))))
+    sum))
+
+(define (mag v)
+  (sqrtfl (mag-squared v)))
+
+(define (scale! into x v)
+  (do-times (i 3)
+    (f64vector-set! into i (*fl x (f64vector-ref v i))))
+  into)
+
+(define +pi+ 3.141592653589793)
+(define +solar-mass+ (* 4.0 +pi+ +pi+))
+(define +days-per-year+ 365.24)
+
+(define Jupiter
+  (make-planet
+   (f64vector 4.84143144246472090e+00 
+	      -1.16032004402742839e+00 
+	      -1.03622044471123109e-01)
+   (f64vector (* 1.66007664274403694e-03  +days-per-year+)
+	      (* 7.69901118419740425e-03  +days-per-year+)
+	      (* -6.90460016972063023e-05 +days-per-year+))
+   (* 9.54791938424326609e-04 +solar-mass+)))
+
+(define Saturn
+  (make-planet
+   (f64vector 8.34336671824457987e+00 
+	      4.12479856412430479e+00 
+	      -4.03523417114321381e-01)
+   (f64vector (* -2.76742510726862411e-03 +days-per-year+)
+	      (* 4.99852801234917238e-03  +days-per-year+)
+	      (* 2.30417297573763929e-05  +days-per-year+))
+   (* 2.85885980666130812e-04 +solar-mass+)))
+
+(define Uranus
+  (make-planet
+   (f64vector 1.28943695621391310e+01 
+	      -1.51111514016986312e+01 
+	      -2.23307578892655734e-01)
+   (f64vector (* 2.96460137564761618e-03  +days-per-year+)
+	      (* 2.37847173959480950e-03  +days-per-year+)
+	      (* -2.96589568540237556e-05 +days-per-year+))
+   (* 4.36624404335156298e-05 +solar-mass+)))
+
+(define Neptune
+  (make-planet
+   (f64vector 1.53796971148509165e+01 
+	      -2.59193146099879641e+01 
+	      1.79258772950371181e-01)
+   (f64vector (* 2.68067772490389322e-03  +days-per-year+)
+	      (* 1.62824170038242295e-03  +days-per-year+)
+	      (* -9.51592254519715870e-05 +days-per-year+))
+   (* 5.15138902046611451e-05 +solar-mass+)))
+
+(define Sun (make-planet 
+	     (f64vector 0.0 0.0 0.0) 
+	     (f64vector 0.0 0.0 0.0) 
+	     +solar-mass+))
+
+(define (distance v1 v2)
+  (let ((sum 0.0))
+    (do-times (i 3)
+      (let ((temp (-fl (f64vector-ref v1 i) 
+		       (f64vector-ref v2 i))))
+	(set! sum (+fl sum (*fl temp temp)))))
+    (sqrtfl sum)))
+
+(define adv-a/m (make-f64vector 3 0.0))
+(define adv-a (make-f64vector 3 0.0))
+(define store (make-f64vector 3 0.0))
+
+(define (advance! system dt)
+  (let ((n (vector-length system)))
+    (do-times (i n)
+      (with-access::planet (vector-ref system i) ((mi m) (qi q) (vi v))
+	(do-range (j (+fx i 1) n)
+	  (with-access::planet (vector-ref system j) ((mj m) (qj q) (vj v))
+	    (v-! adv-a/m qj qi)
+	    (let* ((r (mag adv-a/m))
+		   (dt/r3 (/fl dt
+			       (*fl (*fl r r) r))))
+	      (scale! adv-a/m dt/r3 adv-a/m) ;; a/m now holds dt*F_ij/(mi*mj)
+	      (scale! adv-a mj adv-a/m)
+	      (v+! vi vi adv-a)
+	      (scale! adv-a mi adv-a/m)
+	      (v-! vj vj adv-a))))))
+    (do-times (i n)
+      (with-access::planet (vector-ref system i) (m q v)
+	(scale! store dt v)
+	(v+! q q store)))))
+
+(define (energy system)
+  (let ((n (vector-length system))
+	(e 0.0))
+    (do-times (i n)
+      (with-access::planet (vector-ref system i) ((mi m) (qi q) (vi v))
+	(set! e (+fl e (*fl 0.5 (*fl mi (mag-squared vi)))))
+	(do-range (j (+fx i 1) n)
+	  (with-access::planet (vector-ref system j) ((mj m) (qj q))
+	    (let ((r (distance qi qj)))
+	      (set! e (-fl e (/fl (*fl mi mj) r))))))))
+    e))
+
+(define (zero-momentum! bs)
+  (let ((sun (vector-ref bs 0))
+	(p (make-f64vector 3 0.0))
+	(store (make-f64vector 3 0.0)))
+    (do-range (i 1 (vector-length bs))
+      (with-access::planet (vector-ref bs i) (m v)
+	(scale! store m v)
+	(v+! p p store)))
+    (scale! (planet-v sun) (/fl -1.0 +solar-mass+) p)))
+
+(define (main argv)
+  (let ((n (string->number (cadr argv)))
+	(system (vector Sun Jupiter Saturn Uranus Neptune)))
+    (zero-momentum! system)
+    (cprintf "%.9f\n" (energy system))
+    (do-times (i n)
+      (advance! system 0.01))
+    (cprintf "%.9f" (energy system)))
+  0)
+;;; -*- mode: scheme -*-
+;;; $Id: nestedloop.bigloo,v 1.1 2004-05-19 18:10:56 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(module nestedloop
+	(option (set! *genericity* #f))
+	(main main))
+
+(define (main args)
+  (let* ((n (or (and (= (length args) 2) (string->number (cadr args))) 1))
+	 (x 0))
+    (do ((a 0 (+ a 1)))
+	((= a n))
+      (do ((b 0 (+ b 1)))
+	  ((= b n))
+	(do ((c 0 (+ c 1)))
+	    ((= c n))
+	  (do ((d 0 (+ d 1)))
+	      ((= d n))
+	    (do ((e 0 (+ e 1)))
+		((= e n))
+	      (do ((f 0 (+ f 1)))
+		  ((= f n))
+		(set! x (+ x 1))))))))
+    (display x)
+    (newline)))
+;; nsieve benchmark for The Computer Language Shootout
+;; Written by Dima Dorfman, 2004
+;; Compile with bigloo: bigloo -Obench -unsafe -o nsieve_bigloo nsieve.scm
+
+(module nsieve
+	(extern (macro printf::int (string long long) "printf"))
+	(main main)) ; Bigloo wants this, but Gauche chokes on it. Sigh.
+
+(define (nsieve m)
+  (let ((a (make-vector m #t)))
+    (let loop ((i 2) (n 0))
+      (if (< i m)
+	  (begin
+	    (if (vector-ref a i)
+		(begin
+		  (let clear ((j (+ i i)))
+		    (if (< j m)
+			(begin
+			  (vector-set! a j #f)
+			  (clear (+ j i)))))
+		  (loop (+ 1 i) (+ 1 n)))
+		(loop (+ 1 i) n)))
+	  n))))
+
+(define (test n)
+  (let* ((m (* (expt 2 n) 10000))
+	 (count (nsieve m)))
+    (printf #"Primes up to %8d %8d\n" m count)))
+
+(define (main args)
+  (if (< (length args) 2)
+      (begin (display "An argument is required") (newline) 2)
+      (let ((n (string->number (cadr args))))
+	(if (not n)
+	    (begin (display "An integer is required") (newline) 2)
+	    (begin
+	      (if (>= n 0) (test n))
+	      (if (>= n 1) (test (- n 1)))
+	      (if (>= n 2) (test (- n 2)))
+	      0)))))
+;;; -*- mode: scheme -*-
+;;; $Id: objinst.bigloo,v 1.1 2004-05-19 18:11:02 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+;;; based on code from Manuel Serrano
+
+(module method
+	(main main)
+	(static (class toggle
+		       (state::bool (default #t)))
+		(class nthtoggle::toggle
+		       (count-max::int (default 0))
+		       (counter::int (default 0)))))
+
+(define-generic (value o::toggle))
+
+(define (print-bool b)
+  (display (if b #"true\n" #"false\n")))
+
+(define-method (value o::toggle)
+  (with-access::toggle o (state)
+		       state))
+
+(define-generic (activate o::toggle))
+
+(define-method (activate o::toggle)
+  (with-access::toggle o (state)
+		       (set! state (not state))
+		       o))
+
+(define-method (activate o::nthtoggle)
+  (with-access::nthtoggle o (counter count-max state)
+			  (set! counter (+fx 1 counter))
+			  (if (>=fx counter count-max)
+			      (begin
+				(set! state (not state))
+				(set! counter 0)))
+			  o))
+
+(define (main args)
+  (let ((n (or (and (= (length args) 2) (string->number (cadr args))) 1)))
+    (let ((tog (instantiate::toggle (state #t))))
+      (do ((i 0 (+ i 1))) ((= i 5))
+	(print-bool (value (activate tog)))))
+    (do ((i 0 (+ i 1))) ((= i n))
+      (instantiate::toggle (state #t)))
+    (newline)
+    (let ((ntog (instantiate::nthtoggle (state #t) (count-max 3))))
+      (do ((i 0 (+ i 1))) ((= i 8))
+	(print-bool (value (activate ntog)))))
+    (do ((i 0 (+ i 1))) ((= i n))
+      (instantiate::nthtoggle (state #t) (count-max 3)))))
+; The Computer Language Shootout
+; http://shootout.alioth.debian.org/
+; pidigits: bigloo version
+; Sven Hartrumpf 2005-04-26
+; Implements 'Spigot' algorithm origionally due to Stanly Rabinowitz.
+; Program is based on an implementation for SCM by Aubrey Jaffer and
+; Jerry D. Hedden.
+
+(module pidigits (main main))
+
+(define (pi n d)
+  (let* (;(r (inexact->exact (floor (exp (* d (log 10)))))) ; 10^d
+         (r (do ((s 1 (* 10 s)) (i d (- i 1))) ((zero? i) s))) ; bigloo: this line is faster
+         (p (+ (quotient n d) 1))
+         (m (quotient (* p d 3322) 1000))
+         (a (make-vector (+ m 1) 2))
+         (digits 0))
+    (vector-set! a m 4)
+    (do ((j 1 (+ j 1))
+         (q 0 0)
+         (b 2 (remainder q r)))
+      ((> j p))
+      (do ((k m (- k 1)))
+        ((zero? k))
+        (set! q (+ q (* (vector-ref a k) r)))
+        (let ((t (+ (* k 2) 1)))
+             ;((t (+ (bit-lsh k 1) 1))) ; bigloo: this line is equally fast
+          (vector-set! a k (remainder q t)) ; quotient/remainder like in mzscheme would speedup this and the the next line
+          (set! q (* k (quotient q t)))))
+      (let* ((s (number->string (+ b (quotient q r))))
+             (l (string-length s)))
+        (cond ((> j 1)
+               (do ((l l (+ l 1)))
+                 ((>= l d))
+                 (cond ((< digits n)
+                        (write-char #\0)
+                        (set! digits (+ digits 1))
+                        (cond ((zero? (modulo digits 10))
+                               (write-char #\tab) (display ":") (write digits) (newline))))))))
+        (do ((i 0 (+ i 1)))
+          ((= i l))
+          (cond ((< digits n)
+                 (write-char (string-ref s i))
+                 (set! digits (+ digits 1))
+                 (cond ((zero? (modulo digits 10))
+                        (write-char #\tab) (display ":") (write digits) (newline))))))))))
+
+; bigloo: d maximally 5 (or 4?, otherwise overflow? causing incorrect results), d minimally (still with correct results) 3
+
+(define (main args)
+  (pi (string->number (cadr args)) 5))
+  ;(do ((i (string->number (cadr args)) (+ i 10)) (n 100 (- n 1))) ((<= n 0)) (pi i 5)) ; for getting measurable runtime
+;;; -*- mode: scheme -*-
+;;; $Id: random.bigloo,v 1.2 2004-10-18 07:15:02 bfulgham Exp $
+;;; http://shootout.alioth.debian.org/
+;;; updated by dgym
+
+(module random
+	(main main)
+	(extern (macro printf::int (string double) "printf")))
+
+(define IM   139968)
+(define IA     3877)
+(define IC    29573)
+(define IM-f (fixnum->flonum IM))
+
+(define LAST 42)
+(define (gen_random::double max)
+  (set! LAST (modulo (+fx (*fx LAST IA) IC) IM))
+  (/fl (*fl max (fixnum->flonum LAST)) IM-f))
+
+(define (main args)
+  (let ((n (or (and (= (length args) 2) (string->number (cadr args))) 1)))
+    (let loop ((iter::int n))
+      (cond ((>fx iter 1)
+	     (gen_random 100.0)
+	     (loop (-fx iter 1)))))
+    (printf #"%.9f\n" (gen_random 100.0))))
+; The Computer Language Shootout
+; http://shootout.alioth.debian.org/
+; contributed by Sven Hartrumpf
+
+(module recursive
+	(main main)
+        (option (set! *genericity* #t))
+	(extern (macro printf::int (string double) "printf")
+                (macro printff::int (string double double) "printf")
+                (macro printi::int (string int) "printf")
+                (macro printii::int (string int int) "printf")
+                (macro printiiii::int (string int int int int) "printf")))
+
+(define ack (lambda (x y)
+  (if (zero? x)
+    (+ y 1)
+    (if (zero? y)
+      (ack (- x 1) 1)
+      (ack (- x 1) (ack x (- y 1)))))))
+
+(define ack-d (lambda (x y)
+  (if (zero? x)
+    (+ y 1.0)
+    (if (zero? y)
+      (ack-d (- x 1.0) 1.0)
+      (ack-d (- x 1.0) (ack-d x (- y 1.0)))))))
+
+(define fib (lambda (n)
+  (if (< n 2)
+    1
+    (+ (fib (- n 2)) (fib (- n 1))))))
+
+(define fib-d (lambda (n)
+  (if (< n 2.0)
+    1.0
+    (+ (fib-d (- n 2.0)) (fib-d (- n 1.0))))))
+
+(define tak (lambda (x y z)
+  (if (< y x)
+    (tak (tak (- x 1) y z) (tak (- y 1) z x) (tak (- z 1) x y))
+    z)))
+
+(define tak-d (lambda (x y z)
+  (if (< y x)
+    (tak-d (tak-d (- x 1.0) y z) (tak-d (- y 1.0) z x) (tak-d (- z 1.0) x y))
+    z)))
+
+(define (main args)
+  (let ((n (or (and (= (length args) 2) (- (string->number (cadr args)) 1)) 1)))
+    (printii #"Ack(3,%d): %d\n" (+ n 1) (ack 3 (+ n 1)))
+    (printff #"Fib(%.1f): %.1f\n" (+ 28.0 n) (fib-d (+ 28.0 n)))
+    (printiiii #"Tak(%d,%d,%d): %d\n" (* 3 n) (* 2 n) n (tak (* 3 n) (* 2 n) n))
+    (printi #"Fib(3): %d\n" (fib 3))
+    (printf #"Tak(3.0,2.0,1.0): %.1f\n" (tak 3.0 2.0 1.0))
+    0))
+;; The Computer Language Benchmarks Game
+;; http://shootout.alioth.debian.org/
+;;
+;; recursive benchmark
+;;
+;; contributed by Rudolf Olah
+
+(module
+ recursive
+ (export
+  (ack::int x::int y::int)
+  (fib::int n::int)
+  (fibFP::double n::double)
+  (tak::int x::int y::int z::int)
+  (takFP::double x::double y::double z::double)
+  )
+ (main main))
+
+(define (ack x y)
+  (cond ((zero? x) (+ y 1))
+	((zero? y) (ack (- x 1) 1))
+	(else (ack (- x 1) (ack x (- y 1))))))
+
+(define (fib n)
+  (if (< n 2)
+      1
+      (+ (fib (- n 2)) (fib (- n 1)))))
+
+(define (fibFP n)
+  (if (< n 2.0)
+      1.0
+      (+ (fibFP (- n 2.0)) (fibFP (- n 1.0)))))
+
+(define (tak x y z)
+  (if (< y x)
+      (tak (tak (- x 1) y z)
+	   (tak (- y 1) z x)
+	   (tak (- z 1) x y))
+      z))
+
+(define (takFP x y z)
+  (if (< y x)
+      (takFP (takFP (- x 1.0) y z)
+	     (takFP (- y 1.0) z x)
+	     (takFP (- z 1.0) x y))
+      z))
+
+(define (main args)
+  (let ((n (string->integer (cadr args))))
+    (print "Ack(3," (+ n 1) "): " (ack 3 (+ n 1)))
+    (print "Fib(" (+ n 28.0) "): " (fibFP (+ n 28.0)))
+    (print "Tak(" (* 3 n) "," (* 2 n) "," n "): " (tak (* 3 n) (* 2 n) n))
+    (print "Fib(3): " (fib 3))
+    (print "Tak(3.0,2.0,1.0): " (takFP 3.0 2.0 1.0))
+    ))
+;;; -*- mode: scheme -*-
+;;; $Id: regexmatch.bigloo,v 1.2 2004-11-10 06:56:53 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(module regexmatch
+	(main main))
+
+(define match-phone
+  (let ((last-char-is-non-digit #t)
+	(found #f)
+	(parts '()))
+    (regular-grammar ((non-digit (out ("09") #\( ))
+		      (area-code (= 3 digit))
+		      (exchange (= 3 digit))
+		      (separator (in (" -")))
+		      (number (= 4 digit))
+
+		      ;; parts of phone number begins with a 3-digit area code
+		      (phone-parts (: (or (: "(" (submatch area-code) ")")
+					  (submatch area-code))
+				      ;; the area code is followed by one space
+				      space
+				      ;; which is followed by the 3 digits of the exchange
+				      (submatch exchange)
+				      ;; the exchange is followed by a space or hyphen [ -] 
+				      separator
+				      ;; which is followed by the last 4 digits: DDDD 
+				      (submatch number))))
+
+		     ;; a telephone number must be preceeded by a non-digit (or bol).
+		     ;; and followed by a non-digit (or eol).
+
+		     ;; scanned a non-digit char
+		     ((: non-digit)
+		      (set! last-char-is-non-digit #t)
+		      (if found (begin (set! found #f) parts) (ignore)))
+		     ;; scanned a digit char
+		     ((: digit)
+		      (set! last-char-is-non-digit #f)
+		      (if found (begin (set! found #f) '()) (ignore)))
+		     ((when last-char-is-non-digit (: phone-parts))
+		      (set! found #t)
+		      (set! parts (list (the-submatch 1)
+					(the-submatch 2)
+					(the-submatch 3)
+					(the-submatch 4)))
+		      (ignore))
+		     (else
+		      ;; possibly get here on eol
+		      (if found (begin (set! found #f) parts) '())))))
+
+
+(define (main args)
+  (let ((n (or (and (= (length args) 2) (string->number (cadr args))) 1))
+	(phonelines '())
+	(count 0))
+    (let loop ((line (read-line)))
+      (cond ((eof-object? line) #f)
+	    (else
+	     (set! phonelines (append phonelines (list line)))
+	     (loop (read-line)))))
+
+    (do ((i n (- i 1)))
+	((= i 0))
+      (let ((count 0))
+	(for-each (lambda (phone)
+		    (let* ((port (open-input-string phone))
+			   (match-parts (read/rp match-phone port)))
+		      (if (and (not (null? match-parts))
+			       (= 1 i))
+			  (begin
+			    (let* ((area 
+				    (if (string=? (car match-parts) "")
+					(cadr match-parts)
+					(car match-parts)))
+				   (exch (caddr match-parts))
+				   (numb (cadddr match-parts))
+				   (num (string-append "(" area ") " exch "-" numb)))
+			      (set! count (+ count 1))
+			      (print count ": " num))))))
+		  phonelines)))))
+;;; -*- mode: scheme -*-
+;;; $Id: reversefile.bigloo,v 1.2 2004-10-18 07:15:07 bfulgham Exp $
+;;; http://shootout.alioth.debian.org/
+;;; Revised by dgym
+
+(module reversefile
+	(main main))
+
+(define (main args)
+  (map print (reverse! (read-lines))))
+;;; -*- mode: scheme -*-
+;;; $Id: sieve.bigloo,v 1.1 2004-05-19 18:12:27 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(module sieve
+	(main main)
+	(extern (macro printf::int (string int) "printf")))
+
+(define (main args)
+  (let ((n (or (and (= (length args) 2) (string->number (cadr args))) 1))
+	(count 0)
+	(flags (make-vector 8192)))
+    (let loop ((iter n))
+      (if (> iter 0)
+	  (begin
+              (do ((i 0 (+ i 1)))
+		  ((>= i 8192))
+		(vector-set! flags i #t))
+	      (set! count 0)
+	      (do ((i 2 (+ 1 i)))
+		  ((>= i 8192))
+		(if (vector-ref flags i)
+		    (begin
+		      (do ((k (+ i i) (+ k i)))
+			  ((>= k 8192))
+			(vector-set! flags k #f))
+		      (set! count (+ 1 count)))))
+	    (loop (- iter 1)))))
+    (display "Count: ") (display count) (newline)))
+
+(module spectral-norm
+   (main main))
+
+(define-syntax contract
+   (syntax-rules ()
+      ((contract (i n) t1 t2)
+       (do ((i 0 (+fx i 1))
+	    (sum 0.0 (+fl sum (*fl t1 t2))))
+	   ((=fx i n) sum)))))
+
+;;; (indexed-expression->vector ((i 4) (j 4)) (g i j)) =>
+;;; #( #(g00 g01 g02 g03) #(g10 g11 g12 g13) ... )
+(define-syntax indexed-expression->vector
+   (syntax-rules ()
+      ((indexed-expression->vector ((i n)) body ...)
+       (let ((result (make-vector n (let ((i 0)) body ...))))
+	  (do ((i 1 (+fx i 1)))
+	      ((=fx i n) result)
+	      (vector-set! result i (begin body ...)))))
+      ((indexed-expression->vector ((i n) (j m) ...) body ...)
+       (indexed-expression->vector ((i n))
+				   (indexed-expression->vector
+				    ((j m) ...) body ...)))))
+
+;;; Like indexed-expression->vector, but without creating a new
+;;; vector.
+(define-syntax indexed-expression-into-vector
+   (syntax-rules ()
+      ((indexed-expression-into-vector v ((i n)) body ...)
+       (do ((i 0 (+fx i 1)))
+	   ((=fx i n) v)
+	   (vector-set! v i (begin body ...))))
+      ((indexed-expression-into-vector v ((i n) (j m) ...) body ...)
+       (do ((i 0 (+fx i 1)))
+	   ((=fx i n) v)
+	   (indexed-expression-into-vector (vector-ref v i)
+					   ((j m) ...) body ...)))))
+
+;;; If v is a two-indexed vector (i.e. a vector of vectors), then 
+;;; (% v i j) => (vector-ref (vector-ref v i) j)
+(define-syntax %
+   (syntax-rules ()
+      ((index-vector v i)
+       (vector-ref v i))
+      ((index-vector v i j ...)
+       (index-vector (vector-ref v i) j ...))))
+
+(define (int->double::double i::int)
+   (free-pragma::double "((double) ($1))" i))
+
+(define (A::double i::int j::int)
+   (/fl 1.0 (int->double
+	     (+fx i (+fx 1 (/fx (*fx (+ i j)
+				     (+ i j 1))
+				2))))))
+
+
+
+(define (produce-u19-and-u20 n::int)
+   (let loop ((i 0) (v1 (make-vector n 1.0))
+		    (v2 (make-vector n 0.0)))
+      (if (=fx i 20)
+	  (values v2 v1)
+	  (begin
+	     (let ((storage (indexed-expression->vector
+			     ((j n)) (contract (k n) (A j k) (% v1 k)))))
+		(indexed-expression-into-vector
+		 v2 ((j n))
+		 (contract (k n) (A k j) (% storage k))))
+	     (loop (+fx i 1) v2 v1)))))
+
+(define (main argv)
+   (let ((n::int (string->number (cadr argv))))
+      (multiple-value-bind
+	    (u19 u20) (produce-u19-and-u20 n)
+	    (display (sqrt (/fl (contract (i n) (% u20 i) (% u19 i))
+				(contract (i n) (% u19 i) (% u19 i)))))
+	    (newline))))
+;;; -*- mode: scheme -*-
+;;; $Id: strcat.bigloo,v 1.1 2004-05-19 18:13:34 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+;;; from Manuel Serrano
+
+(module strcat
+	(option (set! *genericity* #f))
+	(main main))
+
+(define hello #"hello\n")
+
+(define (main args)
+  (let* ((n (or (and (= (length args) 2) (string->number (cadr args))) 1))
+	 (i 0)
+	 (buflen 32)
+	 (strbuf (make-string buflen))
+	 (stufflen (string-length hello))
+	 (stuff hello)
+	 (stuffstart 0))
+
+    (do ((i 0 (+ i 1)))
+	((= i n))
+      (if (>= (+fx stufflen stuffstart) buflen)
+	  (let* ((nbuflen (*fx 2 buflen))
+		 (nstrbuf (make-string nbuflen)))
+	    (blit-string! strbuf 0 nstrbuf 0 buflen)
+	    (set! buflen nbuflen)
+	    (set! strbuf nstrbuf)))
+      (blit-string! stuff 0 strbuf stuffstart stufflen)
+      (set! stuffstart (+fx stuffstart stufflen)))
+     
+    (set! strbuf (substring strbuf 0 stuffstart))
+		   
+    (display (string-length strbuf))
+    (newline)))
+;;; -*- mode: scheme -*-
+;;; $Id: strcat.bigloo-2.bigloo,v 1.1 2004-11-10 06:44:59 bfulgham Exp $
+;;; http://shootout.alioth.debian.org/
+
+(module strcat
+	(main main))
+
+(define hello #"hello\n")
+
+(define (main args)
+  (let* ((n (or (and (= (length args) 2) (string->number (cadr args))) 1))
+	 (str ""))
+    (do ((i 0 (+ i 1)))
+	((= i n))
+      (set! str (string-append str hello)))
+    (display (string-length str))
+    (newline)))
+;;; -*- mode: scheme -*-
+;;; $Id: sumcol.bigloo,v 1.1 2004-05-19 18:13:43 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(module sumcol
+	(main main)
+	(option (set! *genericity* #f)))
+
+(define (main args)
+  (let ((sum 0))
+    (let loop ((line (read-line)))
+      (cond ((eof-object? line) #f)
+	    (else
+	     (set! sum (+ sum (string->integer line)))
+	     (loop (read-line)))))
+    (display sum) (newline)))
+;; The Computer Language Benchmarks Game
+;; http://shootout.alioth.debian.org/
+;;
+;; sumfile benchmark
+;;
+;; contributed by Rudolf Olah
+
+(module
+ sumfile
+ (main main))
+
+(define (sum-input sum)
+  (let ((line (read-line)))
+  (if (eof-object? line)
+      sum
+      (sum-input (+ sum (string->number line))))))
+
+(define (main args)
+  (print (sum-input 0)))
+;;; -*- mode: scheme -*-
+;;; $Id: takfp.bigloo,v 1.1 2004-12-16 08:16:15 bfulgham Exp $
+;;; http://shootout.alioth.debian.org/
+;;;
+;;; Contributed by Will M. Farr
+;;;
+
+(module takfp
+	(export
+		(tak::double x::double y::double z::double)
+		(takn::double ::int))
+		(main main)
+		(eval (export-all)))
+
+(define (tak::double x::double y::double z::double)
+	(if (>=fl y x)
+		z
+		(tak (tak (-fl x 1.0) y z)
+				(tak (-fl y 1.0) z x)
+				(tak (-fl z 1.0) x y))))
+
+(define (takn::double n::int)
+  (let ((a (fixnum->flonum n)))
+	(tak (*fl 3.0 a) (*fl 2.0 a) (*fl 1.0 a))))
+
+(define (main argv)
+	(display (takn (string->number (cadr argv))))
+	(newline))
+
+; vim: ts=4 ft=scheme
+;;; -*- mode: scheme -*-
+;;; $Id: wc.bigloo,v 1.1 2004-05-19 18:13:51 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+;;; from Sven Hartrumpf
+
+(module wc
+	(main main)
+	(option (set! *genericity* #f)))
+
+(define (main args)
+  (let* ((num-char 0)
+         (num-word 0)
+         (num-line 0)
+         (g (regular-grammar
+             ()
+             ((+ #\newline)
+              (set! num-char (+ num-char (the-length)))
+              (set! num-line (+ num-line (the-length)))
+              (ignore))
+             ((+ (in #\space #\tab))
+              (set! num-char (+ num-char (the-length)))
+              (ignore))
+             ((+ (out #\newline #\space #\tab))
+              (set! num-char (+ num-char (the-length)))
+              (set! num-word (+ 1 num-word))
+              (ignore)))))
+    (read/rp g (current-input-port))
+    (display* num-line " " num-word " " num-char #"\n")))
+;;; -*- mode: scheme -*-
+;;; $Id: wordfreq.bigloo,v 1.2 2004-07-03 05:36:11 bfulgham Exp $
+;;; http://shootout.alioth.debian.org/
+;;; with help from Sven Hartrumpf
+
+(module hash
+	(main main)
+	(extern (macro printf::int (string int string) "printf")))
+
+
+(define (main args)
+  (let* ((max (do ((max 1 (* max 2))) ((> max 75000) max)))
+	 (count (make-hash-table max
+				  (lambda (o) (string->0..2^x-1 o 16))
+				  (lambda (c) (car c))
+				  string=?
+				  max)))
+
+    (read/rp (regular-grammar ((word (+ (in ("azAZ"))))
+			       (not-word (+ (out ("azAZ")))))
+			      ((: word)
+			       (let* ((key (string-downcase! (the-string)))
+				      (old-cell (get-hash key count)))
+                                 (cond (old-cell
+					(set-cdr! old-cell (+ (cdr old-cell) 1)))
+                                       (else
+			          	(put-hash! (cons key 1) count))))
+			       (ignore))
+			      ((: not-word)
+			       (ignore))
+			      (else
+			       (the-failure)))
+	     (current-input-port))
+
+    (let ((alist '()))
+      (for-each-hash (lambda (cell)
+		       (let ((key (car cell))
+			     (val (cdr cell)))
+			 (set! alist (cons (cons key val) alist))))
+		     count)
+      
+      (for-each (lambda (cell)
+		  (printf #"%7d %s\n" (cdr cell) (car cell)))
+		(sort alist (lambda (x y)
+			      (let ((xval (cdr x))
+				    (yval (cdr y)))
+			      (if (= xval yval)
+				  (string<? (car y) (car x))
+				  (< yval xval)))))))))

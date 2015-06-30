@@ -1,0 +1,2925 @@
+;;;; -Ob
+
+(declare (fixnum) (disable-interrupts))
+
+(define (ack m n)
+  (cond ((zero? m) (+ n 1))
+        ((zero? n) (ack (- m 1) 1))
+        (else      (ack (- m 1) (ack m (- n 1))))))
+
+(define (main args)
+  (let ((n (if (null? args)
+               1
+               (string->number (car args)) ) ) )
+    (print "Ack(3," n "): " (ack 3 n))))
+
+(main (command-line-arguments))
+;;;; -Ob
+
+(declare (fixnum) (disable-interrupts))
+
+(define (main args)
+  (let* ((n (if (null? args)
+            1
+            (string->number (car args))))
+	 (x (make-vector n 0))
+	 (y (make-vector n 0))
+	 (last (- n 1)))
+    (do ((i 0 (+ i 1)))
+	((= i n))
+      (vector-set! x i (+ i 1)))
+    (do ((k 0 (+ k 1)))
+	((= k 1000))
+      (do ((i last (- i 1)))
+	  ((< i 0))
+	(vector-set! y i (+ (vector-ref x i) (vector-ref y i)))))
+    (print (vector-ref y 0) " " (vector-ref y last))))
+
+(main (command-line-arguments))
+;;; The Computer Language Benchmarks Game
+;;; http://shootout.alioth.debian.org/
+;;; contributed by Sven Hartrumpf
+
+(define make (lambda (item d)
+  (if (= d 0)
+    (list 'empty item)
+    (let ((item2 (* item 2))
+          (d2 (- d 1)))
+      (list 'node (make (- item2 1) d2) item (make item2 d2))))))
+
+(define check (lambda (t)
+  (if (eq? (car t) 'empty)
+    (cadr t)
+    (+ (caddr t) (- (check (cadr t)) (check (cadddr t)))))))
+
+(define main (lambda (argv)
+  (let* ((min-depth 4)
+         (max-depth (max (+ min-depth 2) (if (pair? argv) (string->number (car argv)) 10))))
+    (let ((stretch-depth (+ max-depth 1)))
+      (display "stretch tree of depth ") (display stretch-depth) (write-char #\tab) (display " check: ") (display (check (make 0 stretch-depth))) (newline))
+    (let ((long-lived-tree (make 0 max-depth)))
+      (do ((d 4 (+ d 2))
+           (c 0 0))
+        ((> d max-depth))
+        (let ((iterations (arithmetic-shift 1 (+ (- max-depth d) min-depth)))) ; chicken-specific: arithmetic-shift
+          (do ((i 0 (+ i 1)))
+            ((>= i iterations))
+            (set! c (+ c (check (make i d)) (check (make (- i) d)))))
+          (display (* 2 iterations)) (write-char #\tab) (display " trees of depth ") (display d) (write-char #\tab) (display " check: ") (display c) (newline)))
+      (display "long lived tree of depth ") (display max-depth) (write-char #\tab) (display " check: ") (display (check long-lived-tree)) (newline)))))
+
+(main (command-line-arguments))
+;;;; -Ob
+
+(declare (fixnum) (disable-interrupts))
+
+(define HI 0)
+(define LO 0)
+
+(define lo-exception #f)
+(define hi-exception #f)
+
+(define (some_fun n)
+  (hi_fun n))
+
+(define (hi_fun n)
+  (when (call/cc
+	 (lambda (return)
+	   (set! hi-exception return)
+	   (lo_fun n) 
+	   #f) )
+    (set! HI (add1 HI)) ) )
+
+(define (lo_fun n)
+  (when (call/cc
+	 (lambda (return)
+	   (set! lo-exception return)
+	   (blowup n) 
+	   #f) )
+    (set! LO (add1 LO)) ) )
+
+(define (blowup n)
+  (if (even? n)
+      (hi-exception #t)
+      (lo-exception #t)))
+	
+(define (main #!optional (n "1"))
+  (let ((n (string->number n)))
+    (do ((i 0 (+ i 1)))
+	((= i n))
+      (some_fun i)))
+  (print "Exceptions: HI=" HI " / LO=" LO))
+
+(apply main (command-line-arguments))
+;;; The Computer Language Benchmarks Game
+;;; http://shootout.alioth.debian.org/
+;;; contributed by Dima Dorfman, 2004
+;;; slightly improved by Sven Hartrumpf, 2005-2006
+
+
+(define (1+ i) (+ i 1))
+(define (1- i) (- i 1))
+
+(define vector-for-each (lambda (pred v)
+  (do ((i 0 (1+ i))
+       (v-length (vector-length v)))
+      ((>= i v-length))
+    (pred (vector-ref v i)))))
+
+(define (vector-reverse-slice! v i j)
+  (do ((i i (1+ i))
+       (j (1- j) (1- j))) ; exclude position j
+      ((<= j i))
+    (vector-swap! v i j)))
+
+(define (vector-swap! v i j)
+  (let ((t (vector-ref v i)))
+    (vector-set! v i (vector-ref v j))
+    (vector-set! v j t)))
+
+(define (count-flips pi)
+  (do ((rho (vector-copy pi))
+       (i 0 (1+ i)))
+      ((= (vector-ref rho 0) 0) i)
+    (vector-reverse-slice! rho 0 (1+ (vector-ref rho 0)))))
+
+(define (vector-copy v)
+  (vector-resize v (vector-length v)))
+
+(define (fannkuch n)
+  (let ((pi (do ((pi (make-vector n))
+                 (i 0 (1+ i)))
+              ((= i n) pi)
+              (vector-set! pi i i)))
+        (r n)
+        (count (make-vector n)))
+    (let loop ((flips 0)
+               (perms 0))
+      (cond ((< perms 30)
+             (vector-for-each (lambda (x)
+                                (display (1+ x)))
+                              pi)
+             (newline)))
+      (do ()
+        ((= r 1))
+        (vector-set! count (1- r) r)
+        (set! r (1- r)))
+      (let ((flips2 (max (count-flips pi) flips)))
+        (let ((result
+                (let loop2 ()
+                  (if (= r n)
+                    flips2
+                    (let ((perm0 (vector-ref pi 0)))
+                      (do ((i 0))
+                        ((>= i r))
+                        (let ((j (1+ i)))
+                          (vector-set! pi i (vector-ref pi j))
+                          (set! i j)))
+                      (vector-set! pi r perm0)
+                      (vector-set! count r (1- (vector-ref count r)))
+                      (cond ((<= (vector-ref count r) 0)
+                             (set! r (1+ r))
+                             (loop2))
+                            (else
+                              #f)))))))
+          (or result
+              (loop flips2 (1+ perms)))
+          )))))
+
+(define (main args)
+  (if (< (length args) 2)
+    (begin (display "An argument is required") (newline) 2)
+    (let ((n (string->number (cadr args))))
+      (if (not (integer? n))
+        (begin (display "An integer is required") (newline) 2)
+        (printf "Pfannkuchen(~S) = ~S~%" n (fannkuch n))))))
+
+(main (argv))
+;; The Computer Language Benchmarks Game
+;; http://shootout.alioth.debian.org/
+;; contributed by elf, mar 2008
+
+
+(eval-when (compile)
+    (declare
+        (uses srfi-1 srfi-4)
+        (fixnum-arithmetic)
+        (usual-integrations)
+        (block)
+        (number-type fixnum)
+        (disable-interrupts)
+        (lambda-lift)
+        (unsafe)
+        (inline)
+        (bound-to-procedure
+            vector-swap!
+            make-swap!
+            vector-reverse!
+            flips
+            circular-append
+            make-pclos
+            make-plist-even
+            make-plist-odd
+            make-plist1
+            make-plist2
+            run-permute2
+            run-permute
+            errinvoke
+            main
+        )
+    ))
+
+
+(define-inline (vector-swap! v x y xval)
+    (u8vector-set! v x (u8vector-ref v y))
+    (u8vector-set! v y xval)
+    v)
+
+(define-inline (make-swap! x y)
+    (lambda (v)
+        (vector-swap! v x y (u8vector-ref v x))))
+
+(define-inline (vector-reverse! v i)
+    (let loop ((j   0)
+               (i   i))
+        (cond ((fx>= j i)
+                  v)
+              (else
+                  (vector-swap! v j i (u8vector-ref v j))
+                  (loop (fx+ 1 j) (fx- i 1))))))
+
+(define-inline (flips ov vl)
+    (let loop ((c   1)
+               (v   (vector-reverse! vl (u8vector-ref vl 0))))
+        (if (fx= 0 (u8vector-ref v 0))
+            (fxmax ov c)
+            (loop (fx+ 1 c) (vector-reverse! v (u8vector-ref v 0))))))
+
+(define-inline (circular-append l1 l2)
+    (let ((r   (append l1 l2)))
+        (set-cdr! (last-pair r) r)
+        r))
+
+(define-inline (make-pclos l)
+    (lambda (v)
+        (let ((t   ((car l) v)))
+            (set! l (cdr l))
+            t)))
+
+(define-inline (make-plist-even i1 i2 l)
+    (append l
+            (append-map
+                (lambda (x)
+                    (cons (make-swap! i1 x) l))
+                (cons i2 (iota i2)))))
+
+(define-inline (make-plist-odd i1 i2 l)
+    (append l
+            (append-map
+                (lambda (x)
+                    (cons (make-swap! i1 i2) l))
+                (iota i1))))
+
+(define-inline (make-plist1 n)
+    (if (fx< n 4)
+        (case n
+            ((1)
+                '())
+            ((2)
+                (list (make-swap! 0 1)))
+            ((3)
+                (list
+                    (make-swap! 0 1)
+                    (make-swap! 1 2)
+                    (make-swap! 0 1)
+                    (make-swap! 1 2)
+                    (make-swap! 0 1))))
+        (let loop ((l   (list (make-swap! 0 1)
+                              (make-swap! 1 2)
+                              (make-swap! 0 1)
+                              (make-swap! 1 2)
+                              (make-swap! 0 1)))
+                   (i   4))
+            (cond ((fx> i n)
+                      l)
+                  ((even? i)
+                      (loop (make-plist-even (fx- i 1) (fx- i 2) l)
+                            (fx+ 1 i)))
+                  (else
+                      (loop (make-plist-odd (fx- i 1) (fx- i 2) l)
+                            (fx+ 1 i)))))))
+
+(define-inline (make-plist2 i n p)
+    (let loop ((i   i)
+               (l   '()))
+        (cond ((fx> i n)
+                  (make-pclos
+                      (circular-append
+                          p
+                          (list
+                              (make-pclos
+                                  (append
+                                      l
+                                      (list (lambda (v) #f))))))))
+              ((even? i)
+                  (loop (fx+ 1 i)
+                        (make-plist-even (fx- i 1) (fx- i 2) l)))
+              (else
+                  (loop (fx+ 1 i)
+                        (make-plist-odd (fx- i 1) (fx- i 2) l))))))
+
+(define-inline (run-permute2 n n1 pl v c)
+    (let loop ((v   (pl v))
+               (c   (if (or (fx= 0 (u8vector-ref v 0))
+                            (fx= 0 (u8vector-ref v (u8vector-ref v 0)))
+                            (fx= n1 (u8vector-ref v n1)))
+                        c
+                        (flips c (subu8vector v 0 n)))))
+        (if v
+            (loop
+                (pl v)
+                (if (or (fx= 0 (u8vector-ref v 0))
+                        (fx= 0 (u8vector-ref v (u8vector-ref v 0)))
+                        (fx= n1 (u8vector-ref v n1)))
+                    c
+                    (flips c (subu8vector v 0 n))))
+            c)))
+
+(define-inline (run-permute n n1 pl)
+    (let loop ((v   (let ((v   (make-u8vector n 0 #t)))
+                        (for-each
+                            (lambda (x)
+                                (u8vector-set! v x x))
+                            (iota n))
+                        v))
+               (c   1)
+               (t   30))
+        (cond (v
+                  (for-each
+                      (lambda (x)
+                          (display (fx+ 1 x)))
+                      (u8vector->list v))
+                  (newline)
+                  (if (fx= 0 t)
+                      (run-permute2 n n1 pl v c)
+                      (loop
+                          (pl v)
+                          (if (or (fx= 0 (u8vector-ref v 0))
+                                  (fx= 0 (u8vector-ref v (u8vector-ref v 0)))
+                                  (fx= n1 (u8vector-ref v n1)))
+                              c
+                              (flips c (subu8vector v 0 n)))
+                          (fx- t 1))))
+              (else
+                  c))))
+
+(define-inline (errinvoke)
+    (display "syntax: ")
+    (display (program-name))
+    (display " [positive integer]")
+    (newline)
+    (exit 1))
+
+(define (main args)
+    (or (fx= 1 (length args))
+        (errinvoke))
+    (let ((n   (string->number (car args))))
+        (or (and (integer? n) (fx> n 0))
+            (errinvoke))
+        (let ((r   (run-permute
+                       n
+                       (fx- n 1)
+                       (if (fx< n 6)
+                           (make-pclos
+                               (append (make-plist1 n)
+                                       (list (lambda (v) #f))))
+                           (make-plist2 (fx+ 1 (fxshr n 1)) n
+                                        (make-plist1 (fxshr n 1)))))))
+            (display "Pfannkuchen(")
+            (display n)
+            (display ") = ")
+            (display r)
+            (newline)
+            (exit 0))))
+
+(main (command-line-arguments))
+;; The Computer Language Benchmarks Game
+;; http://shootout.alioth.debian.org/
+;;
+;; contributed by Anthony Borla
+;; modified by Ivan Raikov
+
+(require-extension srfi-1)
+(require-extension srfi-13)
+
+(define +alu+
+   (string-append
+    "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG"
+    "GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA"
+    "CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT"
+    "ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA"
+    "GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG"
+    "AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC"
+    "AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA"))
+
+(define +iub+
+  (list
+   '(#\a . 0.27) '(#\c . 0.12) '(#\g . 0.12) '(#\t . 0.27) '(#\B . 0.02)
+   '(#\D . 0.02) '(#\H . 0.02) '(#\K . 0.02) '(#\M . 0.02) '(#\N . 0.02)
+   '(#\R . 0.02) '(#\S . 0.02) '(#\V . 0.02) '(#\W . 0.02) '(#\Y . 0.02)))
+
+(define +homosapien+
+  (list
+   '(#\a . 0.3029549426680) '(#\c . 0.1979883004921)
+   '(#\g . 0.1975473066391) '(#\t . 0.3015094502008)))
+
+(define +line-size+ 60)
+
+(define (make-random seed)
+  (let* ((ia 3877) (ic 29573) (im 139968) (last seed))
+    (lambda (max)
+      (set! last (modulo (+ ic (* last ia)) im))
+      (/ (* max last) im) )))
+
+(define (make-cumulative-table frequency-table)
+  (let ((cumulative 0.0))
+    (map
+     (lambda (x)
+       (set! cumulative (+ cumulative (cdr x)))
+       (cons (char->integer (car x)) cumulative))
+     frequency-table)))
+
+(define random-next (make-random 42))
+(define +segmarker+ ">")
+
+(define (select-random cumulative-table)
+  (let ((rvalue (random-next 1.0)))
+    (select-over-threshold rvalue cumulative-table)))
+
+(define (select-over-threshold rvalue table)
+  (if (<= rvalue (cdar table))
+      (caar table)
+      (select-over-threshold rvalue (cdr table))))
+
+(define (repeat-fasta id desc n_ sequence line-length)
+  (let ((seqlen (string-length sequence))
+	(out (current-output-port)))
+    (display (string-append +segmarker+ id " " desc "\n") out)
+      (let loop-o ((n n_) (k 0))
+	(unless (<= n 0)
+	  (let ((m (min n line-length)))
+	    (let loop-i ((i 0) (k k))
+	      (if (>= i m)
+		  (begin
+		    (newline out)
+		    (loop-o (- n line-length) k))
+		  (let ([k (if (= k seqlen) 0 k)])
+		    (display (string-ref sequence k) out)
+		    (loop-i (add1 i) (add1 k))))))))))
+
+  (define (random-fasta id desc n_ cumulative-table line-length)
+    (let ((out (current-output-port)))
+      (display (string-append +segmarker+ id " " desc "\n") out)
+      (let loop-o ((n n_))
+	(unless (<= n 0)
+	  (let ((m (min n line-length)))
+	    (let loop-i ((i 0))
+	      (unless (>= i m)
+		(display (integer->char (select-random cumulative-table)) out)
+		(loop-i (add1 i))))
+	    (newline out)
+	    (loop-o (- n line-length)))))))
+
+(define (main args)
+  (let ((n (string->number (car args))))
+    
+    (repeat-fasta "ONE" "Homo sapiens alu" (* n 2) +alu+ +line-size+)
+    
+    (random-fasta "TWO" "IUB ambiguity codes" (* n 3)
+		  (make-cumulative-table +iub+) +line-size+)
+    
+    (random-fasta "THREE" "Homo sapiens frequency" (* n 5)
+		  (make-cumulative-table +homosapien+) +line-size+) ))
+
+(main (command-line-arguments))
+
+;;;; -Ob
+
+(declare (fixnum) (disable-interrupts))
+
+(define (fib n)
+  (cond ((< n 2) 1)
+	(else (+ (fib (- n 2)) (fib (- n 1))))))
+
+(define (main args)
+  (let ((n (if (null? args)
+               1
+               (string->number (car args)))))
+    (display (fib n))
+    (newline)))
+
+(main (command-line-arguments))
+;;;; The Great Computer Language Shootout
+;;;; http://shootout.alioth.debian.org/
+;;
+;; OCaml version contributed by Will M. Farr
+;; ported to Chicken by Felix
+;; modified by Kon Lovett
+
+(use format)
+(declare (unsafe) (block) (disable-interrupts))
+
+(define (sum-harmonic4 n)
+  (do ([i 1 (fx+ i 1)]
+       [sum 1.0 (+ sum (/ ifloat))]
+       [ifloat 2.0 (+ ifloat 1)] )
+      ((fx>= i n) sum) ) )
+
+(format #t "~,9f~%"
+	(sum-harmonic4
+	 (string->number (:optional (command-line-arguments) "10000000"))))
+;; ---------------------------------------------------------------------
+;; The Great Computer Language Shootout
+;; http://shootout.alioth.debian.org/
+;;
+;; Based on existing Shootout submission [Scheme Guile]. However hashing
+;; tasks performed using only SRFI-69-compliant facilities. Use of
+;; default hash function and predicate provides significantly better
+;; performance than explicitly passing native implementations; thus, do
+;; this:
+;;
+;;    ... (ht (make-hash-table)) ...
+;;
+;; not this:
+;;
+;;    ... (ht (make-hash-table string-ci=? string-ci-hash)) ...
+;;
+;; Contributed by Anthony Borla
+;; ---------------------------------------------------------------------
+
+(declare (fixnum) (disable-interrupts) (unsafe) (block) (lambda-lift))
+
+; -------------------------------
+
+(define (main args)
+  (let ((n (if (null? args)
+               1
+               (string->number (car args))))
+
+    (c 0) (ht (make-hash-table)))
+
+    (do ((i 1 (+ i 1)))
+        ((< n i))
+      (hash-table-set! ht (number->string i 16) i))
+
+    (do ((i 1 (+ i 1)))
+        ((< n i))
+      (if (hash-table-exists? ht (number->string i 10))
+          (set! c (+ c 1))))
+
+    (print c)))
+
+; -------------------------------
+
+(main (command-line-arguments))
+
+;; ---------------------------------------------------------------------
+;; The Great Computer Language Shootout
+;; http://shootout.alioth.debian.org/
+;;
+;; Based on existing Shootout submission [Scheme Guile]. However hashing
+;; tasks performed using only SRFI-69-compliant facilities. Use of
+;; default hash function and predicate provides significantly better
+;; performance than explicitly passing native implementations; thus, do
+;; this:
+;;
+;;    ... (ht (make-hash-table)) ...
+;;
+;; not this:
+;;
+;;    ... (ht (make-hash-table string-ci=? string-ci-hash)) ...
+;;
+;; Contributed by Anthony Borla
+;; ---------------------------------------------------------------------
+
+(declare (fixnum) (disable-interrupts) (unsafe) (block) (lambda-lift))
+
+; -------------------------------
+
+(define-constant +hash-tbl-size+ 10000)
+
+; --------------
+
+(define (main args)
+  (let ((n (if (null? args)
+               1
+               (string->number (car args))))
+
+    (ht1 (make-hash-table))
+    (ht2 (make-hash-table)))
+
+    (do ((i 1 (+ i 1)))
+        ((< +hash-tbl-size+ i))
+      (hash-table-set! ht1 (string-append "foo_" (number->string i)) i))
+
+    (do ((i 1 (+ i 1)))
+        ((< n i))
+      (hash-table-walk ht1 (lambda (key value) (hash-table-set! ht2 key (+ value (hash-table-ref/default ht2 key 0))))))
+
+    (let ((ht1-k1 (hash-table-ref ht1 "foo_1"))
+      (ht1-k9999 (hash-table-ref ht1 "foo_9999"))
+      (ht2-k1 (hash-table-ref ht2 "foo_1"))
+      (ht2-k9999 (hash-table-ref ht2 "foo_9999")))
+
+      (print ht1-k1 " " ht1-k9999 " " ht2-k1 " " ht2-k9999))))
+
+; -------------------------------
+
+(main (command-line-arguments))
+
+;;; heapsort.scm
+
+;; Prints 0.9990640717878372 instead of 0.9990640718 when n=1000.
+;; Updated by Justin Smith
+
+(require-extension format)
+(declare (disable-interrupts) (uses srfi-4))
+
+(define IM   139968)
+(define IA     3877)
+(define IC    29573)
+
+(define LAST 42)
+(define (gen_random max)
+  (set! LAST (modulo (+ (* LAST IA) IC) IM))
+  (/ (* max LAST) IM))
+
+(define (heapsort n ra)
+  (let ((ir n)
+        (l (+ (quotient n 2) 1))
+        (i 0)
+        (j 0)
+        (rra 0.0))
+    (call/cc 
+     (lambda (return)
+      (do ((bar #t))
+        ((= 1 0))
+        (cond ((> l 1)
+               (set! l (- l 1))
+               (set! rra (f64vector-ref ra l)))
+              (else
+               (set! rra (f64vector-ref ra ir))
+               (f64vector-set! ra ir (f64vector-ref ra 1))
+               (set! ir (- ir 1))
+               (cond ((<= ir 1)
+                      (f64vector-set! ra 1 rra)
+                      (return #t)))))
+        (set! i l)
+        (set! j (* l 2))
+        (do ((foo #t))
+	    ((> j ir))
+          (cond ((and (< j ir) (< (f64vector-ref ra j) (f64vector-ref ra (+ j 1))))
+                 (set! j (+ j 1))))
+          (cond ((< rra (f64vector-ref ra j))
+                 (f64vector-set! ra i (f64vector-ref ra j))
+                 (set! i j)
+                 (set! j (+ j i)))
+                (else
+                 (set! j (+ ir 1)))))
+        (f64vector-set! ra i rra))))))
+
+(define (main args)
+  (let* ((n (or (and (= (length args) 1) (string->number (car args)))
+                1))
+         (last (+ n 1))
+         (ary (make-f64vector last 0)))
+    (do ((i 1 (+ i 1)))
+        ((= i last))
+      (f64vector-set! ary i (gen_random 1.0)))
+    (heapsort n ary)
+    (format #t "~,10F~%" (f64vector-ref ary n) )))
+
+(main (command-line-arguments))
+
+;;; The Computer Language Benchmarks Game
+;;; http://shootout.alioth.debian.org/
+
+(display "hello world\n")
+;;; The Computer Language Benchmarks Game
+;;; http://shootout.alioth.debian.org/
+;;;
+;;; contributed by Anthony Borla
+
+(require-extension format)
+
+(declare (uses srfi-1 srfi-13))
+
+
+(define (make-stringbuffer #!optional (blocksize #e512) (initial-capacity #e32))
+  (let*
+
+    ((capacity initial-capacity)
+
+    (buffer (make-vector capacity (make-string 0)))
+
+    (spill-buffer (make-string 0))
+
+    (next-entry #e0)
+
+    (grow-buffer
+      (lambda ()
+        (set! capacity (fx* #e2 capacity))
+        (set! buffer (vector-resize buffer capacity (make-string 0))) ))
+
+    (sb-free
+      (lambda ()
+        (let loop ((i (sub1 next-entry)))
+          (cond
+            ((zero? i) '())
+            (else
+              (vector-set! buffer i (make-string 0))
+              (loop (sub1 i)))))
+
+        (set! buffer (make-vector initial-capacity (make-string 0)))
+        (set! spill-buffer (make-string 0))
+        (set! next-entry #e0) ))
+
+    (sb-append!
+      (lambda (value)
+        (let* ((new-value (string-append spill-buffer value))
+               (new-value-length (string-length new-value)))
+          (set! spill-buffer (make-string 0))
+          (if (fx= next-entry capacity)
+            (grow-buffer))
+          (cond
+            ((fx< new-value-length blocksize) (set! spill-buffer new-value))
+            ((fx> new-value-length blocksize)
+              (if (fx>= (fx+ (fxmod new-value-length blocksize) next-entry) capacity)
+                (grow-buffer))
+              (for-each
+                (lambda (block)
+                  (vector-set! buffer next-entry block)
+                  (set! next-entry (add1 next-entry)))
+                (string-chop new-value blocksize))
+              (if (fx< (string-length (vector-ref buffer (sub1 next-entry))) blocksize)
+              (begin
+                (set! spill-buffer (vector-ref buffer (sub1 next-entry)))
+                (vector-set! buffer (sub1 next-entry) (make-string 0))
+                (set! next-entry (sub1 next-entry)))))
+            (else
+              (vector-set! buffer next-entry new-value)
+              (set! next-entry (add1 next-entry)))) )))
+
+    (sb-slice
+      (lambda (i length)
+        (let* ((start-block (fx/ i blocksize))
+               (start-offset (fxmod i blocksize))
+               (so+length (fx+ start-offset length)))
+          (cond
+            ((fx> start-block next-entry)
+              (make-string 0))
+            ((fx= start-block next-entry)
+              (let ((extract-length (fxmin length (string-length spill-buffer)))) 
+                (substring spill-buffer start-offset (fx+ start-offset extract-length))))
+            (else
+              (cond
+                ((fx<= so+length blocksize)
+                  (substring (vector-ref buffer start-block) start-offset (fx+ start-offset length)))
+                (else ;;; (fx> so+length blocksize)
+                  (let ((n (fx/ so+length blocksize))
+                        (last-block-length (fxmod so+length blocksize)))
+                    (let loop ((i (add1 start-block))
+                               (s (substring (vector-ref buffer start-block) start-offset)))
+                      (cond
+                        ((fx>= i n)
+                          (if (fx>= i next-entry)
+                            (let ((spill-length (string-length spill-buffer)))
+                              (cond
+                                ((zero? spill-length) s)
+                                ((fx< spill-length last-block-length) (string-append s spill-buffer))
+                                (else (string-append s (substring spill-buffer 0 last-block-length)) )))
+                          ; else
+                            (string-append s (substring (vector-ref buffer i) 0 last-block-length)) ))
+                        (else  
+                          (loop (add1 i) (string-append s (substring (vector-ref buffer i) 0 blocksize) ))) ))) )) )) )))
+
+    (sb-length
+      (lambda ()
+        (fx+ (fx* blocksize next-entry) (string-length spill-buffer)))) )
+
+    (lambda (op)
+      (cond
+        ((eq? op 'free) sb-free)
+        ((eq? op 'append!) sb-append!)
+        ((eq? op 'slice) sb-slice)
+        ((eq? op 'length) sb-length)
+        (else (lambda () (display "*** make-stringbuffer:invalid operation ***\n"))))) ))
+
+(define (stringbuffer-append! sb value)
+  (apply (sb 'append!) (list value)))
+
+(define (stringbuffer-slice sb i length)
+  (apply (sb 'slice) (list i length)))
+
+(define (stringbuffer-length sb)
+  (apply (sb 'length) '()))
+
+(define (make-knucleotide #!optional (blocksize #e4096))
+  (let*
+
+    ((load-sequence
+      (lambda ()
+        (let ((sb (make-stringbuffer blocksize)))
+          (let loop ((line (read-line)))
+            (cond
+              ((and
+                (char=? (string-ref line 0) #\>)
+                (string=? (substring line 0 6) ">THREE")) '())
+              (else
+                (loop (read-line)) )))
+          (let loop ((line (read-line)))
+            (cond
+              ((eof-object? line) '())
+              ((char=? (string-ref line 0) #\>) '())
+              ((char=? (string-ref line 0) #\;) (loop (read-line)))
+              (else
+                (string-upcase! line)
+                (stringbuffer-append! sb line)
+                (loop (read-line)) )))
+          sb)))
+
+    (sequence (load-sequence))
+
+    (generate-counts
+      (lambda (fragment-length)
+        (let ((count-table (make-hash-table))
+              (last-idx (add1 (fx- (stringbuffer-length sequence) fragment-length)) ))
+          (let loop-i ((i #e0))
+            (cond
+              ((fx>= i fragment-length) '())
+              (else
+                (let loop-j ((j i) (key (stringbuffer-slice sequence i fragment-length)))
+                  (cond
+                    ((fx>= j last-idx) '())
+                    (else
+                      (hash-table-set! count-table key
+                        (add1 (hash-table-ref/default count-table key #e0)))
+                      (loop-j (fx+ j fragment-length)
+                              (stringbuffer-slice
+                                sequence (fx+ j fragment-length) fragment-length)) )))
+                (loop-i (add1 i)))))
+          count-table)))
+
+    (print-frequencies
+      (lambda (fragment-length)
+        (let* ((count-table (generate-counts fragment-length))
+               (count-sum
+                 (exact->inexact
+                   (hash-table-fold
+                     count-table
+                       (lambda (key value accum) (fx+ accum value)) #e0)))
+               (freq-list
+                 (map
+                   (lambda (pair)
+                     (cons
+                       (car pair)
+                       (fp* #i100 (fp/ (exact->inexact (cdr pair)) count-sum))))
+                   (hash-table->alist count-table))) 
+               (sorted-freq-list 
+                 (sort 
+                   freq-list
+                   (lambda (x y)
+                     (if (fp= (cdr x) (cdr y))
+                       (string-ci>? (car x) (car y))
+                     ; else
+                       (> (cdr x) (cdr y)))) )))
+          (for-each
+            (lambda (pair) (format #t "~A ~,3F~%" (car pair) (cdr pair)))
+            sorted-freq-list)
+          (newline))))
+
+    (print-count
+      (lambda (fragment)
+        (let* ((count-table (generate-counts (string-length fragment)))
+               (fragment-count (hash-table-ref/default count-table fragment #e0) ))
+          (print fragment-count "\t" fragment) ))))
+
+    (lambda (op)
+      (cond
+        ((eq? op 'print-frequencies) print-frequencies)
+        ((eq? op 'print-count) print-count)
+        (else (lambda () (display "*** make-knucleotide:invalid operation ***\n"))))) ))
+
+(define (print-frequencies knucleotide fragment-length)
+  (apply (knucleotide 'print-frequencies) (list fragment-length)))
+
+(define (print-count knucleotide fragment)
+  (apply (knucleotide 'print-count) (list fragment)))
+
+(define (main)
+  (let ((knucleotide (make-knucleotide #e16384)))
+   
+    (print-frequencies knucleotide 1)
+    (print-frequencies knucleotide 2)
+
+    (print-count knucleotide "GGT")
+    (print-count knucleotide "GGTA")
+    (print-count knucleotide "GGTATT")
+    (print-count knucleotide "GGTATTTTAATT")
+    (print-count knucleotide "GGTATTTTAATTTATAGT")))
+
+(main)
+
+;;; lists.scm
+;;;
+;;; Contributed by Felix Winkelmann
+;;; -Ob
+
+(declare (fixnum) (disable-interrupts) (uses srfi-1))
+
+(define SIZE 10000)
+
+(define (sequence start stop)
+  (if (> start stop)
+      '()
+      (cons start (sequence (+ start 1) stop))))
+
+(define (head-to-tail! headlist taillist)
+  (when (null? taillist)
+    (set! taillist (list (car headlist)))
+    (set! headlist (cdr headlist)))
+  (letrec ((htt-helper (lambda (dest)
+			 (when (not (null? headlist))
+			   (let ((headlink headlist))
+			     (set-cdr! dest headlink)
+			     (set! headlist (cdr headlist))
+			     (htt-helper headlink))))))
+    (htt-helper taillist)
+    (values headlist taillist)))
+
+(define (test-lists)
+  (let* ([L1 (sequence 1 SIZE)]
+	 [L2 (append L1 '())]
+	 [L3 '()])
+    (set!-values (L2 L3) (head-to-tail! L2 L3))
+    (set!-values (L3 L2) (head-to-tail! (reverse! L3) L2))
+    (set! L1 (reverse! L1))
+    (cond ((not (= SIZE (car L1))) 0)
+	  ((not (equal? L1 L2))	   0)
+	  (else           (length L1)))))
+
+(define (main args)
+  (let ((result #f))
+    (let loop ((counter (if (null? args)
+			    1
+			    (string->number (car args)))))
+      (when (> counter 0)
+	(set! result (test-lists))
+	(loop (- counter 1))))
+    (print result)))
+
+(main (command-line-arguments))
+;;; The Computer Language Benchmarks Game
+;;; http://shootout.alioth.debian.org/
+;;;
+;;; contributed by Anthony Borla
+
+(define-constant +limit-sqr+ 4.0)
+
+(define-constant +iterations+ 50)
+
+(define (mandelbrot iterations x y n)
+  (let ((cr (- (/ (* 2.0 x) n) 1.5)) (ci (- (/ (* 2.0 y) n) 1.0)))
+    (let loop ((i 0) (zr 0.0) (zi 0.0))
+      (let ((zrq (* zr zr)) (ziq (* zi zi)))
+        (cond
+          ((> i iterations) 1)
+          ((> (+ zrq ziq) +limit-sqr+) 0)
+          (else (loop (add1 i) (+ (- zrq ziq) cr) (+ (* 2.0 zr zi) ci)))) ))))
+
+(define (main args)
+  (let ((n (if (null? args)
+               1
+               (string->number (car args))))
+
+    (bitnum 0) (byteacc 0))
+
+    (write-line (string-append "P4\n" (number->string n) " " (number->string n)))
+
+    (let loop-y ((y 0))
+
+      (if (> y (- n 1)) '()
+      ; else
+      (begin
+        (let loop-x ((x 0))
+
+          (if (> x (- n 1)) '()
+          ; else
+          (begin
+            (set! bitnum (add1 bitnum))
+            (set! byteacc (+ (* 2 byteacc) (mandelbrot +iterations+ x y n)))
+
+            (cond
+              ((= bitnum 8)
+                (write-char (integer->char byteacc))
+                (set! bitnum 0)
+                (set! byteacc 0))
+
+              ((= x (- n 1))
+                (write-char (integer->char (* byteacc (expt 2 (- 8 (modulo n 8))))))
+                (set! bitnum 0)
+                (set! byteacc 0)))
+
+            (loop-x (add1 x)) )))
+
+        (loop-y (add1 y)) ))) ))
+
+(main (command-line-arguments))
+
+;;; The Computer Language Benchmarks Game
+;;; http://shootout.alioth.debian.org/
+;;;
+;;; contributed by Anthony Borla
+;;; modified by Tobia Conforto
+
+(define-constant +limit-sqr+ 4.0)
+
+(define-constant +iterations+ 50)
+
+(define (mandelbrot x y n)
+  (let ((cr (- (/ (* 2.0 x) n) 1.5))
+        (ci (- (/ (* 2.0 y) n) 1.0)))
+    (let loop ((i 0)
+               (zr 0.0)
+               (zi 0.0))
+      (let ((zrq (fp* zr zr))
+            (ziq (fp* zi zi)))
+        (cond
+         ((fx> i +iterations+) 1)
+         ((fp> (fp+ zrq ziq) +limit-sqr+) 0)
+         (else
+          (loop (fx+ i 1)
+                (fp+ cr (fp- zrq ziq))
+                (fp+ ci (fp* 2.0 (fp* zr zi))))))))))
+
+(define (main n)
+  (print "P4")
+  (print n " " n)
+  (do ((y 0 (fx+ y 1)))
+      ((fx= y n) #f)
+    (let loop-x ((x 0)
+                 (bitnum 0)
+                 (bits 0))
+      (cond
+       ((fx= x n)
+        (if (fx> bitnum 0)
+            (write-char (integer->char (fxshl bits (fx- 8 (fxmod n 8)))))
+            #f))
+       ((fx= bitnum 8)
+        (write-char (integer->char bits))
+        (loop-x (fx+ x 1)
+                1
+                (mandelbrot x y n)))
+       (else
+        (loop-x (fx+ x 1)
+                (fx+ bitnum 1)
+                (fxior (fxshl bits 1)
+                       (mandelbrot x y n))))))))
+
+(main (string->number (car (command-line-arguments))))
+;;;; -Ob
+
+(declare (fixnum) (disable-interrupts))
+
+;; Matrix.scm
+
+(define size 30)
+
+(define (mkmatrix rows cols)
+  (let ((mx (make-vector rows 0))
+	(count 1))
+    (do ((i 0 (add1 i)))
+	((= i rows))
+      (let ((row (make-vector cols 0)))
+	(do ((j 0 (add1 j)))
+	    ((= j cols))
+	  (vector-set! row j count)
+	  (set! count (+ count 1)))
+	(vector-set! mx i row)))
+    mx))
+
+(define-inline (num-cols mx)
+  (let ((row (vector-ref mx 0)))
+    (vector-length row)))
+
+(define (mmult rows cols m1 m2)
+  (let ((m3 (make-vector rows 0)))
+    (do ((i 0 (add1 i)))
+	((= i rows))
+      (let ((m1i (vector-ref m1 i))
+	    (row (make-vector cols 0)))
+	(do ((j 0 (add1 j)))
+	    ((= j cols))
+	  (let ((val 0))
+	    (do ((k 0 (add1 k)))
+		((= k cols))
+	      (set! val (+ val (* (vector-ref m1i k)
+				  (vector-ref (vector-ref m2 k) j)))))
+	    (vector-set! row j val)))
+	(vector-set! m3 i row)))
+    m3))
+
+(define (main #!optional (n "1"))
+  (let ((mm 0)
+	(m1 (mkmatrix size size))
+	(m2 (mkmatrix size size)))
+    (let loop ((iter (string->number n)))
+	(cond ((> iter 0)
+	       (set! mm (mmult size size m1 m2))
+	       (loop (- iter 1)))))
+      (let ((r0 (vector-ref mm 0))
+	    (r2 (vector-ref mm 2))
+	    (r3 (vector-ref mm 3))
+	    (r4 (vector-ref mm 4)))
+	(print (vector-ref r0 0) " " (vector-ref r2 3) " "
+	       (vector-ref r3 2) " " (vector-ref r4 4)))))
+
+(apply main (command-line-arguments))
+
+; > matrix 10
+; 270165 1061760 1453695 1856025
+;;; -*- mode: scheme -*-
+;;; $Id: message.chicken,v 1.3 2007-12-08 03:58:38 bfulgham Exp $
+;;; http://shootout.alioth.debian.org/
+;;;
+;;; thread-flow benchmark
+;;;
+;;; Provided by Dale Jordan
+
+;     * create a chain of 500 threads such that:
+;           o each thread
+;                 + can receive an integer message
+;                 + can store the received message
+;                 + knows the next thread in the chain
+;                 + can send the integer message + 1 to the next thread
+;           o the last thread in the chain is different, it:
+;                 + can receive an integer message
+;                 + can store the sum of received messages
+;                 + there is no next thread
+;     * N times: send the integer message 0 to the first thread
+;     * print the sum of messages received by the last thread
+
+; Correct output N = 200 is:
+
+; 100000
+
+(require-extension srfi-18)
+
+;;; The interthread communications channel
+
+(define (make-channel)                  ; => channel
+  (let ((write-mutex (make-mutex))
+        (read-mutex (make-mutex))
+        (val #f))
+    (define (read)
+      (mutex-lock! read-mutex #f #f)
+      (let ((t val))
+        (mutex-unlock! write-mutex)
+        t))
+    (define (write new-val)
+      (mutex-lock! write-mutex #f #f)
+      (set! val new-val)
+      (mutex-unlock! read-mutex))
+    (mutex-lock! read-mutex #f #f)      ; make reader initially block
+    (lambda (which)
+      (case which
+        ((read) read)
+        ((write) write)))))
+
+;;; make thread chain connected by channels
+
+(define (build-chain n chan0)           ; => channel-n
+  (define (setup-thread in out)
+    (thread-start!
+     (make-thread
+      (lambda ()
+        (let ((read (in 'read))
+              (write (out 'write)))
+          (let loop ()
+            (write (+ 1 (read)))
+            (loop)))))))
+  (let loop ((i n) (in chan0) (out (make-channel)))
+    (if (zero? i)
+        in
+        (begin
+          (setup-thread in out)
+          (loop (- i 1) out (make-channel))))))
+
+;;; the last thread which accumulates the sum
+
+(define (last-thread iterations in out)
+  (thread-start!
+   (make-thread
+    (lambda ()
+      (let ((read (in 'read))
+            (write (out 'write)))
+        (let loop ((i 1) (n 0) (j (read)))
+          (let ((n- (+ n j)))
+            (if (= i iterations)
+                (write n-)
+                (loop (+ 1 i) n- (read))))))))))
+
+;;; driver
+
+(define (doit threads iterations)
+  (let* ((chan-0 (make-channel))
+         (chan-n-1 (build-chain threads chan-0))
+         (chan-n (make-channel)))
+    (last-thread iterations chan-n-1 chan-n)
+    (let ((write (chan-0 'write))
+          (read (chan-n 'read)))
+      (let loop ((i 0))
+        (if (= i iterations)
+            (begin
+              (display (read))
+              (newline))
+            (begin
+              (write 0)
+              (loop (+ 1 i))))))))
+
+(define (main args)
+  (case (length args)
+    ((0) (doit 500 200))
+    ((1) (doit 500 (string->number (car args))))
+    ((2) (doit (string->number (cadr args)) (string->number (car args))))
+    (else
+     (display "Usage: [iterations [threads]]"))))
+
+(main (command-line-arguments))
+
+;;; $Id: methcall.chicken,v 1.3 2007-12-08 03:58:38 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(declare (fixnum) (disable-interrupts))
+
+(require-extension meroon)
+
+(define-generic (activate! (t)))
+
+(define (print-bool b)
+   (display (if b "true\n" "false\n")))
+
+(define-class Toggle Object (state))
+
+(define-class Nth-toggle Toggle (count-max counter))
+
+(define-method (activate! (t Toggle))
+  (Toggle-state-set! t (not (Toggle-state t)))
+  t)
+
+(define-method (activate! (n-t Nth-toggle))
+  (let ((counter (+ 1 (Nth-toggle-counter n-t))))
+    (Nth-toggle-counter-set! n-t counter)
+    (if (>= counter (Nth-toggle-count-max n-t))
+	(begin (Toggle-state-set! n-t (not (Toggle-state n-t)))
+	       (Nth-toggle-counter-set! n-t 0)))
+    n-t))
+
+(define (main #!optional (n "1"))
+  (let ((n (string->number n)))
+    (let ((tog (make-Toggle #t)))
+      (do ((i 1 (+ i 1))) ((= i n))
+	(Toggle-state (activate! tog)))
+      (print-bool (Toggle-state (activate! tog))))
+    (let ((ntog (make-Nth-toggle #t 3 0)))
+      (do ((i 1 (+ i 1))) ((= i n))
+	(Toggle-state (activate! ntog)))
+      (print-bool (Toggle-state (activate! ntog))))))
+      
+(apply main (command-line-arguments))
+;;;; -O3 -disable-interrupts -lambda-lift -b
+
+(require-extension format)
+(declare (disable-interrupts))
+
+; could we use more vectors here?
+
+;; Moments.scm
+
+(define (main args)
+  (let* ((sum 0.0)
+	 (numlist (let loop ((line (read-line)) (numlist '()))
+		    (cond ((eof-object? line) numlist)
+			  (else
+			   (let ((num (string->number line)))
+			     (set! sum (+ num sum))
+			     (loop (read-line) (cons num numlist))))))))
+    (let ((n (length numlist)))
+      (let ((mean (/ sum n))
+	    (average_deviation 0.0)
+	    (standard_deviation 0.0)
+	    (variance 0.0)
+	    (skew 0.0)
+	    (kurtosis 0.0)
+	    (median 0.0)
+	    (deviation 0.0))
+	(let loop ((nums numlist))
+	  (if (not (null? nums))
+	      (begin
+		(set! deviation (- (car nums) mean))
+		(set! average_deviation (+ average_deviation (abs deviation)))
+		(set! variance (+ variance (expt deviation 2.0)))
+		(set! skew (+ skew (expt deviation 3.0)))
+		(set! kurtosis (+ kurtosis (expt deviation 4)))
+		(loop (cdr nums)))))
+
+	(set! average_deviation (/ average_deviation (exact->inexact n)))
+	(set! variance (/ variance (- n 1)))
+	(set! standard_deviation (sqrt variance))
+
+	(cond ((> variance 0.0)
+	       (set! skew (/ skew (* n variance standard_deviation)))
+	       (set! kurtosis (- (/ kurtosis (* n variance variance))
+				 3.0))))
+
+	(set! numlist (sort! numlist <))
+
+	(let ((mid (quotient n 2)))
+	  (if (zero? (modulo n 2))
+	      (set! median (/ (+ (list-ref numlist mid)
+				 (list-ref numlist (- mid 1)))
+			      2.0))
+	      (set! median (list-ref  numlist mid))))
+
+
+	(set! standard_deviation (/ (round (* standard_deviation 1000000))
+				    1000000))
+
+         (format #t "n:                  ~A~%" n )
+	 (format #t "median:             ~,6F~%" median)
+	 (format #t "mean:               ~,6F~%" mean)
+	 (format #t "average_deviation:  ~,6F~%" average_deviation)
+	 (format #t "standard_deviation: ~,6F~%" standard_deviation)
+	 (format #t "variance:           ~,6F~%" variance)
+	 (format #t "skew:               ~,6F~%" skew)
+	 (format #t "kurtosis:           ~,6F~%" kurtosis) ))))
+
+
+(main (command-line-arguments))
+
+;;; The Computer Language Benchmarks Game
+;;; http://shootout.alioth.debian.org/
+;;;
+;;; contributed by Anthony Borla
+;;; modified by Graham Fawcett
+
+;; define planetary masses, initial positions & velocity
+
+(define +pi+ 3.141592653589793)
+(define +days-per-year+ 365.24)
+
+(define +solar-mass+ (* 4 +pi+ +pi+))
+
+(define-record body x y z vx vy vz mass)
+
+(define *sun*
+  (make-body 0.0 0.0 0.0 0.0 0.0 0.0 +solar-mass+))
+
+(define *jupiter*
+  (make-body 4.84143144246472090
+             -1.16032004402742839
+             -1.03622044471123109e-1
+             (* 1.66007664274403694e-3 +days-per-year+)
+             (* 7.69901118419740425e-3 +days-per-year+)
+             (* -6.90460016972063023e-5 +days-per-year+)
+             (* 9.54791938424326609e-4 +solar-mass+)))
+
+(define *saturn*
+  (make-body 8.34336671824457987
+             4.12479856412430479
+             -4.03523417114321381e-1
+             (* -2.76742510726862411e-3 +days-per-year+)
+             (* 4.99852801234917238e-3 +days-per-year+)
+             (* 2.30417297573763929e-5 +days-per-year+)
+             (* 2.85885980666130812e-4 +solar-mass+)))
+
+(define *uranus*
+  (make-body 1.28943695621391310e1
+             -1.51111514016986312e1
+             -2.23307578892655734e-1
+             (* 2.96460137564761618e-03 +days-per-year+)
+             (* 2.37847173959480950e-03 +days-per-year+)
+             (* -2.96589568540237556e-05 +days-per-year+)
+             (*  4.36624404335156298e-05 +solar-mass+)))
+
+(define *neptune*
+  (make-body 1.53796971148509165e+01
+             -2.59193146099879641e+01
+             1.79258772950371181e-01
+             (* 2.68067772490389322e-03 +days-per-year+)
+             (* 1.62824170038242295e-03 +days-per-year+)
+             (* -9.51592254519715870e-05 +days-per-year+)
+             (* 5.15138902046611451e-05 +solar-mass+)))
+
+;; -------------------------------
+(define (offset-momentum system)
+  (let loop-i ((i system) (px 0.0) (py 0.0) (pz 0.0))
+    (if (null? i)
+        (begin
+          (body-vx-set! (car system) (/ (- px) +solar-mass+))
+          (body-vy-set! (car system) (/ (- py) +solar-mass+))
+          (body-vz-set! (car system) (/ (- pz) +solar-mass+)))
+        (loop-i (cdr i)
+      	  (+ px (* (body-vx (car i)) (body-mass (car i))))
+      	  (+ py (* (body-vy (car i)) (body-mass (car i))))
+      	  (+ pz (* (body-vz (car i)) (body-mass (car i))))))))
+
+;; -------------------------------
+(define (energy system)
+  (let loop-o ((o system) (e 0.0))
+      (if (null? o)
+          e
+          (let ([e (+ e (* 0.5 (body-mass (car o))
+      		     (+ (* (body-vx (car o)) (body-vx (car o)))
+      			(* (body-vy (car o)) (body-vy (car o)))
+      			(* (body-vz (car o)) (body-vz (car o))))))])
+
+            (let loop-i ((i (cdr o)) (e e))
+      	(if (null? i)
+      	    (loop-o (cdr o) e)
+      	    (let* ((dx (- (body-x (car o)) (body-x (car i))))
+      		   (dy (- (body-y (car o)) (body-y (car i))))
+      		   (dz (- (body-z (car o)) (body-z (car i))))
+      		   (distance (sqrt (+ (* dx dx) (* dy dy) (* dz dz)))))
+      	      (let ([e  (- e (/ (* (body-mass (car o)) (body-mass (car i))) distance))])
+      		(loop-i (cdr i) e)))))))))
+
+;; -------------------------------
+(define (advance system dt)
+  (let loop-o ((o system))
+    (unless (null? o)
+      (let loop-i ((i (cdr o)))
+        (unless (null? i)
+          (let* ((o1 (car o))
+      	   (i1 (car i))
+      	   (dx (- (body-x o1) (body-x i1)))
+      	   (dy (- (body-y o1) (body-y i1)))
+      	   (dz (- (body-z o1) (body-z i1)))
+      	   (distance (sqrt (+ (* dx dx) (* dy dy) (* dz dz))))
+      	   (mag (/ dt (* distance distance distance)))
+      	   (dxmag (* dx mag))
+      	   (dymag (* dy mag))
+      	   (dzmag (* dz mag))
+      	   (om (body-mass o1))
+      	   (im (body-mass i1)))
+            (body-vx-set! o1 (- (body-vx o1) (* dxmag im)))
+            (body-vy-set! o1 (- (body-vy o1) (* dymag im)))
+            (body-vz-set! o1 (- (body-vz o1) (* dzmag im)))
+            (body-vx-set! i1 (+ (body-vx i1) (* dxmag om)))
+            (body-vy-set! i1 (+ (body-vy i1) (* dymag om)))
+            (body-vz-set! i1 (+ (body-vz i1) (* dzmag om)))
+            (loop-i (cdr i)))))
+      (loop-o (cdr o))))
+
+  (let loop-o ((o system))
+    (unless (null? o)
+      (let ([o1 (car o)])
+        (body-x-set! o1 (+ (body-x o1) (* dt (body-vx o1))))
+        (body-y-set! o1 (+ (body-y o1) (* dt (body-vy o1))))
+        (body-z-set! o1 (+ (body-z o1) (* dt (body-vz o1))))
+        (loop-o (cdr o))))))
+
+;; -------------------------------
+(define (main args)
+  (let ((n (if (null? args)
+      	 1
+      	 (string->number (car args))))
+        (system (list *sun* *jupiter* *saturn* *uranus* *neptune*)))
+
+    (offset-momentum system)
+    (print-float (energy system))
+
+    (do ((i 1 (+ i 1)))
+        ((< n i))
+      (advance system 0.01))
+    (print-float (energy system))))
+
+(define print-float
+  (foreign-lambda* void ((double f)) "printf(\"%2.9f\\n\", f);"))
+
+(main (command-line-arguments))
+;;; The Computer Language Benchmarks Game
+;;; http://shootout.alioth.debian.org/
+;;;
+;;; contributed by Anthony Borla
+;;
+;; Imperative-style implementation based on the SBCL implementation by
+;; Patrick Frankenberger and Juho Snellman, but using only native Scheme
+;; idioms like 'named let' and 'do' special form.
+
+
+(require-extension format)
+
+(define-constant +pi+ 3.141592653589793)
+(define-constant +days-per-year+ 365.24)
+(define +solar-mass+ (* 4 +pi+ +pi+))
+
+(define-record body x y z vx vy vz mass)
+
+(define *sun*
+  (make-body 0.0 0.0 0.0 0.0 0.0 0.0 +solar-mass+))
+
+(define *jupiter*
+  (make-body 4.84143144246472090
+             -1.16032004402742839
+             -1.03622044471123109e-1
+             (* 1.66007664274403694e-3 +days-per-year+)
+             (* 7.69901118419740425e-3 +days-per-year+)
+             (* -6.90460016972063023e-5  +days-per-year+)
+             (* 9.54791938424326609e-4 +solar-mass+)))
+
+(define *saturn*
+  (make-body 8.34336671824457987
+             4.12479856412430479
+             -4.03523417114321381e-1
+             (* -2.76742510726862411e-3 +days-per-year+)
+             (* 4.99852801234917238e-3 +days-per-year+)
+             (* 2.30417297573763929e-5 +days-per-year+)
+             (* 2.85885980666130812e-4 +solar-mass+)))
+
+(define *uranus*
+  (make-body 1.28943695621391310e1
+             -1.51111514016986312e1
+             -2.23307578892655734e-1
+             (* 2.96460137564761618e-03 +days-per-year+)
+             (* 2.37847173959480950e-03 +days-per-year+)
+             (* -2.96589568540237556e-05 +days-per-year+)
+             (* 4.36624404335156298e-05 +solar-mass+)))
+
+(define *neptune*
+  (make-body 1.53796971148509165e+01
+             -2.59193146099879641e+01
+             1.79258772950371181e-01
+             (* 2.68067772490389322e-03 +days-per-year+)
+             (* 1.62824170038242295e-03 +days-per-year+)
+             (* -9.51592254519715870e-05 +days-per-year+)
+             (* 5.15138902046611451e-05 +solar-mass+)))
+
+(define (offset-momentum system)
+  (let ((px 0.0) (py 0.0) (pz 0.0))
+
+    (let loop-i ((i system))
+      (if (null? i) '()
+        (begin
+          (set! px (+ px (* (body-vx (car i)) (body-mass (car i)))))
+          (set! py (+ py (* (body-vy (car i)) (body-mass (car i)))))
+          (set! pz (+ pz (* (body-vz (car i)) (body-mass (car i)))))
+          (loop-i (cdr i)))))
+
+    (body-vx-set! (car system) (/ (- px) +solar-mass+))
+    (body-vy-set! (car system) (/ (- py) +solar-mass+))
+    (body-vz-set! (car system) (/ (- pz) +solar-mass+))))
+
+(define (energy system)
+  (let ((e 0.0))
+
+    (let loop-o ((o system))
+      (if (null? o) '()
+        (begin
+          (set! e (+ e (* 0.5 (body-mass (car o)) 
+                          (+ (* (body-vx (car o)) (body-vx (car o)))
+                             (* (body-vy (car o)) (body-vy (car o)))
+                             (* (body-vz (car o)) (body-vz (car o)))))))
+
+          (let loop-i ((i (cdr o)))
+            (if (null? i) '()
+              (begin
+                (let* ((dx (- (body-x (car o)) (body-x (car i))))
+                       (dy (- (body-y (car o)) (body-y (car i))))
+                       (dz (- (body-z (car o)) (body-z (car i))))
+                       (distance (sqrt (+ (* dx dx) (* dy dy) (* dz dz)))))
+                  (set! e (- e (/ (* (body-mass (car o)) (body-mass (car i))) distance))))
+
+                (loop-i (cdr i)))))
+
+          (loop-o (cdr o)))))
+  e))
+
+(define (advance system dt)
+  (let loop-o ((o system))
+    (if (null? o) '()
+      (begin
+        (let loop-i ((i (cdr o)))
+          (if (null? i) '()
+            (begin
+              (let* ((dx (- (body-x (car o)) (body-x (car i))))
+                     (dy (- (body-y (car o)) (body-y (car i))))
+                     (dz (- (body-z (car o)) (body-z (car i))))
+                     (distance (sqrt (+ (* dx dx) (* dy dy) (* dz dz))))
+                     (mag (/ dt (* distance distance distance)))
+                     (dxmag (* dx mag))
+                     (dymag (* dy mag))
+                     (dzmag (* dz mag)))
+                (body-vx-set! (car o) (- (body-vx (car o)) (* dxmag (body-mass (car i)))))
+                (body-vy-set! (car o) (- (body-vy (car o)) (* dymag (body-mass (car i)))))
+                (body-vz-set! (car o) (- (body-vz (car o)) (* dzmag (body-mass (car i)))))
+                (body-vx-set! (car i) (+ (body-vx (car i)) (* dxmag (body-mass (car o)))))
+                (body-vy-set! (car i) (+ (body-vy (car i)) (* dymag (body-mass (car o)))))
+                (body-vz-set! (car i) (+ (body-vz (car i)) (* dzmag (body-mass (car o))))))
+
+              (loop-i (cdr i)))))
+
+        (loop-o (cdr o)))))
+
+  (let loop-o ((o system))
+    (if (null? o) '()
+      (begin
+        (body-x-set! (car o) (+ (body-x (car o)) (* dt (body-vx (car o)))))
+        (body-y-set! (car o) (+ (body-y (car o)) (* dt (body-vy (car o)))))
+        (body-z-set! (car o) (+ (body-z (car o)) (* dt (body-vz (car o)))))
+        (loop-o (cdr o))))))
+
+(define (main args)
+  (let ((n (if (null? args)
+               1
+               (string->number (car args))))
+
+    (system (list *sun* *jupiter* *saturn* *uranus* *neptune*)))
+
+    (offset-momentum system)
+    (format #t "~,9F~%" (energy system))
+
+    (do ((i 1 (+ i 1)))
+        ((< n i))
+      (advance system 0.01))
+
+    (format #t "~,9F~%" (energy system))))
+
+(main (command-line-arguments))
+
+(declare (fixnum) (disable-interrupts))
+
+(define (main #!optional (n "1"))
+  (let* ([n (string->number n)]
+	 [x 0] )
+    (do ((a 0 (+ a 1)))
+	((= a n))
+      (do ((b 0 (+ b 1)))
+	  ((= b n))
+	(do ((c 0 (+ c 1)))
+	    ((= c n))
+	  (do ((d 0 (+ d 1)))
+	      ((= d n))
+	    (do ((e 0 (+ e 1)))
+		((= e n))
+	      (do ((f 0 (+ f 1)))
+		  ((= f n))
+		(set! x (+ x 1))))))))
+    (display x)
+    (newline)))
+
+(apply main (command-line-arguments))
+;;; The Computer Language Benchmarks Game
+;;; http://shootout.alioth.debian.org/
+;;;
+;;; contributed by Dima Dorfman, 2004
+;;; ported to Chicken by Brent Fulgham
+
+(require-extension format)
+
+(define (nsieve m)
+  (let ((a (make-vector m #t)))
+    (let loop ((i 2) (n 0))
+      (if (< i m)
+	  (begin
+	    (if (vector-ref a i)
+		(begin
+		  (let clear ((j (+ i i)))
+		    (if (< j m)
+			(begin
+			  (vector-set! a j #f)
+			  (clear (+ j i)))))
+		  (loop (+ 1 i) (+ 1 n)))
+		(loop (+ 1 i) n)))
+	  n))))
+
+(define (test n)
+  (let* ((m (* (expt 2 n) 10000))
+	 (count (nsieve m)))
+    (format #t "Primes up to ~8,' D ~8,' D~%" m count)))
+
+(define (main args)
+  (let ((n (if (null? args)
+  		1
+		(string->number (car args)) ) ) )
+	    (begin
+	      (if (>= n 0) (test n))
+	      (if (>= n 1) (test (- n 1)))
+	      (if (>= n 2) (test (- n 2)))
+	      0)))
+
+(main (command-line-arguments))
+;;; The Computer Language Benchmarks Game
+;;; http://shootout.alioth.debian.org/
+;;
+;;; adapted from CMUCL code by Dima Dorfman; bit-vector stuff by Alex Shinn;
+;;; cobbled together by felix
+
+(require-extension format lolevel)
+
+(define (make-bit-vector size . o)
+  (let* ((fill (if (and (pair? o) (car o)) #b11111111 0))
+         (len (quotient (+ size 7) 8))
+         (res (make-byte-vector len fill)))
+    (if (zero? fill)
+      res
+      (let ((off (remainder size 8)))
+        (if (not (zero? off))
+          (byte-vector-set! res (- len 1) (- (arithmetic-shift 1 off) 1)))
+        res))))
+
+(define (bit-vector-ref vec i)
+  (let ((byte (quotient i 8))
+        (off (remainder i 8)))
+    (and (< byte (byte-vector-length vec))
+         (not (zero? (bitwise-and (byte-vector-ref vec byte)
+                                  (arithmetic-shift 1 off)))))))
+
+(define (bit-vector-set! vec i x)
+  (let ((byte (quotient i 8))
+        (off (remainder i 8))
+        (len (byte-vector-length vec)))
+    (cond
+      ((< byte len)
+       (byte-vector-set! vec byte
+                      (if x
+                        (bitwise-ior (byte-vector-ref vec byte)
+                                     (arithmetic-shift 1 off))
+                        (bitwise-and (byte-vector-ref vec byte)
+                                     (bitwise-not (arithmetic-shift 1 off)))))
+       vec)
+      ((not x) vec)
+      (else (bit-vector-set! (bit-vector-grow vec i) i x)))))
+
+(define (nsievebits m)
+  (let ((a (make-bit-vector m #t)))
+    (define (clear i)
+      (do ([j (+ i i) (+ j i)])
+	  ((>= j m))
+	(bit-vector-set! a j #f) ) )
+    (let ([c 0])
+      (do ([i 2 (add1 i)])
+	  ((>= i m) c)
+	(when (bit-vector-ref a i)
+	  (clear i)
+	  (set! c (add1 c)) ) ) ) ) )
+
+(define (test n)
+  (let ((m (* 10000 (arithmetic-shift 1 n))))
+    (format #t "Primes up to ~8d ~8d~%" m (nsievebits m))))
+
+(define (main args)
+  (let ([n (string->number (car args))])
+    (when (>= n 0) (test n))
+    (when (>= n 1) (test (- n 1)))
+    (when (>= n 2) (test (- n 2)))))
+
+(main (command-line-arguments))
+
+;;; $Id: objinst.chicken,v 1.3 2007-12-08 03:58:38 bfulgham Exp $
+;;; http://www.bagley.org/~doug/shootout/
+
+(declare (fixnum) (disable-interrupts))
+
+(require-extension meroon)
+
+(define-generic (activate! (t)))
+
+(define (print-bool b)
+   (display (if b "true\n" "false\n")))
+
+(define-class Toggle Object (state))
+
+(define-class Nth-toggle Toggle (count-max counter))
+
+(define-method (activate! (t Toggle))
+  (Toggle-state-set! t (not (Toggle-state t)))
+  t)
+
+(define-method (activate! (n-t Nth-toggle))
+  (let ((counter (+ 1 (Nth-toggle-counter n-t))))
+    (Nth-toggle-counter-set! n-t counter)
+    (if (>= counter (Nth-toggle-count-max n-t))
+	(begin (Toggle-state-set! n-t (not (Toggle-state n-t)))
+	       (Nth-toggle-counter-set! n-t 0)))
+    n-t))
+
+(define (main #!optional (n "1"))
+  (let ((n (string->number n)))
+    (let ((tog (make-Toggle #t)))
+      (do ((i 0 (+ i 1))) ((= i 5))
+	(print-bool (Toggle-state (activate! tog)))))
+    (do ((i 0 (+ i 1))) ((= i n))
+      (make-Toggle #t))
+    (newline)
+    (let ((ntog (make-Nth-toggle #t 3 0)))
+      (do ((i 0 (+ i 1))) ((= i 8))
+	(print-bool (Toggle-state (activate! ntog)))))
+    (do ((i 0 (+ i 1))) ((= i n))
+      (make-Nth-toggle #t 3 0))))
+            
+(apply main (command-line-arguments))
+;;; The Computer Language Benchmarks Game
+;;; http://shootout.alioth.debian.org/
+;;;
+;;; contributed by Anthony Borla
+
+(require-extension format)
+
+(define (main args)
+  (let ((n (if (null? args)
+               1
+               (string->number (car args))))
+
+    (alt 1) (d2 0) (d3 0) (ds 0) (dc 0)
+    (s0 0) (s1 0) (s2 0) (s3 0) (s4 0) (s5 0) (s6 0) (s7 0) (s8 0))
+
+    (do ((d 1 (+ d 1)))
+        ((< n d))
+
+      (set! d2 (* d d))
+      (set! d3 (* d2 d))
+      (set! ds (sin d))
+      (set! dc (cos d))
+
+      (set! s0 (+ s0 (expt (/ 2 3) (- d 1))))
+      (set! s1 (+ s1 (/ 1 (sqrt d))))
+      (set! s2 (+ s2 (/ 1 (* d (+ d 1)))))
+      (set! s3 (+ s3 (/ 1 (* d3 (* ds ds)))))
+      (set! s4 (+ s4 (/ 1 (* d3 (* dc dc)))))
+      (set! s5 (+ s5 (/ 1 d)))
+      (set! s6 (+ s6 (/ 1 d2)))
+      (set! s7 (+ s7 (/ alt d)))
+      (set! s8 (+ s8 (/ alt (- (* 2 d) 1))))
+      (set! alt (- alt))) 
+
+    (format #t "~,9F~A(2/3)^k~%" s0 #\tab)
+    (format #t "~,9F~Ak^-0.5~%" s1 #\tab)
+    (format #t "~,9F~A1/k(k+1)~%" s2 #\tab)
+    (format #t "~,9F~AFlint Hills~%" s3 #\tab)
+    (format #t "~,9F~ACookson Hills~%" s4 #\tab)
+    (format #t "~,9F~AHarmonic~%" s5 #\tab)
+    (format #t "~,9F~ARiemann Zeta~%" s6 #\tab)
+    (format #t "~,9F~AAlternating Harmonic~%" s7 #\tab)
+    (format #t "~,9F~AGregory~%" s8 #\tab)))
+
+(main (command-line-arguments))
+
+;;; The Computer Language Benchmarks Game
+;;; http://shootout.alioth.debian.org/
+;;;
+;;; contributed by Anthony Borla
+;;
+;; Another GMP-based implementation. This one, however, is considerably 
+;; faster than the previous submission:
+;;
+;; * Attempt to create a general-purpose, high-level interface to GMP
+;;   was scrapped, thus removing most of the interface overhead, and
+;;   making for a much simplified design. Note some of the routines
+;;   comprising this interface have been retained, in modified form,
+;;   as helper routines
+;;
+;; * Implemented as a closure [i.e. similar to an OOP-style object but
+;;   without the overhead]. This approach eliminated need to create/use/
+;;   free many GMP objects. Instead, a small number of GMP objects were
+;;   encapsulated within the closure, and reused as necessary [note:
+;;   presently these are hardcoded (to keep design simple); a larger
+;;   application would use some sort of object pooling strategy]
+;;
+;; * A possible [future] improvement would be to avoid use of strings
+;;   [via 'mpz_set_str'] to initialise/update GMP objects, instead
+;;   converting fixnums to C-types and using those values directly. This
+;;   is, obviously, only possible only for 'smaller', hardware-mappable
+;;   numeric values
+
+
+(require-extension gmp)
+
+(define (make-mpz-object #!optional (value-as-string "0"))
+  (let ((mpz-object (make-mpz_t)))
+    (mpz_init_set_str mpz-object value-as-string 10)
+    mpz-object))
+
+(define (free-mpz-object mpz-object)
+  (mpz_clear mpz-object))
+
+(define (mpz-vector #!rest list-of-string-values)
+  (let ((mpz-vector-object (make-vector (length list-of-string-values))))
+    (let loop ((lovas list-of-string-values) (i 0))
+      (if (null? lovas) mpz-vector-object
+      ; else
+      (begin
+        (vector-set! mpz-vector-object i (make-mpz-object (car lovas)))
+        (loop (cdr lovas) (add1 i)) ))) ))
+
+(define (mpz-vector-update! mpz-vector-target #!rest list-of-string-values)
+  (let loop ((lovas list-of-string-values) (i 0))
+    (if (null? lovas) '()
+    ; else
+    (begin
+      (mpz_set_str (vector-ref mpz-vector-target i) (car lovas) 10) 
+      (loop (cdr lovas) (add1 i)) ))) )
+
+(define (mpz-vector-copy! mpz-vector-target mpz-vector-source)
+  (let ((mpz-vector-source-length (vector-length mpz-vector-source)))
+    (do ((i 0 (add1 i)))
+        ((= mpz-vector-source-length i))
+      (mpz_set (vector-ref mpz-vector-target i) (vector-ref mpz-vector-source i) )) ))
+
+(define (make-mpz-vector size #!optional (initial-value-as-string "0"))
+  (let ((mpz-vector-object (make-vector size)))
+    (do ((i 0 (add1 i)))
+        ((= size i))
+      (vector-set! mpz-vector-object i (make-mpz-object initial-value-as-string)))
+  mpz-vector-object))
+
+(define (free-mpz-vector mpz-vector-object)
+  (let ((mpz-vector-object-length (vector-length mpz-vector-object)))
+    (do ((i 0 (add1 i)))
+        ((= mpz-vector-object-length i))
+      (free-mpz-object (vector-ref mpz-vector-object i)) )))
+
+(define (make-pidigits)
+  (let*
+
+    ((+ten+ (make-mpz-object "10")) (k_ 0) (y_ (make-mpz-object)) (j_ (make-mpz-object))
+     (target_ (make-mpz-vector 4)) (t_ (make-mpz-vector 4)) (z_ (mpz-vector "1" "0" "0" "1"))
+     (left_ (make-mpz-object)) (right_ (make-mpz-object)) (result_ (make-mpz-object))
+
+    (compose
+      (lambda (a b)
+        (mpz_mul (vector-ref target_ 0) (vector-ref a 0) (vector-ref b 0))
+        (mpz_mul left_ (vector-ref a 0) (vector-ref b 1))
+        (mpz_mul right_ (vector-ref a 1) (vector-ref b 3))
+        (mpz_add (vector-ref target_ 1) left_ right_)
+        (mpz_mul left_ (vector-ref a 2) (vector-ref b 0))
+        (mpz_mul right_ (vector-ref a 3) (vector-ref b 2))
+        (mpz_add (vector-ref target_ 2) left_ right_)
+        (mpz_mul left_ (vector-ref a 2) (vector-ref b 1))
+        (mpz_mul right_ (vector-ref a 3) (vector-ref b 3))
+        (mpz_add (vector-ref target_ 3) left_ right_)
+        target_))
+
+    (extract
+      (lambda (a j)
+        (mpz_set_str j_ (number->string j) 10) 
+        (mpz_mul left_ (vector-ref a 0) j_)
+        (mpz_mul right_ (vector-ref a 2) j_)
+        (mpz_add left_ (vector-ref a 1) left_)
+        (mpz_add right_ (vector-ref a 3) right_)
+        (mpz_tdiv_q result_ left_ right_)
+        (mpz_get_str #f 10 result_)))
+
+    (pi-clear
+      (lambda ()
+        (free-mpz-object j_) (free-mpz-object left_) (free-mpz-object right_)
+        (free-mpz-object result_)
+        (free-mpz-vector t_) (free-mpz-vector z_)
+        (set! k_ 0) (set! y_ 0)
+        (set! j_ (make-mpz-object)) (set! left_ (make-mpz-object)) (set! right_ (make-mpz-object))
+        (set! result_ (make-mpz-object))
+        (set! t_ (make-mpz-vector 4)) (set! z_ (mpz-vector "1" "0" "0" "1"))
+        #t))
+
+    (pi-run
+      (lambda (c)
+        (let loop-o ((i 0) (r (make-string 0)))
+          (cond
+            ((< i c)
+              (let loop-i ((ys (extract z_ 3)))
+                (cond
+                  ((string=? ys (extract z_ 4))
+                    (mpz_set_str y_ ys 10)
+                    (mpz_neg y_ y_)
+                    (mpz_mul y_ +ten+ y_)
+                    (mpz-vector-update! t_ "10" (mpz_get_str #f 10 y_) "0" "1")
+                    (mpz-vector-copy! z_ (compose t_ z_))
+                    (set! r (string-append r ys)) )
+                  (else
+                    (set! k_ (add1 k_))
+                    (mpz-vector-update! t_
+                      (number->string k_)
+                      (number->string (+ (* 4 k_) 2))
+                      (number->string 0)
+                      (number->string (+ 1 (* 2 k_))))
+                    (mpz-vector-copy! z_ (compose z_ t_))
+                    (loop-i (extract z_ 3)))))
+              (loop-o (add1 i) r))
+            (else r))))) )
+
+    (lambda (op)
+      (cond
+        ((eq? op 'clear) pi-clear)
+        ((eq? op 'run) pi-run)
+        (else (lambda () (display "*** make-pidigits:invalid operation ***\n"))))) ))
+
+(define (pidigits pi-object c)
+  (apply (pi-object 'run) (list c)))
+
+(define (main args)
+  (let ((n (if (null? args)
+               1
+               (string->number (car args))))
+
+    (pi-object (make-pidigits)))
+
+    (let loop ((i 10))
+      (cond
+         ((<= i n)
+           (print (pidigits pi-object 10) "\t:" i)
+           (loop (+ i 10)))
+         (else
+           (let ((t (- i 10)))
+             (if (< t n) (print (pidigits pi-object (- n t)) "\t:" n)))))) ))
+
+(main (command-line-arguments))
+
+;;; The Great Computer Language Shootout
+;;; http://shootout.alioth.debian.org/
+;;
+;; Ported from the Lua code by Isaac Gouy
+
+
+(declare (uses srfi-18) (block) (fixnum) (unsafe))
+
+(define n (string->number (:optional (command-line-arguments) "1000")))
+
+(define (link n)
+  ;(print "link " n)
+  (let ([msg 0])
+    (when (> (sub1 n) 0)
+      (set! msg (thread-join! (thread-start! (make-thread (cut link (sub1 n))))) ))
+    (add1 msg) ) )
+
+(print (thread-join! (thread-start! (make-thread (cut link n)))))
+; prodcons.scm
+
+; Producer/consumer benchmark for http://www.bagley.org/~doug/shootout/
+
+; Scheme implementation using SRFI 18, needs only the following subset:
+
+; make-thread, thread-start!, thread-join! 
+
+; make-mutex, mutex-lock!, mutex-unlock!
+
+; make-condition-variable, condition-variable-signal!
+
+
+
+; (by Sven Hartrumpf)
+
+
+
+(declare (fixnum) (uses srfi-18))
+
+
+
+(define *num 1)
+
+(define *mutex (make-mutex))
+
+(define *nonzero-condition (make-condition-variable))
+
+(define *zero-condition (make-condition-variable))
+
+(define *buffer #f)
+
+(define *count 0)
+
+(define *produced 0)
+
+(define *consumed 0)
+
+
+
+(define producer
+
+  (make-thread
+
+   (lambda ()
+
+     (do ((i 1))
+
+	 ((> i *num))
+
+       (mutex-lock! *mutex)
+
+       (cond ((= *count 0)
+
+	      (set! *buffer i)
+
+	      (set! *count (+ *count 1))
+
+	      (condition-variable-signal! *nonzero-condition)
+
+	      (mutex-unlock! *mutex *zero-condition)
+
+	      (set! i (+ i 1))
+
+	      (set! *produced (+ *produced 1))
+
+	      )
+
+	     (else
+
+	      (mutex-unlock! *mutex *zero-condition))) )
+
+     (condition-variable-signal! *nonzero-condition) ) ) ) ; to run consumer once more...
+
+
+
+(define consumer (make-thread (lambda ()
+
+  (do ((i 0))
+
+    ((>= i *num))
+
+    (mutex-lock! *mutex)
+
+    (cond ((> *count 0)
+
+           (set! i *buffer)
+
+           (set! *buffer #f)
+
+           (set! *count (- *count 1))
+
+           (condition-variable-signal! *zero-condition)
+
+           (mutex-unlock! *mutex *nonzero-condition)
+
+           (set! *consumed (+ *consumed 1))
+
+           )
+
+          (else
+
+            (mutex-unlock! *mutex *nonzero-condition)))
+
+    ))))
+
+
+
+(define (main #!optional (n "1"))
+
+  (set! *num (string->number n))
+
+  (thread-start! producer)
+
+  (thread-start! consumer)
+
+  (thread-join! producer)
+
+  (thread-join! consumer)
+
+  (print *produced " " *consumed))
+
+
+
+
+
+(apply main (command-line-arguments))
+
+
+
+;;; The Computer Language Shootout
+;;; http://shootout.alioth.debian.org
+;;; contributed by Anon
+
+(require-extension format)
+(declare (disable-interrupts))
+(define IM   139968)
+(define IA     3877)
+(define IC    29573)
+
+(define LAST 42)
+(define (gen_random max)
+  (set! LAST (modulo (+ (* LAST IA) IC) IM))
+  (/ (* max LAST) IM))
+
+(define (main args)
+  (let ((n (or (and (= (length args) 2) (string->number (cadr args))) 1)))
+    (let loop ((iter n))
+      (if (> iter 1)
+	  (begin
+	    (gen_random 100.0)
+	    (loop (- iter 1)))))
+    (format #t "~,9F\n" (gen_random 100.0))))
+      
+(main (argv))
+
+;;; The Computer Language Benchmarks Game
+;;; http://shootout.alioth.debian.org/
+;;;
+;;; contributed by Anthony Borla
+
+(require-extension format)
+
+(define (ack m n)
+  (cond ((fx= m 0) (fx+ n 1))
+        ((fx= n 0) (ack (fx- m 1) 1))
+        (else (ack (fx- m 1) (ack m (fx- n 1))))))
+
+(define (fib n)
+  (cond ((fx< n 2) 1)
+	(else (fx+ (fib (fx- n 2)) (fib (fx- n 1))))))
+
+(define (fibflt n)
+  (cond ((fp< n 2.0) 1.0)
+	(else (fp+ (fibflt (fp- n 2.0)) (fibflt (fp- n 1.0))))))
+
+(define (tak x y z)
+  (cond ((not (fx< y x)) z)
+        (else (tak (tak (fx- x 1) y z) (tak (fx- y 1) z x) (tak (fx- z 1) x y)))))
+
+(define (takflt x y z)
+  (cond ((not (fp< y x)) z)
+        (else (takflt (takflt (fp- x 1.0) y z) (takflt (fp- y 1.0) z x) (takflt (fp- z 1.0) x y)))))
+
+(define (main args)
+  (let* ((n (if (null? args)
+              1
+              (string->number (car args))))
+         (nfp (exact->inexact n)))
+
+    (format #t "Ack(3,~d): ~d~%" n (ack 3 n))
+
+    (format #t "Fib(~1F): ~,1F~%" (fp+ 27.0 nfp) (fibflt (fp+ 27.0 nfp)))
+
+    (set! n (sub1 n))
+    (format #t "Tak(~d,~d,~d): ~d~%" (fx* n 3) (fx* n 2) n (tak (fx* n 3) (fx* n 2) n))
+
+    (format #t "Fib(3): ~d~%" (fib 3))
+    (format #t "Tak(3.0,2.0,1.0): ~,1F~%" (takflt 3.0 2.0 1.0))))
+
+(main (command-line-arguments))
+
+;;; The Computer Language Benchmarks Game
+;;; http://shootout.alioth.debian.org/
+;;;
+;;; contributed by Ivan Raikov
+;;; based on code by Anthony Borla
+
+(require-extension format regex posix srfi-1)
+
+(define-constant VARIANTS
+  (list
+    "agggtaaa|tttaccct" "[cgt]gggtaaa|tttaccc[acg]" "a[act]ggtaaa|tttacc[agt]t"
+    "ag[act]gtaaa|tttac[agt]ct" "agg[act]taaa|ttta[agt]cct" "aggg[acg]aaa|ttt[cgt]ccct"
+    "agggt[cgt]aa|tt[acg]accct" "agggta[cgt]a|t[acg]taccct" "agggtaa[cgt]|[acg]ttaccct"))
+
+(define-constant IUBS
+  (list
+    (cons "B" "(c|g|t)") (cons "D" "(a|g|t)") (cons "H" "(a|c|t)")
+    (cons "K" "(g|t)") (cons "M" "(a|c)") (cons "N" "(a|c|g|t)")
+    (cons "R" "(a|g)") (cons "S" "(c|g)") (cons "V" "(a|c|g)")
+    (cons "W" "(a|t)") (cons "Y" "(c|t)")))
+
+(define (sequence-length lines)
+  (fold (lambda (x ax) (+ ax (string-length x))) 0 lines))
+
+(define (load-sequence)
+  (let* ((lines  (read-lines)))
+    (cons (sequence-length lines) lines)))
+
+(define (match-count rx sequence)
+  (let loop ((sequence sequence) (spos 0) (count 0))
+    (cond ((null? sequence) count)
+	  ((null? (cdr sequence))  
+	   (+ count ((lambda (x) (if x 1 0)) (string-search-positions rx (car sequence) spos))))
+	  (else
+	   (let ((len (string-length (car sequence)))
+		 (pos (string-search-positions rx (string-append (car sequence) (cadr sequence)) spos)))
+	     (if (not pos)
+		 (loop (cdr sequence) 0 count)
+		 ;; determine if the match is in the car or the cadr of sequence
+		 (let ((end (cadr (car pos))))
+		   (if (fx>= end len)
+		       (loop (cdr sequence) (fx- end len) (fx+ 1 count))
+		       (loop sequence end (fx+ 1 count))))))))))
+
+
+(define (match-replace rp sequence)
+  (define S 240)
+  (define S-half (fx/ S 2))
+  (let ((rx     (regexp (car rp) #t))
+	(rstr   (cdr rp)))    
+    (let loop ((sequence sequence) (new-sequence (list)))
+      (cond ((null? sequence)  (reverse new-sequence))
+	    ((null? (cdr sequence))  
+	     (reverse (cons (string-substitute rx rstr (car sequence) #t) new-sequence)))
+	    ((fx< S (string-length (car sequence)))
+	     (let-values (((shd stl) (split-at! (string->list (car sequence)) S-half)))
+		 (loop (cons (list->string shd) (cons (list->string stl) (cdr sequence)))
+		       new-sequence)))
+	    (else
+	     (let* ((sstr   (string-append (car sequence) (cadr sequence)))
+		    (flds   (string-split-fields rx sstr #:infix))
+		    (nflds  (length flds)))
+	       (loop (cddr sequence) (cons (string-intersperse flds rstr) new-sequence))))))))
+	     
+
+(define (main)
+
+  ; Load sequence and record its length
+  (let* ((buffer (load-sequence)) 
+	 (sequence (cdr buffer))
+         (initial-length (car buffer))
+	 (code-length 0)
+	 (segdiv (regexp ">.*?")))
+
+    ; Remove segment divider line occurrences; record new length
+    (set! sequence (filter (lambda (line) (not (string-match segdiv line))) sequence))
+    (set! code-length (sequence-length sequence))
+
+    ; Perform regexp counts
+    (for-each
+     (lambda (i)
+       (format #t "~A ~A~%" i (match-count (regexp i) sequence)))
+     VARIANTS)
+
+    ; Perform regexp replacements, and record sequence length
+    (for-each
+     (lambda (i)
+       (set! sequence (match-replace i sequence)))
+     IUBS)
+    ; Print statistics
+    (format #t "~%~A~%~A~%~A~%" initial-length code-length (sequence-length sequence))))
+
+(main)
+
+;;; $Id: regexmatch.chicken,v 1.3 2007-12-08 03:58:38 bfulgham Exp $
+;;; http://shootout.alioth.debian.org/
+
+(declare (fixnum) (disable-interrupts) (uses srfi-1 regex))
+
+(define rx
+  (string-append
+   "(^|[^0-9\\(])"			; (1) preceeding non-digit or bol
+   "("					; (2) area code
+   "\\(([0-9][0-9][0-9])\\)"		; (3) is either 3 digits in parens
+   "|"					; or
+   "([0-9][0-9][0-9])"			; (4) just 3 digits
+   ")"					; end of area code
+   " "					; area code is followed by one space
+   "([0-9][0-9][0-9])"			; (5) exchange is 3 digits
+   "[ -]"				; separator is either space or dash
+   "([0-9][0-9][0-9][0-9])"		; (6) last 4 digits
+   "([^0-9]|$)"				; must be followed by a non-digit
+   ))
+
+(define (main #!optional (n "1"))
+  (let ((phonelines '())
+	(rx (regexp rx))
+	(count 0))
+    (let loop ((line (read-line)))
+      (cond ((eof-object? line) #f)
+	    (else
+	     (set! phonelines (cons line phonelines))
+	     (loop (read-line)))))
+    (set! phonelines (reverse! phonelines))
+    (do ([n (string->number n) (sub1 n)])
+	((negative? n))
+      (let loop ((phones phonelines)
+		 (count 0))
+	(if (null? phones)
+	    count
+	    (begin
+	      (match (string-match rx (car phones))
+		[(_ _ a1 a2 a3 exch numb _)
+		 (let ((area (and a1 (or a2 a3))))
+		   (when area
+		     (let ((num (string-append "(" area ") " exch "-" numb)))
+		       (set! count (add1 count))
+		       (when (zero? n) (print count ": " num))) ) ) ]
+		[_ #f] )
+	      (loop (cdr phones) count) ) ) ) ) ) )
+
+(apply main (command-line-arguments))
+;;; The Computer Language Benchmarks Game
+;;; http://shootout.alioth.debian.org/
+;;;
+;;; contributed by Anthony Borla
+;;
+;; A buffered version of the 'revcomp' benchmark. Although this benchmark
+;; can more straightforwardly be implemented by replacing the procedures
+;; below with the following:
+;;
+;;  (define (add-to-segment segment sequence)
+;;    (string-upcase! sequence)
+;;    (string-reverse! sequence)
+;;    (string-replace segment (string-translate* sequence +codes+) 0 0))
+;;
+;;  ; -------------
+;;
+;;  (define (dump-segment segment line-size)
+;;    (if (not (string-null? segment))
+;;      (for-each
+;;        (lambda (line) (print line))
+;;        (string-chop segment line-size)))
+;;    (make-string 0))
+;;
+;; the buffered approach is needed to keep strings at an optimal size
+;; so as to maintain acceptable performance for all input ranges.
+;; Unfortunately it seems that a close eye has to be kept on the sizes
+;; of strings when using the native string implementation: let them grow
+;; too much, and performance quickly degrades. For example, using an
+;; input file size of approximately 1.5MB, the buffered version clocked
+;; in at just on 9 sec, whilst the unbuffered version clocked in at
+;; about 29 min; the relative performance difference is undeniably
+;; considerable.
+;;
+;; Of course, alternate string implementations could have been used, but
+;; it was thought appropriate to stick to using out-of-the-box
+;; facilities, in this case, SRFI-1 strings, so as to better gauge
+;; language performance.
+
+
+(declare (inline end-of-segment?)
+         (fixnum) (disable-interrupts) (unsafe) (block) (lambda-lift)
+         (uses srfi-1 srfi-13))
+
+(define-constant +segment-limit+ 120)
+(define-constant +line-size+ 60)
+
+(define-constant +codes+
+  (list
+    '("A" . "T") '("B" . "V") '("C" . "G") '("D" . "H") '("G" . "C")
+    '("H" . "D") '("K" . "M") '("M" . "K") '("N" . "N") '("R" . "Y")
+    '("S" . "S") '("T" . "A") '("V" . "B") '("W" . "W") '("Y" . "R")))
+
+(define (add-to-segment segment sequence)
+  (let* ((segment-list (car segment))
+         (current-segment (cdr segment))
+         (segment-size (string-length current-segment))
+         (t-sequence (string-translate* (string-reverse (string-upcase sequence)) +codes+)))
+    (if (>= segment-size +segment-limit+)
+    (begin
+      (set! segment-list (append (list current-segment) segment-list))            
+      (set! current-segment (make-string 0))))
+    (cons segment-list (string-replace current-segment t-sequence 0 0))))
+
+(define (dump-segment segment line-size)
+  (if (not (segment-null? segment))
+    (let ((segment-list (car segment)) (seg-lines nil) (spill (make-string 0)))
+      (if (segment-has-list? segment)
+        (set-car! segment-list (string-replace (caar segment) (cdr segment) 0 0))
+      ; else
+        (set! segment-list (list (cdr segment))))
+      (for-each
+        (lambda (segment)
+          (set! seg-lines (string-chop (string-append spill segment) line-size))
+          (set! spill (last seg-lines))
+          (if (<= (string-length spill) line-size) (set! seg-lines (butlast seg-lines)))
+          (for-each
+            (lambda (line) (print line))
+            seg-lines))
+      segment-list)
+      (if (not (string-null? spill)) (print spill))))
+  (make-segment))
+
+(define (make-segment) (cons '() ""))
+
+(define (segment-null? segment)
+  (and (pair? segment) (and (null? (car segment)) (string-null? (cdr segment)))))
+
+(define (segment-has-list? segment) (and (pair? segment) (not (null? (car segment)))))
+
+(define (end-of-segment? sequence) (char=? (string-ref sequence 0) #\>))
+
+(define (main)
+  (let ((segment (make-segment)))
+
+    (let loop ((sequence (read-line)))
+      (cond ((eof-object? sequence)
+        (set! segment (dump-segment segment +line-size+)))
+      (else
+        (cond ((end-of-segment? sequence)
+          (set! segment (dump-segment segment +line-size+))
+          (print sequence))
+        (else
+          (set! segment (add-to-segment segment sequence))))
+      (loop (read-line)))))))
+
+(main)
+
+;;; $Id: reversefile.chicken,v 1.3 2007-12-08 03:58:38 bfulgham Exp $
+
+;;; http://www.bagley.org/~doug/shootout/ 
+
+;;; from Brad Knotwell
+
+
+
+(declare (fixnum) (disable-interrupts))
+
+
+
+(define (main) (reverse-input))
+
+
+
+(define (reverse-input)
+
+  (let ((line (read-line)))
+
+    (unless (eof-object? line)
+
+      (reverse-input)
+
+      (print line) ) ) )
+
+
+
+(main)
+
+;;;; -Ob
+
+ 
+
+(declare (fixnum) (disable-interrupts))
+
+
+
+(define (main args)
+
+  (let ((n (if (null? args)
+
+               1
+
+               (string->number (car args))))
+
+	(count 0)
+
+	(flags (make-vector 8192)))
+
+    (let loop ((iter n))
+
+      (if (> iter 0)
+
+	  (begin
+
+            (do ((i 0 (+ i 1))) ((>= i 8192)) (vector-set! flags i #t))
+
+            (set! count 0)
+
+            (do ((i 2 (+ 1 i)))
+
+              ((>= i 8192))
+
+              (if (vector-ref flags i)
+
+                  (begin
+
+                    (do ((k (+ i i) (+ k i)))
+
+                      ((>= k 8192))
+
+                      (vector-set! flags k #f))
+
+                    (set! count (+ 1 count)))))
+
+	    (loop (- iter 1)))))
+
+    (print "Count: " count) ) )
+
+
+
+(main (command-line-arguments))
+
+;;; The Computer Language Benchmarks Game
+;;; http://shootout.alioth.debian.org/
+;;;
+;;; contributed by Anthony Borla
+
+(require-extension format)
+
+(define (approximate n)
+  (let ((u (make-vector n 1.0))
+        (v (make-vector n 0.0))
+        (vBv 0.0) (vV 0.0))
+
+    (do ((i #e0 (fx+ i 1)))
+        ((fx= 10 i))
+      (mulAtAv n u v)
+      (mulAtAv n v u))
+
+    (do ((i #e0 (fx+ i 1)))
+        ((fx= n i))
+      (set! vBv (+ vBv (* (vector-ref u i) (vector-ref v i))))
+      (set! vV (+ vV (* (vector-ref v i) (vector-ref v i)))))
+
+    (sqrt (/ vBv vV))))
+
+(define (A i j)
+  (/ 1.0 (exact->inexact (fx+ (fx+ (fx/ (fx* (fx+ i j) (fx+ (fx+ i j) 1)) 2) i) 1))))
+
+(define (mulAv n v av)
+  (do ((i #e0 (fx+ i 1)))
+      ((fx= n i))
+    (vector-set! av i 0.0)
+    (do ((j #e0 (fx+ j 1)))
+        ((fx= n j))
+      (vector-set! av i (+ (vector-ref av i) (* (A i j) (vector-ref v j)))))))
+
+(define (mulAtV n v atv)
+  (do ((i #e0 (fx+ i 1)))
+      ((fx= n i))
+    (vector-set! atv i 0.0)
+    (do ((j #e0 (fx+ j 1)))
+        ((fx= n j))
+      (vector-set! atv i (+ (vector-ref atv i) (* (A j i) (vector-ref v j)))))))
+
+(define (mulAtAv n v atav)
+  (let ((u (make-vector n 0.0)))
+    (mulAv n v u)
+    (mulAtV n u atav)))
+
+(define (main args)
+  (let ((n (if (null? args)
+               100
+               (string->number (car args)))))
+
+    (format #t "~,9F~%" (approximate n))))
+
+(main (command-line-arguments))
+
+;; ---------------------------------------------------------------------
+;; The Great Computer Language Shootout
+;; http://shootout.alioth.debian.org/
+;;
+;; Based on existing Shootout submission [Scheme Guile]. However hashing
+;; tasks performed using only SRFI-69-compliant facilities. Use of
+;; default hash function and predicate provides significantly better
+;; performance than explicitly passing native implementations; thus, do
+;; this:
+;;
+;;    ... (ht (make-hash-table)) ...
+;;
+;; not this:
+;;
+;;    ... (ht (make-hash-table string-ci=? string-ci-hash)) ...
+;;
+;; Contributed by Anthony Borla
+;; ---------------------------------------------------------------------
+
+(declare (fixnum) (disable-interrupts) (unsafe) (block) (lambda-lift))
+
+; -------------------------------
+
+(define (main args)
+  (let ((ht (make-hash-table)))
+
+    (with-input-from-file "Usr.Dict.Words"
+      (lambda ()
+        (let loop ((word (read-line)))
+          (if (eof-object? word) '()
+            (begin
+              (hash-table-set! ht word #t)
+              (loop (read-line)))))))
+
+    (with-input-from-port (current-input-port)
+      (lambda ()
+        (let loop ((word (read-line)))
+          (if (eof-object? word) '()
+            (begin
+              (if (not (hash-table-exists? ht word))
+                (print word))
+              (loop (read-line)))))))))
+
+; -------------------------------
+
+(main (command-line-arguments))
+
+;; strcat.scm
+
+(declare (fixnum) (disable-interrupts))
+
+;;; SPECIFICATION
+
+;For this test, each program should be implemented in the same way, 
+;according to the following specification. 
+;
+;    pseudocode for strcat test
+;
+;   s is initialized to the null string
+;   repeat N times:
+;     append "hello\n" to s
+;   count the number of individual characters in s
+;   print the count
+
+;  There should be N distinct string append statements done in a loop. 
+;  After each append the resultant string should be 6 characters 
+;  longer (the length of "hello\n"). 
+;  s should be a string, string buffer, or character array. 
+;  The program should not construct a list of strings and join it. 
+
+(define hello "hello\n")
+
+;; Simple slow version
+;; This is surprisingly slow
+
+
+;(define (main args)
+;  (let* ((n (or (and (= (length args) 2) (string->number (cadr args))) 1))
+;  (str ""))
+;    (do ((i 0 (+ i 1)))
+; ((= i n))
+;      (set! str (string-append str hello)))
+;    (display (string-length str))
+;    (newline)))
+
+
+;; Quote from Bigloo documentation
+
+;; (blit-string! string1 o1 string2 o2 len)
+;; Fill string s2 starting at position o2 with len characters 
+;; taken out of string s1 from position o1.
+;;
+;; (let ((s (make-string 20 #\-)))
+;;         (blit-string! "toto" 0 s 16 4)
+;;         s)
+;;    => "----------------toto"
+
+ 
+(define (blit-string! s1 o1 s2 o2 len)
+  (do ((o1 o1 (+ o1 1))
+       (o2 o2 (+ o2 1))
+       (len len (- len 1)))
+    
+      ((= len 0))
+    
+    (string-set! s2 o2 (string-ref s1 o1))))
+
+;; Serranos version (works like a charm)
+
+(define (main args)
+  (let* ((n (or (and (pair? args) (string->number (car args))) 
+                1))
+	 (i 0)
+	 (buflen 32)
+	 (strbuf (make-string buflen))
+	 (stufflen (string-length hello))
+	 (stuff hello)
+	 (stuffstart 0))
+
+    (do ((i 0 (+ i 1)))
+	((= i n))
+      (if (>= (+ stufflen stuffstart) buflen)
+	  (let* ((nbuflen (* 2 buflen))
+		 (nstrbuf (make-string nbuflen)))
+	    (blit-string! strbuf 0 nstrbuf 0 buflen)
+	    (set! buflen nbuflen)
+	    (set! strbuf nstrbuf)))
+      (blit-string! stuff 0 strbuf stuffstart stufflen)
+      (set! stuffstart (+ stuffstart stufflen)))
+     
+    (set! strbuf (substring strbuf 0 stuffstart))
+     
+    (display (string-length strbuf))
+    (newline)))
+
+(main (command-line-arguments))
+;;; The Computer Language Benchmarks Game
+;;; http://shootout.alioth.debian.org/
+;;;
+
+(define (main)
+  (let ((sum 0))
+    (do ((myInt (read-line) (read-line)))
+	((eof-object? myInt) (print sum))
+      (set! sum (+ sum (string->number myInt))))))
+
+(main)
+ 
+;;; -*- mode: lisp -*-
+;;; $Id: takfp.chicken,v 1.3 2007-12-08 03:58:39 bfulgham Exp $
+;;; http://shootout.alioth.debian.org/
+;;; Contributed by Brent Fulgham
+
+(use format)
+(declare (disable-interrupts))
+
+(define (tak x y z)
+  (if (not (< y x))
+      z
+      (tak (tak (- x 1) y z) (tak (- y 1) z x) (tak (- z 1) x y))))
+
+(define (main args)
+  (let ((n (if (null? args)
+			   1
+			   (string->number (car args)) )))
+    (format #t "~F~%" (tak (* n 3.0) (* n 2.0) (* n 1.0) ))))
+
+(main (command-line-arguments))
+;;; vim: ts=4 ft=scheme
+;; The Computer Language Benchmarks Game
+;;  http://shootout.alioth.debian.org/
+;; contributed by Graham Fawcett
+
+
+(declare
+ (uses srfi-1 srfi-18)
+ (no-procedure-checks)
+ (fixnum-arithmetic))
+
+(define N (string->number (car (command-line-arguments))))
+
+(define thread-act
+  (lambda ()
+    (let loop ((mbs (thread-specific (current-thread))))
+      (let ((v (mailbox-receive! (cdr mbs))))
+        (cond ((< v N)
+               (mailbox-send! (car mbs) (add1 v))
+               (loop mbs))
+              (#t (print (thread-name (current-thread)))
+                  (exit 0)))))))
+
+(let* ((first-mb (make-mailbox "one"))
+       (threads
+        (let loop ((n 503) (acc '()) (prev-mb first-mb))
+          (if (zero? n)
+              (begin (set-cdr! (thread-specific (car acc)) first-mb)
+                     acc)
+              (let ((t (make-thread thread-act (->string n)))
+                    (new-mb (make-mailbox (->string n))))
+                (thread-specific-set! t (cons prev-mb new-mb))
+                (loop (sub1 n) (cons t acc) new-mb))))))
+  (for-each thread-start! threads)
+  (mailbox-send! first-mb 0)
+  (thread-join! (car threads)))
+
+
+;;;; -Ob
+
+(declare (fixnum) (disable-interrupts))
+
+;
+;  Faster, more idiomatic Scheme by Neil Van Dyke
+;
+
+(define (main iport)
+  (apply printf "~s ~s ~s\n"
+         (let wc ((i #f) (lines 0) (words 0) (chars 0))
+	   (let ((x (read-char iport)))
+	     (if (eof-object? x)
+	         (list lines words chars)
+		 (case x
+		   ((#\newline)     (wc #f (add1 lines) words (add1 chars)))
+		   ((#\space #\tab) (wc #f       lines  words (add1 chars)))
+		   (else
+		     (wc #t lines (if i words (add1 words)) (add1 chars)))))))))
+
+(main (current-input-port))  
+;;;; -Ob
+
+;
+;  Originally wordfreq.mzscheme by Grzegorz Chrupaa
+;
+;  Fixes for SRFI-69 compliance added by Anthony Borla
+;
+
+(require-extension format)
+
+(declare (fixnum) (disable-interrupts) (uses regex srfi-13))
+
+(define (main . _)
+  (define table (make-hash-table))
+  (let loop ()
+    (let ((ln (read-line)))
+      (unless (eof-object? ln)
+	(parse-line ln table)
+	(loop))))
+  (hash-table-delete! table "")
+  (for-each (lambda (pair)
+              (let ((word (car pair))
+                    (count (cdr pair)))
+                 (format #t "~7D ~A~&" count word)))
+            (sort (hash-table->alist table)
+                  (lambda (pair1 pair2)
+                    (or (> (cdr pair1) (cdr pair2))
+                        (and (= (cdr pair1) (cdr pair2))
+                             (string<? (car pair2) (car pair1))))))))
+
+(define rx (regexp "[^a-zA-Z]+"))
+
+(define (parse-line line table)
+  (string-downcase! line)
+  (for-each
+   (lambda (word)
+     (let ((count (hash-table-ref/default table word 0)))
+       (hash-table-set! table word (+ count 1))))
+   (string-split-fields rx line #:infix)))
+
+(main)
+

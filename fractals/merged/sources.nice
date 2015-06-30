@@ -1,0 +1,3365 @@
+/* The Great Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+
+   contributed by Isaac Gouy
+*/
+
+
+int ack(int m,int n) {
+   if (m == 0) return n + 1;
+   if (n == 0) return ack(m-1, 1);
+   return ack(m-1, ack(m, n-1)); 
+}
+
+void main(String[] args){
+   let n = Integer.parseInt(args[0]);   
+   println("Ack(3," + n + "): " + ack(3,n)); 
+}
+
+/* The Great Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+
+   contributed by Isaac Gouy
+*/
+
+
+void main(String[] args){
+   let n = Integer.parseInt(args[0]); 
+
+   let x = new int[n];
+   for(var i=0; i<n; i++) x[i] = i+1;
+
+   let y = new int[n];
+   for(var k=0; k<1000; k++)
+      for(var j=n-1; j>=0; j--) y[j] += x[j];
+
+   println(y[0] + " " + y[n-1]);
+}
+/* The Computer Language Shootout
+   http://shootout.alioth.debian.org/
+   contributed by Isaac Gouy
+   cribbed from Kannan Goundan's Scala #2 program
+*/
+
+class TreeNode {
+   ?TreeNode left = null; 
+   ?TreeNode right = null;
+   int item; 
+}
+
+int check(?TreeNode tree) = 
+   tree == null ? 0 : tree.item + check(tree.left) - check(tree.right);
+
+?TreeNode makeTree(int i, int depth) = 
+   depth == 0 
+      ? new TreeNode(item: i)
+      : new TreeNode(
+         left: makeTree(2*i-1, depth-1),
+         right: makeTree(2*i, depth-1), 
+         item: i);
+
+
+let int minDepth = 4;
+
+void main(String[] args){
+   let n = Integer.parseInt(args[0]);
+   let maxDepth = Math.max(minDepth + 2, n);
+   let stretchDepth = maxDepth + 1;
+
+   print("stretch tree", stretchDepth, makeTree(0,stretchDepth).check);   
+
+   let longLivedTree = makeTree(0,maxDepth);
+
+   for (int depth=minDepth; depth<=maxDepth; depth+=2){
+      let iterations = 1 << (maxDepth - depth + minDepth);
+
+      var sum = 0;
+      for (int i=1; i<=iterations; i++)
+         sum += makeTree(i,depth).check + makeTree(-i,depth).check;
+
+      print(iterations*2 + "\t trees", depth, sum);
+   }
+
+   print("long lived tree", maxDepth, longLivedTree.check);
+}
+
+void print(String name, int depth, int check) =
+   println(name + " of depth " + depth + "\t check: " + check);
+/* The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+   contributed by Isaac Gouy
+*/
+
+class TreeNode {
+   ?TreeNode left = null; 
+   ?TreeNode right = null;
+   int item; 
+}
+
+?TreeNode makeTree(int i, int depth) = 
+   depth == 0 
+      ? new TreeNode(item: i)
+      : new TreeNode(
+         left: makeTree(2*i-1, depth-1),
+         right: makeTree(2*i, depth-1), 
+         item: i);
+
+int check(?TreeNode tree) = 
+   tree == null ? 0 : tree.item + check(tree.left) - check(tree.right);
+
+(int,int,int) treeChecksum((int iterations, int depth)){
+   var sum = 0;
+   for (int i=1; i<=iterations; i++)
+      sum += makeTree(i,depth).check + makeTree(-i,depth).check;
+   return (iterations,depth,sum);
+}
+
+
+class Worker extends Thread {
+   List<(int,int)> work;
+   LinkedList<(int,int,int)> results = new LinkedList();
+
+   override void run() {
+      for (w : work)
+         results.add (treeChecksum(w));
+   }
+}
+
+
+
+let int minDepth = 4;
+
+void main(String[] args){
+   let n = Integer.parseInt(args[0]);
+   let maxDepth = Math.max(minDepth + 2, n);
+
+   let LinkedList<(int,int)> worklist = new LinkedList();
+
+   for (int depth=minDepth; depth<=maxDepth; depth+=2){
+      let iterations = 1 << (maxDepth - depth + minDepth);
+      worklist.add( (iterations,depth) );
+   }
+   
+
+   let stretchDepth = maxDepth + 1;
+
+   print("stretch tree", stretchDepth, makeTree(0,stretchDepth).check);   
+   let longLivedTree = makeTree(0,maxDepth);
+
+   let shareSize = worklist.size() / 2;
+   let shares = [ worklist.slice(to:shareSize), worklist.slice(from:shareSize+1)];
+
+   let workers = shares.map(List<(int,int)> w =>  new Worker(work:w));
+   for (w : workers) w.start(); 
+   for (w : workers) w.join(); 
+
+   for (w : workers)
+      for (r : w.results) print(r);
+
+   print("long lived tree", maxDepth, longLivedTree.check);
+}
+
+
+
+void print(String name, int depth, int check) =
+   println(name + " of depth " + depth + "\t check: " + check);
+
+void print((int iterations, int depth, int check)) =
+   print(iterations*2 + "\t trees", depth, check);
+/* The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+   contributed by Yauheni Akhotnikau
+*/
+
+enum Color { BLUE, RED, YELLOW, FADED }
+
+class MeetingPlace
+  {
+    int remaining;
+    ?Creature first = null;
+
+    void meet( Creature me )
+      {
+        synchronized( this )
+          {
+            if( remaining > 0 )
+              {
+                if( first == null )
+                  {
+                    first = me;
+                    this.wait();
+                  }
+                else
+                  {
+                    let Creature f = notNull(first);
+                    me.other = f.selfColor;
+                    f.other = me.selfColor;
+
+                    first = null;
+                    --remaining;
+
+                    this.notify();
+                  }
+              }
+            else
+              {
+                me.other = FADED;
+              }
+          }
+      }
+  }
+
+class Creature extends Thread
+  {
+    Color selfColor = FADED;
+    Color other = FADED;
+    MeetingPlace meetingPlace;
+    int creaturesMeet = 0;
+
+    run()
+      {
+        while( selfColor != FADED )
+          {
+            meetingPlace.meet( this );
+            selfColor = this.complement();
+            if( FADED != selfColor )
+              ++creaturesMeet;
+          }
+      }
+
+    Color complement()
+      {
+        if( FADED == other )
+          return FADED;
+        else if( BLUE == selfColor )
+          return other == RED ? YELLOW : RED;
+        else if( RED == selfColor )
+          return other == BLUE ? YELLOW : BLUE;
+        else if( YELLOW == selfColor )
+          return other == BLUE ? RED : BLUE;
+
+        return selfColor;
+      }
+  }
+
+new Creature( Color color, MeetingPlace place )
+  {
+    this( selfColor: color, meetingPlace: place );
+  }
+
+void
+main( String[] args )
+  {
+    var int remaining = 1 == args.length ? Integer.parseInt( args[0] ) : 10;
+
+    let meetingPlace = new MeetingPlace( remaining: remaining );
+
+    var creatures = new LinkedList();
+    for( Color c : [ BLUE, YELLOW, RED, BLUE ] )
+      creatures.add( new Creature( c, meetingPlace ) );
+
+    for( creature : creatures )
+      creature.start();
+
+    var total = 0;
+    for( creature : creatures )
+      {
+        creature.join();
+        total += creature.creaturesMeet;
+      }
+
+    println( total );
+  }
+
+// vim:ts=2:sts=2:sw=2:expandtab:
+
+/* The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+   contributed by Isaac Gouy
+
+   RendezvousServer and Creature follow the same synchronization
+   approach as Mall and Chameneos in ANNEX A: JAVA SOLUTION 
+   "Chameneos, a Concurrency Game for Java, Ada and Others"
+*/
+
+
+enum Colour { blue, red, yellow }
+
+Colour complementColour(Colour self, Colour other){
+   if (self == other) { 
+      return self; 
+   } 
+   else if (self == blue) { 
+      if (other == red) return yellow; else return red; 
+   } 
+   else if (self == red) {  
+      if (other == blue) return yellow; else return blue; 
+   }  
+   else {
+       if (other == blue) return red; else return blue; 
+   } 
+}
+
+void checkCreatureColourChanges() {
+   let colours = [blue,red,yellow];
+   for (self : colours)
+      for (other : colours)
+         println(self + " + " + other + " -> " + complementColour(self,other));
+   println();
+}
+
+
+
+let (int,Colour) stopToken = (0,blue);
+
+class RendezvousServer {
+   private (int,Colour) a = stopToken; 
+   private (int,Colour) b = stopToken; 
+
+   private boolean firstCall = true;
+   private boolean mustWait = false;
+
+   private int countdown = n;
+
+
+   (int,Colour) notify((int,Colour) token) {
+
+      synchronized(this) {
+
+         var other = stopToken;
+
+         while ( mustWait && countdown > 0 ) this.wait();
+  
+         if ( firstCall ) {
+            a = token;
+            firstCall = false;
+
+            while ( ! firstCall && countdown > 0 ) this.wait();
+            other = b; 
+            mustWait = false;
+            this.notifyAll();
+
+            --countdown;
+         } 
+
+         else {
+            b = token;
+            other = a;
+            firstCall = true;
+            mustWait = true; 
+            this.notifyAll();               
+         } 
+
+         return countdown >= 0 ? other : stopToken;         
+      }
+   }
+
+}
+
+
+class Creature extends Thread {
+   private int name;
+   Colour colour;
+   int selfMet = 0; 
+   int creaturesMet = 0; 
+   private RendezvousServer rendezvous;
+
+   override void run(){ 
+      while (true) {
+         (int otherName, Colour otherColour) = rendezvous.notify( (name,colour) );
+         if (otherName == 0) break;
+
+         colour = complementColour(colour,otherColour);
+         if (otherName == name) selfMet++;
+         creaturesMet++;
+      }
+   }
+   
+}
+
+
+
+List<Creature> startRendezvousCreaturesWith(List<Colour> colourList){
+   let r = new RendezvousServer();
+   var i = 0;
+   let rendezvousCreatures = colourList .map(
+      Colour c => new Creature(name: ++i, colour: c, rendezvous: r));
+
+   for (c : rendezvousCreatures) c.start();
+   for (c : rendezvousCreatures) c.join();
+ 
+   return rendezvousCreatures;
+}
+
+
+void reportRendezvouses(List<Colour> colourList){
+   let numbers = ["zero", "one", "two", "three", "four", 
+                  "five", "six", "seven", "eight", "nine"];
+
+   String spellout(int k) =
+      k .toString .toCharArray .foldLeft(
+         (String s, char c) => 
+            s + " " + numbers[ Character.getNumericValue(c) ], "");
+
+
+   for (c : colourList) print(" " + c); println();
+
+   let rendezvousCreatures = startRendezvousCreaturesWith(colourList);
+
+   var sum = 0;
+   for (c : rendezvousCreatures){
+      sum += c.creaturesMet;
+      println(c.creaturesMet + spellout(c.selfMet) );
+   }
+   println( spellout(sum) );
+   println();
+}
+
+
+var int n = 0;
+
+void main(String[] args){
+   n = Integer.parseInt(args[0]);
+
+   checkCreatureColourChanges();
+   reportRendezvouses([blue,red,yellow]);
+   reportRendezvouses([blue,red,yellow,red,yellow,blue,red,yellow,red,blue]);
+}
+/* The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+   contributed by Isaac Gouy
+
+   RendezvousServer and Creature follow the same synchronization
+   approach as Mall and Chameneos in ANNEX A: JAVA SOLUTION 
+   "Chameneos, a Concurrency Game for Java, Ada and Others"
+
+   except that Creature has an explicit yield
+*/
+
+
+enum Colour { blue, red, yellow }
+
+Colour complementColour(Colour self, Colour other){
+   if (self == other) { 
+      return self; 
+   } 
+   else if (self == blue) { 
+      if (other == red) return yellow; else return red; 
+   } 
+   else if (self == red) {  
+      if (other == blue) return yellow; else return blue; 
+   }  
+   else {
+       if (other == blue) return red; else return blue; 
+   } 
+}
+
+void checkCreatureColourChanges() {
+   let colours = [blue,red,yellow];
+   for (self : colours)
+      for (other : colours)
+         println(self + " + " + other + " -> " + complementColour(self,other));
+   println();
+}
+
+
+
+let (int,Colour) stopToken = (0,blue);
+
+class RendezvousServer {
+   private (int,Colour) a = stopToken; 
+   private (int,Colour) b = stopToken; 
+
+   private boolean firstCall = true;
+   private boolean mustWait = false;
+
+   private int countdown = n;
+
+
+   (int,Colour) notify((int,Colour) token) {
+
+      synchronized(this) {
+
+         var other = stopToken;
+
+         while ( mustWait && countdown > 0 ) this.wait();
+  
+         if ( firstCall ) {
+            a = token;
+            firstCall = false;
+
+            while ( ! firstCall && countdown > 0 ) this.wait();
+            other = b; 
+            mustWait = false;
+            this.notifyAll();
+
+            --countdown;
+         } 
+
+         else {
+            b = token;
+            other = a;
+            firstCall = true;
+            mustWait = true; 
+            this.notifyAll();               
+         } 
+
+         return countdown >= 0 ? other : stopToken;         
+      }
+   }
+
+}
+
+
+class Creature extends Thread {
+   private int name;
+   Colour colour;
+   int selfMet = 0; 
+   int creaturesMet = 0; 
+   private RendezvousServer rendezvous;
+
+   override void run(){ 
+      while (true) {
+         (int otherName, Colour otherColour) = rendezvous.notify( (name,colour) );
+         if (otherName == 0) break;
+
+         colour = complementColour(colour,otherColour);
+         if (otherName == name) selfMet++;
+         creaturesMet++;
+       
+         Thread.yield();
+      }
+   }
+   
+}
+
+
+
+List<Creature> startRendezvousCreaturesWith(List<Colour> colourList){
+   let r = new RendezvousServer();
+   var i = 0;
+   let rendezvousCreatures = colourList .map(
+      Colour c => new Creature(name: ++i, colour: c, rendezvous: r));
+
+   for (c : rendezvousCreatures) c.start();
+   for (c : rendezvousCreatures) c.join();
+ 
+   return rendezvousCreatures;
+}
+
+
+void reportRendezvouses(List<Colour> colourList){
+   let numbers = ["zero", "one", "two", "three", "four", 
+                  "five", "six", "seven", "eight", "nine"];
+
+   String spellout(int k) =
+      k .toString .toCharArray .foldLeft(
+         (String s, char c) => 
+            s + " " + numbers[ Character.getNumericValue(c) ], "");
+
+
+   for (c : colourList) print(" " + c); println();
+
+   let rendezvousCreatures = startRendezvousCreaturesWith(colourList);
+
+   var sum = 0;
+   for (c : rendezvousCreatures){
+      sum += c.creaturesMet;
+      println(c.creaturesMet + spellout(c.selfMet) );
+   }
+   println( spellout(sum) );
+   println();
+}
+
+
+var int n = 0;
+
+void main(String[] args){
+   n = Integer.parseInt(args[0]);
+
+   checkCreatureColourChanges();
+   reportRendezvouses([blue,red,yellow]);
+   reportRendezvouses([blue,red,yellow,red,yellow,blue,red,yellow,red,blue]);
+}
+/* The Computer Language Benchmarks Game
+   http://shootout.alioth.debian.org/
+   contributed by Isaac Gouy
+
+   RendezvousServer and Creature follow the same synchronization
+   approach as Mall and Chameneos in ANNEX A: JAVA SOLUTION 
+   "Chameneos, a Concurrency Game for Java, Ada and Others"
+
+   except that Creature has an explicit yield
+*/
+
+
+enum Colour { blue, red, yellow }
+
+Colour complementColour(Colour self, Colour other){
+   if (self == other) { 
+      return self; 
+   } 
+   else if (self == blue) { 
+      if (other == red) return yellow; else return red; 
+   } 
+   else if (self == red) {  
+      if (other == blue) return yellow; else return blue; 
+   }  
+   else {
+       if (other == blue) return red; else return blue; 
+   } 
+}
+
+void checkCreatureColourChanges() {
+   let colours = [blue,red,yellow];
+   for (self : colours)
+      for (other : colours)
+         println(self + " + " + other + " -> " + complementColour(self,other));
+   println();
+}
+
+
+
+let Token stopToken = new Token();
+
+class RendezvousServer {
+   private Token a = stopToken; 
+   private Token b = stopToken; 
+
+   private boolean firstCall = true;
+   private boolean mustWait = false;
+
+   private int countdown = n;
+
+
+   Token notify(Token token) {
+
+      synchronized(this) {
+
+         var other = stopToken;
+
+         while ( mustWait && countdown > 0 ) this.wait();
+  
+         if ( firstCall ) {
+            a = token;
+            firstCall = false;
+
+            while ( ! firstCall && countdown > 0 ) this.wait();
+            other = b; 
+            mustWait = false;
+            this.notifyAll();
+
+            --countdown;
+         } 
+
+         else {
+            b = token;
+            other = a;
+            firstCall = true;
+            mustWait = true; 
+            this.notifyAll();               
+         } 
+
+         return countdown >= 0 ? other : stopToken;         
+      }
+   }
+
+}
+
+
+class Creature extends Thread {
+   private int name;
+   Colour colour;
+   int selfMet = 0; 
+   int creaturesMet = 0; 
+   private RendezvousServer rendezvous;
+
+   override void run(){ 
+      let token = new Token(_name: name, _colour: colour);
+
+      while (true) {
+         let other = rendezvous.notify(token);
+         if (other == stopToken) break;
+
+         colour = complementColour(colour,other.colour);
+         token.colour(colour);
+         if (other.name == name) selfMet++;
+         creaturesMet++;
+       
+         Thread.yield();
+      }
+   }
+   
+}
+
+
+class Token {
+   private int _name = 0;
+   private Colour _colour = blue;
+
+   int name() = _name;
+   Colour colour() = _colour;
+   void colour(Colour c) { _colour = c; }
+}
+
+
+
+
+List<Creature> startRendezvousCreaturesWith(List<Colour> colourList){
+   let r = new RendezvousServer();
+   var i = 0;
+   let rendezvousCreatures = colourList .map(
+      Colour c => new Creature(name: ++i, colour: c, rendezvous: r));
+
+   for (c : rendezvousCreatures) c.start();
+   for (c : rendezvousCreatures) c.join();
+ 
+   return rendezvousCreatures;
+}
+
+
+void reportRendezvouses(List<Colour> colourList){
+   let numbers = ["zero", "one", "two", "three", "four", 
+                  "five", "six", "seven", "eight", "nine"];
+
+   String spellout(int k) =
+      k .toString .toCharArray .foldLeft(
+         (String s, char c) => 
+            s + " " + numbers[ Character.getNumericValue(c) ], "");
+
+
+   for (c : colourList) print(" " + c); println();
+
+   let rendezvousCreatures = startRendezvousCreaturesWith(colourList);
+
+   var sum = 0;
+   for (c : rendezvousCreatures){
+      sum += c.creaturesMet;
+      println(c.creaturesMet + spellout(c.selfMet) );
+   }
+   println( spellout(sum) );
+   println();
+}
+
+
+var int n = 0;
+
+void main(String[] args){
+   n = Integer.parseInt(args[0]);
+
+   checkCreatureColourChanges();
+   reportRendezvouses([blue,red,yellow]);
+   reportRendezvouses([blue,red,yellow,red,yellow,blue,red,yellow,red,blue]);
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   contributed by Isaac Gouy
+*/
+
+import java.io.*;
+import java.net.*;
+
+void main(String[] args){
+   let n = Integer.parseInt(args[0]); 
+   let server = new EchoServer(port: 0);
+   let client = new EchoClient( 
+      address: InetAddress.getLocalHost(),  
+      port: server.getPort, 
+      repeat: n
+   );
+   client.start;
+}
+
+let int BUFFER_SIZE = 1024;
+
+class EchoServer extends Thread {
+   ?ServerSocket socket = null;
+   int port;
+   
+   {  // initializer
+      socket = new ServerSocket(port);
+      port = notNull(socket).getLocalPort;
+      this.start;
+   }
+
+   int getPort(); getPort() = port;
+
+   run() {
+      let buffer = new byte[BUFFER_SIZE];
+      try {
+         let socketClient = notNull(socket).accept;
+         let in = socketClient.getInputStream;
+         let out = socketClient.getOutputStream;
+
+         var count = 0, length = 0;
+         while ((length = in.read(buffer)) != -1) {
+            out.write(buffer, 0, length);
+            out.flush;
+            count += length;
+         }
+         println("server processed " + count + " bytes");   
+            
+      } catch (Exception e) {
+         e.printStackTrace;
+      }
+   }
+}
+
+let String GREETING = "Hello there sailor\n";
+
+class EchoClient extends Thread {
+   InetAddress address;
+   int port;
+   int repeat;
+
+   run() {
+      var ?Socket serverSocket = null;
+      try {
+         let socket = new Socket(address, port);
+         serverSocket = socket;
+         
+         let in = new BufferedReader(new InputStreamReader(socket.getInputStream));
+         let out = socket.getOutputStream;
+         let greetingBytes = GREETING.getBytes;
+            // readLine will disgard '\n' so disgard it from the test string
+         let greeting = GREETING.trim; 
+         
+         var ?String received;
+         while (repeat-- > 0) {
+            out.write(greetingBytes);
+            out.flush;
+            received = in.readLine;
+            
+            if (! received.equals(greeting))
+               throw new RuntimeException(
+                  "client: \"" + received + "\" != \"" + greeting  + "\"");
+         }
+                  
+      } catch (Exception e) {
+         e.printStackTrace;
+      } finally {
+         notNull(serverSocket).close;
+      }
+   }
+}
+/* The Great Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+
+   contributed by Isaac Gouy
+*/
+
+
+void main(String[] args){
+   let n = Integer.parseInt(args[0]); 
+
+   for(var i=0; i<n; i++) some_function(i);
+
+   print("Exceptions: HI="); print(Hi); 
+   print(" / LO="); println(Lo);
+}
+
+
+class Lo_Exception extends Exception {}
+class Hi_Exception extends Exception {}
+
+var int Lo = 0;
+var int Hi = 0;
+
+
+void blowup(int n) {
+   if ((n % 2) == 0) 
+      throw new Lo_Exception("Lo_Exception");
+   else 
+      throw new Hi_Exception("Hi_Exception");
+}
+
+
+void lo_function(int n) {
+   try { blowup(n); } 
+   catch (Lo_Exception e) { Lo++; }
+}
+
+
+void hi_function(int n) {
+   try { lo_function(n); } 
+   catch (Hi_Exception e) { Hi++; }
+}
+
+
+void some_function(int n) {
+   try { hi_function(n); } 
+   catch (Exception e) 
+      { println("We shouldn't get here: " + e.toString()); }
+}
+/* The Great Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+
+   contributed by Isaac Gouy
+*/
+
+
+long fannkuch(int n){
+   var check = 0;
+   let perm = new int[n];
+   let perm1 = new int[n];
+   let count = new int[n];
+   let maxPerm = new int[n];      
+   var maxFlipsCount = 0;
+   var m = n - 1;
+
+   for(var i=0; i<n; i++) perm1[i] = i;
+   var r = n;
+   while (true){
+      // write-out the first 30 permutations 
+      if (check < 30){
+        for(int i=0; i<n; i++) print(perm1[i]+1); 
+        println();
+        check++;
+      }
+
+      while (r != 1){ count[r-1] = r; r--; }  
+      if (! (perm1[0]==0 || perm1[m] == m)){       
+         for(var i=0; i<n; i++) perm[i] = perm1[i];         
+         var flipsCount = 0;
+         int k;
+         while ( !((k=perm[0]) == 0) ){
+            int k2 = k+1 >> 1;
+            for(var i=0; i<k2; i++){
+               let temp = perm[i]; perm[i] = perm[k-i]; perm[k-i] = temp;
+            }
+            flipsCount++;
+         }
+         
+         if (flipsCount > maxFlipsCount){
+            maxFlipsCount = flipsCount;
+            for(var i=0; i<n; i++) maxPerm[i] = perm1[i];
+         }
+      }         
+
+      while (true){        
+         if (r == n) return maxFlipsCount;
+         let perm0 = perm1[0];
+         var i = 0;
+         while (i < r){
+            let j = i + 1;
+            perm1[i] = perm1[j];
+            i = j;
+         }
+         perm1[r] = perm0;
+
+         count[r] = count[r] - 1;
+         if (count[r] > 0) break;
+         r++;
+      }
+   }
+}
+
+void main(String[] args){
+   let n = Integer.parseInt(args[0]);   
+   println("Pfannkuchen(" + n + ") = " + fannkuch(n));
+}
+/* The Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+   contributed by Isaac Gouy
+*/
+
+import java.io.*;
+
+void main(String[] args){
+
+   let ALU = 
+      "GGCCGGGCGCGGTGGCTCACGCCTGTAATCCCAGCACTTTGG" +
+      "GAGGCCGAGGCGGGCGGATCACCTGAGGTCAGGAGTTCGAGA" +
+      "CCAGCCTGGCCAACATGGTGAAACCCCGTCTCTACTAAAAAT" +
+      "ACAAAAATTAGCCGGGCGTGGTGGCGCGCGCCTGTAATCCCA" +
+      "GCTACTCGGGAGGCTGAGGCAGGAGAATCGCTTGAACCCGGG" +
+      "AGGCGGAGGTTGCAGTGAGCCGAGATCGCGCCACTGCACTCC" +
+      "AGCCTGGGCGACAGAGCGAGACTCCGTCTCAAAAA";
+
+   let IUB = [
+      new Frequency(code: "a", percent: 0.27),
+      new Frequency(code: "c", percent: 0.12),
+      new Frequency(code: "g", percent: 0.12),
+      new Frequency(code: "t", percent: 0.27),
+
+      new Frequency(code: "B", percent: 0.02),
+      new Frequency(code: "D", percent: 0.02),
+      new Frequency(code: "H", percent: 0.02),
+      new Frequency(code: "K", percent: 0.02),
+      new Frequency(code: "M", percent: 0.02),
+      new Frequency(code: "N", percent: 0.02),
+      new Frequency(code: "R", percent: 0.02),
+      new Frequency(code: "S", percent: 0.02),
+      new Frequency(code: "V", percent: 0.02),
+      new Frequency(code: "W", percent: 0.02),
+      new Frequency(code: "Y", percent: 0.02)
+   ];
+
+   let HomoSapiens = [
+      new Frequency(code: "a", percent: 0.3029549426680),
+      new Frequency(code: "c", percent: 0.1979883004921),
+      new Frequency(code: "g", percent: 0.1975473066391),
+      new Frequency(code: "t", percent: 0.3015094502008)
+   ];
+
+   
+   makeCumulative(HomoSapiens);
+   makeCumulative(IUB);
+
+   var n = Integer.parseInt(args[0]);
+   let w = new BufferedWriter(new OutputStreamWriter(System.out));
+   
+   makeRepeatFasta("ONE", "Homo sapiens alu", ALU, n*2, w);
+   makeRandomFasta("TWO", "IUB ambiguity codes", IUB, n*3, w);
+   makeRandomFasta("THREE", "Homo sapiens frequency", HomoSapiens, n*5, w);
+
+   w.close;
+}
+
+
+class Frequency { String code; double percent; }
+
+void makeCumulative(Frequency[] array) {
+   var cp = 0.0;
+   for (frequency : array) {
+      cp += frequency.percent;
+      frequency.percent = cp;
+   }
+}
+
+String selectRandom(Frequency[] a) {
+   let r = randomNumber(1.0);
+   for (int i=0; i < a.length; i++)
+      if (r < a[i].percent) return a[i].code;
+   return a[a.length-1].code;
+}
+
+
+let int LineLength = 60;
+
+void makeRandomFasta(String id, String desc, Frequency[] a, int n, BufferedWriter w) {
+   var m = 0;
+   w.write(">" + id + " " + desc + "\n");
+
+   while (n > 0) {
+      if (n < LineLength) m = n; else m = LineLength;
+      for (int i=0; i<m; i++) w.write(selectRandom(a));
+      w.newLine();
+      n -= LineLength;
+   }
+}
+
+void makeRepeatFasta(String id, String desc, String alu, int n, BufferedWriter w) {
+   var m = 0; var k = 0; let kn = alu.length;
+   w.write(">" + id + " " + desc + "\n");
+
+   while (n > 0) {
+      if (n < LineLength) m = n; else m = LineLength;
+      for (int i=0; i<m; i++){
+         if (k == kn) k = 0;
+         w.write(alu,k,1);
+         k++;
+      }
+      w.newLine();
+      n -= LineLength;
+   }
+}
+
+
+// random numbers
+
+let int IM = 139968;
+let int IA = 3877;
+let int IC = 29573;
+var int seed = 42;
+
+double randomNumber(double max) {        
+   seed = (seed * IA + IC) % IM;
+   return( max * seed / IM );
+}
+/* The Great Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+
+   contributed by Isaac Gouy
+*/
+
+void main(String[] args){
+    println(fib(Integer.parseInt(args[0]))); 
+}
+
+
+int fib(int n)
+   requires n >= 0; // precondition
+
+fib(n) { 
+   if (n < 2) return 1; else return fib(n-2) + fib(n-1);
+}
+/* The Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+   contributed by Isaac Gouy */
+
+import Include;
+
+void main(String[] args){
+   var n = Integer.parseInt(args[0]); 
+   var d = 0, partialSum = 0.0;
+
+   while (n-- > 0)
+      partialSum += 1.0/++d;
+
+   println( partialSum.toStringWith(9) );
+}
+/* The Great Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+
+   contributed by Isaac Gouy
+*/
+
+
+void main(String[] args){
+   let n = Integer.parseInt(args[0]);   
+   var count = 0;
+
+   HashMap<String,int> table = new HashMap();
+
+   for (int i = 1; i <= n; i++) 
+      table[Integer.toString(i, 16)] = i;
+   for (int i = 1; i <= n; i++)
+      if ( table.containsKey(Integer.toString(i, 10)) ) count++;
+
+   println(count);
+}
+
+
+/* The Great Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+
+   contributed by Isaac Gouy
+*/
+
+
+void main(String[] args){
+   var n = Integer.parseInt(args[0]);  
+   let nKeys = 10000;
+
+   HashMap<String,Cell> table1 = new HashMap(nKeys);
+   HashMap<String,Cell> table2 = new HashMap();
+   for (int i = 0; i <= nKeys; i++) 
+      table1["foo_" + i] = new Cell(value: i);
+
+   String key;
+   int v1;        
+   ?Cell c2;      // c2 = table2[key] can be null 
+
+   while (n-- > 0) 
+     for (each : table1.entrySet) {
+         key = each.getKey;
+         v1 = each.getValue.value;                       
+         if ( (c2 = table2[key]) != null)
+            c2.value += v1;   
+         else 
+            table2[key] = new Cell(value: v1);
+      }
+   
+   print(table1["foo_1"]);
+   print(" " + table1["foo_9999"]);
+   print(" " + table2["foo_1"]);
+   println(" " + table2["foo_9999"]);
+}
+
+
+class Cell { int value; }
+toString(Cell c) = c.value.toString;
+/* The Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+   contributed by Isaac Gouy */
+
+import Include;
+
+void main(String[] args){
+   let n = Integer.parseInt(args[0]);
+
+   let numbers = new double[n+1];
+   for (var i = 1; i <= n; i++) numbers[i] = gen_random(1);
+
+   heapsort(n, numbers);
+
+   println( numbers[n].toStringWith(10) );
+}
+
+
+void heapsort(int n, double[] ra) {
+   int l, j, ir, i;
+   double rra;
+
+   if (n < 2) return;
+   l = (n >> 1) + 1;
+   ir = n;
+   for (;;) {
+      if (l > 1) rra = ra[--l];
+      else {
+         rra = ra[ir];
+         ra[ir] = ra[1];
+         if (--ir == 1) {
+            ra[1] = rra;
+            return;
+         }
+      }
+      i = l;
+      j = l << 1;
+      while (j <= ir) {
+         if (j < ir && ra[j] < ra[j+1]) { ++j; }
+         if (rra < ra[j]) {
+            ra[i] = ra[j];
+            j += (i = j);
+         } 
+         else j = ir + 1;
+      }
+      ra[i] = rra;
+   }
+}
+
+
+let int IM = 139968;
+let int IA = 3877;
+let int IC = 29573;
+var int seed = 42;
+
+double gen_random(double max) {        
+   seed = (seed * IA + IC) % IM;
+   return( max * seed / IM );
+}
+
+NumberFormat floatFormat(int digits){
+   let f = NumberFormat.getInstance();
+   f.setGroupingUsed(false);
+   f.setMaximumFractionDigits(digits);
+   f.setMinimumFractionDigits(digits);
+   return f;
+} 
+/* The Great Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+
+   contributed by Isaac Gouy 
+*/
+
+void main(String[] args){ println("hello world"); }
+//   The Computer Language Shootout 
+//   http://shootout.alioth.debian.org/
+//   contributed by Isaac Gouy
+
+
+import java.text.*;
+
+String toStringWith(double a, int precision){
+   let nf = NumberFormat.getInstance();
+   nf.setGroupingUsed(false);
+   nf.setMaximumFractionDigits(precision);
+   nf.setMinimumFractionDigits(precision);
+   return nf.format(a);
+}
+/* The Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+   contributed by Isaac Gouy, following James McIlree's Java program
+*/
+
+import java.io.*;
+import Include;
+
+void main(String[] args){
+   let r = new BufferedReader(new InputStreamReader(System.in));
+   let buffer = new StringBuffer();
+   var ?String line; 
+
+   while ((line = r.readLine()) != null){
+      if (line.startsWith(">THREE")) break;
+   }
+
+   while ((line = r.readLine()) != null){
+      let c = line[0];
+      if (c == '>')
+         break; 
+      else if (c != ';')
+         buffer.append(line.toUpperCase());
+   }
+   r.close;
+
+   let kn = new KNucleotide(sequence: buffer.toString());
+   kn.writeFrequencies(1);
+   kn.writeFrequencies(2);
+
+   kn.writeCount("GGT");
+   kn.writeCount("GGTA");
+   kn.writeCount("GGTATT");
+   kn.writeCount("GGTATTTTAATT");
+   kn.writeCount("GGTATTTTAATTTATAGT");
+}
+
+
+class KNucleotide {
+   String sequence;
+   int count = 1;
+
+
+   void writeFrequencies(int k) {
+      let frequencies = this.generateFrequencies(k);
+
+      let list = new ArrayList(frequencies.values);
+      sort(list, 
+            (KNucleotide k1, KNucleotide k2) => {
+               let i = k2.count - k1.count; 
+               return i != 0 ? i : k2.sequence.compareTo(k1.sequence);
+               }
+            );
+
+      let sum = sequence.length - k + 1.0;
+      for (kn : list)
+         println(kn.sequence + " " + (kn.count/sum * 100.0).toStringWith(3));
+
+      println();
+   }
+
+
+   void writeCount(String nucleotideFragment) {
+      let frequencies = this.generateFrequencies(nucleotideFragment.length);
+      var count = 0;
+      let item = frequencies[nucleotideFragment];
+      if (item != null) count = item.count;
+      println(count + "\t" + nucleotideFragment);
+   }
+
+   Map<String,KNucleotide> generateFrequencies(int length) {
+      let HashMap<String,KNucleotide> frequencies = new HashMap();
+
+      void kFrequency(int offset, int k) {
+         let n = sequence.length - k + 1;
+         for(int i=offset; i<n; i+=k) {
+            let fragment = sequence.substring(i,i+k);
+            let item = frequencies[fragment];
+            if (item != null)
+               item.count++;
+            else
+               frequencies[fragment] = new KNucleotide(sequence: fragment);
+         }
+      }
+
+      for(int offset=0; offset<length; offset++) kFrequency(offset,length);
+      return frequencies;
+   }
+}
+/* The Great Computer Language Shootout
+   http://shootout.alioth.debian.org/
+
+   contributed by Isaac Gouy
+*/
+
+
+void main(String[] args){
+   var n = Integer.parseInt(args[0]); 
+
+   let nSize = 10000;
+   var L1Count = 0;
+   while (n-- > 0){
+
+      // initialize L1
+      LinkedList<int> L1 = new LinkedList();
+      for (var j = 1; j <= nSize; j++) L1.add(j);
+
+      // copy L1 to L2
+      LinkedList<int> L2 = new LinkedList(L1);
+
+      // remove from left of L2 add to right of L3
+      LinkedList<int> L3 = new LinkedList();
+      while (!L2.isEmpty) 
+         L3.add( L2.removeFirst ); 
+
+      // remove from right of L3 add to right of L2
+      while (!L3.isEmpty) 
+         L2.add( L3.removeLast );
+
+      // reverse L1
+      Collections.reverse(L1);
+
+      // check that first item is now SIZE
+      // NOTE: no Object to int type cast needed
+      if (L1[0] != nSize) println("First item of L1 != SIZE");
+
+      // check that L1 == L2
+      if ( !L1.equals(L2) ) println("L1 != L2");
+      L1Count = L1.size;
+      }
+
+   println(L1Count);
+}
+/* The Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+   contributed by Isaac Gouy
+*/
+
+import java.io.*;
+
+void main(String[] args){
+   let width = Integer.parseInt(args[0]);   
+   let height = width; 
+   println("P4\n" + width + " " + height);
+
+   let s = new BufferedOutputStream(System.out);
+   let limitSquared = 4.0;
+   let iterations = 50;
+   var isOverLimit = false;
+   var bits = 0; var bitnum = 0; 
+
+   for(var y=0; y<height; y++){
+      for(var x=0; x<width; x++){
+
+         var Zr = 0.0; var Zi = 0.0;
+         let Cr = (2.0*x/width - 1.5); let Ci = (2.0*y/height - 1.0);
+
+         var i = 0;
+         do {
+            let Tr = Zr*Zr - Zi*Zi + Cr;
+            let Ti = 2.0*Zr*Zi + Ci;
+            Zr = Tr; Zi = Ti;
+            isOverLimit = Zr*Zr + Zi*Zi > limitSquared;
+         } while (!isOverLimit && (++i < iterations));
+
+         bits = bits << 1;
+         if (!isOverLimit) bits++;
+         bitnum++;
+
+         if (x == width - 1) {
+            bits = bits << (8 - bitnum);
+            bitnum = 8;
+         }
+
+         if (bitnum == 8){
+            let byte b = cast(bits); s.write(b);
+            bits = 0; bitnum = 0;
+         }
+      }
+   } 
+   s.close;
+}
+/* The Great Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+
+   contributed by Isaac Gouy
+*/
+
+
+void main(String[] args){
+   var n =  Integer.parseInt(args[0]);  
+   let int SIZE = 30;
+
+   let m1 = mkmatrix(SIZE, SIZE);
+   let m2 = mkmatrix(SIZE, SIZE);
+   let mm = new int[SIZE][SIZE];
+
+   while (n-- > 0) mmult(m1, m2, mm);
+
+   print(mm[0][0]); print(" ");
+   print(mm[2][3]); print(" ");      
+   print(mm[3][2]); print(" ");
+   println(mm[4][4]);
+}
+
+
+int[][] mkmatrix(int nRows, int nCols) {
+   var count = 1;
+   let m = new int[nRows][nCols];
+   for (var i = 0; i < nRows; i++) 
+      for (var j = 0; j < nCols; j++) 
+         m[i][j] = count++;
+   return m;
+}
+
+
+void mmult(int[][] m1, int[][] m2, int[][] m) {
+   let nRows = m1.length;
+   let nCols = nRows; // Assume a square matrix
+   for (var i=0; i < nRows; i++) 
+      for (var j = 0; j < nCols; j++) {
+         int val = 0;
+         for (var k = 0; k < nCols; k++) 
+            val += m1[i][k] * m2[k][j];
+         m[i][j] = val;
+      }
+}
+/* The Great Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+
+   contributed by Isaac Gouy
+*/
+
+
+void main(String[] args){
+   let n = Integer.parseInt(args[0]);
+   boolean val;
+
+   let toggle = new Toggle();
+   for(var i=1; i<n; i++) val = toggle.activate.value;
+   println( toggle.activate.value );
+
+   let ntoggle = new NToggle(toggleTrigger: 3);
+   for(var i=1; i<n; i++) val = ntoggle.activate.value;
+   println( ntoggle.activate.value );
+}
+
+
+class Toggle {                  
+   boolean state = true;        
+   public boolean value() = state;
+             
+   public Toggle activate(){
+      state = !state; 
+      return this; 
+   }          
+}
+
+class NToggle extends Toggle {  
+   int toggleTrigger = 0;
+   int count = 0;
+
+   activate(){
+      count++;
+      if (count >= toggleTrigger){
+         state = !state;
+         count = 0;
+      }
+      return this;
+   }
+}
+/* The Great Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+
+   contributed by Isaac Gouy
+*/
+
+import java.io.*;
+import java.text.*;
+
+void main(String[] args){
+   var num = 0.0, sum = 0.0d;
+   ArrayList<double> numbers = new ArrayList();
+   try {
+      let r = new BufferedReader(new InputStreamReader(System.in));
+      ?String line;
+      while ((line = r.readLine) != null){
+         num = Double.parseDouble(line);
+         sum += num; 
+         numbers.add(num);
+      }
+   } 
+   catch (IOException e) { 
+      System.err.println(e);
+      return; 
+   }
+
+   let n = numbers.size; if (n<1) return;
+   let mean = sum/n;
+   var median = 0.0;
+   var average_deviation = 0.0;
+   var standard_deviation = 0.0;
+   var variance = 0.0;
+   var skew = 0.0;
+   var kurtosis = 0.0;
+   var deviation = 0.0;
+
+   for (double each : numbers) {
+      deviation = each - mean;
+      average_deviation += Math.abs(deviation);
+      variance += deviation ** 2;
+      skew += deviation ** 3;
+      kurtosis += deviation ** 4;
+   } 
+
+   average_deviation /= n;
+   variance /= (n - 1);
+   standard_deviation = Math.sqrt(variance);
+   if (variance != 0.0) {
+      skew /= (n * variance * standard_deviation);
+      kurtosis = kurtosis/(n * variance * variance) - 3.0;
+   }
+
+   Collections.sort(numbers);
+
+   let mid = n/2; 
+   if (n > 0) {
+      median = (n % 2 != 0) ?
+         numbers[mid] : (numbers[mid] + numbers[mid-1])/2;
+   }
+
+   let f = floatFormat(6);
+   print("n:                  "); println(n);
+   println("median:             " + f.format(median));
+   println("mean:               " + f.format(mean));
+   println("average_deviation:  " + f.format(average_deviation));
+   println("standard_deviation: " + f.format(standard_deviation));
+   println("variance:           " + f.format(variance));
+   println("skew:               " + f.format(skew));
+   println("kurtosis:           " + f.format(kurtosis));
+}
+
+
+NumberFormat floatFormat(int digits){
+   let f = NumberFormat.getInstance();
+   f.setGroupingUsed(false);
+   f.setMaximumFractionDigits(digits);
+   f.setMinimumFractionDigits(digits);
+   return f;
+} 
+
+/* The Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+   contributed by Isaac Gouy */
+
+import Include;
+
+void main(String[] args){
+   var n = Integer.parseInt(args[0]);
+   let JovianSystem = new NBodySystem();
+
+   println( JovianSystem.energy.toStringWith(9) );
+   while (n-- > 0) JovianSystem.advance(0.01);
+   println( JovianSystem.energy.toStringWith(9) );
+}
+
+
+class NBodySystem {
+   Body[] bodies = [ Sun(), Jupiter(), Saturn(), Uranus(), Neptune() ];
+
+{
+   var px = 0.0; var py = 0.0; var pz = 0.0;
+   for (body : bodies) {
+      px += body.vx * body.mass;
+      py += body.vy * body.mass;
+      pz += body.vz * body.mass;
+   }
+   bodies[0].offsetMomentum(px,py,pz);
+}
+
+   void advance(double dt){
+      for (int i=0; i < bodies.length; ++i) {
+         for (int j=i+1; j < bodies.length; ++j) {
+            var dx = bodies[i].x - bodies[j].x;
+            var dy = bodies[i].y - bodies[j].y;
+            var dz = bodies[i].z - bodies[j].z;
+
+            var distance = Math.sqrt(dx*dx + dy*dy + dz*dz);
+            var mag = dt / (distance * distance * distance);
+
+            bodies[i].vx -= dx * bodies[j].mass * mag;
+            bodies[i].vy -= dy * bodies[j].mass * mag;
+            bodies[i].vz -= dz * bodies[j].mass * mag;
+
+            bodies[j].vx += dx * bodies[i].mass * mag;
+            bodies[j].vy += dy * bodies[i].mass * mag;
+            bodies[j].vz += dz * bodies[i].mass * mag;
+         }
+      }
+
+      for (body : bodies) {
+         body.x += dt * body.vx;
+         body.y += dt * body.vy;
+         body.z += dt * body.vz;
+      }
+   }
+
+   double energy(){
+      var e = 0.0;
+      for (int i=0; i < bodies.length; ++i) {
+         e += 0.5 * bodies[i].mass *
+            ( bodies[i].vx * bodies[i].vx
+            + bodies[i].vy * bodies[i].vy
+            + bodies[i].vz * bodies[i].vz );
+
+         for (int j=i+1; j < bodies.length; ++j) {
+            var dx = bodies[i].x - bodies[j].x;
+            var dy = bodies[i].y - bodies[j].y;
+            var dz = bodies[i].z - bodies[j].z;
+
+            var distance = Math.sqrt(dx*dx + dy*dy + dz*dz);
+            e -= (bodies[i].mass * bodies[j].mass) / distance;
+         }
+      }
+      return e;
+  }
+}
+
+
+let double PI = 3.141592653589793;
+let double SOLAR_MASS = 4 * PI * PI;
+let double DAYS_PER_YEAR = 365.24;
+
+class Body {
+   double x; double y; double z; 
+   double vx; double vy; double vz; 
+   double mass;
+
+   Body offsetMomentum(double px, double py, double pz){
+      vx = -px / SOLAR_MASS;
+      vy = -py / SOLAR_MASS;
+      vz = -pz / SOLAR_MASS;
+      return this;
+   }
+}
+
+Body Jupiter() = new Body (
+   x: 4.84143144246472090e+00,
+   y: -1.16032004402742839e+00,
+   z: -1.03622044471123109e-01,
+   vx: 1.66007664274403694e-03 * DAYS_PER_YEAR,
+   vy: 7.69901118419740425e-03 * DAYS_PER_YEAR,
+   vz: -6.90460016972063023e-05 * DAYS_PER_YEAR,
+   mass: 9.54791938424326609e-04 * SOLAR_MASS 
+);
+
+Body Saturn() = new Body (
+   x: 8.34336671824457987e+00,
+   y: 4.12479856412430479e+00,
+   z: -4.03523417114321381e-01,
+   vx: -2.76742510726862411e-03 * DAYS_PER_YEAR,
+   vy: 4.99852801234917238e-03 * DAYS_PER_YEAR,
+   vz: 2.30417297573763929e-05 * DAYS_PER_YEAR,
+   mass: 2.85885980666130812e-04 * SOLAR_MASS
+);
+
+Body Uranus() = new Body (
+   x: 1.28943695621391310e+01,
+   y: -1.51111514016986312e+01,
+   z: -2.23307578892655734e-01,
+   vx: 2.96460137564761618e-03 * DAYS_PER_YEAR,
+   vy: 2.37847173959480950e-03 * DAYS_PER_YEAR,
+   vz: -2.96589568540237556e-05 * DAYS_PER_YEAR,
+   mass: 4.36624404335156298e-05 * SOLAR_MASS
+);
+
+Body Neptune() = new Body (
+   x: 1.53796971148509165e+01,
+   y: -2.59193146099879641e+01,
+   z: 1.79258772950371181e-01,
+   vx: 2.68067772490389322e-03 * DAYS_PER_YEAR,
+   vy: 1.62824170038242295e-03 * DAYS_PER_YEAR,
+   vz: -9.51592254519715870e-05 * DAYS_PER_YEAR,
+   mass: 5.15138902046611451e-05 * SOLAR_MASS
+);
+
+Body Sun() = new Body (x:0,y:0,z:0,vx:0,vy:0,vz:0, mass: SOLAR_MASS);
+/* The Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+   contributed by Isaac Gouy */
+
+import Include;
+
+void main(String[] args){
+   var n = Integer.parseInt(args[0]);
+   let JovianSystem = new NBodySystem();
+
+   println( JovianSystem.energy.toStringWith(9) );
+   while (n-- > 0) JovianSystem.advance(0.01);
+   println( JovianSystem.energy.toStringWith(9) );
+}
+
+
+class NBodySystem {
+   Body[] bodies = [ Sun(), Jupiter(), Saturn(), Uranus(), Neptune() ];
+
+{
+   var px = 0.0; var py = 0.0; var pz = 0.0;
+   for (body : bodies) {
+      px += body.vx * body.mass;
+      py += body.vy * body.mass;
+      pz += body.vz * body.mass;
+   }
+   bodies[0].offsetMomentum(px,py,pz);
+}
+
+   void advance(double dt){
+      for (int i=0; i < bodies.length; ++i) {
+         for (int j=i+1; j < bodies.length; ++j) {
+            var dx = bodies[i].x - bodies[j].x;
+            var dy = bodies[i].y - bodies[j].y;
+            var dz = bodies[i].z - bodies[j].z;
+
+            var distance = Math.sqrt(dx*dx + dy*dy + dz*dz);
+            var mag = dt / (distance * distance * distance);
+
+            bodies[i].vx -= dx * bodies[j].mass * mag;
+            bodies[i].vy -= dy * bodies[j].mass * mag;
+            bodies[i].vz -= dz * bodies[j].mass * mag;
+
+            bodies[j].vx += dx * bodies[i].mass * mag;
+            bodies[j].vy += dy * bodies[i].mass * mag;
+            bodies[j].vz += dz * bodies[i].mass * mag;
+         }
+      }
+
+      for (int i=0; i < bodies.length; ++i) {
+         bodies[i].x += dt * bodies[i].vx;
+         bodies[i].y += dt * bodies[i].vy;
+         bodies[i].z += dt * bodies[i].vz;
+      }
+   }
+
+   double energy(){
+      var e = 0.0;
+      for (int i=0; i < bodies.length; ++i) {
+         e += 0.5 * bodies[i].mass *
+            ( bodies[i].vx * bodies[i].vx
+            + bodies[i].vy * bodies[i].vy
+            + bodies[i].vz * bodies[i].vz );
+
+         for (int j=i+1; j < bodies.length; ++j) {
+            var dx = bodies[i].x - bodies[j].x;
+            var dy = bodies[i].y - bodies[j].y;
+            var dz = bodies[i].z - bodies[j].z;
+
+            var distance = Math.sqrt(dx*dx + dy*dy + dz*dz);
+            e -= (bodies[i].mass * bodies[j].mass) / distance;
+         }
+      }
+      return e;
+  }
+}
+
+
+let double PI = 3.141592653589793;
+let double SOLAR_MASS = 4 * PI * PI;
+let double DAYS_PER_YEAR = 365.24;
+
+class Body {
+   double x; double y; double z; 
+   double vx; double vy; double vz; 
+   double mass;
+
+   Body offsetMomentum(double px, double py, double pz){
+      vx = -px / SOLAR_MASS;
+      vy = -py / SOLAR_MASS;
+      vz = -pz / SOLAR_MASS;
+      return this;
+   }
+}
+
+Body Jupiter() = new Body (
+   x: 4.84143144246472090e+00,
+   y: -1.16032004402742839e+00,
+   z: -1.03622044471123109e-01,
+   vx: 1.66007664274403694e-03 * DAYS_PER_YEAR,
+   vy: 7.69901118419740425e-03 * DAYS_PER_YEAR,
+   vz: -6.90460016972063023e-05 * DAYS_PER_YEAR,
+   mass: 9.54791938424326609e-04 * SOLAR_MASS 
+);
+
+Body Saturn() = new Body (
+   x: 8.34336671824457987e+00,
+   y: 4.12479856412430479e+00,
+   z: -4.03523417114321381e-01,
+   vx: -2.76742510726862411e-03 * DAYS_PER_YEAR,
+   vy: 4.99852801234917238e-03 * DAYS_PER_YEAR,
+   vz: 2.30417297573763929e-05 * DAYS_PER_YEAR,
+   mass: 2.85885980666130812e-04 * SOLAR_MASS
+);
+
+Body Uranus() = new Body (
+   x: 1.28943695621391310e+01,
+   y: -1.51111514016986312e+01,
+   z: -2.23307578892655734e-01,
+   vx: 2.96460137564761618e-03 * DAYS_PER_YEAR,
+   vy: 2.37847173959480950e-03 * DAYS_PER_YEAR,
+   vz: -2.96589568540237556e-05 * DAYS_PER_YEAR,
+   mass: 4.36624404335156298e-05 * SOLAR_MASS
+);
+
+Body Neptune() = new Body (
+   x: 1.53796971148509165e+01,
+   y: -2.59193146099879641e+01,
+   z: 1.79258772950371181e-01,
+   vx: 2.68067772490389322e-03 * DAYS_PER_YEAR,
+   vy: 1.62824170038242295e-03 * DAYS_PER_YEAR,
+   vz: -9.51592254519715870e-05 * DAYS_PER_YEAR,
+   mass: 5.15138902046611451e-05 * SOLAR_MASS
+);
+
+Body Sun() = new Body (x:0,y:0,z:0,vx:0,vy:0,vz:0, mass: SOLAR_MASS);
+/* The Great Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+
+   contributed by Isaac Gouy
+*/
+
+void main(String[] args){
+   let n = Integer.parseInt(args[0]);
+   int count = 0;
+
+   for(int a=0; a<n; a++)
+      for(int b=0; b<n; b++)
+         for(int c=0; c<n; c++)
+            for(int d=0; d<n; d++)
+               for(int e=0; e<n; e++)
+                  for(int f=0; f<n; f++) count++;
+
+   println(count); 
+}
+/* The Great Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+
+   contributed by Isaac Gouy
+*/
+
+int nsieve(int m, boolean[] isPrime){
+   for(var i=2; i <= m; i++) isPrime[i] = true;
+   var count = 0;
+
+   for(var i=2; i <= m; i++){ 
+      if (isPrime[i]){
+         for(var k=i+i; k <= m; k+=i) isPrime[k] = false;
+         count++;
+      }
+   }
+   return count;
+} 
+
+void main(String[] args){
+   var n = Integer.parseInt(args[0]);  
+   if (n<2) n = 2;
+
+   var m = (1<<n)*10000;    
+   let flags = new boolean[m+1];    
+   println("Primes up to " +  pad(m,8) + pad(nsieve(m,flags),9) ); 
+   
+   m = (1<<n-1)*10000; 
+   println("Primes up to " +  pad(m,8) + pad(nsieve(m,flags),9) ); 
+   
+   m = (1<<n-2)*10000; 
+   println("Primes up to " +  pad(m,8) + pad(nsieve(m,flags),9) );    
+}
+
+String pad(int i, int width){
+   var s = i.toString;
+   var p = width - s.length;
+   while (p-- > 0) s = ' ' + s;
+   return s;
+}
+/* The Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+   contributed by Isaac Gouy, following Alkis Evlogimenos' Java program
+*/
+
+import java.util.*;
+
+int nsievebits(int m, BitSet flags){
+   flags.set(0, m+1);
+   var count = 0;
+
+   for(var i=2; i <= m; i++){ 
+      if (flags.get(i)){
+         for(var k=i+i; k <= m; k+=i) flags.clear(k);
+         count++;
+      }
+   }
+   return count;
+} 
+
+void main(String[] args){
+   var n = Integer.parseInt(args[0]);  
+   if (n<2) n = 2;
+
+   var m = (1<<n)*10000;    
+   let flags = new BitSet(m+1);    
+   println("Primes up to " +  pad(m,8) + pad(nsievebits(m,flags),9) ); 
+   
+   m = (1<<n-1)*10000; 
+   println("Primes up to " +  pad(m,8) + pad(nsievebits(m,flags),9) ); 
+   
+   m = (1<<n-2)*10000; 
+   println("Primes up to " +  pad(m,8) + pad(nsievebits(m,flags),9) );    
+}
+
+String pad(int i, int width){
+   var s = i.toString;
+   var p = width - s.length;
+   while (p-- > 0) s = ' ' + s;
+   return s;
+}
+/* The Great Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+
+   contributed by Isaac Gouy
+*/
+
+void main(String[] args){
+   let n = Integer.parseInt(args[0]);
+
+   var toggle = new Toggle();
+   for(var i=0; i<5; i++) println( toggle.activate.value );
+   for(var i=0; i<n; i++) toggle = new Toggle();
+   print('\n');
+
+   var ntoggle = new NToggle(toggleTrigger: 3);
+   for(var i=0; i<8; i++) println( ntoggle.activate.value );
+   for(var i=0; i<n; i++) ntoggle = new NToggle(toggleTrigger: 3);
+}
+
+class Toggle {                  
+   boolean state = true;        
+   public boolean value() = state;
+             
+   public Toggle activate(){
+      state = !state; 
+      return this; 
+   }          
+}
+
+class NToggle extends Toggle {  
+   int toggleTrigger = 0;
+   int count = 0;
+
+   activate(){
+      count++;
+      if (count >= toggleTrigger){
+         state = !state;
+         count = 0;
+      }
+      return this;
+   }
+}
+//   The Computer Language Shootout 
+//   http://shootout.alioth.debian.org/
+//   contributed by Isaac Gouy
+
+import Include;
+
+void main(String[] args){
+   let n = Integer.parseInt(args[0]); 
+
+   var a1 = 0.0, a2 = 0.0, a3 = 0.0, a4 = 0.0, a5 = 0.0, 
+       a6 = 0.0, a7 = 0.0, a8 = 0.0, a9 = 0.0, alt = -1.0; 
+
+   let twothirds = 2.0/3.0;
+ 
+   for (int k=1; k<=n; k++){
+      let double d = k;
+      let k2 = d * d;
+      let k3 = k2*d;
+      let sk = Math.sin(k);
+      let ck = Math.cos(k);
+      alt = -alt;
+
+      a1 += Math.pow(twothirds,k-1.0);
+      a2 += 1.0/Math.sqrt(k);
+      a3 += 1.0/(k*(k+1.0));
+      a4 += 1.0/(k3 * sk*sk);
+      a5 += 1.0/(k3 * ck*ck);
+      a6 += 1.0/k;
+      a7 += 1.0/k2;
+      a8 += alt/k;
+      a9 += alt/(2*k -1);
+   }
+
+   println( a1.toStringWith(9) + "\t(2/3)^k" );
+   println( a2.toStringWith(9) + "\tk^-0.5" );
+   println( a3.toStringWith(9) + "\t1/k(k+1)" );      
+   println( a4.toStringWith(9) + "\tFlint Hills");  
+   println( a5.toStringWith(9) + "\tCookson Hills");
+   println( a6.toStringWith(9) + "\tHarmonic");
+   println( a7.toStringWith(9) + "\tRiemann Zeta");
+   println( a8.toStringWith(9) + "\tAlternating Harmonic");
+   println( a9.toStringWith(9) + "\tGregory");
+}
+/* The Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+   contributed by Isaac Gouy
+*/
+
+import java.math.*;
+
+void main(String[] args){
+   let L = 10;
+   var n = Integer.parseInt(args[0]);    
+
+   var j = 0;
+   let digits = new PiDigitSpigot();
+
+   while (n > 0){
+      if (n >= L){
+         for (int i=0; i<L; i++) print( digits.next() );
+         j += L;
+      } else {
+         for (int i=0; i<n; i++) print( digits.next() );
+         for (int i=n; i<L; i++) print(" ");
+         j += n;
+      }
+      print("\t:"); println(j);
+      n -= L;
+   }
+}
+
+
+class PiDigitSpigot {
+   Transformation z = new Transformation().qrst(1,0,0,1);
+   Transformation x = new Transformation();
+   Transformation inverse = new Transformation();
+
+   int next(){
+      let y = this.digit();
+      if (this.isSafe(y)){
+         z = this.produce(y); return y;
+      } else {
+         z = this.consume( x.next() ); return this.next();
+      }
+   }
+
+   int digit() = z.extract(3);
+   boolean isSafe(int digit) = digit == z.extract(4);
+   Transformation produce(int i) = ( inverse.qrst(10,-10*i,0,1) ).compose(z);
+   Transformation consume(Transformation a) = z.compose(a);
+}
+
+
+
+class Transformation {
+   BigInteger q = BigInteger.valueOf(0);
+   BigInteger r = BigInteger.valueOf(0);
+   BigInteger s = BigInteger.valueOf(0);
+   BigInteger t = BigInteger.valueOf(0);
+   int k = 0;
+
+   Transformation next(){
+      k++;
+      q = BigInteger.valueOf(k);
+      r = BigInteger.valueOf(4 * k + 2);
+      s = BigInteger.valueOf(0);
+      t = BigInteger.valueOf(2 * k + 1);
+      return this;
+   }
+
+   int extract(int j){
+      let bigj = BigInteger.valueOf(j);
+      return (((q * bigj) + r) / ((s * bigj) + t)).intValue;
+   }
+
+   Transformation qrst(int q, int r, int s, int t){
+      this.q = BigInteger.valueOf(q);
+      this.r = BigInteger.valueOf(r);
+      this.s = BigInteger.valueOf(s);
+      this.t = BigInteger.valueOf(t);
+      k = 0;
+      return this;
+   }
+
+   Transformation compose(Transformation a) = 
+      new Transformation(
+         q:  q * a.q,
+         r: (q * a.r) + (r * a.t),
+         s: (s * a.q) + (t * a.s),
+         t: (s * a.r) + (t * a.t)
+      );
+}
+/* The Computer Language Benchmarks Game 
+   http://shootout.alioth.debian.org/
+   contributed by Isaac Gouy
+*/
+
+
+boolean isPrime(int k){
+   if (k < 2) return false;
+   if (k < 4) return true;
+   if (k%2 == 0) return false;
+   if ((k+1)%6 != 0 && (k-1)%6 != 0 ) return false;
+
+   let limit = Math.sqrt(k);
+   for (var i = 5; i <= limit; i += 2) if (k%i == 0) return false;
+
+   return true;
+}
+
+
+int Prime(int n){
+   var count = 0;
+   var primeNumber = 0;
+
+   for (var k = 1; count < n; k++)
+      if (isPrime(k)){ 
+         count++;
+         primeNumber = k;
+      }
+
+   return primeNumber; 
+}
+
+
+void main(String[] args){
+   var n = Integer.parseInt(args[0]);
+
+   Prime(1000); // seems to make things ~15% faster !
+
+   println("1st prime is " + Prime(1));
+   println("2nd prime is " + Prime(2));
+
+   for (var i = 10*n; i <= 50*n; i += 10*n)
+      println(i + "th prime is " + Prime(i));
+}
+/* The Computer Language Benchmarks Game 
+   http://shootout.alioth.debian.org/
+   contributed by Isaac Gouy
+*/
+
+
+boolean isPrime(int k){
+   if (k < 2) return false;
+   if (k < 4) return true;
+   if (k%2 == 0) return false;
+   if ((k+1)%6 != 0 && (k-1)%6 != 0 ) return false;
+
+   let limit = Math.sqrt(k);
+   for (var i = 5; i <= limit; i += 2) if (k%i == 0) return false;
+
+   return true;
+}
+
+
+int Prime(int n){
+   var count = 0;
+   var primeNumber = 0;
+
+   for (var k = 1; count < n; k++)
+      if (isPrime(k)){ 
+         count++;
+         primeNumber = k;
+      }
+
+   return primeNumber;
+}
+
+
+class PrimeThread extends Thread {
+   int n;
+   int p = 0;
+   override void run(){ p = Prime(n); }
+}
+
+
+void main(String[] args){
+   var n = Integer.parseInt(args[0]);
+
+   Prime(1000); // seems to make things ~15% faster !
+
+   println("1st prime is " + Prime(1));
+   println("2nd prime is " + Prime(2));
+
+   let PrimeThread[] threads = 
+      fill(new PrimeThread[5], int i => new PrimeThread(n: (i+1)*10*n));
+
+   threads.reversefor(start);
+   for (t : threads) t.join();
+   for (t : threads) println(t.n + "th prime is " + t.p);
+
+}
+/* The Computer Language Benchmarks Game 
+   http://shootout.alioth.debian.org/
+   contributed by Isaac Gouy
+*/
+
+
+int Prime(int n){
+   var count = 0;
+   var primeNumber = 0;
+
+   if (n < 2){ 
+      if (n == 1){ count = 1; primeNumber = 2; }  
+   } 
+   else { 
+      count = 2; primeNumber = 3; 
+   }
+
+   for (var k = 5; count < n; k += 2){
+
+      if ((k+1)%6 == 0 || (k-1)%6 == 0){
+
+         var isTrivial = true;
+         let limit = Math.sqrt(k);
+
+         for (var i = 5; i <= limit; i += 2) 
+            if (k % i == 0) { isTrivial = false; break; }
+
+         if (isTrivial) {
+            count++;
+            primeNumber = k;
+         }
+      }
+   }
+
+   return primeNumber;
+}
+
+
+void main(String[] args){
+   var n = Integer.parseInt(args[0]);
+
+   Prime(1000); // seems to make things ~15% faster !
+
+   println("1st prime is " + Prime(1));
+   println("2nd prime is " + Prime(2));
+
+   for (var i = 10*n; i <= 50*n; i += 10*n)
+      println(i + "th prime is " + Prime(i));
+}
+/* The Computer Language Benchmarks Game 
+   http://shootout.alioth.debian.org/
+   contributed by Isaac Gouy
+*/
+
+
+boolean isPrime(int k){
+   if (k < 2) return false;
+   if (k < 4) return true;
+   if (k%2 == 0) return false;
+   if ((k+1)%6 != 0 && (k-1)%6 != 0 ) return false;
+
+   let limit = Math.sqrt(k);
+   for (var i = 5; i <= limit; i += 2) if (k%i == 0) return false;
+
+   return true;
+}
+
+
+int Prime(int n){
+   var count = 0;
+   var primeNumber = 0;
+
+   for (var k = 1; count < n; k++)
+      if (isPrime(k)){ 
+         count++;
+         primeNumber = k;
+      }
+
+   return primeNumber;
+}
+
+
+void main(String[] args){
+   var n = Integer.parseInt(args[0]);
+
+   //Prime(1000); // seems to make things ~15% faster !
+
+   println("1st prime is " + Prime(1));
+   println("2nd prime is " + Prime(2));
+
+   for (var i = 10*n; i <= 50*n; i += 10*n)
+      println(i + "th prime is " + Prime(i));
+}
+/* The Great Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+
+   contributed by Isaac Gouy
+*/
+
+var int produced = 0; 
+var int consumed = 0;   
+
+void main(String[] args){
+   let n = Integer.parseInt(args[0]);    
+   let b = new SharedBuffer();   
+   let producer = new Producer(buffer: b, countdown: n);
+   let consumer = new Consumer(buffer: b, countdown: n);
+
+   producer.start;
+   consumer.start;
+   try {  producer.join;  }  catch (InterruptedException e) { }
+   try {  consumer.join;  }  catch (InterruptedException e) { }
+   
+   println(produced + " " + consumed);
+}
+
+
+class SharedBuffer {
+   int contents = -1;
+   boolean available = false;
+
+   int get();
+   get() {
+      while (available == false) {
+         try { this.wait(); } catch (InterruptedException e) { }
+      }
+      available = false;
+      this.notifyAll;
+      return contents;
+   }
+
+   void put(int value);
+   put(value)  {
+      while (available == true) {
+         try { this.wait(); } catch (InterruptedException e) { }
+      }
+      contents = value;
+      available = true;
+      this.notifyAll;
+   }
+}
+
+
+class Producer extends Thread {
+   SharedBuffer buffer;
+   int countdown;
+
+   run() {
+      while (countdown-- > 0) {
+         synchronized(buffer) { 
+            buffer.put(countdown); 
+            // println("produced " + countdown);  // check            
+         }               
+         ++produced;
+      }
+   }
+}
+
+
+class Consumer extends Thread {
+   SharedBuffer buffer;
+   int countdown;
+
+   run() {
+      var value = 0;
+      while (countdown-- > 0) {
+         synchronized(buffer) { 
+            value = buffer.get; 
+            // println("\t" + "consumed " + value); // check 
+         }
+         ++consumed;
+      }    
+   }    
+}
+/* The Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+   contributed by Isaac Gouy */
+
+import Include;
+
+void main(String[] args){
+   var n = Integer.parseInt(args[0]);
+   var result = 0.0d;
+   while (n-- > 0) result = gen_random(100.0);
+   println( result.toStringWith(9) );
+}
+
+let int IM = 139968;
+let int IA = 3877;
+let int IC = 29573;
+var int seed = 42;
+
+double gen_random(double max) {        
+   seed = (seed * IA + IC) % IM;
+   return( max * seed / IM );
+}
+/* The Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+   contributed by Isaac Gouy 
+*/
+
+import Include;
+
+void main(String[] args){
+   var n = Integer.parseInt(args[0]); 
+   println("Ack(3," + n + "): " + ack(3,n)); 
+   println("Fib(" + (27.0+n) + "): " + fib(27.0+n).toStringWith(1));
+   n--; println("Tak("+3*n+","+2*n+","+n+"): "+ tak(3*n,2*n,n));
+
+   println("Fib(3): " + fib(3));
+   println("Tak(3.0,2.0,1.0): "+ tak(3.0,2.0,1.0));
+}
+
+int ack(int m,int n) =
+   m == 0 ? n + 1 :
+      n == 0 ? ack(m-1, 1) : ack(m-1, ack(m, n-1));
+
+int fib(int n) = n < 2 ? 1 : fib(n-2) + fib(n-1);
+
+int tak (int x, int y, int z) =
+   y >= x ? z : tak( tak(x-1,y,z), tak(y-1,z,x), tak(z-1,x,y) ); 
+
+double fib(double n) = n < 2.0 ? 1.0 : fib(n-2.0) + fib(n-1.0);
+
+double tak (double x, double y, double z) =
+   y >= x ? z : tak( tak(x-1.0,y,z), tak(y-1.0,z,x), tak(z-1.0,x,y) ); 
+/* The Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+   contributed by Isaac Gouy 
+*/
+
+import Include;
+
+void main(String[] args){
+   var n = Integer.parseInt(args[0]);
+   println("Ack(3," + n + "): " + ack(3,n)); 
+   println("Fib(" + (27.0+n) + "): " + fib(27.0+n).toStringWith(1));
+   n--; println("Tak("+3*n+","+2*n+","+n+"): "+ tak(3*n,2*n,n));
+
+   println("Fib(3): " + fib(3));
+   println("Tak(3.0,2.0,1.0): "+ tak(3.0,2.0,1.0));
+}
+
+int ack(int m,int n){
+   if (m == 0) return n + 1;
+   if (n == 0) return ack(m-1, 1);
+   return ack(m-1, ack(m, n-1));
+}
+
+int fib(int n){ 
+   if (n < 2) return 1; 
+   return fib(n-2) + fib(n-1); 
+}
+
+int tak (int x, int y, int z){
+   if (y >= x) return z; 
+   return tak( tak(x-1,y,z), tak(y-1,z,x), tak(z-1,x,y) );
+}
+
+double fib(double n){ 
+   if (n < 2.0) return 1.0; 
+   return fib(n-2.0) + fib(n-1.0); 
+}
+
+double tak (double x, double y, double z){
+   if (y >= x) return z; 
+   return tak( tak(x-1.0,y,z), tak(y-1.0,z,x), tak(z-1.0,x,y) ); 
+}
+/* The Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+   contributed by Isaac Gouy
+*/
+
+import java.io.*;
+import java.util.regex.*;
+
+void main(String[] args){
+   let r = new BufferedReader(new InputStreamReader(System.in));
+   var sequence = r.readToEnd();
+   r.close;
+   let initialLength = sequence.length;
+
+   // remove FASTA sequence descriptions and new-lines
+   var m = Pattern.compile(">.*\n|\n").matcher(sequence);
+   sequence = m.replaceAll("");
+   let codeLength = sequence.length;
+
+
+   // regex match
+   let variants = [
+      "agggtaaa|tttaccct"
+      ,"[cgt]gggtaaa|tttaccc[acg]"
+      ,"a[act]ggtaaa|tttacc[agt]t"
+      ,"ag[act]gtaaa|tttac[agt]ct"
+      ,"agg[act]taaa|ttta[agt]cct"
+      ,"aggg[acg]aaa|ttt[cgt]ccct"
+      ,"agggt[cgt]aa|tt[acg]accct"
+      ,"agggta[cgt]a|t[acg]taccct"
+      ,"agggtaa[cgt]|[acg]ttaccct"
+      ];
+
+   for (v : variants){
+      var count = 0;
+      m = Pattern.compile(v).matcher(sequence);
+      while (m.find()) count++;
+      println(v + " " + count);
+   }
+
+
+   // regex substitution - note the use of tuples
+   let codes = [
+          ("B", "(c|g|t)")
+         ,("D", "(a|g|t)")
+         ,("H", "(a|c|t)")
+         ,("K", "(g|t)")
+         ,("M", "(a|c)")
+         ,("N", "(a|c|g|t)")
+         ,("R", "(a|g)")
+         ,("S", "(c|g)")
+         ,("V", "(a|c|g)")
+         ,("W", "(a|t)")
+         ,("Y", "(c|t)")
+      ];
+
+   for (iub : codes){
+      (String code, String alternative) = iub;
+      m = Pattern.compile(code).matcher(sequence);
+      sequence = m.replaceAll(alternative);
+   }
+
+   println("\n" + initialLength + "\n" + codeLength + "\n" + sequence.length);
+}
+
+
+String readToEnd(BufferedReader r){
+   let blockSize = 4096;
+   let block = new char[blockSize];
+   let buffer = new StringBuffer(blockSize);
+
+   var charsRead = 0;
+   while ((charsRead = r.read(block,0,blockSize)) != -1) 
+      buffer.append(block,0,charsRead);
+
+   return buffer.toString;
+}
+
+
+/* The Great Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+
+   contributed by Isaac Gouy
+*/
+
+import java.io.*;
+import org.apache.oro.text.regex.*;
+
+void main(String[] args){
+   var n = Integer.parseInt(args[0]);
+   let ArrayList<String> lines = new ArrayList();
+
+   let in = new BufferedReader(new InputStreamReader(System.in));
+   var ?String line;
+   while ((line = in.readLine()) != null) 
+      lines.add(line);
+   in.close;
+   
+   let regex =
+        "(?: ^ | [^\\d\\(])   # must be preceeded by non-digit\n" +
+        "(?:                  # area code is 3 digits\n" +
+        " \\((\\d\\d\\d)\\)   # match 1: with parens\n" +
+        "|                    # or\n" +
+        " (\\d\\d\\d)         # match 2: without parens\n" +
+        ")                    # if match1 then match right paren\n" +
+        "[ ]                  # area code followed by one space\n" +
+        "(\\d\\d\\d)          # match 3: prefix of 3 digits\n" +
+        "[ -]                 # separator is either space or dash\n" +
+        "(\\d\\d\\d\\d)       # match 4: last 4 digits\n" +
+        "(?:\\D|$)            # must be followed by a non-digit\n";
+   
+   let compiler = new Perl5Compiler();
+   let pattern = compiler.compile(regex, Perl5Compiler.EXTENDED_MASK);
+   
+   var matcher = new Perl5Matcher();
+   var ArrayList<String> phoneNumbers = new ArrayList();
+   var String s;
+   var MatchResult m;
+
+   while (n-- > 0){
+      phoneNumbers.clear;
+      
+      for (each : lines){
+         if (matcher.contains(each, pattern)) {
+            m = matcher.getMatch();            
+            if (m.group(1) != null) 
+               s = "(" + m.group(1) + ") " +  m.group(3) + "-" + m.group(4);          
+            else 
+               s = "(" + m.group(2) + ") " +  m.group(3) + "-" + m.group(4);
+				
+            phoneNumbers.add(s);
+         }      
+      }
+   }
+   
+   var count = 0;
+   for (each : phoneNumbers) println( ++count + ": " + each);     
+}
+
+
+/* The Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+   contributed by Isaac Gouy
+*/
+
+import java.io.*;
+
+void main(String[] args){
+
+   byte[] IUBCodeComplements(){
+      let code = "ABCDGHKMNRSTVWYabcdghkmnrstvwy".getBytes;
+      let comp = "TVGHCDMKNYSABWRTVGHCDMKNYSABWR".getBytes;
+      let byte[] a = new byte[ "z".getBytes[0] ];
+
+      for (var i=0; i<code.length; i++) a[ code[i] ] = comp[i];
+      return a;
+   }
+
+   let IUB = IUBCodeComplements();
+
+
+   void complementReverseWrite(String desc, Stack<byte[]> lines, 
+         BufferedOutputStream w){
+
+      void inplaceComplementReverse(byte[] b){
+         var i = 0;
+         var j = b.length - 1;
+         while (i < j){
+            let swap = b[i];
+            b[i] = IUB[ b[j] ];
+            b[j] = IUB[ swap ];
+            i = i + 1;
+            j = j - 1;
+         }
+         if (i == j) b[i] = IUB[ b[i] ];
+      }
+
+      let nl = "\n".getBytes[0];
+      w.write(desc.getBytes); w.write(nl);
+
+      let n = 60; 
+      var k = 0;
+      if (!lines.empty) k = lines.peek.length;
+      let isSplitLine = k < n;
+      var isFirstLine = true;
+
+      while (!lines.empty) {
+        let line = lines.pop;
+        inplaceComplementReverse(line);
+
+        if (isSplitLine){
+           if (isFirstLine){ w.write(line); isFirstLine = false; }
+           else { w.write(line,0,n-k); w.write(nl); w.write(line,n-k,k); }
+        }
+        else { w.write(line); w.write(nl); }
+      }
+      if (isSplitLine && !isFirstLine) w.write(nl);
+   }
+
+
+
+   let r = new BufferedReader(new InputStreamReader(System.in));
+   let w = new BufferedOutputStream(System.out);
+
+   var lines = new Stack();
+   var desc = "";
+
+   var ?String line;
+   while ((line = r.readLine()) != null) {
+      let c = line[0];
+      if (c == '>'){
+         if (desc.length > 0){
+            complementReverseWrite(desc, lines, w);
+            lines = new Stack();
+         }
+         desc = line;
+      } else {
+         if (c != ';') lines.push(line.getBytes);
+      }
+      }
+   r.close;
+
+   if (desc.length > 0) complementReverseWrite(desc, lines, w);
+   w.close;
+}
+/* The Great Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+
+   contributed by Isaac Gouy
+*/
+
+import java.io.*;
+
+void main(String[] args){
+   ArrayList<String> lines = new ArrayList(4096);
+
+   try {
+      let r = new BufferedReader(new InputStreamReader(System.in));
+
+      ?String line;
+      while ((line = r.readLine()) != null) 
+         lines.add(line);
+   } 
+   catch (IOException e) { 
+      System.err.println(e); 
+      return;
+   }
+
+   lines.reversefor(String s => { println(s); });
+}
+/* The Great Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+
+   contributed by Isaac Gouy
+*/
+
+void main(String[] args){
+   var n = Integer.parseInt(args[0]);
+
+   let start = 2;
+   let stop = 8192;
+   let isPrime = new boolean[stop+1];
+   var count = 0;
+
+   while (n-- > 0){ 
+      count = 0;
+      for(var i=start; i <= stop; i++) isPrime[i] = true;
+      for(var i=start; i <= stop; i++) 
+         if(isPrime[i]) {
+             // remove all multiples of prime: i
+            for(var k=i+i; k <= stop; k+=i) isPrime[k] = false;
+            count++;
+         }
+   }
+
+   println("Count: " + count); 
+}
+/* The Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+   contributed by Isaac Gouy
+*/
+
+import Include;
+
+void main(String[] args){
+   let n = Integer.parseInt(args[0]);
+
+   // create unit vector
+   let u = new double[n];       
+   for (var i=0; i<n; i++) u[i] =  1.0;
+
+   // 20 steps of the power method
+   let v = new double[n];  
+   for (var i=0; i<10; i++) {
+      MultiplyAtAv(n,u,v);
+      MultiplyAtAv(n,v,u);
+   }
+
+   // B=AtA         A multiplied by A transposed
+   // v.Bv /(v.v)   eigenvalue of v 
+   var vBv = 0.0, vv = 0.0;
+   for (var i=0; i<n; i++) {
+      vBv += u[i]*v[i];
+      vv  += v[i]*v[i];
+   }
+
+   println( Math.sqrt(vBv/vv).toStringWith(9) ); 
+}
+
+
+/* return element i,j of infinite matrix A */
+double A(int i, int j){
+   return 1.0/((i+j)*(i+j+1) /2 +i+1); 
+}
+
+/* multiply vector v by matrix A */
+void MultiplyAv(int n, double[] v, double[] Av){
+   for (var i=0; i<n; i++){
+      Av[i] = 0.0;
+      for (var j=0; j<n; j++) Av[i] += A(i,j)*v[j];
+   }
+}
+
+/* multiply vector v by matrix A transposed */
+void MultiplyAtv(int n, double[] v, double[] Atv){
+   for (var i=0;i<n;i++){
+      Atv[i] = 0.0;
+      for (var j=0; j<n; j++) Atv[i] += A(j,i)*v[j];
+   }
+}
+
+/* multiply vector v by matrix A and then by matrix A transposed */
+void MultiplyAtAv(int n, double[] v, double[] AtAv){
+   let u = new double[n];
+   MultiplyAv(n,v,u);
+   MultiplyAtv(n,u,AtAv);
+}
+/* The Great Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+
+   contributed by Isaac Gouy
+*/
+
+
+import java.io.*;
+
+void main(String[] args){
+   HashMap<String,int> dictionary = new HashMap();
+
+   try {
+      let f = new BufferedReader(new FileReader("Usr.Dict.Words"));
+      f.foreach(String word => { dictionary.put(word, 1); });
+      f.close;
+   } 
+   catch (IOException e) { 
+      System.err.println(e); 
+      return; 
+   }
+
+   try {
+      let r = new BufferedReader(new InputStreamReader(System.in));
+      r.foreach(String word => { 
+         if (!dictionary.containsKey(word)) println(word); });
+   } 
+   catch (IOException e) { 
+      System.err.println(e); 
+   }
+}
+
+
+void foreach(BufferedReader r, String -> void expr) { 
+   var ?String s;
+   while ((s = r.readLine()) != null) expr(s);
+}
+/* The Great Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+
+   contributed by Isaac Gouy
+*/
+
+void main(String[] args){
+   var n = Integer.parseInt(args[0]);
+   let s = "hello\n";
+   var buffer = new StringBuffer(32);
+
+   while (n-- > 0) buffer.append(s);
+
+   println(buffer.length); 
+}
+/* The Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+   contributed by Isaac Gouy 
+*/
+
+import java.io.*;
+
+void main(String[] args){
+   var sum = 0;
+   let r = new BufferedReader(new InputStreamReader(System.in));
+   var ?String line;
+   while ((line = r.readLine()) != null)
+      sum += Integer.parseInt(line);
+   
+   println(sum);
+}
+/* The Great Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+
+   contributed by Isaac Gouy
+*/
+
+void main(String[] args){
+   let n = Integer.parseInt(args[0]);   
+   println( Tak(n*3.0f, n*2.0f, n*1.0f) ); 
+}
+
+
+float Tak (float x, float y, float z) {
+    if (y >= x) return z;
+    else return Tak(Tak(x-1.0f,y,z), Tak(y-1.0f,z,x), Tak(z-1.0f,x,y)); 
+}
+/* The Great Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+
+   contributed by Isaac Gouy
+*/
+
+import java.io.*;
+import java.net.*;
+
+let int M = 6400; // multiplier
+let int REPLY_SIZE = 64;
+let int REQUEST_SIZE = 64;
+
+let int BUFFER_SIZE = 1024;
+let byte[] REPLY = new byte[REPLY_SIZE];
+let byte[] REQUEST = new byte[REQUEST_SIZE];
+
+void main(String[] args){
+   let n = Integer.parseInt(args[0]) * M; 
+   let server = new TcpServer(port: 0);
+   let client = new TcpClient( 
+      address: InetAddress.getLocalHost(),  
+      port: server.getPort, 
+      repeat: n
+   );
+   client.start;
+}
+
+class TcpClient extends Thread {
+   InetAddress address;
+   int port;
+   int repeat;                  
+
+   run() {
+      let buffer = new byte[BUFFER_SIZE];  
+      var replies = 0; var bytes = 0;        
+      var ?Socket serverSocket = null;     
+     
+      try {
+         var byteCount = 0; 
+         let socket = new Socket(address, port);
+         serverSocket = socket;
+         
+         let in = socket.getInputStream;         
+         let out = socket.getOutputStream;
+         
+         while (repeat-- > 0) {
+            out.write(REQUEST);
+            out.flush;
+            
+            while ( (byteCount += in.read(buffer)) < REPLY_SIZE ) {} 
+            bytes += byteCount;
+            byteCount = 0;
+            replies++;
+         }                         
+      } 
+      catch (Exception e) { e.printStackTrace; } 
+      finally { notNull(serverSocket).close; }
+      
+      print("replies: " + replies + "\tbytes: " + bytes + "\n");      
+   }
+}
+
+class TcpServer extends Thread {
+   ?ServerSocket socket = null;
+   int port;
+   
+   {  
+      socket = new ServerSocket(port);
+      port = notNull(socket).getLocalPort;    
+      this.start;
+   }
+
+   int getPort(); getPort() = port;
+
+   run() {   
+      let buffer = new byte[BUFFER_SIZE];
+      
+      try {
+         let socketClient = notNull(socket).accept;
+         let in = socketClient.getInputStream;
+         let out = socketClient.getOutputStream;
+         
+         while ((in.read(buffer,0,REQUEST_SIZE)) > -1) {               
+            out.write(REPLY);
+            out.flush;
+         }            
+      } catch (Exception e) { e.printStackTrace; }      
+   }
+}
+
+/* The Great Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+
+   contributed by Isaac Gouy
+*/
+
+import java.io.*;
+import java.net.*;
+
+let int M = 100; // multiplier
+let int REPLY_SIZE = 4096;
+let int REQUEST_SIZE = 64;
+
+let int BUFFER_SIZE = 1024;
+let byte[] REPLY = new byte[REPLY_SIZE];
+let byte[] REQUEST = new byte[REQUEST_SIZE];
+
+void main(String[] args){
+   let n = Integer.parseInt(args[0]) * M; 
+   let server = new TcpServer(port: 0);
+   let client = new TcpClient( 
+      address: InetAddress.getLocalHost(),  
+      port: server.getPort, 
+      repeat: n
+   );
+   client.start;
+}
+
+class TcpClient extends Thread {
+   InetAddress address;
+   int port;
+   int repeat;                  
+
+   run() {
+      let buffer = new byte[BUFFER_SIZE];  
+      var replies = 0; var bytes = 0;        
+      var ?Socket serverSocket = null;     
+     
+      try {
+         var byteCount = 0; 
+         let socket = new Socket(address, port);
+         serverSocket = socket;
+         
+         let in = socket.getInputStream;         
+         let out = socket.getOutputStream;
+         
+         while (repeat-- > 0) {
+            out.write(REQUEST);
+            out.flush;
+            
+            while ( (byteCount += in.read(buffer)) < REPLY_SIZE ) {} 
+            bytes += byteCount;
+            byteCount = 0;
+            replies++;
+         }                         
+      } 
+      catch (Exception e) { e.printStackTrace; } 
+      finally { notNull(serverSocket).close; }
+      
+      println("replies: " + replies + "\tbytes: " + bytes);      
+   }
+}
+
+class TcpServer extends Thread {
+   ?ServerSocket socket = null;
+   int port;
+   
+   {  
+      socket = new ServerSocket(port);
+      port = notNull(socket).getLocalPort;    
+      this.start;
+   }
+
+   int getPort(); getPort() = port;
+
+   run() {   
+      let buffer = new byte[BUFFER_SIZE];
+      
+      try {
+         let socketClient = notNull(socket).accept;
+         let in = socketClient.getInputStream;
+         let out = socketClient.getOutputStream;
+         
+         while ((in.read(buffer,0,REQUEST_SIZE)) > -1) {               
+            out.write(REPLY);
+            out.flush;
+         }            
+      } catch (Exception e) { e.printStackTrace; }      
+   }
+}
+
+/* The Great Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+
+   contributed by Isaac Gouy
+*/
+
+import java.io.*;
+import java.net.*;
+
+let int M = 1; // multiplier
+let int REPLY_SIZE = 409600;
+let int REQUEST_SIZE = 64;
+
+let int BUFFER_SIZE = 1024;
+let byte[] REPLY = new byte[REPLY_SIZE];
+let byte[] REQUEST = new byte[REQUEST_SIZE];
+
+void main(String[] args){
+   let n = Integer.parseInt(args[0]) * M; 
+   let server = new TcpServer(port: 0);
+   let client = new TcpClient( 
+      address: InetAddress.getLocalHost(),  
+      port: server.getPort, 
+      repeat: n
+   );
+   client.start;
+}
+
+class TcpClient extends Thread {
+   InetAddress address;
+   int port;
+   int repeat;                  
+
+   run() {
+      let buffer = new byte[BUFFER_SIZE];  
+      var replies = 0; var bytes = 0;        
+      var ?Socket serverSocket = null;     
+     
+      try {
+         var byteCount = 0; 
+         let socket = new Socket(address, port);
+         serverSocket = socket;
+         
+         let in = socket.getInputStream;         
+         let out = socket.getOutputStream;
+         
+         while (repeat-- > 0) {
+            out.write(REQUEST);
+            out.flush;
+            
+            while ( (byteCount += in.read(buffer)) < REPLY_SIZE ) {} 
+            bytes += byteCount;
+            byteCount = 0;
+            replies++;
+         }                         
+      } 
+      catch (Exception e) { e.printStackTrace; } 
+      finally { notNull(serverSocket).close; }
+      
+      println("replies: " + replies + "\tbytes: " + bytes);      
+   }
+}
+
+class TcpServer extends Thread {
+   ?ServerSocket socket = null;
+   int port;
+   
+   {  
+      socket = new ServerSocket(port);
+      port = notNull(socket).getLocalPort;    
+      this.start;
+   }
+
+   int getPort(); getPort() = port;
+
+   run() {   
+      let buffer = new byte[BUFFER_SIZE];
+      
+      try {
+         let socketClient = notNull(socket).accept;
+         let in = socketClient.getInputStream;
+         let out = socketClient.getOutputStream;
+         
+         while ((in.read(buffer,0,REQUEST_SIZE)) > -1) {               
+            out.write(REPLY);
+            out.flush;
+         }            
+      } catch (Exception e) { e.printStackTrace; }      
+   }
+}
+
+/* The Computer Language Benchmarks Game
+ * http://shootout.alioth.debian.org/
+ * following an idea by Klaus Friedel
+ * contributed by Isaac Gouy
+ */
+
+import java.util.concurrent.locks.*;
+
+let int numberOfThreads = 503;
+
+let NamedThread[] threadRing = 
+   fill(new NamedThread[numberOfThreads], int i => new NamedThread(name: i+1));
+
+void main(String[] args){
+   for (t : threadRing) t.start();
+   threadRing[0].takeToken( Integer.parseInt(args[0]) );
+}
+
+
+class NamedThread extends Thread { 
+   private int name;
+   private int token = 0;
+
+   override void run() {
+      while ( this.tokenNotDone() )
+         this.nextThread().takeToken(token-1);
+
+      println(name);
+      System.exit(0);
+   }
+
+   boolean tokenNotDone() {
+      LockSupport.park();
+      return token > 0;
+   }
+
+   void takeToken(int x) {
+      token = x;
+      LockSupport.unpark(this);
+   }
+
+   NamedThread nextThread() = threadRing[ name % numberOfThreads ];
+}
+
+/* The Great Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+
+   contributed by Isaac Gouy
+*/
+
+import java.io.*;
+
+void main(String[] args){
+   let newline = 0xA;
+   let space = 0x20;
+   let cr = 0xD;
+   let tab = 0x9;
+
+   var nl = 0, nw = 0, nc = 0;
+   try {
+      var insideWord = false;
+      var int c;
+
+      while ((c = System.in.read) != -1){
+         ++nc;
+         if (c == newline) ++nl;
+         if (c == space || c == cr || c == newline || c == tab) 
+            insideWord = false;
+         else if (!insideWord) {
+            insideWord = true;
+            ++nw;
+         }
+      }
+   } catch (IOException e) { System.err.println(e); }
+
+   print(nl); print(" "); print(nw); print(" "); println(nc);
+}
+/* The Great Computer Language Shootout 
+   http://shootout.alioth.debian.org/
+
+   contributed by Isaac Gouy
+*/
+
+import java.io.*;
+
+void main(String[] args){
+   let buffer = new StringBuffer(32);
+   let wordCounts = new HashMap();
+
+// local method
+   void flushWordBuffer(){
+      ?Cell count;
+      if (buffer.length > 0) { 
+         var word = buffer.toString;
+         if ((count = wordCounts[word]) == null) 
+            wordCounts[word] = new Cell(value: 1);
+         else 
+            count.value++;
+         buffer.setLength(0);
+      }
+   }
+
+
+   try 
+   {
+      let r = new BufferedReader(new InputStreamReader(System.in));
+      int v; 
+      while ((v = r.read) != -1) {
+         let c = char(v);
+         if (Character.isLetter(c)) 
+            buffer.append(Character.toLowerCase(c));
+         else 
+            flushWordBuffer();
+      }
+      flushWordBuffer();
+   } 
+   catch (IOException e) { 
+      System.err.println(e); }
+      
+
+   let entries = new ArrayList(wordCounts.entrySet);
+
+// Use an anonymous function to define the sort, no type casts needed
+   sort( entries, 
+      (Map.Entry<String, Cell> e1, Map.Entry<String, Cell> e2) => {
+         let i = e2.getValue.value - e1.getValue.value; // sort by frequency
+         if (i != 0) return i;
+         else return e2.getKey.compareTo( e1.getKey );  // sort by word
+         }
+      );
+
+   for (each : entries) {
+      buffer.setLength(0);
+      let count = each.getValue.value.toString;
+      var pad = 7 - count.length;
+      while (pad-- > 0) buffer.append(' ');
+
+      buffer.append(count);
+      buffer.append(' ');
+      buffer.append(each.getKey);
+      println(buffer);
+   }
+}
+
+class Cell { int value; }
